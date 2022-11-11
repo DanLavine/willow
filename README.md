@@ -5,6 +5,11 @@ Willow is a message broker that can be used as either a pub-sub or message queue
 # Terms
 TODO - not 100% sure on what I want to call the specific pieces of this system yet.
 
+* Message - A unit of work that is either of the queue or pub-sub brokers
+* Producer - This is the client that sends messages to willow
+* Consumer - This is the client that receives messages from willow
+
+
 # Unique Features
 
 What makes willow unique from other systems and why should I use it rather than something
@@ -21,3 +26,7 @@ This can be used for a number of use cases like:
    to the queue.
 1. Long running update operations that have multiple changes stacked can all be collapsed into the
    latest update operation, skipping any middle operations that are no longer needed or valid.
+
+# Considerations
+
+1. Should this use something like amqp for the connection protocol?
