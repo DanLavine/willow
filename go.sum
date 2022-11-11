@@ -1,0 +1,7 @@
+github.com/DanLavine/goasync v0.0.0-20220905181031-79c296fed01e h1:aZiZIvAlSn31DyEsKFr1W2Ok2euIxV3StKUn7ualUKU=
+github.com/DanLavine/goasync v0.0.0-20220905181031-79c296fed01e/go.mod h1:nR7mV8TA1RT5d6nVgsHEqonPB5GxuNJU1WArc9gUilA=
+github.com/google/go-cmp v0.5.8 h1:e6P7q2lk1O+qJJb4BtCQXlK8vWEO8V1ZeuEdJNOqZyg=
+github.com/onsi/gomega v1.20.0 h1:8W0cWlwFkflGPLltQvLRB7ZVD5HuP6ng320w2IS245Q=
+golang.org/x/net v0.0.0-20220425223048-2871e0cb64e4 h1:HVyaeDAYux4pnY+D/SiwmLOR36ewZ4iGQIIrtnuCjFA=
+golang.org/x/text v0.3.7 h1:olpwvP2KacW1ZWvsR7uQhoyTYvKAupfQrRGBFM352Gk=
+gopkg.in/yaml.v3 v3.0.1 h1:fxVm/GzAzEWqLHuvctI91KS9hhNmmWOoWu0XTYJS7CA=
