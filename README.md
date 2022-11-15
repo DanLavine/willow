@@ -5,6 +5,9 @@ Willow is a message broker that can be used as either a pub-sub or message queue
 # Terms
 TODO - not 100% sure on what I want to call the specific pieces of this system yet.
 
+* Broker - A messaging system that can be broken down into the following
+  * Queue   - a first in, first out queue the sends a message to one Consumer
+  * Pub-Sub - a general pub-sub message bus that distribues messages to all Consumers
 * Message - A unit of work that is either of the queue or pub-sub brokers
 * Producer - This is the client that sends messages to willow
 * Consumer - This is the client that receives messages from willow
