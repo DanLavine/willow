@@ -11,6 +11,7 @@ import (
 )
 
 type BrokerManager interface {
+	Metrics() Metrics
 	HandleConnection(logger *zap.Logger, pipe *gomultiplex.Pipe)
 }
 
@@ -52,7 +53,18 @@ func (bm *brokerManager) HandleConnection(logger *zap.Logger, pipe *gomultiplex.
 	case 1:
 		bm.v1Broker.AddPipe(logger, pipe)
 	default:
-		multiplex.WriteError(logger, pipe, 500, fmt.Sprintf("Invalid header version '%d'", version))
+		logger.Error("Invalid version received", zap.Uint32("version", version))
+		multiplex.WriteError(logger, pipe, 400, fmt.Sprintf("Invalid header version '%d'", version))
 		return
+	}
+}
+
+type Metrics struct {
+	V1BrokerInfo v1brokers.BrokerMetrics
+}
+
+func (bm *brokerManager) Metrics() Metrics {
+	return Metrics{
+		V1BrokerInfo: bm.v1Broker.Metrics(),
 	}
 }

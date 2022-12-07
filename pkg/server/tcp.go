@@ -34,35 +34,47 @@ func NewTCP(logger *zap.Logger, port string, brokerManager brokers.BrokerManager
 
 func (t *tcp) Initialize() error { return nil }
 func (t *tcp) Cleanup() error    { return nil }
-
-// NOTE This will be nil on a graceful shutdown
 func (t *tcp) Execute(ctx context.Context) error {
+	// capture any errors from the server
+	errChan := make(chan error, 1)
+	defer close(errChan)
+
 	// configure the server witth a logger
 	serverConfig := gomultiplex.NewDevConfig()
 	serverConfig.Logger = logger.NewLogger(t.logger)
-	server, err := gomultiplex.NewServer(ctx, serverConfig, "tcp", fmt.Sprintf("localhost:%s", t.port))
+	server, err := gomultiplex.NewServer(serverConfig, "tcp", fmt.Sprintf("localhost:%s", t.port))
 	if err != nil {
 		return err
 	}
 
-	for {
-		// Accept all new connections
-		pipe, err := server.Accept()
-		if err != nil {
-			if err == multiplexerrors.ServerShutdown {
-				// server was told to shut down, so this is the clean case.
-				t.logger.Info("clean shutdown")
-				return nil
+	go func() {
+		for {
+			// Accept all new connections
+			pipe, err := server.Accept()
+			if err != nil {
+				if err == multiplexerrors.ServerShutdown {
+					// server was told to shut down, so this is the clean case.
+					t.logger.Info("clean shutdown")
+				} else {
+					// something else happened for some reason. Return the error
+					t.logger.Error("received unexpected error. Shutting down", zap.Error(err))
+					errChan <- err
+				}
+				return
 			}
 
-			// something else happened for some reason. Return the error
-			t.logger.Error("received unexpected error. Shutting down", zap.Error(err))
-			return err
+			// add the pipe to our broker
+			go func() {
+				t.brokerManager.HandleConnection(t.logger, pipe)
+			}()
 		}
+	}()
 
-		// this doesn't need to be in a goroutine as the broker manager handles those. But, maybe fine?
-		go func(pipe *gomultiplex.Pipe) {
-			t.brokerManager.HandleConnection(t.logger, pipe)
-		}(pipe)
+	select {
+	case <-ctx.Done():
+		server.Cancel()
+		return nil
+	case err := <-errChan:
+		return err
 	}
 }

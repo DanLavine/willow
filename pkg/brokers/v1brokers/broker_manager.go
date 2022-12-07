@@ -11,6 +11,7 @@ import (
 )
 
 type BrokerManager interface {
+	Metrics() BrokerMetrics
 	AddPipe(logger *zap.Logger, pipe *gomultiplex.Pipe)
 }
 
@@ -31,8 +32,8 @@ func (bm *brokerManager) AddPipe(logger *zap.Logger, pipe *gomultiplex.Pipe) {
 
 	// read the v1 header
 	header := v1.NewHeader()
-	if _, err := pipe.Read(header); err != nil {
-		logger.Error("failed reading v1 header", zap.Error(err))
+	if n, err := pipe.Read(header); err != nil {
+		logger.Error("failed reading v1 header", zap.Int("bytes", n), zap.Error(err))
 		multiplex.WriteError(logger, pipe, 400, err.Error())
 		return
 	}
@@ -65,7 +66,7 @@ func (bm *brokerManager) AddPipe(logger *zap.Logger, pipe *gomultiplex.Pipe) {
 		// create either the QUEUE or PUB-SUB brokers
 		switch brokerType := createRequest.Broker; brokerType {
 		case protocol.Queue:
-			bm.queueManager.CreateChannel(logger, createRequest, pipe)
+			bm.queueManager.Create(logger, createRequest, pipe)
 		case protocol.PubSub:
 			logger.Error("Failed create PUBSUB request. Unimplemented", zap.Any("protocol", brokerType))
 			multiplex.WriteError(logger, pipe, 501, "Unimplemented create PubSub")
@@ -87,7 +88,7 @@ func (bm *brokerManager) AddPipe(logger *zap.Logger, pipe *gomultiplex.Pipe) {
 		// connect to either the QUEUE or PUB-SUB brokers
 		switch brokerType := connectRequest.Broker; brokerType {
 		case protocol.Queue:
-			bm.queueManager.ConnectChannel(logger, connectRequest, pipe)
+			bm.queueManager.Connect(logger, connectRequest, pipe)
 		case protocol.PubSub:
 			logger.Error("Failed create PUBSUB request. Unimplemented", zap.Any("protocol", brokerType))
 			return
@@ -100,5 +101,15 @@ func (bm *brokerManager) AddPipe(logger *zap.Logger, pipe *gomultiplex.Pipe) {
 		logger.Error("Unexpected initial header", zap.Uint32("header", uint32(header.MessageType())))
 		multiplex.WriteError(logger, pipe, 400, "Unexpected header. Must be [Create | Connect]")
 		return
+	}
+}
+
+type BrokerMetrics struct {
+	QueueMetrics QueueMetrics
+}
+
+func (bm *brokerManager) Metrics() BrokerMetrics {
+	return BrokerMetrics{
+		QueueMetrics: bm.queueManager.Metrics(),
 	}
 }

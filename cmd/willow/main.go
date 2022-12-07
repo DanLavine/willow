@@ -15,13 +15,17 @@ import (
 )
 
 var (
-	port = flag.String("port", "8080", "willow server port")
+	willowPort  = flag.String("willow-port", "8080", "willow server port")
+	metricsPort = flag.String("metrics-port", "8081", "willow server metrics port")
 )
 
 func main() {
 	flag.Parse()
 
-	logger, _ := zap.NewProduction()
+	logger, err := zap.NewProduction()
+	if err != nil {
+		panic(err)
+	}
 	defer logger.Sync()
 
 	// v1 message handlers
@@ -33,8 +37,9 @@ func main() {
 
 	// setup async handlers
 	taskManager := goasync.NewTaskManager(goasync.StrictConfig())
-	taskManager.AddTask("tcp_server", server.NewTCP(logger, *port, brokerManager))
 	taskManager.AddTask("queue_manager", v1QueueManager)
+	taskManager.AddTask("metrics_server", server.NewAdmin(logger, *metricsPort, brokerManager))
+	taskManager.AddTask("tcp_server", server.NewTCP(logger, *willowPort, brokerManager))
 
 	shutdown, _ := signal.NotifyContext(context.Background(), syscall.SIGINT)
 	if errs := taskManager.Run(shutdown); errs != nil {
