@@ -3,13 +3,14 @@ package server
 import (
 	"context"
 	"fmt"
+	"net"
+	"net/http"
 	"sync"
 
-	"github.com/DanLavine/gomultiplex"
-	"github.com/DanLavine/gomultiplex/multiplexerrors"
-	"github.com/DanLavine/willow/pkg/brokers"
-	"github.com/DanLavine/willow/pkg/logger"
+	"github.com/DanLavine/willow/pkg/config"
+	"github.com/DanLavine/willow/pkg/server/v1server"
 	"go.uber.org/zap"
+	"golang.org/x/net/http2"
 )
 
 type tcp struct {
@@ -17,64 +18,79 @@ type tcp struct {
 	closed bool
 
 	logger *zap.Logger
-	port   string
+	config *config.Config
 
-	brokerManager brokers.BrokerManager
+	queueHandler v1server.QueueHandler
 }
 
-func NewTCP(logger *zap.Logger, port string, brokerManager brokers.BrokerManager) *tcp {
+func NewTCP(logger *zap.Logger, config *config.Config, queueHandler v1server.QueueHandler) *tcp {
 	return &tcp{
-		lock:          &sync.Mutex{},
-		closed:        false,
-		logger:        logger.Named("tcp_server"),
-		port:          port,
-		brokerManager: brokerManager,
+		lock:         &sync.Mutex{},
+		closed:       false,
+		logger:       logger.Named("tcp_server"),
+		config:       config,
+		queueHandler: queueHandler,
 	}
 }
 
 func (t *tcp) Initialize() error { return nil }
 func (t *tcp) Cleanup() error    { return nil }
 func (t *tcp) Execute(ctx context.Context) error {
+	logger := t.logger.Named("tcp_server")
+
 	// capture any errors from the server
 	errChan := make(chan error, 1)
 	defer close(errChan)
 
-	// configure the server witth a logger
-	serverConfig := gomultiplex.NewDevConfig()
-	serverConfig.Logger = logger.NewLogger(t.logger)
-	server, err := gomultiplex.NewServer(serverConfig, "tcp", fmt.Sprintf("localhost:%s", t.port))
+	mux := http.NewServeMux()
+
+	// queue functions
+	mux.HandleFunc("/v1/queue/create", t.queueHandler.Create)
+
+	// message handlers
+	mux.HandleFunc("/v1/message/add", t.queueHandler.Message)
+	mux.HandleFunc("/v1/message/ready", t.queueHandler.RetrieveMessage)
+	mux.HandleFunc("/v1/message/ack", t.queueHandler.ACK)
+
+	server := http2.Server{}
+
+	listener, err := net.Listen("tcp", fmt.Sprintf(":%s", t.config.WillowPort))
 	if err != nil {
 		return err
 	}
 
 	go func() {
 		for {
-			// Accept all new connections
-			pipe, err := server.Accept()
+			conn, err := listener.Accept()
 			if err != nil {
-				if err == multiplexerrors.ServerShutdown {
-					// server was told to shut down, so this is the clean case.
-					t.logger.Info("clean shutdown")
-				} else {
-					// something else happened for some reason. Return the error
-					t.logger.Error("received unexpected error. Shutting down", zap.Error(err))
-					errChan <- err
-				}
+				errChan <- err
 				return
 			}
 
-			// add the pipe to our broker
-			go func() {
-				t.brokerManager.HandleConnection(t.logger, pipe)
-			}()
+			go func(conn net.Conn) {
+				server.ServeConn(conn, &http2.ServeConnOpts{
+					Context: ctx,
+					Handler: mux,
+				})
+
+				logger.Info("conn dissconnected")
+			}(conn)
 		}
 	}()
 
-	select {
-	case <-ctx.Done():
-		server.Cancel()
-		return nil
-	case err := <-errChan:
-		return err
+	for {
+		select {
+		case <-ctx.Done():
+			listener.Close()
+		case err := <-errChan:
+			select {
+			case <-ctx.Done():
+				logger.Info("shutdown successfully")
+				return nil
+			default:
+				logger.Error("received an error", zap.Error(err))
+				return err
+			}
+		}
 	}
 }

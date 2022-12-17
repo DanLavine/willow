@@ -7,22 +7,23 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/DanLavine/willow/pkg/brokers"
+	"github.com/DanLavine/willow/pkg/brokers/v1brokers"
+	"github.com/DanLavine/willow/pkg/config"
 	"go.uber.org/zap"
 )
 
 type metrics struct {
 	logger *zap.Logger
-	port   string
+	config *config.Config
 
-	brokerManager brokers.BrokerManager
+	queueManager v1brokers.QueueManager
 }
 
-func NewAdmin(logger *zap.Logger, port string, brokerManager brokers.BrokerManager) *metrics {
+func NewAdmin(logger *zap.Logger, config *config.Config, queueManager v1brokers.QueueManager) *metrics {
 	return &metrics{
-		logger:        logger.Named("tcp_server"),
-		port:          port,
-		brokerManager: brokerManager,
+		logger:       logger.Named("tcp_server"),
+		config:       config,
+		queueManager: queueManager,
 	}
 }
 
@@ -34,7 +35,7 @@ func (m *metrics) Execute(ctx context.Context) error {
 	mux.HandleFunc("/metrics", m.metrics)
 
 	server := &http.Server{
-		Addr:    fmt.Sprintf(":%s", m.port),
+		Addr:    fmt.Sprintf(":%s", m.config.MetricsPort),
 		Handler: mux,
 	}
 
@@ -54,7 +55,7 @@ func (m *metrics) Execute(ctx context.Context) error {
 }
 
 func (m *metrics) metrics(res http.ResponseWriter, req *http.Request) {
-	metrics := m.brokerManager.Metrics()
+	metrics := m.queueManager.Metrics()
 	body, err := json.Marshal(&metrics)
 	if err != nil {
 		res.WriteHeader(500)
