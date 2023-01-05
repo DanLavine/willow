@@ -33,3 +33,21 @@ This can be used for a number of use cases like:
 # Considerations
 
 1. Should this use something like amqp for the connection protocol?
+
+
+# Work List
+
+## In Progress
+1. Read/Write data to disk using a queue
+
+## TODO (in order)
+1. can ack a queue item
+1. when a queue item fails, it goes to the the dead-letter-queue
+1. add a retry ablity for queue items
+1. add a "timeout" ability for queue items
+1. dead-letter-queue is "updateable"
+  1. any item currently being processed and waiting for an ACK() is not updateable
+1. dead-letter-queue can load from disk
+1. Add ability for queues to have limits (number of messages)
+1. ensure metrics are working properly
+1. Split out to a broker/node infrastrcuture as 1 part of HA

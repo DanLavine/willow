@@ -7,8 +7,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/DanLavine/willow/pkg/brokers/v1brokers"
 	"github.com/DanLavine/willow/pkg/config"
+	deadletterqueue "github.com/DanLavine/willow/pkg/dead-letter-queue"
 	"go.uber.org/zap"
 )
 
@@ -16,14 +16,14 @@ type metrics struct {
 	logger *zap.Logger
 	config *config.Config
 
-	queueManager v1brokers.QueueManager
+	deadLetterQueue deadletterqueue.DeadLetterQueue
 }
 
-func NewAdmin(logger *zap.Logger, config *config.Config, queueManager v1brokers.QueueManager) *metrics {
+func NewAdmin(logger *zap.Logger, config *config.Config, deadLetterQueue deadletterqueue.DeadLetterQueue) *metrics {
 	return &metrics{
-		logger:       logger.Named("tcp_server"),
-		config:       config,
-		queueManager: queueManager,
+		logger:          logger.Named("tcp_server"),
+		config:          config,
+		deadLetterQueue: deadLetterQueue,
 	}
 }
 
@@ -55,7 +55,7 @@ func (m *metrics) Execute(ctx context.Context) error {
 }
 
 func (m *metrics) metrics(res http.ResponseWriter, req *http.Request) {
-	metrics := m.queueManager.Metrics()
+	metrics := m.deadLetterQueue.Metrics()
 	body, err := json.Marshal(&metrics)
 	if err != nil {
 		res.WriteHeader(500)

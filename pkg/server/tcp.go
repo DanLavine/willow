@@ -73,7 +73,7 @@ func (t *tcp) Execute(ctx context.Context) error {
 					Handler: mux,
 				})
 
-				logger.Info("conn dissconnected")
+				logger.Debug("conn dissconnected")
 			}(conn)
 		}
 	}()
