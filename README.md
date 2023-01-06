@@ -38,10 +38,9 @@ This can be used for a number of use cases like:
 # Work List
 
 ## In Progress
-1. Read/Write data to disk using a queue
+1. can ack a queue item
 
 ## TODO (in order)
-1. can ack a queue item
 1. when a queue item fails, it goes to the the dead-letter-queue
 1. add a retry ablity for queue items
 1. add a "timeout" ability for queue items

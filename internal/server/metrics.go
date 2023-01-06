@@ -7,8 +7,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/DanLavine/willow/pkg/config"
-	deadletterqueue "github.com/DanLavine/willow/pkg/dead-letter-queue"
+	"github.com/DanLavine/willow/internal/config"
+	"github.com/DanLavine/willow/internal/v1/queues"
 	"go.uber.org/zap"
 )
 
@@ -16,10 +16,10 @@ type metrics struct {
 	logger *zap.Logger
 	config *config.Config
 
-	deadLetterQueue deadletterqueue.DeadLetterQueue
+	deadLetterQueue queues.Queue
 }
 
-func NewAdmin(logger *zap.Logger, config *config.Config, deadLetterQueue deadletterqueue.DeadLetterQueue) *metrics {
+func NewAdmin(logger *zap.Logger, config *config.Config, deadLetterQueue queues.Queue) *metrics {
 	return &metrics{
 		logger:          logger.Named("tcp_server"),
 		config:          config,

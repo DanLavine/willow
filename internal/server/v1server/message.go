@@ -1,13 +1,13 @@
 package v1server
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
 
-	"github.com/DanLavine/willow-message/protocol"
-	v1 "github.com/DanLavine/willow-message/protocol/v1"
-	"github.com/DanLavine/willow/pkg/logger"
+	"github.com/DanLavine/willow/internal/logger"
+	v1 "github.com/DanLavine/willow/pkg/models/v1"
 	"go.uber.org/zap"
 )
 
@@ -43,13 +43,13 @@ func (qh *queueHandler) RetrieveMessage(w http.ResponseWriter, r *http.Request) 
 		}
 
 		switch readyRequest.BrokerType {
-		case protocol.Queue:
-			message, retErr := qh.deadLetterQueue.Message(readyRequest.BrokerName, readyRequest.BrokerTag)
+		case v1.Queue:
+			message, retErr := qh.deadLetterQueue.Message(context.Background(), readyRequest.BrokerTagsMatch, readyRequest.BrokerTags)
 			if err != nil {
 				logger.Error("failed obtaining next message", zap.Error(retErr))
 				errResp, _ := json.Marshal(retErr)
 
-				w.WriteHeader(retErr.StatusCode)
+				w.WriteHeader(http.StatusInternalServerError)
 				w.Write(errResp)
 				return
 			}
@@ -113,10 +113,10 @@ func (qh *queueHandler) Message(w http.ResponseWriter, r *http.Request) {
 		}
 
 		switch messageRequest.BrokerType {
-		case protocol.Queue:
-			if enqueErr := qh.deadLetterQueue.Enqueue(messageRequest.Data, messageRequest.Updateable, messageRequest.BrokerName, messageRequest.BrokerTag); enqueErr != nil {
+		case v1.Queue:
+			if enqueErr := qh.deadLetterQueue.Enqueue(messageRequest.Data, messageRequest.Updateable, messageRequest.BrokerTags); enqueErr != nil {
 				errResp, _ := json.Marshal(enqueErr)
-				w.WriteHeader(enqueErr.StatusCode)
+				w.WriteHeader(http.StatusInternalServerError)
 				w.Write(errResp)
 				return
 			}
@@ -167,11 +167,11 @@ func (qh *queueHandler) ACK(w http.ResponseWriter, r *http.Request) {
 		}
 
 		switch ACKRequest.BrokerType {
-		case protocol.Queue:
-			if ackErr := qh.deadLetterQueue.ACK(int(ACKRequest.ID), ACKRequest.Passed, ACKRequest.BrokerName, ACKRequest.BrokerTag); ackErr != nil {
+		case v1.Queue:
+			if ackErr := qh.deadLetterQueue.ACK(ACKRequest.ID, ACKRequest.Passed, ACKRequest.BrokerTags); ackErr != nil {
 				errResp, _ := json.Marshal(v1.Error{Message: ackErr.Error()})
 
-				w.WriteHeader(ackErr.StatusCode)
+				w.WriteHeader(http.StatusInternalServerError)
 				w.Write(errResp)
 				return
 			}

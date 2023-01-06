@@ -7,11 +7,11 @@ import (
 	"syscall"
 
 	"github.com/DanLavine/goasync"
-	"github.com/DanLavine/willow/pkg/config"
-	deadletterqueue "github.com/DanLavine/willow/pkg/dead-letter-queue"
-	"github.com/DanLavine/willow/pkg/logger"
-	"github.com/DanLavine/willow/pkg/server"
-	"github.com/DanLavine/willow/pkg/server/v1server"
+	"github.com/DanLavine/willow/internal/config"
+	"github.com/DanLavine/willow/internal/logger"
+	"github.com/DanLavine/willow/internal/server"
+	"github.com/DanLavine/willow/internal/server/v1server"
+	"github.com/DanLavine/willow/internal/v1/queues"
 )
 
 func main() {
@@ -24,11 +24,11 @@ func main() {
 	defer loger.Sync()
 
 	// setup dead letter queue
-	var deadLetterQueue deadletterqueue.DeadLetterQueue
+	var deadLetterQueue queues.Queue
 
 	switch config.StorageType {
 	case config.StorageType:
-		deadLetterQueue = deadletterqueue.NewDiskDeadLetterQueue(config.DiskStorageDir)
+		deadLetterQueue = queues.NewDiskQueueManager(config.DiskStorageDir)
 	}
 
 	// v1 apis

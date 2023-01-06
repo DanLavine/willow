@@ -5,9 +5,9 @@ import (
 	"io"
 	"net/http"
 
-	v1 "github.com/DanLavine/willow-message/protocol/v1"
-	deadletterqueue "github.com/DanLavine/willow/pkg/dead-letter-queue"
-	"github.com/DanLavine/willow/pkg/logger"
+	"github.com/DanLavine/willow/internal/logger"
+	"github.com/DanLavine/willow/internal/v1/queues"
+	v1 "github.com/DanLavine/willow/pkg/models/v1"
 	"go.uber.org/zap"
 )
 
@@ -22,10 +22,10 @@ type QueueHandler interface {
 type queueHandler struct {
 	logger *zap.Logger
 
-	deadLetterQueue deadletterqueue.DeadLetterQueue
+	deadLetterQueue queues.Queue
 }
 
-func NewQueueHandler(logger *zap.Logger, deadLetterQueue deadletterqueue.DeadLetterQueue) *queueHandler {
+func NewQueueHandler(logger *zap.Logger, deadLetterQueue queues.Queue) *queueHandler {
 	return &queueHandler{
 		logger:          logger,
 		deadLetterQueue: deadLetterQueue,
@@ -63,11 +63,11 @@ func (qh *queueHandler) Create(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if createErr := qh.deadLetterQueue.Create(createRequest.BrokerName, createRequest.BrokerTag); createErr != nil {
+		if createErr := qh.deadLetterQueue.Create(createRequest.BrokerTags); createErr != nil {
 			logger.Error("failed creating queue", zap.Error(createErr))
 			errResp, _ := json.Marshal(createErr)
 
-			w.WriteHeader(createErr.StatusCode)
+			w.WriteHeader(http.StatusInternalServerError)
 			w.Write(errResp)
 			return
 		}
