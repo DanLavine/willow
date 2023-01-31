@@ -26,16 +26,20 @@ type DiskQueueManager struct {
 	// dir where all queues will be constructed at
 	baseDir string
 
-	// list of queues[name]
+	// all the queues
 	queues []*taggedQueue
+
+	// fitleredTags
+	filteredTags *filteredTags
 }
 
 // TODO: handle duplicate tags
 func NewDiskQueueManager(baseDir string) *DiskQueueManager {
 	return &DiskQueueManager{
-		lock:    new(sync.RWMutex),
-		baseDir: baseDir,
-		queues:  []*taggedQueue{},
+		lock:         new(sync.RWMutex),
+		baseDir:      baseDir,
+		queues:       []*taggedQueue{},
+		filteredTags: NewFilteredTags(),
 	}
 }
 
@@ -54,18 +58,15 @@ func (dqm *DiskQueueManager) Create(queueTags []string) error {
 	dqm.lock.Lock()
 	defer dqm.lock.Unlock()
 
-	queueReader := make(chan *models.Location) // strict reader
-	readers := []chan *models.Location{queueReader}
-	for _, filteredTag := range createFilteredTags(queueTags) { // combo + any readers
-		readers = append(readers, filteredTag.reader)
-	}
+	readers := []chan *models.Location{make(chan *models.Location)} // strict reader
+	readers = append(readers, dqm.filteredTags.createFilteredTags(queueTags)...)
 
 	newDiskQueue, err := disk.NewDiskQueue(dqm.baseDir, queueTags, readers)
 	if err != nil {
 		// TODO: decrement reader count
 		return err
 	}
-	dqm.queues = append(dqm.queues, &taggedQueue{tags: queueTags, reader: queueReader, queue: newDiskQueue})
+	dqm.queues = append(dqm.queues, &taggedQueue{tags: queueTags, reader: readers[0], queue: newDiskQueue})
 
 	return nil
 }
@@ -103,7 +104,10 @@ func (dqm *DiskQueueManager) Message(ctx context.Context, matchRestriction v1.Ma
 			return nil, fmt.Errorf("closed")
 		}
 	case v1.SUBSET:
-		reader := findOrCreateSubset(queueTags)
+		dqm.lock.RLock()
+		reader := dqm.filteredTags.findOrCreateSubset(queueTags)
+		dqm.lock.RUnlock()
+
 		select {
 		case <-ctx.Done(): // client has dissconnected
 			return nil, fmt.Errorf("Context was canceled")
@@ -116,7 +120,10 @@ func (dqm *DiskQueueManager) Message(ctx context.Context, matchRestriction v1.Ma
 			return nil, fmt.Errorf("closed")
 		}
 	case v1.ANY:
-		readers := findAny(queueTags)
+		dqm.lock.RLock()
+		readers := dqm.filteredTags.findAny(queueTags)
+		dqm.lock.RUnlock()
+
 		if len(readers) == 0 {
 			return nil, fmt.Errorf("no queues exist with that tag")
 		}
@@ -135,10 +142,14 @@ func (dqm *DiskQueueManager) Message(ctx context.Context, matchRestriction v1.Ma
 		fmt.Printf("%#v\n", val.Interface())
 		return val.Interface().(*models.Location).Process()
 	case v1.ALL:
+		dqm.lock.RLock()
+		globalReader := dqm.filteredTags.allTags[0].reader
+		dqm.lock.RUnlock()
+
 		select {
 		case <-ctx.Done(): // client has dissconnected
 			return nil, fmt.Errorf("Conext was canceled")
-		case location, ok := <-filteredTags[0].reader:
+		case location, ok := <-globalReader:
 			if ok {
 				return location.Process()
 			}

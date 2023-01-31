@@ -11,6 +11,7 @@ import (
 
 func NewZapLogger(config *config.Config) *zap.Logger {
 	zapCfg := zap.NewProductionConfig()
+	zapCfg.OutputPaths = []string{"stdout"}
 	zapCfg.DisableCaller = true
 	zapCfg.DisableStacktrace = true
 

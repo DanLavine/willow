@@ -10,10 +10,9 @@ import (
 //       receive a message from the new queue. That means that the channel already needs
 //       exist.
 
-// create filtered tag with [0] index being global
-// TODO this needs to be on the disk queue managere object. breaks tests since they don't clean up
-// the state between runs
-var filteredTags = []filteredTag{{queueCount: 1, tags: nil, reader: make(chan *models.Location)}}
+type filteredTags struct {
+	allTags []filteredTag
+}
 
 type filteredTag struct {
 	// how many queues are using this channel
@@ -26,47 +25,52 @@ type filteredTag struct {
 	reader chan *models.Location
 }
 
-func createFilteredTags(tags []string) []filteredTag {
-	allTags := []filteredTag{filteredTags[0]}
-	allTags = append(allTags, addIndividual(tags)...)
-	allTags = append(allTags, addCombination(tags, 0, 1)...)
-
-	return allTags
+func NewFilteredTags() *filteredTags {
+	return &filteredTags{
+		allTags: []filteredTag{{queueCount: 1, tags: nil, reader: make(chan *models.Location)}}, // create with "global" chan
+	}
 }
 
-func addIndividual(tags []string) []filteredTag {
-	individualTags := []filteredTag{}
+func (f *filteredTags) createFilteredTags(tags []string) []chan *models.Location {
+	allReaders := []chan *models.Location{f.allTags[0].reader}
+	allReaders = append(allReaders, f.addIndividual(tags)...)
+	allReaders = append(allReaders, f.addCombination(tags, 0, 1)...)
+
+	return allReaders
+}
+
+func (f *filteredTags) addIndividual(tags []string) []chan *models.Location {
+	individualReaders := []chan *models.Location{}
 
 	for _, tag := range tags {
 		foundTag := false
 
 		// see if the tag already exists
-		for _, filteredTag := range filteredTags {
+		for index, filteredTag := range f.allTags {
 			if tagEqual(filteredTag.tags, tag) {
 				foundTag = true
-				filteredTag.queueCount++
-				individualTags = append(individualTags, filteredTag)
+				f.allTags[index].queueCount++
+				individualReaders = append(individualReaders, filteredTag.reader)
 				break
 			}
 		}
 
-		// didn't find the 1 tag, so create the rest of them. Since tags are sorted this is fine
 		if !foundTag {
 			newTag := filteredTag{queueCount: 1, tags: []string{tag}, reader: make(chan *models.Location)}
-			filteredTags = append(filteredTags, newTag)
-			individualTags = append(individualTags, newTag)
+			f.allTags = append(f.allTags, newTag)
+			individualReaders = append(individualReaders, newTag.reader)
 		}
 	}
 
-	return individualTags
+	return individualReaders
 }
 
-func addCombination(tags []string, startIndex, nextIndex int) []filteredTag {
-	comboTags := []filteredTag{}
+func (f *filteredTags) addCombination(tags []string, startIndex, nextIndex int) []chan *models.Location {
+	comboReaders := []chan *models.Location{}
 	tagsLen := len(tags)
 
 	if nextIndex >= tagsLen-1 {
-		return comboTags
+		return comboReaders
 	}
 
 	tagsCombo := []string{tags[startIndex], tags[nextIndex]}
@@ -79,11 +83,11 @@ func addCombination(tags []string, startIndex, nextIndex int) []filteredTag {
 	for nextIndex < tagsLen-1 {
 		foundTags := false
 
-		for _, filteredTag := range filteredTags {
+		for index, filteredTag := range f.allTags {
 			if tagsEqual(filteredTag.tags, tagsCombo) {
 				foundTags = true
-				filteredTag.queueCount++
-				comboTags = append(comboTags, filteredTag)
+				f.allTags[index].queueCount++
+				comboReaders = append(comboReaders, filteredTag.reader)
 				break
 			}
 		}
@@ -91,8 +95,8 @@ func addCombination(tags []string, startIndex, nextIndex int) []filteredTag {
 		// not found so create
 		if !foundTags {
 			newTag := filteredTag{queueCount: 1, tags: tagsCombo, reader: make(chan *models.Location)}
-			filteredTags = append(filteredTags, newTag)
-			comboTags = append(comboTags, newTag)
+			f.allTags = append(f.allTags, newTag)
+			comboReaders = append(comboReaders, newTag.reader)
 		}
 
 		nextIndex++
@@ -103,17 +107,17 @@ func addCombination(tags []string, startIndex, nextIndex int) []filteredTag {
 	}
 
 	if nextIndex <= tagsLen-1 {
-		return append(comboTags, addCombination(tags, startIndex, nextIndex+1)...)
+		return append(comboReaders, f.addCombination(tags, startIndex, nextIndex+1)...)
 	} else if advanceStart {
-		return append(comboTags, addCombination(tags, startIndex+1, startIndex+2)...)
+		return append(comboReaders, f.addCombination(tags, startIndex+1, startIndex+2)...)
 	}
 
-	return comboTags
+	return comboReaders
 }
 
-func findOrCreateSubset(tags []string) chan *models.Location {
+func (f *filteredTags) findOrCreateSubset(tags []string) chan *models.Location {
 	// found tag
-	for _, filteredTag := range filteredTags {
+	for _, filteredTag := range f.allTags {
 		if tagsEqual(filteredTag.tags, tags) {
 			return filteredTag.reader
 		}
@@ -121,15 +125,15 @@ func findOrCreateSubset(tags []string) chan *models.Location {
 
 	// create new tag
 	reader := make(chan *models.Location)
-	filteredTags = append(filteredTags, filteredTag{queueCount: 1, tags: tags, reader: reader})
+	f.allTags = append(f.allTags, filteredTag{queueCount: 1, tags: tags, reader: reader})
 
 	return reader
 }
 
-func findAny(tags []string) []chan *models.Location {
+func (f *filteredTags) findAny(tags []string) []chan *models.Location {
 	chans := []chan *models.Location{}
 
-	for _, filteredTag := range filteredTags {
+	for _, filteredTag := range f.allTags {
 		if tagsContaing(filteredTag.tags, tags) {
 			chans = append(chans, filteredTag.reader)
 			continue

@@ -45,7 +45,7 @@ func (t *tcp) Execute(ctx context.Context) error {
 	mux := http.NewServeMux()
 
 	// queue functions
-	mux.HandleFunc("/v1/queue/create", t.queueHandler.Create)
+	mux.HandleFunc("/v1/brokers/create", t.queueHandler.Create)
 
 	// message handlers
 	mux.HandleFunc("/v1/message/add", t.queueHandler.Message)
@@ -60,6 +60,8 @@ func (t *tcp) Execute(ctx context.Context) error {
 	}
 
 	go func() {
+		logger.Info("TCP server running")
+
 		for {
 			conn, err := listener.Accept()
 			if err != nil {

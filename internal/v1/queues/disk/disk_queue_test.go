@@ -1,4 +1,4 @@
-package disk_test
+package disk
 
 import (
 	"context"
@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/DanLavine/willow/internal/v1/models"
-	"github.com/DanLavine/willow/internal/v1/queues/disk"
 	"github.com/DanLavine/willow/internal/v1/queues/disk/encoder"
 	. "github.com/onsi/gomega"
 )
@@ -17,30 +16,33 @@ func TestQueue_NewDiskQueue(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	t.Run("returns an error if the readers is empty", func(t *testing.T) {
-		testDir := os.TempDir()
+		testDir, err := os.MkdirTemp("", "")
+		g.Expect(err).ToNot(HaveOccurred())
 		defer os.RemoveAll(testDir)
 
-		dq, err := disk.NewDiskQueue(testDir, []string{}, nil)
+		dq, err := NewDiskQueue(testDir, []string{}, nil)
 		g.Expect(err).To(HaveOccurred())
 		g.Expect(err.Error()).To(Equal("received empty readers"))
 		g.Expect(dq).To(BeNil())
 	})
 
 	t.Run("returns an error if any readers are nil", func(t *testing.T) {
-		testDir := os.TempDir()
+		testDir, err := os.MkdirTemp("", "")
+		g.Expect(err).ToNot(HaveOccurred())
 		defer os.RemoveAll(testDir)
 
-		dq, err := disk.NewDiskQueue(testDir, []string{}, []chan *models.Location{make(chan *models.Location), nil})
+		dq, err := NewDiskQueue(testDir, []string{}, []chan *models.Location{make(chan *models.Location), nil})
 		g.Expect(err).To(HaveOccurred())
 		g.Expect(err.Error()).To(Equal("received an empty reader"))
 		g.Expect(dq).To(BeNil())
 	})
 
 	t.Run("creates all inital encoder files at their proper location", func(t *testing.T) {
-		testDir := os.TempDir()
+		testDir, err := os.MkdirTemp("", "")
+		g.Expect(err).ToNot(HaveOccurred())
 		reader := []chan *models.Location{make(chan *models.Location)}
 
-		dq, err := disk.NewDiskQueue(testDir, []string{"tags1"}, reader)
+		dq, err := NewDiskQueue(testDir, []string{"tags1"}, reader)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(dq).ToNot(BeNil())
 
@@ -67,10 +69,11 @@ func TestQueue_NewDiskQueue(t *testing.T) {
 	})
 
 	t.Run("creates a queue with empty tags", func(t *testing.T) {
-		testDir := os.TempDir()
+		testDir, err := os.MkdirTemp("", "")
+		g.Expect(err).ToNot(HaveOccurred())
 		reader := []chan *models.Location{make(chan *models.Location)}
 
-		dq, err := disk.NewDiskQueue(testDir, nil, reader)
+		dq, err := NewDiskQueue(testDir, nil, reader)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(dq).ToNot(BeNil())
 
@@ -80,10 +83,11 @@ func TestQueue_NewDiskQueue(t *testing.T) {
 	})
 
 	t.Run("creates a queue with no tags", func(t *testing.T) {
-		testDir := os.TempDir()
+		testDir, err := os.MkdirTemp("", "")
+		g.Expect(err).ToNot(HaveOccurred())
 		reader := []chan *models.Location{make(chan *models.Location)}
 
-		dq, err := disk.NewDiskQueue(testDir, []string{}, reader)
+		dq, err := NewDiskQueue(testDir, []string{}, reader)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(dq).ToNot(BeNil())
 
@@ -93,10 +97,11 @@ func TestQueue_NewDiskQueue(t *testing.T) {
 	})
 
 	t.Run("creates a queue with multiple tags", func(t *testing.T) {
-		testDir := os.TempDir()
+		testDir, err := os.MkdirTemp("", "")
+		g.Expect(err).ToNot(HaveOccurred())
 		reader := []chan *models.Location{make(chan *models.Location)}
 
-		dq, err := disk.NewDiskQueue(testDir, []string{"tag1", "tag2"}, reader)
+		dq, err := NewDiskQueue(testDir, []string{"tag1", "tag2"}, reader)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(dq).ToNot(BeNil())
 
@@ -117,10 +122,11 @@ func TestQueue_Enqueueue(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	t.Run("properly updates the ready count", func(t *testing.T) {
-		testDir := os.TempDir()
+		testDir, err := os.MkdirTemp("", "")
+		g.Expect(err).ToNot(HaveOccurred())
 		reader := []chan *models.Location{make(chan *models.Location)}
 
-		dq, err := disk.NewDiskQueue(testDir, []string{"tag1", "tag2"}, reader)
+		dq, err := NewDiskQueue(testDir, []string{"tag1", "tag2"}, reader)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(dq).ToNot(BeNil())
 
@@ -142,11 +148,12 @@ func TestQueue_Enqueueue(t *testing.T) {
 	})
 
 	t.Run("allows the enqueued item to be returned on a read channel", func(t *testing.T) {
-		testDir := os.TempDir()
+		testDir, err := os.MkdirTemp("", "")
+		g.Expect(err).ToNot(HaveOccurred())
 		reader := make(chan *models.Location)
 		readers := []chan *models.Location{reader}
 
-		dq, err := disk.NewDiskQueue(testDir, []string{"tag1", "tag2"}, readers)
+		dq, err := NewDiskQueue(testDir, []string{"tag1", "tag2"}, readers)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(dq).ToNot(BeNil())
 
@@ -173,11 +180,12 @@ func TestQueue_Enqueueue(t *testing.T) {
 	})
 
 	t.Run("returns enqueued items in the order they were added", func(t *testing.T) {
-		testDir := os.TempDir()
+		testDir, err := os.MkdirTemp("", "")
+		g.Expect(err).ToNot(HaveOccurred())
 		reader := make(chan *models.Location)
 		readers := []chan *models.Location{reader}
 
-		dq, err := disk.NewDiskQueue(testDir, []string{}, readers)
+		dq, err := NewDiskQueue(testDir, []string{}, readers)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(dq).ToNot(BeNil())
 
@@ -223,11 +231,12 @@ func TestQueue_Enqueueue(t *testing.T) {
 	})
 
 	t.Run("updates the metric counts properly", func(t *testing.T) {
-		testDir := os.TempDir()
+		testDir, err := os.MkdirTemp("", "")
+		g.Expect(err).ToNot(HaveOccurred())
 		reader := make(chan *models.Location)
 		readers := []chan *models.Location{reader}
 
-		dq, err := disk.NewDiskQueue(testDir, []string{"tag1", "tag2"}, readers)
+		dq, err := NewDiskQueue(testDir, []string{"tag1", "tag2"}, readers)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(dq).ToNot(BeNil())
 

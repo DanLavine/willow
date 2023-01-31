@@ -11,6 +11,60 @@ import (
 	"go.uber.org/zap"
 )
 
+func (qh *queueHandler) Message(w http.ResponseWriter, r *http.Request) {
+	logger := logger.AddRequestID(qh.logger.Named("Message"), r)
+
+	switch method := r.Method; method {
+	case "POST":
+		logger.Debug("processing enque request")
+
+		messageBody, err := io.ReadAll(r.Body)
+		if err != nil {
+			logger.Error("failed reading message body", zap.Error(err))
+
+			// never seen this actualy fail, so just ignore it for now
+			errResp, _ := json.Marshal(v1.Error{Message: err.Error()})
+
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write(errResp)
+			return
+		}
+
+		messageRequest := &v1.EnqueMessage{}
+		if err = json.Unmarshal(messageBody, messageRequest); err != nil {
+			logger.Error("failed parsing publish request", zap.Error(err))
+
+			// never seen this actualy fail, so just ignore it for now
+			errResp, _ := json.Marshal(v1.Error{Message: err.Error()})
+
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write(errResp)
+			return
+		}
+
+		switch messageRequest.BrokerType {
+		case v1.Queue:
+			if enqueErr := qh.deadLetterQueue.Enqueue(messageRequest.Data, messageRequest.Updateable, messageRequest.BrokerTags); enqueErr != nil {
+				errResp, _ := json.Marshal(enqueErr)
+				w.WriteHeader(http.StatusInternalServerError)
+				w.Write(errResp)
+				return
+			}
+
+			logger.Debug("processed enque request")
+			w.WriteHeader(http.StatusOK)
+		default:
+			err := (&v1.Error{Message: "Broker Type not supported", StatusCode: http.StatusBadRequest}).Expected("queue").Actual(messageRequest.BrokerType.ToString())
+			errResp, _ := json.Marshal(err)
+
+			w.WriteHeader(err.StatusCode)
+			w.Write(errResp)
+		}
+	default:
+		w.WriteHeader(http.StatusNotFound)
+	}
+}
+
 func (qh *queueHandler) RetrieveMessage(w http.ResponseWriter, r *http.Request) {
 	logger := logger.AddRequestID(qh.logger.Named("RetrieveMessage"), r)
 
@@ -72,60 +126,6 @@ func (qh *queueHandler) RetrieveMessage(w http.ResponseWriter, r *http.Request) 
 		default:
 			err := (&v1.Error{Message: "Broker Type not supported", StatusCode: http.StatusBadRequest}).Expected("queue").Actual(readyRequest.BrokerType.ToString())
 			errResp, _ := json.Marshal(v1.Error{Message: err.Error()})
-
-			w.WriteHeader(err.StatusCode)
-			w.Write(errResp)
-		}
-	default:
-		w.WriteHeader(http.StatusNotFound)
-	}
-}
-
-func (qh *queueHandler) Message(w http.ResponseWriter, r *http.Request) {
-	logger := logger.AddRequestID(qh.logger.Named("Message"), r)
-
-	switch method := r.Method; method {
-	case "POST":
-		logger.Debug("processing enque request")
-
-		messageBody, err := io.ReadAll(r.Body)
-		if err != nil {
-			logger.Error("failed reading message body", zap.Error(err))
-
-			// never seen this actualy fail, so just ignore it for now
-			errResp, _ := json.Marshal(v1.Error{Message: err.Error()})
-
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write(errResp)
-			return
-		}
-
-		messageRequest := &v1.EnqueMessage{}
-		if err = json.Unmarshal(messageBody, messageRequest); err != nil {
-			logger.Error("failed parsing publish request", zap.Error(err))
-
-			// never seen this actualy fail, so just ignore it for now
-			errResp, _ := json.Marshal(v1.Error{Message: err.Error()})
-
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write(errResp)
-			return
-		}
-
-		switch messageRequest.BrokerType {
-		case v1.Queue:
-			if enqueErr := qh.deadLetterQueue.Enqueue(messageRequest.Data, messageRequest.Updateable, messageRequest.BrokerTags); enqueErr != nil {
-				errResp, _ := json.Marshal(enqueErr)
-				w.WriteHeader(http.StatusInternalServerError)
-				w.Write(errResp)
-				return
-			}
-
-			logger.Debug("processed enque request")
-			w.WriteHeader(http.StatusOK)
-		default:
-			err := (&v1.Error{Message: "Broker Type not supported", StatusCode: http.StatusBadRequest}).Expected("queue").Actual(messageRequest.BrokerType.ToString())
-			errResp, _ := json.Marshal(err)
 
 			w.WriteHeader(err.StatusCode)
 			w.Write(errResp)

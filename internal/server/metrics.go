@@ -32,7 +32,7 @@ func (m *metrics) Cleanup() error    { return nil }
 func (m *metrics) Execute(ctx context.Context) error {
 	errChan := make(chan error)
 	mux := http.NewServeMux()
-	mux.HandleFunc("/metrics", m.metrics)
+	mux.HandleFunc("/v1/metrics", m.metrics)
 
 	server := &http.Server{
 		Addr:    fmt.Sprintf(":%s", m.config.MetricsPort),

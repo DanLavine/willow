@@ -1,4 +1,4 @@
-package queues_test
+package queues
 
 import (
 	"context"
@@ -6,7 +6,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DanLavine/willow/internal/v1/queues"
 	v1 "github.com/DanLavine/willow/pkg/models/v1"
 	. "github.com/onsi/gomega"
 )
@@ -15,10 +14,11 @@ func TestDiskQueueManager_Create(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	t.Run("creates a queue without a tag", func(t *testing.T) {
-		testDir := os.TempDir()
+		testDir, err := os.MkdirTemp("", "")
+		g.Expect(err).ToNot(HaveOccurred())
 		defer os.RemoveAll(testDir)
 
-		dqm := queues.NewDiskQueueManager(testDir)
+		dqm := NewDiskQueueManager(testDir)
 		g.Expect(dqm.Create(nil)).ToNot(HaveOccurred())
 
 		metrics := dqm.Metrics()
@@ -29,10 +29,11 @@ func TestDiskQueueManager_Create(t *testing.T) {
 	})
 
 	t.Run("creates a queue with a tag", func(t *testing.T) {
-		testDir := os.TempDir()
+		testDir, err := os.MkdirTemp("", "")
+		g.Expect(err).ToNot(HaveOccurred())
 		defer os.RemoveAll(testDir)
 
-		dqm := queues.NewDiskQueueManager(testDir)
+		dqm := NewDiskQueueManager(testDir)
 		g.Expect(dqm.Create([]string{"tag1"})).ToNot(HaveOccurred())
 
 		metrics := dqm.Metrics()
@@ -43,10 +44,11 @@ func TestDiskQueueManager_Create(t *testing.T) {
 	})
 
 	t.Run("can create a queue with multiple tags", func(t *testing.T) {
-		testDir := os.TempDir()
+		testDir, err := os.MkdirTemp("", "")
+		g.Expect(err).ToNot(HaveOccurred())
 		defer os.RemoveAll(testDir)
 
-		dqm := queues.NewDiskQueueManager(testDir)
+		dqm := NewDiskQueueManager(testDir)
 		g.Expect(dqm.Create([]string{"tag1"})).ToNot(HaveOccurred())
 		g.Expect(dqm.Create([]string{"tag2", "tag1"})).ToNot(HaveOccurred())
 
@@ -62,10 +64,11 @@ func TestDiskQueueManager_Create(t *testing.T) {
 	})
 
 	t.Run("tags in any order are treated as the same queue", func(t *testing.T) {
-		testDir := os.TempDir()
+		testDir, err := os.MkdirTemp("", "")
+		g.Expect(err).ToNot(HaveOccurred())
 		defer os.RemoveAll(testDir)
 
-		dqm := queues.NewDiskQueueManager(testDir)
+		dqm := NewDiskQueueManager(testDir)
 		g.Expect(dqm.Create([]string{"tag1", "tag2"})).ToNot(HaveOccurred())
 		g.Expect(dqm.Create([]string{"tag2", "tag1"})).ToNot(HaveOccurred())
 
@@ -78,10 +81,11 @@ func TestDiskQueueManager_Enqueue(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	t.Run("creates a ready item when the queue exists", func(t *testing.T) {
-		testDir := os.TempDir()
+		testDir, err := os.MkdirTemp("", "")
+		g.Expect(err).ToNot(HaveOccurred())
 		defer os.RemoveAll(testDir)
 
-		dqm := queues.NewDiskQueueManager(testDir)
+		dqm := NewDiskQueueManager(testDir)
 		g.Expect(dqm.Create([]string{"tag1"})).ToNot(HaveOccurred())
 		g.Expect(dqm.Enqueue([]byte(`data`), false, []string{"tag1"})).ToNot(HaveOccurred())
 
@@ -93,11 +97,12 @@ func TestDiskQueueManager_Enqueue(t *testing.T) {
 	})
 
 	t.Run("returns an error if the queue does not exist", func(t *testing.T) {
-		testDir := os.TempDir()
+		testDir, err := os.MkdirTemp("", "")
+		g.Expect(err).ToNot(HaveOccurred())
 		defer os.RemoveAll(testDir)
 
-		dqm := queues.NewDiskQueueManager(testDir)
-		err := dqm.Enqueue([]byte(`data`), false, []string{"tag1"})
+		dqm := NewDiskQueueManager(testDir)
+		err = dqm.Enqueue([]byte(`data`), false, []string{"tag1"})
 		g.Expect(err).To(HaveOccurred())
 		g.Expect(err.Error()).To(Equal("Failed to find queue"))
 	})
@@ -108,26 +113,28 @@ func TestDiskQueueManager_Message(t *testing.T) {
 
 	t.Run("when the subscribe method is 'STRICT'", func(t *testing.T) {
 		t.Run("returns an error if the queue does not exist", func(t *testing.T) {
-			testDir := os.TempDir()
+			testDir, err := os.MkdirTemp("", "")
+			g.Expect(err).ToNot(HaveOccurred())
 			defer os.RemoveAll(testDir)
 
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 
-			dqm := queues.NewDiskQueueManager(testDir)
+			dqm := NewDiskQueueManager(testDir)
 			dequeueMessage, err := dqm.Message(ctx, v1.STRICT, []string{"tag1"})
 			g.Expect(err).To(HaveOccurred())
 			g.Expect(dequeueMessage).To(BeNil())
 		})
 
 		t.Run("it waits untill a message is ready", func(t *testing.T) {
-			testDir := os.TempDir()
+			testDir, err := os.MkdirTemp("", "")
+			g.Expect(err).ToNot(HaveOccurred())
 			defer os.RemoveAll(testDir)
 
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 
-			dqm := queues.NewDiskQueueManager(testDir)
+			dqm := NewDiskQueueManager(testDir)
 			g.Expect(dqm.Create([]string{"tag1"})).ToNot(HaveOccurred())
 
 			g.Eventually(func() bool {
@@ -148,16 +155,16 @@ func TestDiskQueueManager_Message(t *testing.T) {
 		})
 
 		t.Run("it breaks if the context is canceled", func(t *testing.T) {
-			testDir := os.TempDir()
+			testDir, err := os.MkdirTemp("", "")
+			g.Expect(err).ToNot(HaveOccurred())
 			defer os.RemoveAll(testDir)
 
 			ctx, cancel := context.WithCancel(context.Background())
 			cancel()
 
-			dqm := queues.NewDiskQueueManager(testDir)
+			dqm := NewDiskQueueManager(testDir)
 			g.Expect(dqm.Create([]string{"tag1"})).ToNot(HaveOccurred())
 
-			var err error
 			var dequeueMessage *v1.DequeueMessage
 			g.Eventually(func() bool {
 				dequeueMessage, err = dqm.Message(ctx, v1.STRICT, []string{"tag1"})
@@ -170,10 +177,11 @@ func TestDiskQueueManager_Message(t *testing.T) {
 		})
 
 		t.Run("it can retrieve a message for the exact queue", func(t *testing.T) {
-			testDir := os.TempDir()
+			testDir, err := os.MkdirTemp("", "")
+			g.Expect(err).ToNot(HaveOccurred())
 			defer os.RemoveAll(testDir)
 
-			dqm := queues.NewDiskQueueManager(testDir)
+			dqm := NewDiskQueueManager(testDir)
 			g.Expect(dqm.Create([]string{"tag1"})).ToNot(HaveOccurred())
 			g.Expect(dqm.Create([]string{"tag1", "tag2"})).ToNot(HaveOccurred())
 
@@ -182,7 +190,6 @@ func TestDiskQueueManager_Message(t *testing.T) {
 			g.Expect(dqm.Enqueue([]byte(`multitag data`), false, []string{"tag1", "tag2"})).ToNot(HaveOccurred())
 
 			ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(time.Second))
-			var err error
 			var dequeueMessage *v1.DequeueMessage
 			g.Eventually(func() bool {
 				reader := make(chan struct{})
@@ -210,13 +217,14 @@ func TestDiskQueueManager_Message(t *testing.T) {
 
 	t.Run("when the subscribe method is 'SUBSET'", func(t *testing.T) {
 		t.Run("it waits untill a message is ready", func(t *testing.T) {
-			testDir := os.TempDir()
+			testDir, err := os.MkdirTemp("", "")
+			g.Expect(err).ToNot(HaveOccurred())
 			defer os.RemoveAll(testDir)
 
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 
-			dqm := queues.NewDiskQueueManager(testDir)
+			dqm := NewDiskQueueManager(testDir)
 			g.Eventually(func() bool {
 				reader := make(chan struct{})
 
@@ -235,16 +243,16 @@ func TestDiskQueueManager_Message(t *testing.T) {
 		})
 
 		t.Run("it breaks if the context is canceled", func(t *testing.T) {
-			testDir := os.TempDir()
+			testDir, err := os.MkdirTemp("", "")
+			g.Expect(err).ToNot(HaveOccurred())
 			defer os.RemoveAll(testDir)
 
 			ctx, cancel := context.WithCancel(context.Background())
 			cancel()
 
-			dqm := queues.NewDiskQueueManager(testDir)
+			dqm := NewDiskQueueManager(testDir)
 			g.Expect(dqm.Create([]string{"tag1"})).ToNot(HaveOccurred())
 
-			var err error
 			var dequeueMessage *v1.DequeueMessage
 			g.Eventually(func() bool {
 				dequeueMessage, err = dqm.Message(ctx, v1.STRICT, []string{"tag1"})
@@ -257,15 +265,15 @@ func TestDiskQueueManager_Message(t *testing.T) {
 		})
 
 		t.Run("it can recieve a subeset for a new queue", func(t *testing.T) {
-			testDir := os.TempDir()
+			testDir, err := os.MkdirTemp("", "")
+			g.Expect(err).ToNot(HaveOccurred())
 			defer os.RemoveAll(testDir)
 
-			dqm := queues.NewDiskQueueManager(testDir)
+			dqm := NewDiskQueueManager(testDir)
 			g.Expect(dqm.Create([]string{"a", "b", "c", "d"})).ToNot(HaveOccurred())
 			g.Expect(dqm.Enqueue([]byte(`hello`), false, []string{"a", "b", "c", "d"})).ToNot(HaveOccurred())
 
 			ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(time.Second))
-			var err error
 			var dequeueMessage *v1.DequeueMessage
 			g.Eventually(func() bool {
 				reader := make(chan struct{})
@@ -293,13 +301,16 @@ func TestDiskQueueManager_Message(t *testing.T) {
 
 	t.Run("when the subscribe method is 'ANY'", func(t *testing.T) {
 		t.Run("it waits untill a message is ready", func(t *testing.T) {
-			testDir := os.TempDir()
+			testDir, err := os.MkdirTemp("", "")
+			g.Expect(err).ToNot(HaveOccurred())
 			defer os.RemoveAll(testDir)
 
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 
-			dqm := queues.NewDiskQueueManager(testDir)
+			dqm := NewDiskQueueManager(testDir)
+			g.Expect(dqm.Create([]string{"a"})).ToNot(HaveOccurred())
+
 			g.Eventually(func() bool {
 				reader := make(chan struct{})
 
@@ -318,16 +329,16 @@ func TestDiskQueueManager_Message(t *testing.T) {
 		})
 
 		t.Run("it breaks if the context is canceled", func(t *testing.T) {
-			testDir := os.TempDir()
+			testDir, err := os.MkdirTemp("", "")
+			g.Expect(err).ToNot(HaveOccurred())
 			defer os.RemoveAll(testDir)
 
 			ctx, cancel := context.WithCancel(context.Background())
 			cancel()
 
-			dqm := queues.NewDiskQueueManager(testDir)
+			dqm := NewDiskQueueManager(testDir)
 			g.Expect(dqm.Create([]string{"blam"})).ToNot(HaveOccurred())
 
-			var err error
 			var dequeueMessage *v1.DequeueMessage
 			g.Eventually(func() bool {
 				dequeueMessage, err = dqm.Message(ctx, v1.ANY, []string{"blam"})
@@ -340,17 +351,17 @@ func TestDiskQueueManager_Message(t *testing.T) {
 		})
 
 		t.Run("it can recieve a subeset for a new queue", func(t *testing.T) {
-			testDir := os.TempDir()
+			testDir, err := os.MkdirTemp("", "")
+			g.Expect(err).ToNot(HaveOccurred())
 			defer os.RemoveAll(testDir)
 
-			dqm := queues.NewDiskQueueManager(testDir)
+			dqm := NewDiskQueueManager(testDir)
 			g.Expect(dqm.Create([]string{"a", "b", "c"})).ToNot(HaveOccurred())
 			g.Expect(dqm.Create([]string{"a", "b"})).ToNot(HaveOccurred())
 			g.Expect(dqm.Enqueue([]byte(`hello`), false, []string{"a", "b", "c"})).ToNot(HaveOccurred())
 			g.Expect(dqm.Enqueue([]byte(`nope`), false, []string{"a", "b"})).ToNot(HaveOccurred())
 
 			ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(time.Second))
-			var err error
 			var dequeueMessage *v1.DequeueMessage
 			g.Eventually(func() bool {
 				reader := make(chan struct{})
@@ -381,23 +392,25 @@ func TestACK(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	t.Run("it returns an error if the queue does not exist", func(t *testing.T) {
-		testDir := os.TempDir()
+		testDir, err := os.MkdirTemp("", "")
+		g.Expect(err).ToNot(HaveOccurred())
 		defer os.RemoveAll(testDir)
 
-		dqm := queues.NewDiskQueueManager(testDir)
+		dqm := NewDiskQueueManager(testDir)
 		g.Expect(dqm.ACK(0, true, []string{"tag1"})).To(HaveOccurred())
 	})
 
 	t.Run("it returns an erro if the message is not yet processing", func(t *testing.T) {
-		testDir := os.TempDir()
+		testDir, err := os.MkdirTemp("", "")
+		g.Expect(err).ToNot(HaveOccurred())
 		defer os.RemoveAll(testDir)
 
-		dqm := queues.NewDiskQueueManager(testDir)
+		dqm := NewDiskQueueManager(testDir)
 		g.Expect(dqm.Create([]string{"tag1"})).ToNot(HaveOccurred())
 		g.Expect(dqm.Enqueue([]byte(`data-tag1`), false, []string{"tag1"})).ToNot(HaveOccurred())
 
 		// ack a enqueue value
-		err := dqm.ACK(0, true, []string{"tag1"})
+		err = dqm.ACK(0, true, []string{"tag1"})
 		g.Expect(err).To(HaveOccurred())
 	})
 
@@ -405,7 +418,7 @@ func TestACK(t *testing.T) {
 	//	passed := true
 
 	//	t.Run("the message is removed from the queue", func(t *testing.T) {
-	//		testDir := os.TempDir()
+	//		testDir, err := os.MkdirTemp("","")
 	//		defer os.RemoveAll(testDir)
 
 	//		dqm := queues.NewDiskQueueManager(testDir)
