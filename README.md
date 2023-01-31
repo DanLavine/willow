@@ -3,8 +3,6 @@
 Willow is a message broker that can be used as either a pub-sub or message queue system.
 
 # Terms
-TODO - not 100% sure on what I want to call the specific pieces of this system yet.
-
 * Broker - A messaging system that can be broken down into the following
   * Queue   - a first in, first out queue the sends a message to one Consumer
     * Tag - Each queue is created via number of "tags" that define the queue.
