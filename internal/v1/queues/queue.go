@@ -14,7 +14,7 @@ type Queue interface {
 	//
 	// RETURNS:
 	// * error - any errors with creating the queue
-	Create(queueTags []string) error
+	Create(queueTags []string) *v1.Error
 
 	// Enqueu a new message.
 	//
@@ -25,7 +25,7 @@ type Queue interface {
 	//
 	// RETURNS:
 	// * error - any errors with enquing the data
-	Enqueue(data []byte, updateable bool, queueTags []string) error
+	Enqueue(data []byte, updateable bool, queueTags []string) *v1.Error
 
 	// Retrieve a message from a particular queue. This is a blocking operation
 	//
@@ -37,7 +37,7 @@ type Queue interface {
 	// RETURNS:
 	// * DequeueMessage - message that contains relivent info to process from the client and respond wif the message finished processing
 	// * error - any errors with enquing the data
-	Message(ctx context.Context, matchRestriction v1.MatchRestriction, queueTags []string) (*v1.DequeueMessage, error)
+	Message(ctx context.Context, matchRestriction v1.MatchRestriction, queueTags []string) (*v1.DequeueMessage, *v1.Error)
 
 	// Respond to a processing message for the client.
 	//
@@ -49,7 +49,7 @@ type Queue interface {
 	//
 	// RETURNS:
 	// * error - any errors with processing the message
-	ACK(id uint64, passed bool, queueTags []string) error
+	ACK(id uint64, passed bool, queueTags []string) *v1.Error
 
 	// Get basic metrics about all the current queues. Right now mostly helpful for debugging
 	//

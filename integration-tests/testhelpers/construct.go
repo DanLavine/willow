@@ -3,6 +3,7 @@ package testhelpers
 import (
 	"bytes"
 	"crypto/tls"
+	"fmt"
 	"net"
 	"net/http"
 	"os"
@@ -18,8 +19,10 @@ import (
 type IntegrationTestConstruct struct {
 	dataDir string
 
-	ServerPath string
-	ServerExe  *exec.Cmd
+	ServerPath   string
+	ServerExe    *exec.Cmd
+	ServerStdout *bytes.Buffer
+	ServerStderr *bytes.Buffer
 
 	ServerClient  *http.Client
 	serverAddress string
@@ -56,16 +59,17 @@ func (itc *IntegrationTestConstruct) Start(g *gomega.WithT) {
 	tmpDir, err := os.MkdirTemp("", "")
 	g.Expect(err).ToNot(HaveOccurred())
 
-	willowExe := exec.Command(itc.ServerPath, "-disk-storage-dir", tmpDir)
-	var stdout, stderr bytes.Buffer
-	willowExe.Stdout = &stdout
-	willowExe.Stderr = &stderr
+	willowExe := exec.Command(itc.ServerPath, "-log-level", "debug", "-disk-storage-dir", tmpDir)
+	itc.ServerStdout = new(bytes.Buffer)
+	itc.ServerStderr = new(bytes.Buffer)
+	willowExe.Stdout = itc.ServerStdout
+	willowExe.Stderr = itc.ServerStderr
 
 	err = willowExe.Start()
 	g.Expect(err).ToNot(HaveOccurred())
 
 	g.Eventually(func() string {
-		return stdout.String()
+		return itc.ServerStdout.String()
 	}).Should(ContainSubstring("TCP server running"))
 
 	// record start configuration
@@ -79,6 +83,7 @@ func (itc *IntegrationTestConstruct) Shutdown(g *gomega.WithT) {
 	err := itc.ServerExe.Process.Signal(os.Interrupt)
 	g.Expect(err).ToNot(HaveOccurred())
 
+	fmt.Println(itc.ServerStdout.String())
 	g.Eventually(func() int {
 		processState, _ := itc.ServerExe.Process.Wait()
 		return processState.ExitCode()

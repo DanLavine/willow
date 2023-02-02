@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/DanLavine/willow/internal/errors"
 	"github.com/DanLavine/willow/internal/v1/models"
+	v1 "github.com/DanLavine/willow/pkg/models/v1"
 )
 
 type index struct {
@@ -17,10 +19,10 @@ type index struct {
 	lastWriteIndex int
 }
 
-func newIndex(fileName string) (*index, error) {
+func newIndex(fileName string) (*index, *v1.Error) {
 	file, err := os.OpenFile(fileName, os.O_CREATE|os.O_RDWR, 0755)
 	if err != nil {
-		return nil, fmt.Errorf("Failed creating queue file: %w", err)
+		return nil, errors.FailedToCreateQueueFile.With("", err.Error())
 	}
 
 	return &index{
@@ -36,7 +38,7 @@ func newIndex(fileName string) (*index, error) {
 // * int - start location on disk where the write happend
 // * int - size of encoded data written. Does not include things like path seperators or other info
 // * error - an error encounterd during the write
-func (i *index) Write(id uint64, data []byte) (int, int, error) {
+func (i *index) Write(id uint64, data []byte) (int, int, *v1.Error) {
 	prefix, suffix, encodedData := EncodeByteWithEnding(data, id)
 
 	var writeIndex int
@@ -47,7 +49,7 @@ func (i *index) Write(id uint64, data []byte) (int, int, error) {
 
 	n, err := i.file.WriteAt(encodedData, int64(writeIndex))
 	if err != nil {
-		return writeIndex + prefix, n, err
+		return writeIndex + prefix, n, errors.WriteFailed.With("", err.Error())
 	}
 
 	// set the last index, to the location where we started writting at
@@ -58,12 +60,12 @@ func (i *index) Write(id uint64, data []byte) (int, int, error) {
 }
 
 // Read a specific location and return the original data decoded
-func (i *index) Read(startIndex, size int) ([]byte, error) {
+func (i *index) Read(startIndex, size int) ([]byte, *v1.Error) {
 	data := make([]byte, size)
 
 	_, err := i.file.ReadAt(data, int64(startIndex))
 	if err != nil {
-		return nil, fmt.Errorf("Failed to read file at start location: %d, for %d bytes: %w", startIndex, size, err)
+		return nil, errors.ReadFailed.With(fmt.Sprintf("start location %d for %d bytes to be valid", startIndex, size), err.Error())
 	}
 
 	return data, nil
@@ -75,10 +77,10 @@ func (i *index) Read(startIndex, size int) ([]byte, error) {
 // RETURNS:
 // * location - location state on disk
 // * error - an error encounterd during the write
-func (i *index) Overwrite(encodedData []byte, location *models.Location) error {
+func (i *index) Overwrite(encodedData []byte, location *models.Location) *v1.Error {
 	n, err := i.file.WriteAt(encodedData, int64(i.lastWriteIndex))
 	if err != nil {
-		return err
+		return errors.WriteFailed.With(fmt.Sprintf("start location %d for %d bytes to be valid", i.lastWriteIndex, len(encodedData)), err.Error())
 	}
 
 	// set the last index, to the location where we started writting at
@@ -93,9 +95,11 @@ func (d *index) ReadLast() ([]byte, error) {
 	}
 
 	data := make([]byte, d.endIndex-d.lastWriteIndex)
+	if _, err := d.file.ReadAt(data, int64(d.lastWriteIndex)); err != nil {
+		return nil, errors.ReadFailed.With(fmt.Sprintf("start location %d for %d bytes to be valid", d.lastWriteIndex, len(data)), err.Error())
+	}
 
-	_, err := d.file.ReadAt(data, int64(d.lastWriteIndex))
-	return data, err
+	return data, nil
 }
 
 func (f *index) Close() error {

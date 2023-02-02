@@ -37,7 +37,7 @@ func (qh *queueHandler) Message(w http.ResponseWriter, r *http.Request) {
 			// never seen this actualy fail, so just ignore it for now
 			errResp, _ := json.Marshal(v1.Error{Message: err.Error()})
 
-			w.WriteHeader(http.StatusInternalServerError)
+			w.WriteHeader(http.StatusBadRequest)
 			w.Write(errResp)
 			return
 		}
@@ -46,7 +46,7 @@ func (qh *queueHandler) Message(w http.ResponseWriter, r *http.Request) {
 		case v1.Queue:
 			if enqueErr := qh.deadLetterQueue.Enqueue(messageRequest.Data, messageRequest.Updateable, messageRequest.BrokerTags); enqueErr != nil {
 				errResp, _ := json.Marshal(enqueErr)
-				w.WriteHeader(http.StatusInternalServerError)
+				w.WriteHeader(enqueErr.StatusCode)
 				w.Write(errResp)
 				return
 			}
@@ -54,7 +54,7 @@ func (qh *queueHandler) Message(w http.ResponseWriter, r *http.Request) {
 			logger.Debug("processed enque request")
 			w.WriteHeader(http.StatusOK)
 		default:
-			err := (&v1.Error{Message: "Broker Type not supported", StatusCode: http.StatusBadRequest}).Expected("queue").Actual(messageRequest.BrokerType.ToString())
+			err := (&v1.Error{Message: "Broker Type not supported", StatusCode: http.StatusBadRequest}).With("queue", messageRequest.BrokerType.ToString())
 			errResp, _ := json.Marshal(err)
 
 			w.WriteHeader(err.StatusCode)
@@ -99,11 +99,11 @@ func (qh *queueHandler) RetrieveMessage(w http.ResponseWriter, r *http.Request) 
 		switch readyRequest.BrokerType {
 		case v1.Queue:
 			message, retErr := qh.deadLetterQueue.Message(context.Background(), readyRequest.BrokerTagsMatch, readyRequest.BrokerTags)
-			if err != nil {
+			if retErr != nil {
 				logger.Error("failed obtaining next message", zap.Error(retErr))
 				errResp, _ := json.Marshal(retErr)
 
-				w.WriteHeader(http.StatusInternalServerError)
+				w.WriteHeader(retErr.StatusCode)
 				w.Write(errResp)
 				return
 			}
@@ -124,7 +124,7 @@ func (qh *queueHandler) RetrieveMessage(w http.ResponseWriter, r *http.Request) 
 			w.WriteHeader(http.StatusOK)
 			w.Write(responseBody)
 		default:
-			err := (&v1.Error{Message: "Broker Type not supported", StatusCode: http.StatusBadRequest}).Expected("queue").Actual(readyRequest.BrokerType.ToString())
+			err := (&v1.Error{Message: "Broker Type not supported", StatusCode: http.StatusBadRequest}).With("queue", readyRequest.BrokerType.ToString())
 			errResp, _ := json.Marshal(v1.Error{Message: err.Error()})
 
 			w.WriteHeader(err.StatusCode)
@@ -161,7 +161,7 @@ func (qh *queueHandler) ACK(w http.ResponseWriter, r *http.Request) {
 			// never seen this actualy fail, so just ignore it for now
 			errResp, _ := json.Marshal(v1.Error{Message: err.Error()})
 
-			w.WriteHeader(http.StatusInternalServerError)
+			w.WriteHeader(http.StatusBadRequest)
 			w.Write(errResp)
 			return
 		}
@@ -171,7 +171,7 @@ func (qh *queueHandler) ACK(w http.ResponseWriter, r *http.Request) {
 			if ackErr := qh.deadLetterQueue.ACK(ACKRequest.ID, ACKRequest.Passed, ACKRequest.BrokerTags); ackErr != nil {
 				errResp, _ := json.Marshal(v1.Error{Message: ackErr.Error()})
 
-				w.WriteHeader(http.StatusInternalServerError)
+				w.WriteHeader(ackErr.StatusCode)
 				w.Write(errResp)
 				return
 			}
@@ -179,7 +179,7 @@ func (qh *queueHandler) ACK(w http.ResponseWriter, r *http.Request) {
 			logger.Debug("processed enque request")
 			w.WriteHeader(http.StatusOK)
 		default:
-			err := (&v1.Error{Message: "Broker Type not supported", StatusCode: http.StatusBadRequest}).Expected("queue").Actual(ACKRequest.BrokerType.ToString())
+			err := (&v1.Error{Message: "Broker Type not supported", StatusCode: http.StatusBadRequest}).With("queue", ACKRequest.BrokerType.ToString())
 			errResp, _ := json.Marshal(err)
 
 			w.WriteHeader(err.StatusCode)

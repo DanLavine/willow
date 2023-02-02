@@ -21,10 +21,10 @@ func (itc *IntegrationTestConstruct) Create(g *gomega.WithT, createBody v1.Creat
 	createRequest, err := http.NewRequest("POST", fmt.Sprintf("%s/v1/brokers/create", itc.serverAddress), createBuffer)
 	g.Expect(err).ToNot(HaveOccurred())
 
-	createResponse, err := itc.ServerClient.Do(createRequest)
+	response, err := itc.ServerClient.Do(createRequest)
 	g.Expect(err).ToNot(HaveOccurred())
 
-	return createResponse
+	return response
 }
 
 func (itc *IntegrationTestConstruct) Enqueue(g *gomega.WithT, enqueueBody v1.EnqueMessage) *http.Response {
@@ -35,10 +35,25 @@ func (itc *IntegrationTestConstruct) Enqueue(g *gomega.WithT, enqueueBody v1.Enq
 	request, err := http.NewRequest("POST", fmt.Sprintf("%s/v1/message/add", itc.serverAddress), enqueueBuffer)
 	g.Expect(err).ToNot(HaveOccurred())
 
-	createResponse, err := itc.ServerClient.Do(request)
+	response, err := itc.ServerClient.Do(request)
 	g.Expect(err).ToNot(HaveOccurred())
 
-	return createResponse
+	return response
+}
+
+func (itc *IntegrationTestConstruct) GetMessage(g *gomega.WithT, readyBody v1.Ready) *http.Response {
+	body, err := json.Marshal(readyBody)
+	g.Expect(err).ToNot(HaveOccurred())
+
+	enqueueBuffer := bytes.NewBuffer(body)
+	request, err := http.NewRequest("GET", fmt.Sprintf("%s/v1/message/ready", itc.serverAddress), enqueueBuffer)
+	g.Expect(err).ToNot(HaveOccurred())
+
+	response, err := itc.ServerClient.Do(request)
+	fmt.Println(itc.ServerStdout.String())
+	g.Expect(err).ToNot(HaveOccurred())
+
+	return response
 }
 
 func (itc *IntegrationTestConstruct) Metrics(g *gomega.WithT) v1.Metrics {

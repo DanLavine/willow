@@ -4,6 +4,9 @@ import (
 	"encoding/base64"
 	"fmt"
 	"strings"
+
+	"github.com/DanLavine/willow/internal/errors"
+	v1 "github.com/DanLavine/willow/pkg/models/v1"
 )
 
 func EncodeString(data string) string {
@@ -75,11 +78,15 @@ func EncodeByte(data []byte) []byte {
 	return encoded
 }
 
-func DecodeByte(data []byte) ([]byte, error) {
+func DecodeByte(data []byte) ([]byte, *v1.Error) {
 	bytesLength := base64.StdEncoding.DecodedLen(len(data))
 	decoded := make([]byte, bytesLength)
+
 	n, err := base64.StdEncoding.Decode(decoded, data)
+	if err != nil {
+		return nil, errors.DecodeFailed.With("", err.Error())
+	}
 
 	// strip out white space
-	return decoded[:n], err
+	return decoded[:n], nil
 }

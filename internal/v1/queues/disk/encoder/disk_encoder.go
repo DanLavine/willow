@@ -4,6 +4,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+
+	"github.com/DanLavine/willow/internal/errors"
+	v1 "github.com/DanLavine/willow/pkg/models/v1"
 )
 
 /**
@@ -37,38 +40,38 @@ type DiskEncoder struct {
 	indexState *indexState
 }
 
-func NewDiskEncoder(baseDir string, queueTags []string) (*DiskEncoder, error) {
+func NewDiskEncoder(baseDir string, queueTags []string) (*DiskEncoder, *v1.Error) {
 	queueDir := filepath.Join(baseDir, EncodeStrings(queueTags))
 
 	filePath, err := os.Stat(queueDir)
 	if os.IsPermission(err) || os.IsNotExist(err) {
 		// create the dir
 		if err = os.MkdirAll(queueDir, 0755); err != nil {
-			return nil, fmt.Errorf("Failed to create dir: %w", err)
+			return nil, errors.FailedToCreateDir.With("", err.Error())
 		}
 	} else if err != nil {
 		// some other error encountered
-		return nil, fmt.Errorf("Failed to stat dir: %s", err.Error())
+		return nil, errors.FailedToStatDir.With("", err.Error())
 	} else {
 		// path already exists and is not dir?
 		if !filePath.IsDir() {
-			return nil, fmt.Errorf("Path already exists, but is not a directory")
+			return nil, errors.PathAlreadyExists.With(filePath.Name(), "to be a dir")
 		}
 	}
 
-	index, err := newIndex(filepath.Join(queueDir, "0.idx"))
+	index, indexErr := newIndex(filepath.Join(queueDir, "0.idx"))
 	if err != nil {
-		return nil, fmt.Errorf("Failed creating queue file: %w", err)
+		return nil, indexErr
 	}
 
-	indexState, err := newIndexState(filepath.Join(queueDir, "0_processing.idx"))
+	indexState, stateErr := newIndexState(filepath.Join(queueDir, "0_processing.idx"))
 	if err != nil {
-		return nil, fmt.Errorf("Failed creating retry file: %w", err)
+		return nil, stateErr
 	}
 
-	updateFile, err := newUpdateFile(filepath.Join(queueDir, "update.idx"))
+	updateFile, updateErr := newUpdateFile(filepath.Join(queueDir, "update.idx"))
 	if err != nil {
-		return nil, fmt.Errorf("Failed creating update file: %w", err)
+		return nil, updateErr
 	}
 
 	return &DiskEncoder{
@@ -84,20 +87,20 @@ func NewDiskEncoder(baseDir string, queueTags []string) (*DiskEncoder, error) {
 // * int - start location on disk where the write happend
 // * int - size of encoded data written. Does not include things like path seperators or other info
 // * error - an error encounterd during the write
-func (de *DiskEncoder) Write(id uint64, data []byte) (int, int, error) {
+func (de *DiskEncoder) Write(id uint64, data []byte) (int, int, *v1.Error) {
 	startIndex, size, err := de.index.Write(id, data)
 	if err != nil {
-		return startIndex, size, err
-	}
-
-	if err = de.indexState.Processing(id); err != nil {
 		return startIndex, size, err
 	}
 
 	return startIndex, size, nil
 }
 
-func (de *DiskEncoder) Read(startIndex, size int) ([]byte, error) {
+func (de *DiskEncoder) Processing(id uint64) *v1.Error {
+	return de.indexState.Processing(id)
+}
+
+func (de *DiskEncoder) Read(startIndex, size int) ([]byte, *v1.Error) {
 	encodedData, err := de.index.Read(startIndex, size)
 	if err != nil {
 		return nil, err
@@ -105,7 +108,7 @@ func (de *DiskEncoder) Read(startIndex, size int) ([]byte, error) {
 
 	decodedData, err := DecodeByte(encodedData)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to decode file at start location: %d, for %d bytes: %w", startIndex, size, err)
+		return nil, errors.DecodeFailed.With(fmt.Sprintf("decode at start location: %d, for %d bytes", startIndex, size), err.Error())
 	}
 
 	return decodedData, nil
@@ -157,7 +160,7 @@ func (de *DiskEncoder) Read(startIndex, size int) ([]byte, error) {
 //		l.RetryCount++
 //		return nil
 //	}
-func (de *DiskEncoder) Remove(id uint64) error {
+func (de *DiskEncoder) Remove(id uint64) *v1.Error {
 	return de.indexState.Delete(id)
 }
 

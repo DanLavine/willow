@@ -1,8 +1,7 @@
 package models
 
 import (
-	"fmt"
-
+	"github.com/DanLavine/willow/internal/errors"
 	v1 "github.com/DanLavine/willow/pkg/models/v1"
 )
 
@@ -20,18 +19,18 @@ type Location struct {
 	RetryCount int
 
 	// Callback to set processing for the element
-	process func(id uint64, sartIndex, size int) (*v1.DequeueMessage, error)
+	process func(id uint64, sartIndex, size int) (*v1.DequeueMessage, *v1.Error)
 }
 
-func NewLocation(processCallback func(id uint64, startIndex, size int) (*v1.DequeueMessage, error)) *Location {
+func NewLocation(processCallback func(id uint64, startIndex, size int) (*v1.DequeueMessage, *v1.Error)) *Location {
 	return &Location{
 		process: processCallback,
 	}
 }
 
-func (l *Location) Process() (*v1.DequeueMessage, error) {
+func (l *Location) Process() (*v1.DequeueMessage, *v1.Error) {
 	if l.process == nil {
-		return nil, fmt.Errorf("process is nil")
+		return nil, errors.ProcessNotSet
 	}
 
 	return l.process(l.ID, l.StartIndex, l.Size)

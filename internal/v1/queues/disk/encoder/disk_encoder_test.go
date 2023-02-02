@@ -20,9 +20,9 @@ func TestDiskEncoder_NewDiskEncoder(t *testing.T) {
 		err = os.Mkdir(dir, 0600)
 		g.Expect(err).ToNot(HaveOccurred())
 
-		diskEncoder, err := NewDiskEncoder(dir, []string{"tag"})
-		g.Expect(err).To(HaveOccurred())
-		g.Expect(err.Error()).To(ContainSubstring("Failed to create dir"))
+		diskEncoder, deErr := NewDiskEncoder(dir, []string{"tag"})
+		g.Expect(deErr).To(HaveOccurred())
+		g.Expect(deErr.Error()).To(ContainSubstring("Failed to create dir"))
 		g.Expect(diskEncoder).To(BeNil())
 	})
 
@@ -35,9 +35,9 @@ func TestDiskEncoder_NewDiskEncoder(t *testing.T) {
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(file.Close()).ToNot(HaveOccurred())
 
-		diskEncoder, err := NewDiskEncoder(tmpDir, []string{"tag"})
-		g.Expect(err).To(HaveOccurred())
-		g.Expect(err.Error()).To(ContainSubstring("Path already exists, but is not a directory"))
+		diskEncoder, deErr := NewDiskEncoder(tmpDir, []string{"tag"})
+		g.Expect(deErr).To(HaveOccurred())
+		g.Expect(deErr.Error()).To(ContainSubstring("Path already exists and is not a directory"))
 		g.Expect(diskEncoder).To(BeNil())
 	})
 }
@@ -50,21 +50,17 @@ func TestDiskEncoder_Write(t *testing.T) {
 		g.Expect(err).ToNot(HaveOccurred())
 		defer os.RemoveAll(tmpDir)
 
-		diskEncoder, err := NewDiskEncoder(tmpDir, []string{"tag"})
-		g.Expect(err).ToNot(HaveOccurred())
+		diskEncoder, deErr := NewDiskEncoder(tmpDir, []string{"tag"})
+		g.Expect(deErr).ToNot(HaveOccurred())
 
-		startIndex, size, err := diskEncoder.Write(1, []byte("hello world")) //echo -n "hello world" | base64 -> aGVsbG8gd29ybGQ=
-		g.Expect(err).ToNot(HaveOccurred())
+		startIndex, size, deErr := diskEncoder.Write(1, []byte("hello world")) //echo -n "hello world" | base64 -> aGVsbG8gd29ybGQ=
+		g.Expect(deErr).ToNot(HaveOccurred())
 		g.Expect(startIndex).To(Equal(2))
 		g.Expect(size).To(Equal(16))
 
 		fileData, err := os.ReadFile(filepath.Join(tmpDir, EncodeStrings([]string{"tag"}), "0.idx"))
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(fileData).To(Equal([]byte(`1@aGVsbG8gd29ybGQ=..`))) // record the ID@[base64]..
-
-		fileData, err = os.ReadFile(filepath.Join(tmpDir, EncodeStrings([]string{"tag"}), "0_processing.idx"))
-		g.Expect(err).ToNot(HaveOccurred())
-		g.Expect(fileData).To(Equal([]byte(`P1.`))) // record the ID@[base64]..
 	})
 
 	t.Run("writes multiple calls to disk encoded and in the proper format", func(t *testing.T) {
@@ -72,26 +68,22 @@ func TestDiskEncoder_Write(t *testing.T) {
 		g.Expect(err).ToNot(HaveOccurred())
 		defer os.RemoveAll(tmpDir)
 
-		diskEncoder, err := NewDiskEncoder(tmpDir, []string{"tag"})
-		g.Expect(err).ToNot(HaveOccurred())
+		diskEncoder, deErr := NewDiskEncoder(tmpDir, []string{"tag"})
+		g.Expect(deErr).ToNot(HaveOccurred())
 
-		startIndex, size, err := diskEncoder.Write(1, []byte("hello world")) // echo -n "hello world" | base64 -> aGVsbG8gd29ybGQ=
-		g.Expect(err).ToNot(HaveOccurred())
+		startIndex, size, deErr := diskEncoder.Write(1, []byte("hello world")) // echo -n "hello world" | base64 -> aGVsbG8gd29ybGQ=
+		g.Expect(deErr).ToNot(HaveOccurred())
 		g.Expect(startIndex).To(Equal(2))
 		g.Expect(size).To(Equal(16))
 
-		startIndex, size, err = diskEncoder.Write(2, []byte("second call")) // echo -n "hello world" | base64 -> c2Vjb25kIGNhbGw=
-		g.Expect(err).ToNot(HaveOccurred())
+		startIndex, size, deErr = diskEncoder.Write(2, []byte("second call")) // echo -n "hello world" | base64 -> c2Vjb25kIGNhbGw=
+		g.Expect(deErr).ToNot(HaveOccurred())
 		g.Expect(startIndex).To(Equal(21))
 		g.Expect(size).To(Equal(16))
 
 		fileData, err := os.ReadFile(filepath.Join(tmpDir, EncodeStrings([]string{"tag"}), "0.idx"))
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(fileData).To(Equal([]byte(`1@aGVsbG8gd29ybGQ=.2@c2Vjb25kIGNhbGw=..`)))
-
-		fileData, err = os.ReadFile(filepath.Join(tmpDir, EncodeStrings([]string{"tag"}), "0_processing.idx"))
-		g.Expect(err).ToNot(HaveOccurred())
-		g.Expect(fileData).To(Equal([]byte(`P1.P2.`))) // record the ID@[base64]..
 	})
 
 	t.Run("returns an error if the write fails", func(t *testing.T) {
@@ -99,15 +91,35 @@ func TestDiskEncoder_Write(t *testing.T) {
 		g.Expect(err).ToNot(HaveOccurred())
 		defer os.RemoveAll(tmpDir)
 
-		diskEncoder, err := NewDiskEncoder(tmpDir, []string{"tag"})
-		g.Expect(err).ToNot(HaveOccurred())
+		diskEncoder, deErr := NewDiskEncoder(tmpDir, []string{"tag"})
+		g.Expect(deErr).ToNot(HaveOccurred())
 
 		// close all files for the disk encoder
 		diskEncoder.Close()
 
-		_, _, err = diskEncoder.Write(1, []byte("hello world")) // echo -n "hello world" | base64 -> aGVsbG8gd29ybGQ=
-		g.Expect(err).To(HaveOccurred())
-		g.Expect(err.Error()).To(ContainSubstring("file already closed"))
+		_, _, deErr = diskEncoder.Write(1, []byte("hello world")) // echo -n "hello world" | base64 -> aGVsbG8gd29ybGQ=
+		g.Expect(deErr).To(HaveOccurred())
+		g.Expect(deErr.Error()).To(ContainSubstring("Failed to write data to disk"))
+	})
+}
+
+func TestDiskEncoder_Processing(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	t.Run("records the processing id", func(t *testing.T) {
+		tmpDir, err := os.MkdirTemp("", "")
+		g.Expect(err).ToNot(HaveOccurred())
+		defer os.RemoveAll(tmpDir)
+
+		diskEncoder, deErr := NewDiskEncoder(tmpDir, []string{"tag"})
+		g.Expect(deErr).ToNot(HaveOccurred())
+
+		deErr = diskEncoder.Processing(1)
+		g.Expect(deErr).ToNot(HaveOccurred())
+
+		fileData, err := os.ReadFile(filepath.Join(tmpDir, EncodeStrings([]string{"tag"}), "0_processing.idx"))
+		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(fileData).To(Equal([]byte(`P1.`))) // record the ID@[base64]..
 	})
 }
 
@@ -119,16 +131,16 @@ func TestDiskEncoder_Read(t *testing.T) {
 		g.Expect(err).ToNot(HaveOccurred())
 		defer os.RemoveAll(tmpDir)
 
-		diskEncoder, err := NewDiskEncoder(tmpDir, []string{"tag"})
+		diskEncoder, deErr := NewDiskEncoder(tmpDir, []string{"tag"})
 		g.Expect(err).ToNot(HaveOccurred())
 
-		startIndex, size, err := diskEncoder.Write(1, []byte("hello world")) // echo -n "hello world" | base64 -> aGVsbG8gd29ybGQ=
+		startIndex, size, deErr := diskEncoder.Write(1, []byte("hello world")) // echo -n "hello world" | base64 -> aGVsbG8gd29ybGQ=
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(startIndex).To(Equal(2))
 		g.Expect(size).To(Equal(16))
 
-		data, err := diskEncoder.Read(startIndex, size)
-		g.Expect(err).ToNot(HaveOccurred())
+		data, deErr := diskEncoder.Read(startIndex, size)
+		g.Expect(deErr).ToNot(HaveOccurred())
 		g.Expect(data).To(Equal([]byte(`hello world`)))
 	})
 
@@ -137,7 +149,7 @@ func TestDiskEncoder_Read(t *testing.T) {
 		g.Expect(err).ToNot(HaveOccurred())
 		defer os.RemoveAll(tmpDir)
 
-		diskEncoder, err := NewDiskEncoder(tmpDir, []string{"tag"})
+		diskEncoder, deErr := NewDiskEncoder(tmpDir, []string{"tag"})
 		g.Expect(err).ToNot(HaveOccurred())
 
 		err = os.WriteFile(
@@ -147,9 +159,9 @@ func TestDiskEncoder_Read(t *testing.T) {
 		)
 		g.Expect(err).ToNot(HaveOccurred())
 
-		data, err := diskEncoder.Read(0, 3176)
-		g.Expect(err).To(HaveOccurred())
-		g.Expect(err.Error()).To(ContainSubstring("Failed to read file at start location"))
+		data, deErr := diskEncoder.Read(0, 3176)
+		g.Expect(deErr).To(HaveOccurred())
+		g.Expect(deErr.Error()).To(ContainSubstring("Failed to read data from disk"))
 		g.Expect(data).To(BeNil())
 	})
 
@@ -158,8 +170,8 @@ func TestDiskEncoder_Read(t *testing.T) {
 		g.Expect(err).ToNot(HaveOccurred())
 		defer os.RemoveAll(tmpDir)
 
-		diskEncoder, err := NewDiskEncoder(tmpDir, []string{"tag"})
-		g.Expect(err).ToNot(HaveOccurred())
+		diskEncoder, deErr := NewDiskEncoder(tmpDir, []string{"tag"})
+		g.Expect(deErr).ToNot(HaveOccurred())
 
 		err = os.WriteFile(
 			filepath.Join(tmpDir, EncodeStrings([]string{"tag"}), "0.idx"),
@@ -168,9 +180,9 @@ func TestDiskEncoder_Read(t *testing.T) {
 		)
 		g.Expect(err).ToNot(HaveOccurred())
 
-		data, err := diskEncoder.Read(0, 16)
-		g.Expect(err).To(HaveOccurred())
-		g.Expect(err.Error()).To(ContainSubstring("Failed to decode file at start location"))
+		data, deErr := diskEncoder.Read(0, 16)
+		g.Expect(deErr).To(HaveOccurred())
+		g.Expect(deErr.Error()).To(ContainSubstring("Failed to decode data from disk"))
 		g.Expect(data).To(BeNil())
 	})
 }

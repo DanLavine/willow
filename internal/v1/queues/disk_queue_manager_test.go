@@ -102,9 +102,9 @@ func TestDiskQueueManager_Enqueue(t *testing.T) {
 		defer os.RemoveAll(testDir)
 
 		dqm := NewDiskQueueManager(testDir)
-		err = dqm.Enqueue([]byte(`data`), false, []string{"tag1"})
-		g.Expect(err).To(HaveOccurred())
-		g.Expect(err.Error()).To(Equal("Failed to find queue"))
+		enqueueErr := dqm.Enqueue([]byte(`data`), false, []string{"tag1"})
+		g.Expect(enqueueErr).To(HaveOccurred())
+		g.Expect(enqueueErr.Error()).To(ContainSubstring("Queue not found"))
 	})
 }
 
@@ -121,8 +121,9 @@ func TestDiskQueueManager_Message(t *testing.T) {
 			defer cancel()
 
 			dqm := NewDiskQueueManager(testDir)
-			dequeueMessage, err := dqm.Message(ctx, v1.STRICT, []string{"tag1"})
-			g.Expect(err).To(HaveOccurred())
+			dequeueMessage, messageErr := dqm.Message(ctx, v1.STRICT, []string{"tag1"})
+			g.Expect(messageErr).To(HaveOccurred())
+			g.Expect(messageErr.Error()).To(ContainSubstring("Queue not found"))
 			g.Expect(dequeueMessage).To(BeNil())
 		})
 
@@ -166,13 +167,13 @@ func TestDiskQueueManager_Message(t *testing.T) {
 			g.Expect(dqm.Create([]string{"tag1"})).ToNot(HaveOccurred())
 
 			var dequeueMessage *v1.DequeueMessage
+			var messageErr *v1.Error
 			g.Eventually(func() bool {
-				dequeueMessage, err = dqm.Message(ctx, v1.STRICT, []string{"tag1"})
+				dequeueMessage, messageErr = dqm.Message(ctx, v1.STRICT, []string{"tag1"})
 				return true
 			}).Should(BeTrue())
 
-			g.Expect(err).ToNot(BeNil())
-			g.Expect(err.Error()).To(Equal("Context was canceled"))
+			g.Expect(messageErr).To(BeNil())
 			g.Expect(dequeueMessage).To(BeNil())
 		})
 
@@ -191,11 +192,12 @@ func TestDiskQueueManager_Message(t *testing.T) {
 
 			ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(time.Second))
 			var dequeueMessage *v1.DequeueMessage
+			var messageErr *v1.Error
 			g.Eventually(func() bool {
 				reader := make(chan struct{})
 
 				go func() {
-					dequeueMessage, err = dqm.Message(ctx, v1.STRICT, []string{"tag1"})
+					dequeueMessage, messageErr = dqm.Message(ctx, v1.STRICT, []string{"tag1"})
 					close(reader)
 				}()
 
@@ -208,7 +210,7 @@ func TestDiskQueueManager_Message(t *testing.T) {
 			}, time.Second, 100*time.Millisecond, ctx).Should(BeTrue())
 			cancel()
 
-			g.Expect(err).ToNot(HaveOccurred())
+			g.Expect(messageErr).ToNot(HaveOccurred())
 			g.Expect(dequeueMessage.ID).To(Equal(uint64(1)))
 			g.Expect(dequeueMessage.BrokerTags).To(Equal([]string{"tag1"}))
 			g.Expect(dequeueMessage.Data).To(Equal([]byte(`tag1 data`)))
@@ -254,13 +256,13 @@ func TestDiskQueueManager_Message(t *testing.T) {
 			g.Expect(dqm.Create([]string{"tag1"})).ToNot(HaveOccurred())
 
 			var dequeueMessage *v1.DequeueMessage
+			var messageErr *v1.Error
 			g.Eventually(func() bool {
-				dequeueMessage, err = dqm.Message(ctx, v1.STRICT, []string{"tag1"})
+				dequeueMessage, messageErr = dqm.Message(ctx, v1.STRICT, []string{"tag1"})
 				return true
 			}).Should(BeTrue())
 
-			g.Expect(err).ToNot(BeNil())
-			g.Expect(err.Error()).To(Equal("Context was canceled"))
+			g.Expect(messageErr).To(BeNil())
 			g.Expect(dequeueMessage).To(BeNil())
 		})
 
@@ -275,11 +277,12 @@ func TestDiskQueueManager_Message(t *testing.T) {
 
 			ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(time.Second))
 			var dequeueMessage *v1.DequeueMessage
+			var messageErr *v1.Error
 			g.Eventually(func() bool {
 				reader := make(chan struct{})
 
 				go func() {
-					dequeueMessage, err = dqm.Message(ctx, v1.SUBSET, []string{"a", "b"})
+					dequeueMessage, messageErr = dqm.Message(ctx, v1.SUBSET, []string{"a", "b"})
 					close(reader)
 				}()
 
@@ -292,7 +295,7 @@ func TestDiskQueueManager_Message(t *testing.T) {
 			}, time.Second, 100*time.Millisecond, ctx).Should(BeTrue())
 			cancel()
 
-			g.Expect(err).ToNot(HaveOccurred())
+			g.Expect(messageErr).ToNot(HaveOccurred())
 			g.Expect(dequeueMessage.ID).To(Equal(uint64(1)))
 			g.Expect(dequeueMessage.BrokerTags).To(Equal([]string{"a", "b", "c", "d"}))
 			g.Expect(dequeueMessage.Data).To(Equal([]byte(`hello`)))
@@ -340,13 +343,13 @@ func TestDiskQueueManager_Message(t *testing.T) {
 			g.Expect(dqm.Create([]string{"blam"})).ToNot(HaveOccurred())
 
 			var dequeueMessage *v1.DequeueMessage
+			var messageErr *v1.Error
 			g.Eventually(func() bool {
-				dequeueMessage, err = dqm.Message(ctx, v1.ANY, []string{"blam"})
+				dequeueMessage, messageErr = dqm.Message(ctx, v1.ANY, []string{"blam"})
 				return true
 			}).Should(BeTrue())
 
-			g.Expect(err).ToNot(BeNil())
-			g.Expect(err.Error()).To(Equal("Context was canceled"))
+			g.Expect(messageErr).ToNot(BeNil())
 			g.Expect(dequeueMessage).To(BeNil())
 		})
 
@@ -363,11 +366,12 @@ func TestDiskQueueManager_Message(t *testing.T) {
 
 			ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(time.Second))
 			var dequeueMessage *v1.DequeueMessage
+			var messageErr *v1.Error
 			g.Eventually(func() bool {
 				reader := make(chan struct{})
 
 				go func() {
-					dequeueMessage, err = dqm.Message(ctx, v1.ANY, []string{"c"})
+					dequeueMessage, messageErr = dqm.Message(ctx, v1.ANY, []string{"c"})
 					close(reader)
 				}()
 
@@ -380,7 +384,7 @@ func TestDiskQueueManager_Message(t *testing.T) {
 			}, time.Second, 100*time.Millisecond, ctx).Should(BeTrue())
 			cancel()
 
-			g.Expect(err).ToNot(HaveOccurred())
+			g.Expect(messageErr).ToNot(HaveOccurred())
 			g.Expect(dequeueMessage.ID).To(Equal(uint64(1)))
 			g.Expect(dequeueMessage.BrokerTags).To(Equal([]string{"a", "b", "c"}))
 			g.Expect(dequeueMessage.Data).To(Equal([]byte(`hello`)))

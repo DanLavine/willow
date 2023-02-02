@@ -20,9 +20,9 @@ func TestQueue_NewDiskQueue(t *testing.T) {
 		g.Expect(err).ToNot(HaveOccurred())
 		defer os.RemoveAll(testDir)
 
-		dq, err := NewDiskQueue(testDir, []string{}, nil)
-		g.Expect(err).To(HaveOccurred())
-		g.Expect(err.Error()).To(Equal("received empty readers"))
+		dq, dqErr := NewDiskQueue(testDir, []string{}, nil)
+		g.Expect(dqErr).To(HaveOccurred())
+		g.Expect(dqErr.Error()).To(ContainSubstring("No readers received"))
 		g.Expect(dq).To(BeNil())
 	})
 
@@ -31,9 +31,9 @@ func TestQueue_NewDiskQueue(t *testing.T) {
 		g.Expect(err).ToNot(HaveOccurred())
 		defer os.RemoveAll(testDir)
 
-		dq, err := NewDiskQueue(testDir, []string{}, []chan *models.Location{make(chan *models.Location), nil})
-		g.Expect(err).To(HaveOccurred())
-		g.Expect(err.Error()).To(Equal("received an empty reader"))
+		dq, dqErr := NewDiskQueue(testDir, []string{}, []chan *models.Location{make(chan *models.Location), nil})
+		g.Expect(dqErr).To(HaveOccurred())
+		g.Expect(dqErr.Error()).To(ContainSubstring("Null reader received"))
 		g.Expect(dq).To(BeNil())
 	})
 
@@ -42,8 +42,8 @@ func TestQueue_NewDiskQueue(t *testing.T) {
 		g.Expect(err).ToNot(HaveOccurred())
 		reader := []chan *models.Location{make(chan *models.Location)}
 
-		dq, err := NewDiskQueue(testDir, []string{"tags1"}, reader)
-		g.Expect(err).ToNot(HaveOccurred())
+		dq, dqErr := NewDiskQueue(testDir, []string{"tags1"}, reader)
+		g.Expect(dqErr).ToNot(HaveOccurred())
 		g.Expect(dq).ToNot(BeNil())
 
 		defer func() {
@@ -73,8 +73,8 @@ func TestQueue_NewDiskQueue(t *testing.T) {
 		g.Expect(err).ToNot(HaveOccurred())
 		reader := []chan *models.Location{make(chan *models.Location)}
 
-		dq, err := NewDiskQueue(testDir, nil, reader)
-		g.Expect(err).ToNot(HaveOccurred())
+		dq, dqErr := NewDiskQueue(testDir, nil, reader)
+		g.Expect(dqErr).ToNot(HaveOccurred())
 		g.Expect(dq).ToNot(BeNil())
 
 		g.Eventually(dq.Drain()).Should(BeClosed())
@@ -87,8 +87,8 @@ func TestQueue_NewDiskQueue(t *testing.T) {
 		g.Expect(err).ToNot(HaveOccurred())
 		reader := []chan *models.Location{make(chan *models.Location)}
 
-		dq, err := NewDiskQueue(testDir, []string{}, reader)
-		g.Expect(err).ToNot(HaveOccurred())
+		dq, dqErr := NewDiskQueue(testDir, []string{}, reader)
+		g.Expect(dqErr).ToNot(HaveOccurred())
 		g.Expect(dq).ToNot(BeNil())
 
 		g.Eventually(dq.Drain()).Should(BeClosed())
@@ -101,8 +101,8 @@ func TestQueue_NewDiskQueue(t *testing.T) {
 		g.Expect(err).ToNot(HaveOccurred())
 		reader := []chan *models.Location{make(chan *models.Location)}
 
-		dq, err := NewDiskQueue(testDir, []string{"tag1", "tag2"}, reader)
-		g.Expect(err).ToNot(HaveOccurred())
+		dq, dqErr := NewDiskQueue(testDir, []string{"tag1", "tag2"}, reader)
+		g.Expect(dqErr).ToNot(HaveOccurred())
 		g.Expect(dq).ToNot(BeNil())
 
 		defer func() {
@@ -126,8 +126,8 @@ func TestQueue_Enqueueue(t *testing.T) {
 		g.Expect(err).ToNot(HaveOccurred())
 		reader := []chan *models.Location{make(chan *models.Location)}
 
-		dq, err := NewDiskQueue(testDir, []string{"tag1", "tag2"}, reader)
-		g.Expect(err).ToNot(HaveOccurred())
+		dq, dqErr := NewDiskQueue(testDir, []string{"tag1", "tag2"}, reader)
+		g.Expect(dqErr).ToNot(HaveOccurred())
 		g.Expect(dq).ToNot(BeNil())
 
 		defer func() {
@@ -153,8 +153,8 @@ func TestQueue_Enqueueue(t *testing.T) {
 		reader := make(chan *models.Location)
 		readers := []chan *models.Location{reader}
 
-		dq, err := NewDiskQueue(testDir, []string{"tag1", "tag2"}, readers)
-		g.Expect(err).ToNot(HaveOccurred())
+		dq, dqErr := NewDiskQueue(testDir, []string{"tag1", "tag2"}, readers)
+		g.Expect(dqErr).ToNot(HaveOccurred())
 		g.Expect(dq).ToNot(BeNil())
 
 		defer func() {
@@ -185,8 +185,8 @@ func TestQueue_Enqueueue(t *testing.T) {
 		reader := make(chan *models.Location)
 		readers := []chan *models.Location{reader}
 
-		dq, err := NewDiskQueue(testDir, []string{}, readers)
-		g.Expect(err).ToNot(HaveOccurred())
+		dq, dqErr := NewDiskQueue(testDir, []string{}, readers)
+		g.Expect(dqErr).ToNot(HaveOccurred())
 		g.Expect(dq).ToNot(BeNil())
 
 		defer func() {
@@ -210,8 +210,8 @@ func TestQueue_Enqueueue(t *testing.T) {
 		}, time.Second, 100*time.Millisecond, cdl).ShouldNot(BeNil())
 		cancel()
 
-		dequeueMessage, err := location.Process()
-		g.Expect(err).ToNot(HaveOccurred())
+		dequeueMessage, locationErr := location.Process()
+		g.Expect(locationErr).ToNot(HaveOccurred())
 		g.Expect(dequeueMessage.Data).To(Equal([]byte(`first`)))
 
 		cdl, cancel = context.WithDeadline(context.Background(), time.Now().Add(time.Second))
@@ -225,8 +225,8 @@ func TestQueue_Enqueueue(t *testing.T) {
 		}, time.Second, 100*time.Millisecond, cdl).ShouldNot(BeNil())
 		cancel()
 
-		dequeueMessage, err = location.Process()
-		g.Expect(err).ToNot(HaveOccurred())
+		dequeueMessage, locationErr = location.Process()
+		g.Expect(locationErr).ToNot(HaveOccurred())
 		g.Expect(dequeueMessage.Data).To(Equal([]byte(`second`)))
 	})
 
@@ -236,8 +236,8 @@ func TestQueue_Enqueueue(t *testing.T) {
 		reader := make(chan *models.Location)
 		readers := []chan *models.Location{reader}
 
-		dq, err := NewDiskQueue(testDir, []string{"tag1", "tag2"}, readers)
-		g.Expect(err).ToNot(HaveOccurred())
+		dq, dqErr := NewDiskQueue(testDir, []string{"tag1", "tag2"}, readers)
+		g.Expect(dqErr).ToNot(HaveOccurred())
 		g.Expect(dq).ToNot(BeNil())
 
 		defer func() {
@@ -261,8 +261,8 @@ func TestQueue_Enqueueue(t *testing.T) {
 			return location
 		}, time.Second, 100*time.Millisecond, context).ShouldNot(BeNil())
 
-		_, err = location.Process()
-		g.Expect(err).ToNot(HaveOccurred())
+		_, locationErr := location.Process()
+		g.Expect(locationErr).ToNot(HaveOccurred())
 
 		metrics := dq.Metrics()
 		g.Expect(metrics.Ready).To(Equal(uint64(0)))

@@ -7,6 +7,7 @@ import (
 	"sort"
 	"sync"
 
+	"github.com/DanLavine/willow/internal/errors"
 	"github.com/DanLavine/willow/internal/v1/models"
 	"github.com/DanLavine/willow/internal/v1/queues/disk"
 	v1 "github.com/DanLavine/willow/pkg/models/v1"
@@ -45,7 +46,7 @@ func NewDiskQueueManager(baseDir string) *DiskQueueManager {
 
 // Create a new queue for a specific tag. If the queue and tag already exists
 // this returns nil and is a NO-OP
-func (dqm *DiskQueueManager) Create(queueTags []string) error {
+func (dqm *DiskQueueManager) Create(queueTags []string) *v1.Error {
 	sort.Strings(queueTags)
 
 	// if queue already exist, just return
@@ -73,7 +74,7 @@ func (dqm *DiskQueueManager) Create(queueTags []string) error {
 
 // Enqueue a new massage to a queue
 // TODO: actually use updateable
-func (dqm *DiskQueueManager) Enqueue(data []byte, updateable bool, queueTags []string) error {
+func (dqm *DiskQueueManager) Enqueue(data []byte, updateable bool, queueTags []string) *v1.Error {
 	taggedQueue, err := dqm.getDiskQueue(queueTags)
 	if err != nil {
 		return err
@@ -84,7 +85,7 @@ func (dqm *DiskQueueManager) Enqueue(data []byte, updateable bool, queueTags []s
 
 // Blocking operation to retrieve a message for any given queue and the tags
 // Empty tags means to read from all avilable tags
-func (dqm *DiskQueueManager) Message(ctx context.Context, matchRestriction v1.MatchRestriction, queueTags []string) (*v1.DequeueMessage, error) {
+func (dqm *DiskQueueManager) Message(ctx context.Context, matchRestriction v1.MatchRestriction, queueTags []string) (*v1.DequeueMessage, *v1.Error) {
 	switch matchRestriction {
 	case v1.STRICT: // only sstrict returns if there is no queue available
 		taggedQueue, err := dqm.getDiskQueue(queueTags)
@@ -94,14 +95,14 @@ func (dqm *DiskQueueManager) Message(ctx context.Context, matchRestriction v1.Ma
 
 		select {
 		case <-ctx.Done(): // client has dissconnected
-			return nil, fmt.Errorf("Context was canceled")
+			return nil, nil
 		case location, ok := <-taggedQueue.reader:
 			if ok {
 				return location.Process()
 			}
 
 			// happens on close or drain
-			return nil, fmt.Errorf("closed")
+			return nil, errors.ServerShutdown
 		}
 	case v1.SUBSET:
 		dqm.lock.RLock()
@@ -110,14 +111,14 @@ func (dqm *DiskQueueManager) Message(ctx context.Context, matchRestriction v1.Ma
 
 		select {
 		case <-ctx.Done(): // client has dissconnected
-			return nil, fmt.Errorf("Context was canceled")
+			return nil, nil
 		case location, ok := <-reader:
 			if ok {
 				return location.Process()
 			}
 
 			// happens on close or drain
-			return nil, fmt.Errorf("closed")
+			return nil, errors.ServerShutdown
 		}
 	case v1.ANY:
 		dqm.lock.RLock()
@@ -125,7 +126,7 @@ func (dqm *DiskQueueManager) Message(ctx context.Context, matchRestriction v1.Ma
 		dqm.lock.RUnlock()
 
 		if len(readers) == 0 {
-			return nil, fmt.Errorf("no queues exist with that tag")
+			return nil, errors.QueueNotFound.With("any queues to already be created with provided tags", "")
 		}
 
 		selectCases := []reflect.SelectCase{{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(ctx.Done())}}
@@ -135,11 +136,9 @@ func (dqm *DiskQueueManager) Message(ctx context.Context, matchRestriction v1.Ma
 
 		index, val, _ := reflect.Select(selectCases)
 		if index == 0 {
-			return nil, fmt.Errorf("Context was canceled")
+			return nil, errors.ServerShutdown
 		}
 
-		fmt.Printf("index: %#v\n", index)
-		fmt.Printf("%#v\n", val.Interface())
 		return val.Interface().(*models.Location).Process()
 	case v1.ALL:
 		dqm.lock.RLock()
@@ -148,23 +147,23 @@ func (dqm *DiskQueueManager) Message(ctx context.Context, matchRestriction v1.Ma
 
 		select {
 		case <-ctx.Done(): // client has dissconnected
-			return nil, fmt.Errorf("Conext was canceled")
+			return nil, nil
 		case location, ok := <-globalReader:
 			if ok {
 				return location.Process()
 			}
 
 			// happens on close or drain
-			return nil, fmt.Errorf("closed")
+			return nil, errors.ServerShutdown
 		}
 	}
 
-	return nil, fmt.Errorf("not implemented")
+	return nil, errors.MessageTypeNotSupported
 }
 
 // ACK a message for a particular id and tag
 // TODO actually use the passed bool
-func (dqm *DiskQueueManager) ACK(id uint64, passed bool, queueTags []string) error {
+func (dqm *DiskQueueManager) ACK(id uint64, passed bool, queueTags []string) *v1.Error {
 	sort.Strings(queueTags)
 
 	taggedQueue, err := dqm.getDiskQueue(queueTags)
@@ -194,7 +193,7 @@ func (dqm *DiskQueueManager) Metrics() *v1.Metrics {
 	return metrics
 }
 
-func (dqm *DiskQueueManager) getDiskQueue(queueTags []string) (*taggedQueue, error) {
+func (dqm *DiskQueueManager) getDiskQueue(queueTags []string) (*taggedQueue, *v1.Error) {
 	dqm.lock.RLock()
 	defer dqm.lock.RUnlock()
 
@@ -204,5 +203,15 @@ func (dqm *DiskQueueManager) getDiskQueue(queueTags []string) (*taggedQueue, err
 		}
 	}
 
-	return nil, fmt.Errorf("Failed to find queue")
+	tagsString := "["
+	for index, tag := range queueTags {
+		if index != 0 {
+			tagsString = fmt.Sprintf("%s, ", tagsString)
+		}
+
+		tagsString = fmt.Sprintf("%s'%s'", tagsString, tag)
+	}
+	tagsString = fmt.Sprintf("%s]", tagsString)
+
+	return nil, errors.QueueNotFound.With(fmt.Sprintf("Tags %s to have a queue associated", tagsString), "")
 }

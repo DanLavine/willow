@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/DanLavine/gonotify"
+	"github.com/DanLavine/willow/internal/errors"
 	"github.com/DanLavine/willow/internal/v1/models"
 	"github.com/DanLavine/willow/internal/v1/queues/disk/encoder"
 	"github.com/DanLavine/willow/internal/v1/queues/disk/itemtracker"
@@ -50,14 +51,14 @@ type DiskQueue struct {
 // 1. Timeout length
 // 2. Retry Count
 
-func NewDiskQueue(baseDir string, queueTags []string, readers []chan *models.Location) (*DiskQueue, error) {
+func NewDiskQueue(baseDir string, queueTags []string, readers []chan *models.Location) (*DiskQueue, *v1.Error) {
 	if len(readers) == 0 {
-		return nil, fmt.Errorf("received empty readers")
+		return nil, errors.NoReaders
 	}
 
 	for _, reader := range readers {
 		if reader == nil {
-			return nil, fmt.Errorf("received an empty reader")
+			return nil, errors.NullReader
 		}
 	}
 
@@ -152,19 +153,22 @@ func (dq *DiskQueue) nextItem(readers []chan *models.Location) {
 	}
 }
 
-func (dq *DiskQueue) processing(id uint64, startIndex, size int) (*v1.DequeueMessage, error) {
+func (dq *DiskQueue) processing(id uint64, startIndex, size int) (*v1.DequeueMessage, *v1.Error) {
 	dq.lock.Lock()
 	defer dq.lock.Unlock()
-
-	// update ready count
-	dq.readyCount--
 
 	data, err := dq.diskEncoder.Read(startIndex, size)
 	if err != nil {
 		return nil, err
 	}
 
-	// update processing count
+	err = dq.diskEncoder.Processing(id)
+	if err != nil {
+		return nil, err
+	}
+
+	// update processing counts
+	dq.readyCount--
 	dq.processingCount++
 
 	return &v1.DequeueMessage{
@@ -174,7 +178,7 @@ func (dq *DiskQueue) processing(id uint64, startIndex, size int) (*v1.DequeueMes
 	}, nil
 }
 
-func (dq *DiskQueue) Enqueue(item []byte) error {
+func (dq *DiskQueue) Enqueue(item []byte) *v1.Error {
 	dq.lock.Lock()
 	defer dq.lock.Unlock()
 
@@ -183,7 +187,7 @@ func (dq *DiskQueue) Enqueue(item []byte) error {
 	location.ID = dq.itemTracker.Add(location)
 
 	// write to file the data to encode
-	var err error
+	var err *v1.Error
 	location.StartIndex, location.Size, err = dq.diskEncoder.Write(location.ID, item)
 	if err != nil {
 		// on a failure, the entire queue is going to close since something is corrupted. So remove the item from tracking anyways
@@ -202,13 +206,13 @@ func (dq *DiskQueue) Enqueue(item []byte) error {
 	return nil
 }
 
-func (dq *DiskQueue) ACK(id uint64) error {
+func (dq *DiskQueue) ACK(id uint64) *v1.Error {
 	dq.lock.Lock()
 	defer dq.lock.Unlock()
 
 	item := dq.itemTracker.Get(id)
 	if item == nil {
-		return fmt.Errorf("Failed to find item to ACK")
+		return errors.ItemNotfound
 	}
 
 	location := item.(*models.Location)

@@ -58,7 +58,7 @@ func (qh *queueHandler) Create(w http.ResponseWriter, r *http.Request) {
 			// never seen this actualy fail, so just ignore it for now
 			errResp, _ := json.Marshal(v1.Error{Message: err.Error()})
 
-			w.WriteHeader(http.StatusInternalServerError)
+			w.WriteHeader(http.StatusBadRequest)
 			w.Write(errResp)
 			return
 		}
@@ -67,7 +67,7 @@ func (qh *queueHandler) Create(w http.ResponseWriter, r *http.Request) {
 			logger.Error("failed creating queue", zap.Error(createErr))
 			errResp, _ := json.Marshal(createErr)
 
-			w.WriteHeader(http.StatusInternalServerError)
+			w.WriteHeader(createErr.StatusCode)
 			w.Write(errResp)
 			return
 		}

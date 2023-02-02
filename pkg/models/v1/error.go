@@ -10,25 +10,26 @@ type Error struct {
 	StatusCode int
 }
 
-func (e *Error) Expected(expected string) *Error {
-	e.expected = expected
-	return e
-}
+func (e *Error) With(expected, actual string) *Error {
+	newErr := &Error{
+		Message:    e.Message,
+		expected:   expected,
+		actual:     actual,
+		StatusCode: e.StatusCode,
+	}
 
-func (e *Error) Actual(actual string) *Error {
-	e.actual = actual
-	return e
+	return newErr
 }
 
 func (e *Error) Error() string {
 	err := e.Message
 
 	if e.expected != "" {
-		err = fmt.Sprintf("%s Expected '%s'.", err, e.expected)
+		err = fmt.Sprintf("%s Expected %s.", err, e.expected)
 	}
 
 	if e.actual != "" {
-		err = fmt.Sprintf("%s Actual '%s'.", err, e.actual)
+		err = fmt.Sprintf("%s Actual %s.", err, e.actual)
 	}
 
 	return err
