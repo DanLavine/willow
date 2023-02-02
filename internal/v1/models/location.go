@@ -16,7 +16,10 @@ type Location struct {
 	Size int
 
 	// number of times this location has been retried
-	RetryCount int
+	RetryCount uint64
+
+	// used to know if an item has actually started processing
+	processing bool
 
 	// Callback to set processing for the element
 	process func(id uint64, sartIndex, size int) (*v1.DequeueMessage, *v1.Error)
@@ -33,5 +36,10 @@ func (l *Location) Process() (*v1.DequeueMessage, *v1.Error) {
 		return nil, errors.ProcessNotSet
 	}
 
+	l.processing = true
 	return l.process(l.ID, l.StartIndex, l.Size)
+}
+
+func (l *Location) Processing() bool {
+	return l.processing
 }

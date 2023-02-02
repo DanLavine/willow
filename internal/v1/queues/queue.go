@@ -27,7 +27,7 @@ type Queue interface {
 	// * error - any errors with enquing the data
 	Enqueue(data []byte, updateable bool, queueTags []string) *v1.Error
 
-	// Retrieve a message from a particular queue. This is a blocking operation
+	// Retrieve the next item from a particular queue. This is a blocking operation
 	//
 	// PARAMS:
 	// * ctx - context that can be used to cancel waiting for a message
@@ -37,7 +37,7 @@ type Queue interface {
 	// RETURNS:
 	// * DequeueMessage - message that contains relivent info to process from the client and respond wif the message finished processing
 	// * error - any errors with enquing the data
-	Message(ctx context.Context, matchRestriction v1.MatchRestriction, queueTags []string) (*v1.DequeueMessage, *v1.Error)
+	Item(ctx context.Context, matchRestriction v1.MatchRestriction, queueTags []string) (*v1.DequeueMessage, *v1.Error)
 
 	// Respond to a processing message for the client.
 	//

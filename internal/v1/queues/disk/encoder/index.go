@@ -32,7 +32,7 @@ func newIndex(fileName string) (*index, *v1.Error) {
 	}, nil
 }
 
-// Write writes data to disk at the end of the file and updates the last index counters
+// Writes data to disk at the end of the file and updates the last index counters
 //
 // RETURNS:
 // * int - start location on disk where the write happend

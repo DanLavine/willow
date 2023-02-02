@@ -2,7 +2,6 @@ package v1server
 
 import (
 	"encoding/json"
-	"io"
 	"net/http"
 
 	"github.com/DanLavine/willow/internal/logger"
@@ -13,7 +12,6 @@ import (
 
 type QueueHandler interface {
 	Create(w http.ResponseWriter, r *http.Request)
-
 	Message(w http.ResponseWriter, r *http.Request)
 	RetrieveMessage(w http.ResponseWriter, r *http.Request)
 	ACK(w http.ResponseWriter, r *http.Request)
@@ -22,13 +20,13 @@ type QueueHandler interface {
 type queueHandler struct {
 	logger *zap.Logger
 
-	deadLetterQueue queues.Queue
+	queueManager queues.QueueManager
 }
 
-func NewQueueHandler(logger *zap.Logger, deadLetterQueue queues.Queue) *queueHandler {
+func NewQueueHandler(logger *zap.Logger, queueManager queues.QueueManager) *queueHandler {
 	return &queueHandler{
-		logger:          logger,
-		deadLetterQueue: deadLetterQueue,
+		logger:       logger,
+		queueManager: queueManager,
 	}
 }
 
@@ -39,31 +37,16 @@ func (qh *queueHandler) Create(w http.ResponseWriter, r *http.Request) {
 	case "POST":
 		logger.Debug("processing create queue request")
 
-		createRequestBody, err := io.ReadAll(r.Body)
+		createRequest, err := v1.ParseCreateRequest(r.Body)
 		if err != nil {
-			logger.Error("failed reading request", zap.Error(err))
-
-			// never seen this actualy fail, so just ignore it for now
-			errResp, _ := json.Marshal(v1.Error{Message: err.Error()})
-
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write(errResp)
-			return
-		}
-
-		createRequest := &v1.Create{}
-		if err = json.Unmarshal(createRequestBody, createRequest); err != nil {
 			logger.Error("failed parsing request", zap.Error(err))
 
-			// never seen this actualy fail, so just ignore it for now
-			errResp, _ := json.Marshal(v1.Error{Message: err.Error()})
-
-			w.WriteHeader(http.StatusBadRequest)
-			w.Write(errResp)
+			w.WriteHeader(err.StatusCode)
+			w.Write([]byte(err.Error()))
 			return
 		}
 
-		if createErr := qh.deadLetterQueue.Create(createRequest.BrokerTags); createErr != nil {
+		if createErr := qh.queueManager.Create(createRequest); createErr != nil {
 			logger.Error("failed creating queue", zap.Error(createErr))
 			errResp, _ := json.Marshal(createErr)
 

@@ -13,9 +13,10 @@ var (
 	PathAlreadyExists = &v1.Error{Message: "Path already exists and is not a directory.", StatusCode: http.StatusInternalServerError}
 
 	// errors for actual files
-	FailedToCreateQueueFile  = &v1.Error{Message: "Failed to create queue file.", StatusCode: http.StatusInternalServerError}
-	FailedToCreateStateFile  = &v1.Error{Message: "Failed to create state file.", StatusCode: http.StatusInternalServerError}
-	FailedToCreateUpdateFile = &v1.Error{Message: "Failed to create update file.", StatusCode: http.StatusInternalServerError}
+	FailedToCreateQueueFile      = &v1.Error{Message: "Failed to create queue file.", StatusCode: http.StatusInternalServerError}
+	FailedToCreateDeadLetterFile = &v1.Error{Message: "Failed to create dead letter file.", StatusCode: http.StatusInternalServerError}
+	FailedToCreateStateFile      = &v1.Error{Message: "Failed to create state file.", StatusCode: http.StatusInternalServerError}
+	FailedToCreateUpdateFile     = &v1.Error{Message: "Failed to create update file.", StatusCode: http.StatusInternalServerError}
 
 	// encode errors
 	WriteFailed  = &v1.Error{Message: "Failed to write data to disk.", StatusCode: http.StatusInternalServerError}
@@ -24,4 +25,7 @@ var (
 	// decode errors
 	ReadFailed   = &v1.Error{Message: "Failed to read data from disk.", StatusCode: http.StatusInternalServerError}
 	DecodeFailed = &v1.Error{Message: "Failed to decode data from disk.", StatusCode: http.StatusInternalServerError}
+
+	// cleanup errors
+	TruncateError = &v1.Error{Message: "Failed to truncate error.", StatusCode: http.StatusInternalServerError}
 )

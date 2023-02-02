@@ -15,34 +15,38 @@ import (
 )
 
 func main() {
-	config := config.Default()
-	if err := config.Parse(); err != nil {
+	cfg := config.Default()
+	if err := cfg.Parse(); err != nil {
+		log.Fatal(err)
+	}
+	if err := cfg.Validate(); err != nil {
 		log.Fatal(err)
 	}
 
-	loger := logger.NewZapLogger(config)
-	defer loger.Sync()
+	logger := logger.NewZapLogger(cfg)
+	defer logger.Sync()
 
 	// setup dead letter queue
-	var deadLetterQueue queues.Queue
+	var queueManager queues.QueueManager
 
-	switch config.StorageType {
-	case config.StorageType:
-		deadLetterQueue = queues.NewDiskQueueManager(config.DiskStorageDir)
+	switch cfg.ConfigQueue.StorageType {
+	case config.DiskStorage:
+		queueManager = queues.NewDiskQueueManager(cfg.ConfigQueue)
 	}
 
 	// v1 apis
-	v1QueueServer := v1server.NewQueueHandler(loger, deadLetterQueue)
+	v1QueueServer := v1server.NewQueueHandler(logger, queueManager)
+	v1MetricsServer := v1server.NewMetricsHandler(logger, queueManager)
 
 	// setup async handlers
 	taskManager := goasync.NewTaskManager(goasync.StrictConfig())
-	taskManager.AddTask("metrics_server", server.NewAdmin(loger, config, deadLetterQueue))
-	taskManager.AddTask("tcp_server", server.NewTCP(loger, config, v1QueueServer))
+	taskManager.AddTask("metrics_server", server.NewMetrics(logger, cfg, v1MetricsServer))
+	taskManager.AddTask("tcp_server", server.NewTCP(logger, cfg, v1QueueServer))
 
 	shutdown, _ := signal.NotifyContext(context.Background(), syscall.SIGINT)
 	if errs := taskManager.Run(shutdown); errs != nil {
 		log.Fatal("Failed runnng willow cleanly: ", errs)
 	}
 
-	loger.Info("Successfully shutdown")
+	logger.Info("Successfully shutdown")
 }

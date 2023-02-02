@@ -3,7 +3,6 @@ package testhelpers
 import (
 	"bytes"
 	"crypto/tls"
-	"fmt"
 	"net"
 	"net/http"
 	"os"
@@ -83,7 +82,6 @@ func (itc *IntegrationTestConstruct) Shutdown(g *gomega.WithT) {
 	err := itc.ServerExe.Process.Signal(os.Interrupt)
 	g.Expect(err).ToNot(HaveOccurred())
 
-	fmt.Println(itc.ServerStdout.String())
 	g.Eventually(func() int {
 		processState, _ := itc.ServerExe.Process.Wait()
 		return processState.ExitCode()

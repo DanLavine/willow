@@ -401,65 +401,20 @@ func TestACK(t *testing.T) {
 		defer os.RemoveAll(testDir)
 
 		dqm := NewDiskQueueManager(testDir)
-		g.Expect(dqm.ACK(0, true, []string{"tag1"})).To(HaveOccurred())
+		g.Expect(dqm.ACK(0, []string{"tag1"}, true)).To(HaveOccurred())
 	})
 
-	t.Run("it returns an erro if the message is not yet processing", func(t *testing.T) {
+	t.Run("it returns an error if the message is not yet processing", func(t *testing.T) {
 		testDir, err := os.MkdirTemp("", "")
 		g.Expect(err).ToNot(HaveOccurred())
 		defer os.RemoveAll(testDir)
 
 		dqm := NewDiskQueueManager(testDir)
 		g.Expect(dqm.Create([]string{"tag1"})).ToNot(HaveOccurred())
-		g.Expect(dqm.Enqueue([]byte(`data-tag1`), false, []string{"tag1"})).ToNot(HaveOccurred())
+		g.Expect(dqm.Enqueue([]byte(`data-tag1`), []string{"tag1"}, false)).ToNot(HaveOccurred())
 
 		// ack a enqueue value
 		err = dqm.ACK(0, true, []string{"tag1"})
 		g.Expect(err).To(HaveOccurred())
 	})
-
-	//t.Run("when the message passed", func(t *testing.T) {
-	//	passed := true
-
-	//	t.Run("the message is removed from the queue", func(t *testing.T) {
-	//		testDir, err := os.MkdirTemp("","")
-	//		defer os.RemoveAll(testDir)
-
-	//		dqm := queues.NewDiskQueueManager(testDir)
-	//		defer dqm.Close()
-
-	//		g.Expect(dqm.Create("name1", "tag1")).ToNot(HaveOccurred())
-	//		g.Expect(dqm.Enqueue([]byte(`data-tag1`), false, "name1", "tag1")).ToNot(HaveOccurred())
-
-	//		context, cancel := context.WithDeadline(context.Background(), time.Now().Add(time.Second))
-	//		defer cancel()
-
-	//		var data deadlettermodels.Message
-	//		g.Eventually(func() deadlettermodels.Message {
-	//			queueItemChan := make(chan deadlettermodels.Message, 1)
-
-	//			go func() {
-	//				queueItem := dqm.Message("name1", nil)
-	//				queueItemChan <- queueItem
-	//			}()
-
-	//			select {
-	//			case <-context.Done():
-	//				return deadlettermodels.Message{}
-	//			case data = <-queueItemChan:
-	//				return data
-	//			}
-	//		}, time.Second, 100*time.Millisecond, context).ShouldNot(BeNil())
-
-	//		g.Expect(data.Data).To(Or(Equal([]byte(`data-tag2`)), Equal([]byte(`data-tag1`))))
-	//	})
-	//})
-
-	//t.Run("when the message failed", func(t *testing.T) {
-	//	passed := false
-
-	//	t.Run("the message is requeued", func(t *testing.T) {
-
-	//	})
-	//})
 }

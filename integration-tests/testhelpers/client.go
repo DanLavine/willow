@@ -18,7 +18,7 @@ func (itc *IntegrationTestConstruct) Create(g *gomega.WithT, createBody v1.Creat
 	g.Expect(err).ToNot(HaveOccurred())
 
 	createBuffer := bytes.NewBuffer(body)
-	createRequest, err := http.NewRequest("POST", fmt.Sprintf("%s/v1/brokers/create", itc.serverAddress), createBuffer)
+	createRequest, err := http.NewRequest("POST", fmt.Sprintf("%s/v1/brokers/queues/create", itc.serverAddress), createBuffer)
 	g.Expect(err).ToNot(HaveOccurred())
 
 	response, err := itc.ServerClient.Do(createRequest)
@@ -50,14 +50,32 @@ func (itc *IntegrationTestConstruct) GetMessage(g *gomega.WithT, readyBody v1.Re
 	g.Expect(err).ToNot(HaveOccurred())
 
 	response, err := itc.ServerClient.Do(request)
-	fmt.Println(itc.ServerStdout.String())
+	g.Expect(err).ToNot(HaveOccurred())
+
+	return response
+}
+
+func (itc *IntegrationTestConstruct) ACKMessage(g *gomega.WithT, ackBody v1.ACK) *http.Response {
+	body, err := json.Marshal(ackBody)
+	g.Expect(err).ToNot(HaveOccurred())
+
+	enqueueBuffer := bytes.NewBuffer(body)
+	request, err := http.NewRequest("POST", fmt.Sprintf("%s/v1/message/ack", itc.serverAddress), enqueueBuffer)
+	g.Expect(err).ToNot(HaveOccurred())
+
+	response, err := itc.ServerClient.Do(request)
 	g.Expect(err).ToNot(HaveOccurred())
 
 	return response
 }
 
 func (itc *IntegrationTestConstruct) Metrics(g *gomega.WithT) v1.Metrics {
-	request, err := http.NewRequest("GET", fmt.Sprintf("%s/v1/metrics", itc.metricsAddress), nil)
+	matchQuery := v1.MatchQuery{MatchRestriction: v1.ALL}
+
+	matchBody, err := json.Marshal(matchQuery)
+	g.Expect(err).ToNot(HaveOccurred())
+
+	request, err := http.NewRequest("GET", fmt.Sprintf("%s/v1/metrics", itc.metricsAddress), bytes.NewBuffer(matchBody))
 	g.Expect(err).ToNot(HaveOccurred())
 
 	response, err := itc.MetricsClient.Do(request)

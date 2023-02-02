@@ -22,9 +22,11 @@ func Test_Messages(t *testing.T) {
 			defer testConstruct.Shutdown(g)
 
 			readyBody := v1.Ready{
-				BrokerType:      v1.Queue,
-				BrokerTagsMatch: v1.STRICT,
-				BrokerTags:      []string{"a", "b"},
+				BrokerType: v1.Queue,
+				MatchQuery: v1.MatchQuery{
+					MatchRestriction: v1.STRICT,
+					BrokerTags:       []string{"a", "b"},
+				},
 			}
 
 			messageResponse := testConstruct.GetMessage(g, readyBody)
@@ -53,9 +55,11 @@ func Test_Messages(t *testing.T) {
 			g.Expect(enqueurResponse.StatusCode).To(Equal(http.StatusOK))
 
 			readyBody := v1.Ready{
-				BrokerType:      v1.Queue,
-				BrokerTagsMatch: v1.STRICT,
-				BrokerTags:      []string{"a", "b", "c"},
+				BrokerType: v1.Queue,
+				MatchQuery: v1.MatchQuery{
+					MatchRestriction: v1.STRICT,
+					BrokerTags:       []string{"a", "b", "c"},
+				},
 			}
 
 			messageResponse := testConstruct.GetMessage(g, readyBody)

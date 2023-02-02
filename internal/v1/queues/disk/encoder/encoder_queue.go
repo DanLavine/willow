@@ -2,7 +2,6 @@ package encoder
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 
 	"github.com/DanLavine/willow/internal/errors"
@@ -34,29 +33,16 @@ import (
  **   it was corrupted, or never properly updated
  */
 
-type DiskEncoder struct {
-	updateFile *updateFile
-	index      *index
-	indexState *indexState
+type EncoderQueue struct {
+	index       *index
+	indexState  *indexState
+	indexUpdate *updateFile
 }
 
-func NewDiskEncoder(baseDir string, queueTags []string) (*DiskEncoder, *v1.Error) {
-	queueDir := filepath.Join(baseDir, EncodeStrings(queueTags))
-
-	filePath, err := os.Stat(queueDir)
-	if os.IsPermission(err) || os.IsNotExist(err) {
-		// create the dir
-		if err = os.MkdirAll(queueDir, 0755); err != nil {
-			return nil, errors.FailedToCreateDir.With("", err.Error())
-		}
-	} else if err != nil {
-		// some other error encountered
-		return nil, errors.FailedToStatDir.With("", err.Error())
-	} else {
-		// path already exists and is not dir?
-		if !filePath.IsDir() {
-			return nil, errors.PathAlreadyExists.With(filePath.Name(), "to be a dir")
-		}
+func NewEncoderQueue(baseDir string, queueTags []string) (*EncoderQueue, *v1.Error) {
+	queueDir, err := FilePath(baseDir, queueTags)
+	if err != nil {
+		return nil, err
 	}
 
 	index, indexErr := newIndex(filepath.Join(queueDir, "0.idx"))
@@ -74,20 +60,26 @@ func NewDiskEncoder(baseDir string, queueTags []string) (*DiskEncoder, *v1.Error
 		return nil, updateErr
 	}
 
-	return &DiskEncoder{
-		updateFile: updateFile,
-		index:      index,
-		indexState: indexState,
+	return &EncoderQueue{
+		index:       index,
+		indexState:  indexState,
+		indexUpdate: updateFile,
 	}, nil
 }
 
+/********** Item Queue **********/
+
 // Write appends data to disk.
+//
+// PARAMS:
+// * id - id to record for the item
+// * data - unencoded data to write to disk
 //
 // RETURNS:
 // * int - start location on disk where the write happend
 // * int - size of encoded data written. Does not include things like path seperators or other info
 // * error - an error encounterd during the write
-func (de *DiskEncoder) Write(id uint64, data []byte) (int, int, *v1.Error) {
+func (de *EncoderQueue) Write(id uint64, data []byte) (int, int, *v1.Error) {
 	startIndex, size, err := de.index.Write(id, data)
 	if err != nil {
 		return startIndex, size, err
@@ -96,11 +88,16 @@ func (de *DiskEncoder) Write(id uint64, data []byte) (int, int, *v1.Error) {
 	return startIndex, size, nil
 }
 
-func (de *DiskEncoder) Processing(id uint64) *v1.Error {
-	return de.indexState.Processing(id)
-}
-
-func (de *DiskEncoder) Read(startIndex, size int) ([]byte, *v1.Error) {
+// Read the data from disk.
+//
+// PARAMS:
+// * startIndex - location on disk to start reading from
+// * size - how many bytes to read from disk
+//
+// RETURNS:
+// * []byte - unencoded data from disk
+// * error - an error encounterd during the write
+func (de *EncoderQueue) Read(startIndex, size int) ([]byte, *v1.Error) {
 	encodedData, err := de.index.Read(startIndex, size)
 	if err != nil {
 		return nil, err
@@ -114,13 +111,31 @@ func (de *DiskEncoder) Read(startIndex, size int) ([]byte, *v1.Error) {
 	return decodedData, nil
 }
 
+// Read the data from disk in its raw format and don't decode it
+//
+// PARAMS:
+// * startIndex - location on disk to start reading from
+// * size - how many bytes to read from disk
+//
+// RETURNS:
+// * []byte - unencoded data from disk
+// * error - an error encounterd during the write
+func (de *EncoderQueue) ReadRaw(startIndex, size int) ([]byte, *v1.Error) {
+	encodedData, err := de.index.Read(startIndex, size)
+	if err != nil {
+		return nil, err
+	}
+
+	return encodedData, nil
+}
+
 // // OverwriteLast can be used to update the last location on disk
 // //
 // // RETURNS:
 // // * location - location state on disk
 // // * error - an error encounterd during the write
 //
-//	func (de *DiskEncoder) Overwrite(data []byte, location *models.Location) error {
+//	func (de *EncoderQueue) Overwrite(data []byte, location *models.Location) error {
 //		// get the current last entry
 //		currentLastData, err := de.index.ReadLast()
 //		if err != nil {
@@ -148,7 +163,7 @@ func (de *DiskEncoder) Read(startIndex, size int) ([]byte, *v1.Error) {
 //		return de.updateFile.Clear()
 //	}
 //
-//	func (de *DiskEncoder) Retry(l *Location) error {
+//	func (de *EncoderQueue) Retry(l *Location) error {
 //		if l == nil {
 //			return fmt.Errorf("Received a nil location")
 //		}
@@ -160,12 +175,26 @@ func (de *DiskEncoder) Read(startIndex, size int) ([]byte, *v1.Error) {
 //		l.RetryCount++
 //		return nil
 //	}
-func (de *DiskEncoder) Remove(id uint64) *v1.Error {
+
+/********** Index State Tracking **********/
+func (de *EncoderQueue) Processing(id uint64) *v1.Error {
+	return de.indexState.Processing(id)
+}
+
+func (de *EncoderQueue) Delete(id uint64) *v1.Error {
 	return de.indexState.Delete(id)
 }
 
-func (de *DiskEncoder) Close() {
-	de.updateFile.Close()
+func (de *EncoderQueue) Retry(id uint64) *v1.Error {
+	return de.indexState.Retry(id)
+}
+
+func (de *EncoderQueue) SentToDeadLetter(id uint64) *v1.Error {
+	return de.indexState.Retry(id)
+}
+
+func (de *EncoderQueue) Close() {
 	de.index.Close()
 	de.indexState.Close()
+	de.indexUpdate.Close()
 }

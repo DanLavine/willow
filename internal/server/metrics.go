@@ -2,13 +2,12 @@ package server
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/DanLavine/willow/internal/config"
-	"github.com/DanLavine/willow/internal/v1/queues"
+	"github.com/DanLavine/willow/internal/server/v1server"
 	"go.uber.org/zap"
 )
 
@@ -16,14 +15,14 @@ type metrics struct {
 	logger *zap.Logger
 	config *config.Config
 
-	deadLetterQueue queues.Queue
+	metricsHandler v1server.MetricsHandler
 }
 
-func NewAdmin(logger *zap.Logger, config *config.Config, deadLetterQueue queues.Queue) *metrics {
+func NewMetrics(logger *zap.Logger, config *config.Config, metricsHandler v1server.MetricsHandler) *metrics {
 	return &metrics{
-		logger:          logger.Named("tcp_server"),
-		config:          config,
-		deadLetterQueue: deadLetterQueue,
+		logger:         logger.Named("tcp_server"),
+		config:         config,
+		metricsHandler: metricsHandler,
 	}
 }
 
@@ -32,7 +31,8 @@ func (m *metrics) Cleanup() error    { return nil }
 func (m *metrics) Execute(ctx context.Context) error {
 	errChan := make(chan error)
 	mux := http.NewServeMux()
-	mux.HandleFunc("/v1/metrics", m.metrics)
+	// get metrics for all queues, and dead-lettere queues
+	mux.HandleFunc("/v1/metrics", m.metricsHandler.Metrics)
 
 	server := &http.Server{
 		Addr:    fmt.Sprintf(":%s", m.config.MetricsPort),
@@ -52,17 +52,4 @@ func (m *metrics) Execute(ctx context.Context) error {
 	case err := <-errChan:
 		return err
 	}
-}
-
-func (m *metrics) metrics(res http.ResponseWriter, req *http.Request) {
-	metrics := m.deadLetterQueue.Metrics()
-	body, err := json.Marshal(&metrics)
-	if err != nil {
-		res.WriteHeader(500)
-		res.Write([]byte(err.Error()))
-		return
-	}
-
-	res.WriteHeader(200)
-	res.Write(body)
 }

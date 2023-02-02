@@ -1,6 +1,16 @@
 package v1
 
-import "fmt"
+import (
+	"fmt"
+	"net/http"
+)
+
+var (
+	MarshelModelFailed = &Error{Message: "Failed to encode response.", StatusCode: http.StatusInternalServerError}
+
+	InvalidRequestBody    = &Error{Message: "Invalid request body.", StatusCode: http.StatusBadRequest}
+	ParseRequestBodyError = &Error{Message: "Failedd to parse requeset body.", StatusCode: http.StatusBadRequest}
+)
 
 type Error struct {
 	Message  string

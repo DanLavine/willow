@@ -7,12 +7,17 @@ import (
 )
 
 var (
+	// queue setup errors
+	NoCreateParams = &v1.Error{Message: "No Create Params.", StatusCode: http.StatusInternalServerError}
+	NoEncoder      = &v1.Error{Message: "No encoder received.", StatusCode: http.StatusInternalServerError}
+	NoReaders      = &v1.Error{Message: "No readers received.", StatusCode: http.StatusInternalServerError}
+	NilReader      = &v1.Error{Message: "Null reader received.", StatusCode: http.StatusInternalServerError}
+
 	// queue errors
 	QueueNotFound = &v1.Error{Message: "Queue not found.", StatusCode: http.StatusBadRequest}
-	NoReaders     = &v1.Error{Message: "No readers received.", StatusCode: http.StatusInternalServerError}
-	NullReader    = &v1.Error{Message: "Null reader received.", StatusCode: http.StatusInternalServerError}
 
 	// queue item errors
 	ItemNotfound            = &v1.Error{Message: "Item not found.", StatusCode: http.StatusNotFound}
+	ItemNotProcessing       = &v1.Error{Message: "Item not processing.", StatusCode: http.StatusBadRequest}
 	MessageTypeNotSupported = &v1.Error{Message: "Message type not supported", StatusCode: http.StatusBadRequest}
 )

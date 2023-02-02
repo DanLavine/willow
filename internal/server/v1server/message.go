@@ -44,7 +44,7 @@ func (qh *queueHandler) Message(w http.ResponseWriter, r *http.Request) {
 
 		switch messageRequest.BrokerType {
 		case v1.Queue:
-			if enqueErr := qh.deadLetterQueue.Enqueue(messageRequest.Data, messageRequest.Updateable, messageRequest.BrokerTags); enqueErr != nil {
+			if enqueErr := qh.queueManager.Enqueue(messageRequest.Data, messageRequest.Updateable, messageRequest.BrokerTags); enqueErr != nil {
 				errResp, _ := json.Marshal(enqueErr)
 				w.WriteHeader(enqueErr.StatusCode)
 				w.Write(errResp)
@@ -72,33 +72,18 @@ func (qh *queueHandler) RetrieveMessage(w http.ResponseWriter, r *http.Request) 
 	case "GET":
 		logger.Debug("processing retrieve request")
 
-		readyBody, err := io.ReadAll(r.Body)
+		readyRequest, err := v1.ParseReadyRequest(r.Body)
 		if err != nil {
-			logger.Error("failed reading ready request", zap.Error(err))
-
-			// never seen this actualy fail, so just ignore it for now
-			errResp, _ := json.Marshal(v1.Error{Message: err.Error()})
-
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write(errResp)
-			return
-		}
-
-		readyRequest := &v1.Ready{}
-		if err = json.Unmarshal(readyBody, readyRequest); err != nil {
 			logger.Error("failed parsing request", zap.Error(err))
 
-			// never seen this actualy fail, so just ignore it for now
-			errResp, _ := json.Marshal(v1.Error{Message: err.Error()})
-
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write(errResp)
+			w.WriteHeader(err.StatusCode)
+			w.Write([]byte(err.Error()))
 			return
 		}
 
 		switch readyRequest.BrokerType {
 		case v1.Queue:
-			message, retErr := qh.deadLetterQueue.Message(context.Background(), readyRequest.BrokerTagsMatch, readyRequest.BrokerTags)
+			message, retErr := qh.queueManager.Item(context.Background(), readyRequest.MatchQuery)
 			if retErr != nil {
 				logger.Error("failed obtaining next message", zap.Error(retErr))
 				errResp, _ := json.Marshal(retErr)
@@ -168,7 +153,7 @@ func (qh *queueHandler) ACK(w http.ResponseWriter, r *http.Request) {
 
 		switch ACKRequest.BrokerType {
 		case v1.Queue:
-			if ackErr := qh.deadLetterQueue.ACK(ACKRequest.ID, ACKRequest.Passed, ACKRequest.BrokerTags); ackErr != nil {
+			if ackErr := qh.queueManager.ACK(ACKRequest.ID, ACKRequest.BrokerTags, ACKRequest.Passed); ackErr != nil {
 				errResp, _ := json.Marshal(v1.Error{Message: ackErr.Error()})
 
 				w.WriteHeader(ackErr.StatusCode)

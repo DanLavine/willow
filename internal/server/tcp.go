@@ -44,8 +44,8 @@ func (t *tcp) Execute(ctx context.Context) error {
 
 	mux := http.NewServeMux()
 
-	// queue functions
-	mux.HandleFunc("/v1/brokers/create", t.queueHandler.Create)
+	// broke function functions
+	mux.HandleFunc("/v1/brokers/queues/create", t.queueHandler.Create)
 
 	// message handlers
 	mux.HandleFunc("/v1/message/add", t.queueHandler.Message)

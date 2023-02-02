@@ -3,28 +3,77 @@ package encoder
 import (
 	"encoding/base64"
 	"fmt"
-	"strings"
+	"os"
+	"path/filepath"
 
 	"github.com/DanLavine/willow/internal/errors"
 	v1 "github.com/DanLavine/willow/pkg/models/v1"
 )
 
+// Generate a safe file path based on any number of strings and
+// check that is is valid for use.
+//
+// PARAMS:
+// * baseDir - base direcory thats not encoded (generally top level mount or data dir where everything is saved to)
+// * dirs - directories we want encoded
+//
+// RETURNS:
+// * string - single filepath for any os
+func FilePath(baseDir string, dirs []string) (string, *v1.Error) {
+	allDirs := []string{baseDir}
+	allDirs = append(allDirs, EncodeStrings(dirs)...)
+
+	encodeDir := filepath.Join(allDirs...)
+
+	filePath, err := os.Stat(encodeDir)
+	if os.IsPermission(err) || os.IsNotExist(err) {
+		// create the dir
+		if err = os.MkdirAll(encodeDir, 0755); err != nil {
+			return "", errors.FailedToCreateDir.With("", err.Error())
+		}
+	} else if err != nil {
+		// some other error encountered
+		return "", errors.FailedToStatDir.With("", err.Error())
+	} else {
+		// path already exists and is not dir
+		if !filePath.IsDir() {
+			return "", errors.PathAlreadyExists.With(filePath.Name(), "to be a dir")
+		}
+	}
+
+	return encodeDir, nil
+}
+
+// Encode a generic string
+//
+// PARAMS:
+// * data - string to encode
+//
+// RETURNS:
+// * string - encoded version of the string
 func EncodeString(data string) string {
 	encodedData := EncodeByte([]byte(data))
 	return string(encodedData)
 }
 
-func EncodeStrings(data []string) string {
+// Encode a slice of strings
+//
+// PARAMS:
+// * data - slice of strings to encode
+//
+// RETURNS:
+// * []string - slice of all strings encoded in the same order
+func EncodeStrings(data []string) []string {
 	if len(data) == 0 {
-		return ""
+		return nil
 	}
 
-	var encodedDatas = []string{}
+	encodedStrings := []string{}
 	for _, rawData := range data {
-		encodedDatas = append(encodedDatas, EncodeString(rawData))
+		encodedStrings = append(encodedStrings, EncodeString(rawData))
 	}
 
-	return EncodeString(strings.Join(encodedDatas, "@"))
+	return encodedStrings
 }
 
 // RETURNS:
@@ -68,6 +117,10 @@ func EncodeByteWithSeperator(data []byte) []byte {
 
 	// return encoded data, and size of new byte array
 	return encoded
+}
+
+func AddSeperator(data []byte) []byte {
+	return append(data, '.')
 }
 
 func EncodeByte(data []byte) []byte {

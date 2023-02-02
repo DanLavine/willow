@@ -7,6 +7,7 @@ import (
 	"sort"
 	"sync"
 
+	"github.com/DanLavine/willow/internal/config"
 	"github.com/DanLavine/willow/internal/errors"
 	"github.com/DanLavine/willow/internal/v1/models"
 	"github.com/DanLavine/willow/internal/v1/queues/disk"
@@ -24,8 +25,8 @@ type taggedQueue struct {
 type DiskQueueManager struct {
 	lock *sync.RWMutex
 
-	// dir where all queues will be constructed at
-	baseDir string
+	// configuration for queues
+	configQueue config.ConfigQueue
 
 	// all the queues
 	queues []*taggedQueue
@@ -35,10 +36,10 @@ type DiskQueueManager struct {
 }
 
 // TODO: handle duplicate tags
-func NewDiskQueueManager(baseDir string) *DiskQueueManager {
+func NewDiskQueueManager(configQueue config.ConfigQueue) *DiskQueueManager {
 	return &DiskQueueManager{
 		lock:         new(sync.RWMutex),
-		baseDir:      baseDir,
+		configQueue:  configQueue,
 		queues:       []*taggedQueue{},
 		filteredTags: NewFilteredTags(),
 	}
@@ -46,28 +47,25 @@ func NewDiskQueueManager(baseDir string) *DiskQueueManager {
 
 // Create a new queue for a specific tag. If the queue and tag already exists
 // this returns nil and is a NO-OP
-func (dqm *DiskQueueManager) Create(queueTags []string) *v1.Error {
-	sort.Strings(queueTags)
+func (dqm *DiskQueueManager) Create(createParams v1.Create) *v1.Error {
+	dqm.lock.Lock()
+	defer dqm.lock.Unlock()
 
 	// if queue already exist, just return
-	queue, _ := dqm.getDiskQueue(queueTags)
+	queue, _ := dqm.getDiskQueue(createParams.BrokerTags)
 	if queue != nil {
 		return nil
 	}
 
-	// setup a tag reader, or increment the count for the readers already created
-	dqm.lock.Lock()
-	defer dqm.lock.Unlock()
-
 	readers := []chan *models.Location{make(chan *models.Location)} // strict reader
-	readers = append(readers, dqm.filteredTags.createFilteredTags(queueTags)...)
+	readers = append(readers, dqm.filteredTags.createFilteredTags(createParams.BrokerTags)...)
 
-	newDiskQueue, err := disk.NewDiskQueue(dqm.baseDir, queueTags, readers)
+	newDiskQueue, err := disk.NewDiskQueue(dqm.configQueue, createParams, readers)
 	if err != nil {
 		// TODO: decrement reader count
 		return err
 	}
-	dqm.queues = append(dqm.queues, &taggedQueue{tags: queueTags, reader: readers[0], queue: newDiskQueue})
+	dqm.queues = append(dqm.queues, &taggedQueue{tags: createParams.BrokerTags, reader: readers[0], queue: newDiskQueue})
 
 	return nil
 }
@@ -85,10 +83,10 @@ func (dqm *DiskQueueManager) Enqueue(data []byte, updateable bool, queueTags []s
 
 // Blocking operation to retrieve a message for any given queue and the tags
 // Empty tags means to read from all avilable tags
-func (dqm *DiskQueueManager) Message(ctx context.Context, matchRestriction v1.MatchRestriction, queueTags []string) (*v1.DequeueMessage, *v1.Error) {
-	switch matchRestriction {
+func (dqm *DiskQueueManager) Item(ctx context.Context, matchQuery v1.MatchQuery) (*v1.DequeueMessage, *v1.Error) {
+	switch matchQuery.MatchRestriction {
 	case v1.STRICT: // only sstrict returns if there is no queue available
-		taggedQueue, err := dqm.getDiskQueue(queueTags)
+		taggedQueue, err := dqm.getDiskQueue(matchQuery.BrokerTags)
 		if err != nil {
 			return nil, err
 		}
@@ -105,9 +103,9 @@ func (dqm *DiskQueueManager) Message(ctx context.Context, matchRestriction v1.Ma
 			return nil, errors.ServerShutdown
 		}
 	case v1.SUBSET:
-		dqm.lock.RLock()
-		reader := dqm.filteredTags.findOrCreateSubset(queueTags)
-		dqm.lock.RUnlock()
+		dqm.lock.Lock()
+		reader := dqm.filteredTags.findOrCreateSubset(matchQuery.BrokerTags)
+		dqm.lock.Unlock()
 
 		select {
 		case <-ctx.Done(): // client has dissconnected
@@ -121,9 +119,9 @@ func (dqm *DiskQueueManager) Message(ctx context.Context, matchRestriction v1.Ma
 			return nil, errors.ServerShutdown
 		}
 	case v1.ANY:
-		dqm.lock.RLock()
-		readers := dqm.filteredTags.findAny(queueTags)
-		dqm.lock.RUnlock()
+		dqm.lock.Lock()
+		readers := dqm.filteredTags.findAny(matchQuery.BrokerTags)
+		dqm.lock.Unlock()
 
 		if len(readers) == 0 {
 			return nil, errors.QueueNotFound.With("any queues to already be created with provided tags", "")
@@ -163,7 +161,7 @@ func (dqm *DiskQueueManager) Message(ctx context.Context, matchRestriction v1.Ma
 
 // ACK a message for a particular id and tag
 // TODO actually use the passed bool
-func (dqm *DiskQueueManager) ACK(id uint64, passed bool, queueTags []string) *v1.Error {
+func (dqm *DiskQueueManager) ACK(id uint64, queueTags []string, passed bool) *v1.Error {
 	sort.Strings(queueTags)
 
 	taggedQueue, err := dqm.getDiskQueue(queueTags)
@@ -171,14 +169,14 @@ func (dqm *DiskQueueManager) ACK(id uint64, passed bool, queueTags []string) *v1
 		return err
 	}
 
-	return taggedQueue.queue.ACK(id)
+	return taggedQueue.queue.ACK(id, passed)
 }
 
 func (dqm *DiskQueueManager) Drain() <-chan struct{} {
 	return nil
 }
 
-func (dqm *DiskQueueManager) Metrics() *v1.Metrics {
+func (dqm *DiskQueueManager) Metrics(matchRestriction *v1.MatchQuery) *v1.Metrics {
 	dqm.lock.Lock()
 	defer dqm.lock.Unlock()
 
@@ -194,9 +192,6 @@ func (dqm *DiskQueueManager) Metrics() *v1.Metrics {
 }
 
 func (dqm *DiskQueueManager) getDiskQueue(queueTags []string) (*taggedQueue, *v1.Error) {
-	dqm.lock.RLock()
-	defer dqm.lock.RUnlock()
-
 	for _, taggedQueue := range dqm.queues {
 		if tagsEqual(taggedQueue.tags, queueTags) {
 			return taggedQueue, nil
