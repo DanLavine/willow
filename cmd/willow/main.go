@@ -7,11 +7,11 @@ import (
 	"syscall"
 
 	"github.com/DanLavine/goasync"
-	"github.com/DanLavine/willow/internal/config"
 	"github.com/DanLavine/willow/internal/logger"
 	"github.com/DanLavine/willow/internal/server"
 	"github.com/DanLavine/willow/internal/server/v1server"
 	"github.com/DanLavine/willow/internal/v1/queues"
+	"github.com/DanLavine/willow/pkg/config"
 )
 
 func main() {

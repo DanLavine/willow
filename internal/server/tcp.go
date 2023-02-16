@@ -7,8 +7,8 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/DanLavine/willow/internal/config"
 	"github.com/DanLavine/willow/internal/server/v1server"
+	"github.com/DanLavine/willow/pkg/config"
 	"go.uber.org/zap"
 	"golang.org/x/net/http2"
 )

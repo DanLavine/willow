@@ -4,11 +4,11 @@ type ACK struct {
 	// ID of the original message being acknowledged
 	ID uint64
 
-	// Either Queue or PubSub messages
-	BrokerType BrokerType
+	// name of the queue to ack
+	Name string
 
-	// Tag for the broker
-	BrokerTags []string
+	// specific tag that the original message was processed from
+	Tags []string
 
 	// Indicate a success or failure of the message
 	Passed bool

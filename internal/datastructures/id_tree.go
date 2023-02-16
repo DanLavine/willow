@@ -1,4 +1,4 @@
-package itemtracker
+package datastructures
 
 type direction int
 

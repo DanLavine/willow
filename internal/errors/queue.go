@@ -8,10 +8,11 @@ import (
 
 var (
 	// queue setup errors
-	NoCreateParams = &v1.Error{Message: "No Create Params.", StatusCode: http.StatusInternalServerError}
-	NoEncoder      = &v1.Error{Message: "No encoder received.", StatusCode: http.StatusInternalServerError}
-	NoReaders      = &v1.Error{Message: "No readers received.", StatusCode: http.StatusInternalServerError}
-	NilReader      = &v1.Error{Message: "Null reader received.", StatusCode: http.StatusInternalServerError}
+	UnknownQueueStorage = &v1.Error{Message: "Unkown queue storage type.", StatusCode: http.StatusBadRequest}
+	NoCreateParams      = &v1.Error{Message: "No Create Params.", StatusCode: http.StatusInternalServerError}
+	NoEncoder           = &v1.Error{Message: "No encoder received.", StatusCode: http.StatusInternalServerError}
+	NoReaders           = &v1.Error{Message: "No readers received.", StatusCode: http.StatusInternalServerError}
+	NilReader           = &v1.Error{Message: "Null reader received.", StatusCode: http.StatusInternalServerError}
 
 	// queue errors
 	QueueNotFound = &v1.Error{Message: "Queue not found.", StatusCode: http.StatusBadRequest}

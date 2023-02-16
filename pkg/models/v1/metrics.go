@@ -12,10 +12,10 @@ type Metrics struct {
 
 // Metrics for each individual queue
 type QueueMetrics struct {
-	Tags []string
-
+	Name       string
 	Ready      uint64
 	Processing uint64
+	Max        uint64
 
 	DeadLetterQueueMetrics *DeadLetterQueueMetrics
 }

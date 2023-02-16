@@ -2,71 +2,73 @@ package v1
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
-	"sort"
+	"net/http"
+
+	"github.com/DanLavine/willow/pkg/config"
 )
 
 type Create struct {
-	// type of broker we want to create
-	BrokerType BrokerType
+	// Name of the broker object
+	Name string
 
-	// Tag for the broker
-	BrokerTags []string
-
-	// params for queue
-	QueueParams QueueParams
-
-	// Leve this empty for no dead letter queue to be configured
-	DeadLetterQueueParams *DeadLetterQueueParams
-}
-
-type QueueParams struct {
 	// max size of the dead letter queue
-	// Default: 100 if set at 0
-	MaxSize uint64
+	// Cannot be set to  0
+	QueueMaxSize uint64
 
 	// Number of times to retry a queue item before sending it to the dead letter queue
-	RetryCount uint64
+	ItemRetryAttempts uint64
+
+	// Max Number of items to keep in the dead letter queue. If full,
+	// any new items will just be dropped untill the queue is cleared by an admin.
+	// To not have a dead letter queue, this must be set to 0
+	DeadLetterQueueMaxSize *uint64
 }
 
-type DeadLetterQueueParams struct {
-	// Max Number of items to keep in the dead letter queue. If full, any new items will just be dropped
-	// untill the queue is cleared by an admin.
-	MaxSize uint64
-}
-
-func ParseCreateRequest(reader io.ReadCloser) (Create, *Error) {
+func ParseCreateRequest(reader io.ReadCloser) (*Create, *Error) {
 	createRequestBody, err := io.ReadAll(reader)
 	if err != nil {
-		return Create{}, InvalidRequestBody.With("", err.Error())
+		return nil, InvalidRequestBody.With("", err.Error())
 	}
 
-	return ParseCreateQuery(createRequestBody)
+	return ParseCreateBody(createRequestBody)
 }
 
-func ParseCreateQuery(b []byte) (Create, *Error) {
-	var create Create
-	if err := json.Unmarshal(b, &create); err != nil {
-		return create, ParseRequestBodyError.With("", err.Error())
+func ParseCreateBody(b []byte) (*Create, *Error) {
+	var create *Create
+	if err := json.Unmarshal(b, create); err != nil {
+		return nil, ParseRequestBodyError.With("", err.Error())
 	}
 
-	// always sort tags
-	sort.Strings(create.BrokerTags)
-
-	// setup defaults
-	if create.QueueParams.MaxSize == 0 {
-		create.QueueParams.MaxSize = 100
-	}
-
-	return create, create.Validate()
+	return create, nil
 }
 
-func (c Create) Validate() *Error {
-	if c.DeadLetterQueueParams != nil {
-		if c.DeadLetterQueueParams.MaxSize == 0 {
-			return InvalidRequestBody.With("DeadLetterQueueParams.MaxSize to be greater than 0", "0")
+func (c *Create) SetDefaults(queueConfig *config.QueueConfig) *Error {
+	// check max size
+	if c.QueueMaxSize > queueConfig.MaxSize {
+		return (&Error{Message: "Error: QueueParams.QueueMaxSize is larger than allowed max", StatusCode: http.StatusBadRequest}).With(fmt.Sprintf("requested %d", c.QueueMaxSize), fmt.Sprintf("to be less than max allowed %d", queueConfig.MaxSize))
+	}
+
+	// set default
+	if c.QueueMaxSize == 0 {
+		c.QueueMaxSize = queueConfig.DefaultSize
+	}
+
+	if c.DeadLetterQueueMaxSize != nil {
+		if *c.DeadLetterQueueMaxSize > queueConfig.DeadLetterMaxSize {
+			return (&Error{Message: "Error: QueueParams.DeadLetterQueueMaxSize is larger than allowed max", StatusCode: http.StatusBadRequest}).With(fmt.Sprintf("requested %d", c.DeadLetterQueueMaxSize), fmt.Sprintf("to be less than max allowed %d", queueConfig.DeadLetterMaxSize))
 		}
 	}
 
 	return nil
+}
+
+func (c *Create) ToBytes() ([]byte, *Error) {
+	data, err := json.Marshal(c)
+	if err != nil {
+		return nil, MarshelModelFailed.With("", err.Error())
+	}
+
+	return data, nil
 }

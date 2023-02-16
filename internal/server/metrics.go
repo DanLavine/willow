@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/DanLavine/willow/internal/config"
 	"github.com/DanLavine/willow/internal/server/v1server"
+	"github.com/DanLavine/willow/pkg/config"
 	"go.uber.org/zap"
 )
 

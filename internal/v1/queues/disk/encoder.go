@@ -1,4 +1,4 @@
-package encoder
+package disk
 
 import (
 	"encoding/base64"
@@ -10,20 +10,31 @@ import (
 	v1 "github.com/DanLavine/willow/pkg/models/v1"
 )
 
+func CreateOrOpenFile(baseDir string, queueName string, fileName string) (*os.File, *v1.Error) {
+	encodeDir, err := FilePath(baseDir, queueName)
+	if err != nil {
+		return nil, err
+	}
+
+	file, openFileErr := os.OpenFile(filepath.Join(encodeDir, fileName), os.O_CREATE|os.O_RDWR, 0755)
+	if openFileErr != nil {
+		return nil, errors.FailedToCreateFile.With("", openFileErr.Error())
+	}
+
+	return file, nil
+}
+
 // Generate a safe file path based on any number of strings and
 // check that is is valid for use.
 //
 // PARAMS:
 // * baseDir - base direcory thats not encoded (generally top level mount or data dir where everything is saved to)
-// * dirs - directories we want encoded
+// * queueName - name of the queue that will be base64 encoded
 //
 // RETURNS:
 // * string - single filepath for any os
-func FilePath(baseDir string, dirs []string) (string, *v1.Error) {
-	allDirs := []string{baseDir}
-	allDirs = append(allDirs, EncodeStrings(dirs)...)
-
-	encodeDir := filepath.Join(allDirs...)
+func FilePath(baseDir, queueName string) (string, *v1.Error) {
+	encodeDir := filepath.Join(baseDir, EncodeString(queueName))
 
 	filePath, err := os.Stat(encodeDir)
 	if os.IsPermission(err) || os.IsNotExist(err) {
