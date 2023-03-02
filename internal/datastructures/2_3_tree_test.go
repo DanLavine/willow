@@ -371,22 +371,116 @@ func TestBPLusTtree_FindOrCreate_Tree_SimplePromoteOperations(t *testing.T) {
 	})
 
 	t.Run("rightChild promotions", func(t *testing.T) {
-		//// generate a tree of
-		///*
-		// *      20
-		// *    /    \
-		// *  10    30,35
-		// */
-		//setupRightTree := func(g *GomegaWithT) *TwoThreeRoot {
-		//	bTree, err := NewBTree(2)
-		//	g.Expect(err).ToNot(HaveOccurred())
+		item35 := &twoThreeTester{num: 35, value: "35"}
 
-		//	bTree.FindOrCreate(item10)
-		//	bTree.FindOrCreate(item20)
-		//	bTree.FindOrCreate(item30)
-		//	bTree.FindOrCreate(item35)
+		// values to add
+		item25 := &twoThreeTester{num: 25, value: "25"}
+		item32 := &twoThreeTester{num: 32, value: "32"}
+		item37 := &twoThreeTester{num: 37, value: "37"}
 
-		//	return bTree
-		//}
+		// all tests in this section start with a base tree like so
+		/*
+		 *      20
+		 *    /    \
+		 *   10   30,35
+		 */
+		setupTree := func(g *GomegaWithT) *TwoThreeRoot {
+			bTree, err := NewBTree(2)
+			g.Expect(err).ToNot(HaveOccurred())
+
+			bTree.FindOrCreate(item20)
+			bTree.FindOrCreate(item30)
+			bTree.FindOrCreate(item10)
+			bTree.FindOrCreate(item35)
+
+			return bTree
+		}
+
+		// generate a tree of
+		/*
+		 *      20,30
+		 *    /   |  \
+		 *   10   25  35
+		 */
+		t.Run("adding the rightChild[0] node splits properly", func(t *testing.T) {
+			bTree := setupTree(g)
+
+			treeItem := bTree.FindOrCreate(item25)
+			g.Expect(treeItem).To(Equal(item25))
+
+			g.Expect(bTree.root.count).To(Equal(uint(2)))
+			g.Expect(bTree.root.values[0]).To(Equal(item20))
+			g.Expect(bTree.root.values[1]).To(Equal(item30))
+
+			child1 := bTree.root.children[0]
+			g.Expect(child1.count).To(Equal(uint(1)))
+			g.Expect(child1.values[0]).To(Equal(item10))
+
+			child2 := bTree.root.children[1]
+			g.Expect(child2.count).To(Equal(uint(1)))
+			g.Expect(child2.values[0]).To(Equal(item25))
+
+			child3 := bTree.root.children[2]
+			g.Expect(child3.count).To(Equal(uint(1)))
+			g.Expect(child3.values[0]).To(Equal(item35))
+		})
+
+		// generate a tree of
+		/*
+		 *      20,32
+		 *    /   |   \
+		 *   10   30  35
+		 */
+		t.Run("adding the rightChild[1] node splits properly", func(t *testing.T) {
+			bTree := setupTree(g)
+
+			treeItem := bTree.FindOrCreate(item32)
+			g.Expect(treeItem).To(Equal(item32))
+
+			g.Expect(bTree.root.count).To(Equal(uint(2)))
+			g.Expect(bTree.root.values[0]).To(Equal(item20))
+			g.Expect(bTree.root.values[1]).To(Equal(item32))
+
+			child1 := bTree.root.children[0]
+			g.Expect(child1.count).To(Equal(uint(1)))
+			g.Expect(child1.values[0]).To(Equal(item10))
+
+			child2 := bTree.root.children[1]
+			g.Expect(child2.count).To(Equal(uint(1)))
+			g.Expect(child2.values[0]).To(Equal(item30))
+
+			child3 := bTree.root.children[2]
+			g.Expect(child3.count).To(Equal(uint(1)))
+			g.Expect(child3.values[0]).To(Equal(item35))
+		})
+
+		// generate a tree of
+		/*
+		 *      20,35
+		 *    /   |   \
+		 *   10   30  37
+		 */
+		t.Run("adding the rightChild[2] node splits properly", func(t *testing.T) {
+			bTree := setupTree(g)
+
+			treeItem := bTree.FindOrCreate(item37)
+			g.Expect(treeItem).To(Equal(item37))
+
+			g.Expect(bTree.root.count).To(Equal(uint(2)))
+			g.Expect(bTree.root.values[0]).To(Equal(item20))
+			g.Expect(bTree.root.values[1]).To(Equal(item35))
+
+			child1 := bTree.root.children[0]
+			g.Expect(child1.count).To(Equal(uint(1)))
+			g.Expect(child1.values[0]).To(Equal(item10))
+
+			child2 := bTree.root.children[1]
+			g.Expect(child2.count).To(Equal(uint(1)))
+			g.Expect(child2.values[0]).To(Equal(item30))
+
+			child3 := bTree.root.children[2]
+			g.Expect(child3.count).To(Equal(uint(1)))
+			g.Expect(child3.values[0]).To(Equal(item37))
+		})
 	})
 }

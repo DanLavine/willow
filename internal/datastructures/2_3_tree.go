@@ -15,6 +15,8 @@ type TreeItem interface {
 
 // root node never changes for the caller of this package and allows us to update
 // the root node on any splits that might occur
+//
+// ALAWYS INSERT INTO A LEAF NODE!. The pushup of a full leaf node can be pushed
 type TwoThreeRoot struct {
 	lock *sync.RWMutex
 	root *twoThreeNode
@@ -119,6 +121,12 @@ func (ttn *twoThreeNode) findOrCreate(item TreeItem) (TreeItem, *twoThreeNode) {
 				item, node := ttn.children[index].findOrCreate(item)
 				if node != nil {
 					// set new node into current node
+					if ttn.count < ttn.order {
+						// set new node into current node
+						ttn.insertNode(uint(index), node)
+					} else {
+						// need to now split this node and propigate
+					}
 				}
 
 				return item, nil
