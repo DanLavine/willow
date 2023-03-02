@@ -260,9 +260,9 @@ func TestBPLusTtree_FindOrCreate_Tree_SimplePromoteOperations(t *testing.T) {
 		item15 := &twoThreeTester{num: 15, value: "15"} // left
 
 		// values to add
-		item8 := &twoThreeTester{num: 8, value: "8"} // left
-		//item12 := &twoThreeTester{num: 12, value: "12"} // left
-		//item17 := &twoThreeTester{num: 17, value: "17"} // left
+		item8 := &twoThreeTester{num: 8, value: "8"}
+		item12 := &twoThreeTester{num: 12, value: "12"}
+		item17 := &twoThreeTester{num: 17, value: "17"}
 
 		// all tests in this section start with a base tree like so
 		/*
@@ -305,6 +305,64 @@ func TestBPLusTtree_FindOrCreate_Tree_SimplePromoteOperations(t *testing.T) {
 			child2 := bTree.root.children[1]
 			g.Expect(child2.count).To(Equal(uint(1)))
 			g.Expect(child2.values[0]).To(Equal(item15))
+
+			child3 := bTree.root.children[2]
+			g.Expect(child3.count).To(Equal(uint(1)))
+			g.Expect(child3.values[0]).To(Equal(item30))
+		})
+
+		// generate a tree of
+		/*
+		 *      12,20
+		 *    /   |   \
+		 *   10   15  30
+		 */
+		t.Run("adding the leftChild[1] node splits properly", func(t *testing.T) {
+			bTree := setupTree(g)
+
+			treeItem := bTree.FindOrCreate(item12)
+			g.Expect(treeItem).To(Equal(item12))
+
+			g.Expect(bTree.root.count).To(Equal(uint(2)))
+			g.Expect(bTree.root.values[0]).To(Equal(item12))
+			g.Expect(bTree.root.values[1]).To(Equal(item20))
+
+			child1 := bTree.root.children[0]
+			g.Expect(child1.count).To(Equal(uint(1)))
+			g.Expect(child1.values[0]).To(Equal(item10))
+
+			child2 := bTree.root.children[1]
+			g.Expect(child2.count).To(Equal(uint(1)))
+			g.Expect(child2.values[0]).To(Equal(item15))
+
+			child3 := bTree.root.children[2]
+			g.Expect(child3.count).To(Equal(uint(1)))
+			g.Expect(child3.values[0]).To(Equal(item30))
+		})
+
+		// generate a tree of
+		/*
+		 *      15,20
+		 *    /   |   \
+		 *   10   17  30
+		 */
+		t.Run("adding the leftChild[2] node splits properly", func(t *testing.T) {
+			bTree := setupTree(g)
+
+			treeItem := bTree.FindOrCreate(item17)
+			g.Expect(treeItem).To(Equal(item17))
+
+			g.Expect(bTree.root.count).To(Equal(uint(2)))
+			g.Expect(bTree.root.values[0]).To(Equal(item15))
+			g.Expect(bTree.root.values[1]).To(Equal(item20))
+
+			child1 := bTree.root.children[0]
+			g.Expect(child1.count).To(Equal(uint(1)))
+			g.Expect(child1.values[0]).To(Equal(item10))
+
+			child2 := bTree.root.children[1]
+			g.Expect(child2.count).To(Equal(uint(1)))
+			g.Expect(child2.values[0]).To(Equal(item17))
 
 			child3 := bTree.root.children[2]
 			g.Expect(child3.count).To(Equal(uint(1)))
