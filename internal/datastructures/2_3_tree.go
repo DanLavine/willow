@@ -120,13 +120,8 @@ func (ttn *twoThreeNode) findOrCreate(item TreeItem) (TreeItem, *twoThreeNode) {
 			if ttn.children[index] != nil {
 				item, node := ttn.children[index].findOrCreate(item)
 				if node != nil {
-					// set new node into current node
-					if ttn.count < ttn.order {
-						// set new node into current node
-						ttn.insertNode(uint(index), node)
-					} else {
-						// need to now split this node and propigate
-					}
+					// set new node into current node. always safe since we had a nil value
+					ttn.insertNode(uint(index), node)
 				}
 
 				return item, nil
@@ -148,6 +143,7 @@ func (ttn *twoThreeNode) findOrCreate(item TreeItem) (TreeItem, *twoThreeNode) {
 						ttn.insertNode(uint(index), node)
 					} else {
 						// need to now split this node and propigate
+						return item, ttn.splitNodeOnNode(node, uint(index))
 					}
 				}
 
@@ -161,7 +157,7 @@ func (ttn *twoThreeNode) findOrCreate(item TreeItem) (TreeItem, *twoThreeNode) {
 			}
 
 			// iii. there is no more room on this node. need to split this node
-			return ttn.splitNode(item, uint(index))
+			return ttn.splitNodeOnItem(item, uint(index))
 		}
 
 		// c. check to see if it is the current item
@@ -175,17 +171,23 @@ func (ttn *twoThreeNode) findOrCreate(item TreeItem) (TreeItem, *twoThreeNode) {
 	}
 
 	// 2. check to see if the item can fight on the rightmost child
-	if ttn.children[ttn.order-1] != nil {
+	if ttn.children[ttn.order] != nil {
+		item, node := ttn.children[ttn.order].findOrCreate(item)
+		if node != nil {
+			// need to now split this node and propigate
+			return item, ttn.splitNodeOnNode(node, ttn.order)
+		}
 
+		return item, nil
 	}
 
 	// 3. Need to split this node and propigate a new node up
-	return ttn.splitNode(item, ttn.count)
+	return ttn.splitNodeOnItem(item, ttn.count)
 }
 
-// split node, splits the current node into a parent containing the "middle" item and a left + right node
+// splitNodeOnItem, splits the current node into a parent containing the "middle" item and a left + right node
 // with the 2 subsets of all values
-func (ttn *twoThreeNode) splitNode(item TreeItem, insertIndex uint) (TreeItem, *twoThreeNode) {
+func (ttn *twoThreeNode) splitNodeOnItem(item TreeItem, insertIndex uint) (TreeItem, *twoThreeNode) {
 	leftNode := newBTreeNode(ttn.order, true)
 	rightNode := newBTreeNode(ttn.order, true)
 	parentNode := newBTreeNode(ttn.order, false)
@@ -227,6 +229,89 @@ func (ttn *twoThreeNode) splitNode(item TreeItem, insertIndex uint) (TreeItem, *
 	return item, parentNode
 }
 
+// splitNodeOnNode, splits the current node into a parent containing the "middle" item and a left + right node
+// with the 2 subsets of all values
+func (ttn *twoThreeNode) splitNodeOnNode(newNode *twoThreeNode, insertIndex uint) *twoThreeNode {
+	leftNode := newBTreeNode(ttn.order, true)
+	rightNode := newBTreeNode(ttn.order, true)
+	parentNode := newBTreeNode(ttn.order, false)
+
+	node := leftNode            // set to left, parent, right nodes based off of place in order
+	nodeLookupIndex := uint(0)  // iterator for the known ttn.values
+	childLookupIndex := uint(0) // iterator for the known ttn.children values
+	nodeInsertIndex := uint(0)  // insert values into node. reset each time the node changes
+	childInsertIndex := uint(0) // insert values into current node's children. reset each time the node changes
+
+	for i := uint(0); i <= ttn.order; i++ {
+		// we reached the middle index, need to set parent index
+		if i == (ttn.order+1)/2 {
+			nodeInsertIndex = uint(0)
+
+			// setup new paren node
+			node = parentNode
+			parentNode.children[0] = leftNode
+			parentNode.children[1] = rightNode
+
+			if i == insertIndex {
+				// if the new node to index is also the middle. re-assing the children
+				node.values[nodeInsertIndex] = newNode.values[0]
+				leftNode.children[childInsertIndex] = newNode.children[0]
+
+				childInsertIndex = uint(0)
+				rightNode.children[childInsertIndex] = newNode.children[1]
+				childInsertIndex++
+				childLookupIndex++ // skip this since we split it
+			} else {
+				// need to ensure balance
+				if leftNode.children[leftNode.count] == nil {
+					leftNode.children[childInsertIndex] = ttn.children[childLookupIndex]
+					childInsertIndex++
+					childLookupIndex++
+				}
+
+				// assign the values as normal
+				childInsertIndex = uint(0)
+				node.values[0] = ttn.values[nodeLookupIndex]
+				nodeLookupIndex++
+			}
+
+			node.count++
+			continue
+		}
+
+		// we reached the right child node
+		if i > (ttn.order+1)/2 {
+			node = rightNode
+			nodeInsertIndex = uint(0)
+		}
+
+		if i == insertIndex {
+			// we are at the insert index on left or right child
+			node.values[nodeInsertIndex] = newNode.values[0]
+			node.children[childInsertIndex] = newNode.children[0]
+			node.children[childInsertIndex+1] = newNode.children[1]
+			node.count++
+			childInsertIndex += 2
+			nodeInsertIndex++
+			childLookupIndex++
+		} else {
+			node.values[nodeInsertIndex] = ttn.values[nodeLookupIndex]
+			node.children[childInsertIndex] = ttn.children[childLookupIndex]
+			node.count++
+			nodeInsertIndex++
+			nodeLookupIndex++
+			childInsertIndex++
+			childLookupIndex++
+		}
+	}
+
+	if childLookupIndex <= ttn.order {
+		node.children[childInsertIndex] = ttn.children[childLookupIndex]
+	}
+
+	return parentNode
+}
+
 func (ttn *twoThreeNode) insertNode(insertIndex uint, node *twoThreeNode) {
 	for end := ttn.order; end > insertIndex+1; end-- {
 		ttn.values[end-1] = ttn.values[end-2]   // shift the values by 1
@@ -249,4 +334,23 @@ func (ttn *twoThreeNode) insertTreeItem(item TreeItem, insertIndex uint) {
 
 	ttn.count++
 	ttn.values[insertIndex] = item
+}
+
+// used to print node during tests. quite helpful
+func (ttn *twoThreeNode) print(key string) {
+	if key == "" {
+		key = "node."
+	}
+
+	for index, value := range ttn.values {
+		if ttn.children[index] != nil {
+			ttn.children[index].print(fmt.Sprintf("%schild[%d].", key, index))
+		}
+
+		fmt.Printf("%svalues[%d]: %v\n", key, index, value)
+	}
+
+	if ttn.children[ttn.order] != nil {
+		ttn.children[ttn.order].print(fmt.Sprintf("%s.child[%d]", key, ttn.order))
+	}
 }

@@ -484,3 +484,201 @@ func TestBPLusTtree_FindOrCreate_Tree_SimplePromoteOperations(t *testing.T) {
 		})
 	})
 }
+
+func TestBPLusTtree_FindOrCreate_Tree_NewRootNode(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	// setup values
+	item5 := &twoThreeTester{num: 5, value: "5"}
+	item10 := &twoThreeTester{num: 10, value: "10"}
+	item20 := &twoThreeTester{num: 20, value: "20"}
+	item25 := &twoThreeTester{num: 25, value: "25"}
+	item30 := &twoThreeTester{num: 30, value: "30"}
+	item40 := &twoThreeTester{num: 40, value: "40"}
+	item45 := &twoThreeTester{num: 45, value: "45"}
+	item50 := &twoThreeTester{num: 50, value: "50"}
+
+	// all tests in this section start with a base tree like so
+	/*
+	 *        20,40
+	 *    /     |     \
+	 *  5,10  25,30  45,50
+	 */
+	setupTree := func(g *GomegaWithT) *TwoThreeRoot {
+		bTree, err := NewBTree(2)
+		g.Expect(err).ToNot(HaveOccurred())
+
+		g.Expect(bTree.FindOrCreate(item10)).To(Equal(item10))
+		g.Expect(bTree.FindOrCreate(item20)).To(Equal(item20))
+		g.Expect(bTree.FindOrCreate(item30)).To(Equal(item30))
+		g.Expect(bTree.FindOrCreate(item40)).To(Equal(item40))
+		g.Expect(bTree.FindOrCreate(item50)).To(Equal(item50))
+		g.Expect(bTree.FindOrCreate(item5)).To(Equal(item5))
+		g.Expect(bTree.FindOrCreate(item25)).To(Equal(item25))
+		g.Expect(bTree.FindOrCreate(item45)).To(Equal(item45))
+
+		g.Expect(bTree.root.count).To(Equal(uint(2)))
+		g.Expect(bTree.root.values[0]).To(Equal(item20))
+		g.Expect(bTree.root.values[1]).To(Equal(item40))
+
+		child1 := bTree.root.children[0]
+		g.Expect(child1.count).To(Equal(uint(2)))
+		g.Expect(child1.values[0]).To(Equal(item5))
+		g.Expect(child1.values[1]).To(Equal(item10))
+
+		child2 := bTree.root.children[1]
+		g.Expect(child2.count).To(Equal(uint(2)))
+		g.Expect(child2.values[0]).To(Equal(item25))
+		g.Expect(child2.values[1]).To(Equal(item30))
+
+		child3 := bTree.root.children[2]
+		g.Expect(child3.count).To(Equal(uint(2)))
+		g.Expect(child3.values[0]).To(Equal(item45))
+		g.Expect(child3.values[1]).To(Equal(item50))
+
+		return bTree
+	}
+
+	// generate a tree of
+	/*
+	 *             20
+	 *         /         \
+	 *        5          40
+	 *      /  \      /      \
+	 *     0   10   25,30  45,50
+	 */
+	t.Run("adding the leftChild promotes properly", func(t *testing.T) {
+		bTree := setupTree(g)
+
+		item0 := &twoThreeTester{num: 0, value: "0"}
+		treeItem := bTree.FindOrCreate(item0)
+		g.Expect(treeItem).To(Equal(item0))
+
+		g.Expect(bTree.root.count).To(Equal(uint(1)))
+		g.Expect(bTree.root.values[0]).To(Equal(item20))
+
+		// left sub stree
+		child1 := bTree.root.children[0]
+		g.Expect(child1.count).To(Equal(uint(1)))
+		g.Expect(child1.values[0]).To(Equal(item5))
+
+		gchild1 := child1.children[0]
+		g.Expect(gchild1.count).To(Equal(uint(1)))
+		g.Expect(gchild1.values[0]).To(Equal(item0))
+
+		gchild2 := child1.children[1]
+		g.Expect(gchild2.count).To(Equal(uint(1)))
+		g.Expect(gchild2.values[0]).To(Equal(item10))
+
+		// right sub tree
+		child2 := bTree.root.children[1]
+		g.Expect(child2.count).To(Equal(uint(1)))
+		g.Expect(child2.values[0]).To(Equal(item40))
+
+		gchild1 = child2.children[0]
+		g.Expect(gchild1.count).To(Equal(uint(2)))
+		g.Expect(gchild1.values[0]).To(Equal(item25))
+		g.Expect(gchild1.values[1]).To(Equal(item30))
+
+		gchild2 = child2.children[1]
+		g.Expect(gchild2.count).To(Equal(uint(2)))
+		g.Expect(gchild2.values[0]).To(Equal(item45))
+		g.Expect(gchild2.values[1]).To(Equal(item50))
+	})
+
+	// generate a tree of
+	/*
+	 *             25
+	 *         /        \
+	 *        20        40
+	 *      /  \      /    \
+	 *    5,10  22   30   45,50
+	 */
+	t.Run("adding the middleChild promotes properly", func(t *testing.T) {
+		bTree := setupTree(g)
+
+		item22 := &twoThreeTester{num: 22, value: "22"}
+		treeItem := bTree.FindOrCreate(item22)
+		g.Expect(treeItem).To(Equal(item22))
+
+		g.Expect(bTree.root.count).To(Equal(uint(1)))
+		g.Expect(bTree.root.values[0]).To(Equal(item25))
+
+		// left sub stree
+		child1 := bTree.root.children[0]
+		g.Expect(child1.count).To(Equal(uint(1)))
+		g.Expect(child1.values[0]).To(Equal(item20))
+
+		gchild1 := child1.children[0]
+		g.Expect(gchild1.count).To(Equal(uint(2)))
+		g.Expect(gchild1.values[0]).To(Equal(item5))
+		g.Expect(gchild1.values[1]).To(Equal(item10))
+
+		gchild2 := child1.children[1]
+		g.Expect(gchild2.count).To(Equal(uint(1)))
+		g.Expect(gchild2.values[0]).To(Equal(item22))
+
+		// right sub tree
+		child2 := bTree.root.children[1]
+		g.Expect(child2.count).To(Equal(uint(1)))
+		g.Expect(child2.values[0]).To(Equal(item40))
+
+		gchild1 = child2.children[0]
+		g.Expect(gchild1.count).To(Equal(uint(1)))
+		g.Expect(gchild1.values[0]).To(Equal(item30))
+
+		gchild2 = child2.children[1]
+		g.Expect(gchild2.count).To(Equal(uint(2)))
+		g.Expect(gchild2.values[0]).To(Equal(item45))
+		g.Expect(gchild2.values[1]).To(Equal(item50))
+	})
+
+	// generate a tree of
+	/*
+	 *              40
+	 *         /         \
+	 *        20         47
+	 *      /    \        /   \
+	 *    5,10  25,30  45   50
+	 */
+	t.Run("adding the right promotes properly", func(t *testing.T) {
+		bTree := setupTree(g)
+
+		item47 := &twoThreeTester{num: 47, value: "47"}
+		treeItem := bTree.FindOrCreate(item47)
+		g.Expect(treeItem).To(Equal(item47))
+
+		bTree.root.print("")
+
+		g.Expect(bTree.root.count).To(Equal(uint(1)))
+		g.Expect(bTree.root.values[0]).To(Equal(item40))
+
+		// left sub stree
+		child1 := bTree.root.children[0]
+		g.Expect(child1.count).To(Equal(uint(1)))
+		g.Expect(child1.values[0]).To(Equal(item20))
+
+		gchild1 := child1.children[0]
+		g.Expect(gchild1.count).To(Equal(uint(2)))
+		g.Expect(gchild1.values[0]).To(Equal(item5))
+		g.Expect(gchild1.values[1]).To(Equal(item10))
+
+		gchild2 := child1.children[1]
+		g.Expect(gchild2.count).To(Equal(uint(2)))
+		g.Expect(gchild2.values[0]).To(Equal(item25))
+		g.Expect(gchild2.values[1]).To(Equal(item30))
+
+		// right sub tree
+		child2 := bTree.root.children[1]
+		g.Expect(child2.count).To(Equal(uint(1)))
+		g.Expect(child2.values[0]).To(Equal(item47))
+
+		gchild1 = child2.children[0]
+		g.Expect(gchild1.count).To(Equal(uint(1)))
+		g.Expect(gchild1.values[0]).To(Equal(item45))
+
+		gchild2 = child2.children[1]
+		g.Expect(gchild2.count).To(Equal(uint(1)))
+		g.Expect(gchild2.values[0]).To(Equal(item50))
+	})
+}
