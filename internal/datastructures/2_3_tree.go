@@ -2,74 +2,113 @@ package datastructures
 
 import (
 	"fmt"
+	"math"
 	"sync"
 )
 
+type lockStrategy int
+
+const (
+	lockExclusive lockStrategy = iota
+	lockRead
+)
+
+// BTree is a 2-3-4 tree implementation of a generic BTree.
+// See https://www.geeksforgeeks.org/2-3-4-tree/ for details on what a 2-3-4 tree is
 type BTree interface {
 }
 
-// need to be able to pull the key from any items on a splut
+// Any items that satisfy this interface can be stored in a BTree
 type TreeItem interface {
 	Less(compareItem TreeItem) bool
+
+	// Generic callback functions that can be set on items stored in the BTree
+	//OnFind()
+	//CanDelete() bool
 }
 
-// root node never changes for the caller of this package and allows us to update
-// the root node on any splits that might occur
-//
-// ALAWYS INSERT INTO A LEAF NODE!. The pushup of a full leaf node can be pushed
-type TwoThreeRoot struct {
+// BRoot contains the root to the btree. As part of the split operation on inserts and
+// deletes we might need to reasign a node. Having this root store the location of that
+// root node allows the split operation to happen cleanly and keep track of the proper tree
+type BRoot struct {
 	lock *sync.RWMutex
-	root *twoThreeNode
+
+	order int
+	root  *bNode
 }
 
-type twoThreeNode struct {
-	lock  *sync.RWMutex
-	order uint
+// bNode is the internal node for a BTree. Each node in the tree is a bNode and stores
+// values of TreeItem. Any children nodes are a bNode
+type bNode struct {
+	lock *sync.RWMutex
 
-	// each node can have either keys, or values, but never both
-	values   []TreeItem
-	children []*twoThreeNode
-	// number of keys or items currently being used
-	count uint
+	values   []TreeItem // the items for this node
+	children []*bNode   // children for this node
 }
 
-// create a new B+Tree
-func NewBTree(order uint) (*TwoThreeRoot, error) {
+// create a new BTree.
+//
+// PARAMS:
+// * order - how many values to store in each node. order must be at leas 2
+//
+// RETURNS:
+// * BRoot - root of the BTree that is thread safe for any number of goroutines
+// * error - an error if the order is not acceptable
+func NewBTree(order int) (*BRoot, error) {
 	if order <= 1 {
-		return nil, fmt.Errorf("order must be greater than 1")
+		return nil, fmt.Errorf("order must be greater than 1 for BTree")
 	}
 
-	return &TwoThreeRoot{
-		lock: new(sync.RWMutex),
-		root: newBTreeNode(order, true),
+	if order >= math.MaxInt-2 {
+		return nil, fmt.Errorf("order must be 2 less than %d", math.MaxInt)
+	}
+
+	return &BRoot{
+		lock:  new(sync.RWMutex),
+		order: order,
+		root:  nil, // note this is nil because it can be removed on a "delete". So that case always needs to be handled
 	}, nil
 }
 
-func newBTreeNode(order uint, leaf bool) *twoThreeNode {
-	return &twoThreeNode{
+func newBTreeNode(order int) *bNode {
+	return &bNode{
 		lock:     new(sync.RWMutex),
-		order:    order,
-		values:   make([]TreeItem, order),        // should be fine n memory. They are nil
-		children: make([]*twoThreeNode, order+1), // should be fine n memory. They are nil
-		count:    0,
+		values:   make([]TreeItem, 0, order+1), // set len and cap calls to be constant
+		children: make([]*bNode, 0, order+2),   // set len and cap calls to be constant
 	}
 }
 
-func (ttr *TwoThreeRoot) FindOrCreate(item TreeItem) TreeItem {
-	// always attempt a full read find for an item first so we don't need to lock the entire tree
-	ttr.lock.RLock()
-	returnItem := ttr.root.find(item)
-	ttr.lock.RUnlock()
-
-	if returnItem != nil {
-		return returnItem
+func (ttr *BRoot) FindOrCreate(item TreeItem) TreeItem {
+	if item == nil {
+		panic("item is nil")
 	}
 
-	// item was not found. now we need to create it, so need a tree lock
+	var returnItem TreeItem
+
+	// always attempt a full read find for an item first. This way multiple
+	// reads can happen at once, but an Insert or Delete will then lock the tree structure
+	// down to the nodes that need an update
+	//ttr.lock.RLock()
+	//if ttr.root == nil {
+	//	ttr.lock.RUnlock()
+	//} else {
+	//	returnItem := ttr.root.find(item)
+	//	ttr.lock.RUnlock()
+
+	//	if returnItem != nil {
+	//		return returnItem
+	//	}
+	//}
+
+	// item was not found. now we need to create it, so need a tree path lock
 	ttr.lock.Lock()
 	defer ttr.lock.Unlock()
 
-	returnItem, newRoot := ttr.root.findOrCreate(item)
+	if ttr.root == nil {
+		ttr.root = newBTreeNode(ttr.order)
+	}
+
+	returnItem, newRoot := ttr.root.findOrCreate(ttr.order, item)
 	if newRoot != nil {
 		ttr.root = newRoot
 	}
@@ -77,280 +116,187 @@ func (ttr *TwoThreeRoot) FindOrCreate(item TreeItem) TreeItem {
 	return returnItem
 }
 
-// find an item in the 2-3 Tree. This is a thread safe read only operation
-func (ttn *twoThreeNode) find(item TreeItem) TreeItem {
-	ttn.lock.RLock()
-	defer ttn.lock.RUnlock()
-
-	//// we are on the leaf node, try and find the value
-	//for i := 0; i < count; i++ {
-	//	// when both less than are true, we know we found the item
-	//	if !ttn.values[i].Less(item) && item.Less(ttn.values[i]) {
-	//		return ttn.values[i]
-	//	}
-	//}
-
-	//// no item found
-	//return nil
-
-	//// we are on an internal node, so try and find the proper leaf
-	//for i := 0; i < count; i++ {
-	//}
-	return nil
-}
-
-// create a new item in the 2-3 tree
+// create a new item in the BTree
 //
 // PARAMS:
-// * item - item to be inserted into the 2-3 tree
+// * item - item to be inserted into the tree
 //
 // RETURNS:
-// * TreeItem - the value inserted or already at the desired position
-// * *twoThreeNode - a new node if there was a split
-func (ttn *twoThreeNode) findOrCreate(item TreeItem) (TreeItem, *twoThreeNode) {
-	ttn.lock.Lock()
-	defer ttn.lock.Unlock()
+// * TreeItem - the value inserted or item if it already existed
+// * *bNode - a new node if there was a split
+func (bn *bNode) findOrCreate(order int, item TreeItem) (TreeItem, *bNode) {
+	bn.lock.Lock()
+	defer bn.lock.Unlock()
 
-	// 1. Check to see where the item fits on this node
-	for index, value := range ttn.values {
-		// a. found an empty value. can possibly insert it here
-		if value == nil {
-			// i. check the child. on a first pass this will always be empty.
-			//    on 2...n passes this is the right check (greater than) check of the previous value
-			if ttn.children[index] != nil {
-				item, node := ttn.children[index].findOrCreate(item)
-				if node != nil {
-					// set new node into current node. always safe since we had a nil value
-					ttn.insertNode(uint(index), node)
+	switch len(bn.children) {
+	case 0: // leaf node
+		item = bn.insertTreeItem(item)
+
+		if len(bn.values) > order {
+			return item, bn.splitLeaf(order)
+		}
+
+		return item, nil
+	default: // internal node
+		var index int
+		for _, value := range bn.values {
+			if !value.Less(item) {
+				// item already exists, return the original value
+				if !item.Less(value) {
+					return bn.values[index], nil
 				}
 
-				return item, nil
+				// found index
+				break
 			}
 
-			// ii. no chid node, this must mean we are on a leaf node and can insert the value at our current index
-			ttn.insertTreeItem(item, uint(index))
-			return item, nil
+			index++
 		}
 
-		// b. check to see if the current item is less than the item in the current list
-		if item.Less(value) {
-			// i. check to see if there is a less than child node that this value needs to be inserted into
-			if ttn.children[index] != nil {
-				item, node := ttn.children[index].findOrCreate(item)
-				if node != nil {
-					if ttn.count < ttn.order {
-						// set new node into current node
-						ttn.insertNode(uint(index), node)
-					} else {
-						// need to now split this node and propigate
-						return item, ttn.splitNodeOnNode(node, uint(index))
-					}
-				}
-
-				return item, nil
-			}
-
-			// ii. if there is no less than node, see if we can insert on this node
-			if ttn.count < ttn.order {
-				ttn.insertTreeItem(item, uint(index))
-				return item, nil
-			}
-
-			// iii. there is no more room on this node. need to split this node
-			return ttn.splitNodeOnItem(item, uint(index))
-		}
-
-		// c. check to see if it is the current item
-		if !value.Less(item) {
-			// i. this is the value we are trying to insert. so return the original item
-			return value, nil
-		}
-
-		// d. Start again from the next key value. Don't need to check the right node. that is the same
-		//    as a left check (less than) on the next value if it exists
-	}
-
-	// 2. check to see if the item can fight on the rightmost child
-	if ttn.children[ttn.order] != nil {
-		item, node := ttn.children[ttn.order].findOrCreate(item)
+		//  will be the found index, or last child index (right child)
+		item, node := bn.children[index].findOrCreate(order, item)
 		if node != nil {
-			// need to now split this node and propigate
-			return item, ttn.splitNodeOnNode(node, ttn.order)
+			bn.insertNode(node)
+			if len(bn.values) > order {
+				return item, bn.splitNode(order)
+			}
 		}
 
 		return item, nil
 	}
-
-	// 3. Need to split this node and propigate a new node up
-	return ttn.splitNodeOnItem(item, ttn.count)
 }
 
-// splitNodeOnItem, splits the current node into a parent containing the "middle" item and a left + right node
-// with the 2 subsets of all values
-func (ttn *twoThreeNode) splitNodeOnItem(item TreeItem, insertIndex uint) (TreeItem, *twoThreeNode) {
-	leftNode := newBTreeNode(ttn.order, true)
-	rightNode := newBTreeNode(ttn.order, true)
-	parentNode := newBTreeNode(ttn.order, false)
-
-	node := leftNode           // set to left, parent, right nodes based off of place in order
-	nodeInsertIndex := uint(0) // reset each time the node changes
-	lookupIndex := uint(0)     // iterator for the known ttn.values
-
-	for i := uint(0); i <= ttn.order; i++ {
-		// we reached the middle index, need to set parent index
-		if i == (ttn.order+1)/2 {
-			nodeInsertIndex = uint(0)
-			node = parentNode
-		}
-
-		// we reached the right child inde
-		if i > (ttn.order+1)/2 {
-			nodeInsertIndex = uint(0)
-			node = rightNode
-		}
-
-		// we are at the insert index
-		if i == insertIndex {
-			node.values[nodeInsertIndex] = item
-			node.count++
-			nodeInsertIndex++
-			continue
-		}
-
-		node.values[nodeInsertIndex] = ttn.values[lookupIndex]
-		node.count++
-		nodeInsertIndex++
-		lookupIndex++
-	}
-
-	parentNode.children[0] = leftNode
-	parentNode.children[1] = rightNode
-
-	return item, parentNode
-}
-
-// splitNodeOnNode, splits the current node into a parent containing the "middle" item and a left + right node
-// with the 2 subsets of all values
-func (ttn *twoThreeNode) splitNodeOnNode(newNode *twoThreeNode, insertIndex uint) *twoThreeNode {
-	leftNode := newBTreeNode(ttn.order, true)
-	rightNode := newBTreeNode(ttn.order, true)
-	parentNode := newBTreeNode(ttn.order, false)
-
-	node := leftNode            // set to left, parent, right nodes based off of place in order
-	nodeLookupIndex := uint(0)  // iterator for the known ttn.values
-	childLookupIndex := uint(0) // iterator for the known ttn.children values
-	nodeInsertIndex := uint(0)  // insert values into node. reset each time the node changes
-	childInsertIndex := uint(0) // insert values into current node's children. reset each time the node changes
-
-	for i := uint(0); i <= ttn.order; i++ {
-		// we reached the middle index, need to set parent index
-		if i == (ttn.order+1)/2 {
-			nodeInsertIndex = uint(0)
-
-			// setup new paren node
-			node = parentNode
-			parentNode.children[0] = leftNode
-			parentNode.children[1] = rightNode
-
-			if i == insertIndex {
-				// if the new node to index is also the middle. re-assing the children
-				node.values[nodeInsertIndex] = newNode.values[0]
-				leftNode.children[childInsertIndex] = newNode.children[0]
-
-				childInsertIndex = uint(0)
-				rightNode.children[childInsertIndex] = newNode.children[1]
-				childInsertIndex++
-				childLookupIndex++ // skip this since we split it
-			} else {
-				// need to ensure balance
-				if leftNode.children[leftNode.count] == nil {
-					leftNode.children[childInsertIndex] = ttn.children[childLookupIndex]
-					childInsertIndex++
-					childLookupIndex++
-				}
-
-				// assign the values as normal
-				childInsertIndex = uint(0)
-				node.values[0] = ttn.values[nodeLookupIndex]
-				nodeLookupIndex++
+// insertTreeItem is called only on "leaf" nodes who have space for a new value
+func (bn *bNode) insertTreeItem(item TreeItem) TreeItem {
+	for index, value := range bn.values {
+		if !value.Less(item) {
+			// item already exists, return the original value
+			if !item.Less(value) {
+				return value
 			}
 
-			node.count++
-			continue
-		}
-
-		// we reached the right child node
-		if i > (ttn.order+1)/2 {
-			node = rightNode
-			nodeInsertIndex = uint(0)
-		}
-
-		if i == insertIndex {
-			// we are at the insert index on left or right child
-			node.values[nodeInsertIndex] = newNode.values[0]
-			node.children[childInsertIndex] = newNode.children[0]
-			node.children[childInsertIndex+1] = newNode.children[1]
-			node.count++
-			childInsertIndex += 2
-			nodeInsertIndex++
-			childLookupIndex++
-		} else {
-			node.values[nodeInsertIndex] = ttn.values[nodeLookupIndex]
-			node.children[childInsertIndex] = ttn.children[childLookupIndex]
-			node.count++
-			nodeInsertIndex++
-			nodeLookupIndex++
-			childInsertIndex++
-			childLookupIndex++
+			// shift current items all 1 position
+			bn.values = append(bn.values[:index+1], bn.values[index:]...)
+			// overwrite value
+			bn.values[index] = item
+			return item
 		}
 	}
 
-	if childLookupIndex <= ttn.order {
-		node.children[childInsertIndex] = ttn.children[childLookupIndex]
+	bn.values = append(bn.values, item)
+	return item
+}
+
+// splitLeaf is called only on "leaf" nodes and reurns a new node with 1 value and 2 children
+//
+// PARAMS:
+// * item - item to insert
+//
+// RETURNS:
+// * TreeItem - tree item to be inserted or original item if found
+// * bNode - new "root" node of the split nodes. Will be nil if original item is found
+func (bn *bNode) splitLeaf(order int) *bNode {
+	pivotIndex := order / 2
+
+	// 1. create the new nodes
+	parentNode := newBTreeNode(order)
+	parentNode.insertTreeItem(bn.values[pivotIndex])
+
+	// 2. create left node
+	parentNode.children = append(parentNode.children, newBTreeNode(order))
+	for i := 0; i < pivotIndex; i++ {
+		_ = parentNode.children[0].insertTreeItem(bn.values[i])
+	}
+
+	// 3. create right node
+	parentNode.children = append(parentNode.children, newBTreeNode(order))
+	for i := pivotIndex + 1; i <= order; i++ {
+		_ = parentNode.children[1].insertTreeItem(bn.values[i])
 	}
 
 	return parentNode
 }
 
-func (ttn *twoThreeNode) insertNode(insertIndex uint, node *twoThreeNode) {
-	for end := ttn.order; end > insertIndex+1; end-- {
-		ttn.values[end-1] = ttn.values[end-2]   // shift the values by 1
-		ttn.children[end] = ttn.children[end-1] // shift the children by 1
+// insertNode is called only on "internal" nodes who have space for a promoted node value
+func (bn *bNode) insertNode(node *bNode) {
+	for index, value := range bn.values {
+		if node.values[0].Less(value) {
+			// shift current items all 1 position
+			bn.values = append(bn.values[:index+1], bn.values[index:]...)
+			bn.children = append(bn.children[:index+1], bn.children[index:]...)
+			// overwrite value and children
+			bn.values[index] = node.values[0]
+			bn.children[index] = node.children[0]
+			bn.children[index+1] = node.children[1]
+
+			return
+		}
 	}
 
-	ttn.count++
-	ttn.values[insertIndex] = node.values[0]
-	ttn.children[insertIndex] = node.children[0]
-	ttn.children[insertIndex+1] = node.children[1]
+	if len(bn.values) == 0 {
+		bn.values = append(bn.values, node.values[0])
+		bn.children = append(bn.children, node.children...)
+	} else {
+		bn.values = append(bn.values, node.values[0])
+		bn.children = bn.children[:len(bn.children)-1]
+		bn.children = append(bn.children, node.children...)
+	}
 }
 
-// insertTreeItem is called only on "leaf" nodes who have space for a new value
-func (ttn *twoThreeNode) insertTreeItem(item TreeItem, insertIndex uint) {
-	// shift all items over by one
-	for end := ttn.order; end > insertIndex+1; end-- {
-		ttn.values[end-1] = ttn.values[end-2]   // shift the values by 1
-		ttn.children[end] = ttn.children[end-1] // shift the children by 1
-	}
+// splitNode is called only on "internal" nodes and reurns a new node with 1 value and 2 children
+//
+// PARAMS:
+// * node - additional node that needs to be added to current node causing the split
+// * insertIndex - index where the node would be addeded if there was space
+//
+// RETURNS:
+// * TreeItem - tree item to be inserted or original item if found
+// * bNode - new "root" node of the split nodes. Will be nil if original item is found
+func (bn *bNode) splitNode(order int) *bNode {
+	pivotIndex := order / 2
 
-	ttn.count++
-	ttn.values[insertIndex] = item
+	// 1. create the new nodes
+	parentNode := newBTreeNode(order)
+	parentNode.insertTreeItem(bn.values[pivotIndex])
+
+	// 2. create left nodes
+	parentNode.children = append(parentNode.children, newBTreeNode(order))
+	var index int
+	for index = 0; index < pivotIndex; index++ {
+		_ = parentNode.children[0].insertTreeItem(bn.values[index])
+		parentNode.children[0].children = append(parentNode.children[0].children, bn.children[index])
+	}
+	parentNode.children[0].children = append(parentNode.children[0].children, bn.children[index])
+
+	// 2. create right nodes
+	parentNode.children = append(parentNode.children, newBTreeNode(order))
+	for index = pivotIndex + 1; index <= order; index++ {
+		_ = parentNode.children[1].insertTreeItem(bn.values[index])
+		parentNode.children[1].children = append(parentNode.children[1].children, bn.children[index])
+	}
+	parentNode.children[1].children = append(parentNode.children[1].children, bn.children[index])
+
+	return parentNode
 }
 
 // used to print node during tests. quite helpful
-func (ttn *twoThreeNode) print(key string) {
+func (bn *bNode) print(key string) {
 	if key == "" {
 		key = "node."
 	}
 
-	for index, value := range ttn.values {
-		if ttn.children[index] != nil {
-			ttn.children[index].print(fmt.Sprintf("%schild[%d].", key, index))
+	if len(bn.children) == 0 {
+		for i, value := range bn.values {
+			fmt.Printf("%svalues[%d]: %v\n", key, i, value)
 		}
-
-		fmt.Printf("%svalues[%d]: %v\n", key, index, value)
+		return
 	}
 
-	if ttn.children[ttn.order] != nil {
-		ttn.children[ttn.order].print(fmt.Sprintf("%s.child[%d]", key, ttn.order))
+	for i := 0; i < len(bn.children); i++ {
+		bn.children[i].print(fmt.Sprintf("%schild[%d].", key, i))
+
+		if i != len(bn.children)-1 {
+			fmt.Printf("%svalues[%d]: %v\n", key, i, bn.values[i])
+		}
 	}
 }
