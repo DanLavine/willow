@@ -1,21 +1,24 @@
 package datastructures
 
 import (
+	"fmt"
+	"math/rand"
 	"testing"
+	"time"
 
 	. "github.com/onsi/gomega"
 )
 
-type twoThreeTester struct {
+type bTreeTester struct {
 	num   int
 	value string
 }
 
-func (tester *twoThreeTester) Less(compareItem TreeItem) bool {
-	return tester.num < compareItem.(*twoThreeTester).num
+func (tester *bTreeTester) Less(compareItem TreeItem) bool {
+	return tester.num < compareItem.(*bTreeTester).num
 }
 
-func TestBPLusTtree_NewBTree(t *testing.T) {
+func TestBTree_NewBTree(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	t.Run("returns an error if the order is to small", func(t *testing.T) {
@@ -26,15 +29,15 @@ func TestBPLusTtree_NewBTree(t *testing.T) {
 	})
 }
 
-func TestBPLusTtree_FindOrCreate_SingleNode(t *testing.T) {
+func TestBTree_FindOrCreate_SingleNode(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	t.Run("creates a new tree with proper size limits", func(t *testing.T) {
 		bTree, err := NewBTree(2)
 		g.Expect(err).ToNot(HaveOccurred())
 
-		itemOne := &twoThreeTester{num: 1, value: "one"}
-		itemTwo := &twoThreeTester{num: 2, value: "two"}
+		itemOne := &bTreeTester{num: 1, value: "one"}
+		itemTwo := &bTreeTester{num: 2, value: "two"}
 
 		treeItem := bTree.FindOrCreate(itemOne)
 		g.Expect(treeItem).To(Equal(itemOne))
@@ -51,8 +54,8 @@ func TestBPLusTtree_FindOrCreate_SingleNode(t *testing.T) {
 		bTree, err := NewBTree(2)
 		g.Expect(err).ToNot(HaveOccurred())
 
-		itemOne := &twoThreeTester{num: 1, value: "one"}
-		itemTwo := &twoThreeTester{num: 1, value: "two"}
+		itemOne := &bTreeTester{num: 1, value: "one"}
+		itemTwo := &bTreeTester{num: 1, value: "two"}
 
 		treeItem := bTree.FindOrCreate(itemOne)
 		g.Expect(treeItem).To(Equal(itemOne))
@@ -68,8 +71,8 @@ func TestBPLusTtree_FindOrCreate_SingleNode(t *testing.T) {
 		bTree, err := NewBTree(2)
 		g.Expect(err).ToNot(HaveOccurred())
 
-		itemOne := &twoThreeTester{num: 1, value: "one"}
-		itemTwo := &twoThreeTester{num: 2, value: "two"}
+		itemOne := &bTreeTester{num: 1, value: "one"}
+		itemTwo := &bTreeTester{num: 2, value: "two"}
 
 		treeItem := bTree.FindOrCreate(itemTwo)
 		g.Expect(treeItem).To(Equal(itemTwo))
@@ -86,8 +89,8 @@ func TestBPLusTtree_FindOrCreate_SingleNode(t *testing.T) {
 		bTree, err := NewBTree(2)
 		g.Expect(err).ToNot(HaveOccurred())
 
-		itemOne := &twoThreeTester{num: 1, value: "one"}
-		itemTwo := &twoThreeTester{num: 2, value: "two"}
+		itemOne := &bTreeTester{num: 1, value: "one"}
+		itemTwo := &bTreeTester{num: 2, value: "two"}
 
 		treeItem := bTree.FindOrCreate(itemTwo)
 		g.Expect(treeItem).To(Equal(itemTwo))
@@ -108,9 +111,9 @@ func TestBPLusTtree_FindOrCreate_SingleNode(t *testing.T) {
 		bTree, err := NewBTree(2)
 		g.Expect(err).ToNot(HaveOccurred())
 
-		itemOne := &twoThreeTester{num: 1, value: "one"}
-		itemTwo := &twoThreeTester{num: 2, value: "two"}
-		itemThree := &twoThreeTester{num: 3, value: "three"}
+		itemOne := &bTreeTester{num: 1, value: "one"}
+		itemTwo := &bTreeTester{num: 2, value: "two"}
+		itemThree := &bTreeTester{num: 3, value: "three"}
 
 		treeItem := bTree.FindOrCreate(itemTwo)
 		g.Expect(treeItem).To(Equal(itemTwo))
@@ -138,9 +141,9 @@ func TestBPLusTtree_FindOrCreate_SingleNode(t *testing.T) {
 		bTree, err := NewBTree(2)
 		g.Expect(err).ToNot(HaveOccurred())
 
-		itemOne := &twoThreeTester{num: 1, value: "one"}
-		itemTwo := &twoThreeTester{num: 2, value: "two"}
-		itemThree := &twoThreeTester{num: 3, value: "three"}
+		itemOne := &bTreeTester{num: 1, value: "one"}
+		itemTwo := &bTreeTester{num: 2, value: "two"}
+		itemThree := &bTreeTester{num: 3, value: "three"}
 
 		treeItem := bTree.FindOrCreate(itemOne)
 		g.Expect(treeItem).To(Equal(itemOne))
@@ -168,9 +171,9 @@ func TestBPLusTtree_FindOrCreate_SingleNode(t *testing.T) {
 		bTree, err := NewBTree(2)
 		g.Expect(err).ToNot(HaveOccurred())
 
-		itemOne := &twoThreeTester{num: 1, value: "one"}
-		itemTwo := &twoThreeTester{num: 2, value: "two"}
-		itemThree := &twoThreeTester{num: 3, value: "three"}
+		itemOne := &bTreeTester{num: 1, value: "one"}
+		itemTwo := &bTreeTester{num: 2, value: "two"}
+		itemThree := &bTreeTester{num: 3, value: "three"}
 
 		treeItem := bTree.FindOrCreate(itemOne)
 		g.Expect(treeItem).To(Equal(itemOne))
@@ -195,12 +198,12 @@ func TestBPLusTtree_FindOrCreate_SingleNode(t *testing.T) {
 	})
 }
 
-func TestBPLusTtree_FindOrCreate_Tree_SimpleOperations(t *testing.T) {
+func TestBTree_FindOrCreate_Tree_SimpleOperations(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	item10 := &twoThreeTester{num: 10, value: "10"}
-	item20 := &twoThreeTester{num: 20, value: "20"}
-	item30 := &twoThreeTester{num: 30, value: "30"}
+	item10 := &bTreeTester{num: 10, value: "10"}
+	item20 := &bTreeTester{num: 20, value: "20"}
+	item30 := &bTreeTester{num: 30, value: "30"}
 
 	// generate a tree of
 	/*
@@ -249,7 +252,7 @@ func TestBPLusTtree_FindOrCreate_Tree_SimpleOperations(t *testing.T) {
 	 */
 	t.Run("can add a new entry on the leftChild[0]", func(t *testing.T) {
 		bTree := setupTree(g)
-		item5 := &twoThreeTester{num: 5, value: "5"}
+		item5 := &bTreeTester{num: 5, value: "5"}
 
 		treeItem := bTree.FindOrCreate(item5)
 		g.Expect(treeItem).To(Equal(item5))
@@ -268,7 +271,7 @@ func TestBPLusTtree_FindOrCreate_Tree_SimpleOperations(t *testing.T) {
 	 */
 	t.Run("can add a new entry on the rightChild[0]", func(t *testing.T) {
 		bTree := setupTree(g)
-		item25 := &twoThreeTester{num: 25, value: "25"}
+		item25 := &bTreeTester{num: 25, value: "25"}
 
 		treeItem := bTree.FindOrCreate(item25)
 		g.Expect(treeItem).To(Equal(item25))
@@ -287,7 +290,7 @@ func TestBPLusTtree_FindOrCreate_Tree_SimpleOperations(t *testing.T) {
 	 */
 	t.Run("can add a new entry on the leftChild[1]", func(t *testing.T) {
 		bTree := setupTree(g)
-		item15 := &twoThreeTester{num: 15, value: "15"}
+		item15 := &bTreeTester{num: 15, value: "15"}
 
 		treeItem := bTree.FindOrCreate(item15)
 		g.Expect(treeItem).To(Equal(item15))
@@ -306,7 +309,7 @@ func TestBPLusTtree_FindOrCreate_Tree_SimpleOperations(t *testing.T) {
 	 */
 	t.Run("can add a new entry on the rightChild[1]", func(t *testing.T) {
 		bTree := setupTree(g)
-		item35 := &twoThreeTester{num: 35, value: "35"}
+		item35 := &bTreeTester{num: 35, value: "35"}
 
 		treeItem := bTree.FindOrCreate(item35)
 		g.Expect(treeItem).To(Equal(item35))
@@ -318,21 +321,21 @@ func TestBPLusTtree_FindOrCreate_Tree_SimpleOperations(t *testing.T) {
 	})
 }
 
-func TestBPLusTtree_FindOrCreate_Tree_SimplePromoteOperations(t *testing.T) {
+func TestBTree_FindOrCreate_Tree_SimplePromoteOperations(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	// setup values
-	item10 := &twoThreeTester{num: 10, value: "10"} // both
-	item20 := &twoThreeTester{num: 20, value: "20"} // both
-	item30 := &twoThreeTester{num: 30, value: "30"} // both
+	item10 := &bTreeTester{num: 10, value: "10"} // both
+	item20 := &bTreeTester{num: 20, value: "20"} // both
+	item30 := &bTreeTester{num: 30, value: "30"} // both
 
 	t.Run("leftChild promotions", func(t *testing.T) {
-		item15 := &twoThreeTester{num: 15, value: "15"} // left
+		item15 := &bTreeTester{num: 15, value: "15"} // left
 
 		// values to add
-		item8 := &twoThreeTester{num: 8, value: "8"}
-		item12 := &twoThreeTester{num: 12, value: "12"}
-		item17 := &twoThreeTester{num: 17, value: "17"}
+		item8 := &bTreeTester{num: 8, value: "8"}
+		item12 := &bTreeTester{num: 12, value: "12"}
+		item17 := &bTreeTester{num: 17, value: "17"}
 
 		// all tests in this section start with a base tree like so
 		/*
@@ -441,12 +444,12 @@ func TestBPLusTtree_FindOrCreate_Tree_SimplePromoteOperations(t *testing.T) {
 	})
 
 	t.Run("rightChild promotions", func(t *testing.T) {
-		item35 := &twoThreeTester{num: 35, value: "35"}
+		item35 := &bTreeTester{num: 35, value: "35"}
 
 		// values to add
-		item25 := &twoThreeTester{num: 25, value: "25"}
-		item32 := &twoThreeTester{num: 32, value: "32"}
-		item37 := &twoThreeTester{num: 37, value: "37"}
+		item25 := &bTreeTester{num: 25, value: "25"}
+		item32 := &bTreeTester{num: 32, value: "32"}
+		item37 := &bTreeTester{num: 37, value: "37"}
 
 		// all tests in this section start with a base tree like so
 		/*
@@ -555,18 +558,18 @@ func TestBPLusTtree_FindOrCreate_Tree_SimplePromoteOperations(t *testing.T) {
 	})
 }
 
-func TestBPLusTtree_FindOrCreate_Tree_NewRootNode(t *testing.T) {
+func TestBTree_FindOrCreate_Tree_NewRootNode(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	// setup values
-	item5 := &twoThreeTester{num: 5, value: "5"}
-	item10 := &twoThreeTester{num: 10, value: "10"}
-	item20 := &twoThreeTester{num: 20, value: "20"}
-	item25 := &twoThreeTester{num: 25, value: "25"}
-	item30 := &twoThreeTester{num: 30, value: "30"}
-	item40 := &twoThreeTester{num: 40, value: "40"}
-	item45 := &twoThreeTester{num: 45, value: "45"}
-	item50 := &twoThreeTester{num: 50, value: "50"}
+	item5 := &bTreeTester{num: 5, value: "5"}
+	item10 := &bTreeTester{num: 10, value: "10"}
+	item20 := &bTreeTester{num: 20, value: "20"}
+	item25 := &bTreeTester{num: 25, value: "25"}
+	item30 := &bTreeTester{num: 30, value: "30"}
+	item40 := &bTreeTester{num: 40, value: "40"}
+	item45 := &bTreeTester{num: 45, value: "45"}
+	item50 := &bTreeTester{num: 50, value: "50"}
 
 	// all tests in this section start with a base tree like so
 	/*
@@ -620,14 +623,12 @@ func TestBPLusTtree_FindOrCreate_Tree_NewRootNode(t *testing.T) {
 	t.Run("adding the leftChild promotes properly", func(t *testing.T) {
 		bTree := setupTree(g)
 
-		item0 := &twoThreeTester{num: 0, value: "0"}
+		item0 := &bTreeTester{num: 0, value: "0"}
 		treeItem := bTree.FindOrCreate(item0)
 		g.Expect(treeItem).To(Equal(item0))
 
 		g.Expect(len(bTree.root.values)).To(Equal(1))
 		g.Expect(bTree.root.values[0]).To(Equal(item20))
-
-		bTree.root.print("")
 
 		// left sub stree
 		child1 := bTree.root.children[0]
@@ -669,7 +670,7 @@ func TestBPLusTtree_FindOrCreate_Tree_NewRootNode(t *testing.T) {
 	t.Run("adding the middleChild promotes properly", func(t *testing.T) {
 		bTree := setupTree(g)
 
-		item22 := &twoThreeTester{num: 22, value: "22"}
+		item22 := &bTreeTester{num: 22, value: "22"}
 		treeItem := bTree.FindOrCreate(item22)
 		g.Expect(treeItem).To(Equal(item22))
 
@@ -716,7 +717,7 @@ func TestBPLusTtree_FindOrCreate_Tree_NewRootNode(t *testing.T) {
 	t.Run("adding the right promotes properly", func(t *testing.T) {
 		bTree := setupTree(g)
 
-		item47 := &twoThreeTester{num: 47, value: "47"}
+		item47 := &bTreeTester{num: 47, value: "47"}
 		treeItem := bTree.FindOrCreate(item47)
 		g.Expect(treeItem).To(Equal(item47))
 
@@ -750,5 +751,79 @@ func TestBPLusTtree_FindOrCreate_Tree_NewRootNode(t *testing.T) {
 		gchild2 = child2.children[1]
 		g.Expect(len(gchild2.values)).To(Equal(1))
 		g.Expect(gchild2.values[0]).To(Equal(item50))
+	})
+}
+
+func validateTree(g *GomegaWithT, bNode *bNode, parentItem TreeItem, less bool) {
+	if bNode == nil {
+		return
+	}
+
+	var index int
+	for index = 0; index < len(bNode.values)-1; index++ {
+		if parentItem != nil {
+			if less {
+				g.Expect(bNode.values[index].Less(parentItem)).To(BeTrue())
+			} else {
+				g.Expect(bNode.values[index].Less(parentItem)).To(BeFalse())
+			}
+		}
+
+		g.Expect(bNode.values[index].Less(bNode.values[index+1])).To(BeTrue())
+
+		if len(bNode.children) != 0 {
+			validateTree(g, bNode.children[index], bNode.values[index], true)
+		}
+	}
+
+	if len(bNode.children) != 0 {
+		validateTree(g, bNode.children[index], bNode.values[index], true)
+		validateTree(g, bNode.children[index+1], bNode.values[index], false)
+	}
+}
+
+func TestBTree_RandomAssertion(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	t.Run("works for a tree order of 2", func(t *testing.T) {
+		bTree, err := NewBTree(2)
+		g.Expect(err).ToNot(HaveOccurred())
+
+		randomGenerator := rand.New(rand.NewSource(time.Now().UnixNano()))
+		for i := 0; i < 10_000; i++ {
+			num := randomGenerator.Intn(10_000)
+			item := &bTreeTester{num: num, value: fmt.Sprintf("%d", num)}
+			_ = bTree.FindOrCreate(item)
+		}
+
+		validateTree(g, bTree.root, nil, true)
+	})
+
+	t.Run("works for a tree order of 3", func(t *testing.T) {
+		bTree, err := NewBTree(3)
+		g.Expect(err).ToNot(HaveOccurred())
+
+		randomGenerator := rand.New(rand.NewSource(time.Now().UnixNano()))
+		for i := 0; i < 10_000; i++ {
+			num := randomGenerator.Intn(10_000)
+			item := &bTreeTester{num: num, value: fmt.Sprintf("%d", num)}
+			_ = bTree.FindOrCreate(item)
+		}
+
+		validateTree(g, bTree.root, nil, true)
+	})
+
+	t.Run("works for a tree order of 4", func(t *testing.T) {
+		bTree, err := NewBTree(4)
+		g.Expect(err).ToNot(HaveOccurred())
+
+		randomGenerator := rand.New(rand.NewSource(time.Now().UnixNano()))
+		for i := 0; i < 10_000; i++ {
+			num := randomGenerator.Intn(10_000)
+			item := &bTreeTester{num: num, value: fmt.Sprintf("%d", num)}
+			_ = bTree.FindOrCreate(item)
+		}
+
+		validateTree(g, bTree.root, nil, true)
 	})
 }

@@ -16,6 +16,8 @@ const (
 // BTree is a 2-3-4 tree implementation of a generic BTree.
 // See https://www.geeksforgeeks.org/2-3-4-tree/ for details on what a 2-3-4 tree is
 type BTree interface {
+	// Find the provided tree item if it already exists. Or return the newly inserted tree item
+	FindOrCreate(item TreeItem) TreeItem
 }
 
 // Any items that satisfy this interface can be stored in a BTree
@@ -78,6 +80,15 @@ func newBTreeNode(order int) *bNode {
 	}
 }
 
+// Inserts the item if it does not already exist. Otherwise the original item already in the
+// tree is returned. Will panicc if the item passed in is nil. This is also thread safe to call
+// multiple times concurrently
+//
+// PARAMS:
+// * item - item to insert into the BTree
+//
+// RETURNS:
+// * TreeItem - item that was originally passed in for insertion, or the original item that matches
 func (ttr *BRoot) FindOrCreate(item TreeItem) TreeItem {
 	if item == nil {
 		panic("item is nil")
