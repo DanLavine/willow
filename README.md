@@ -5,12 +5,12 @@ Willow is a message broker that can be used as either a pub-sub or message queue
 # Terms
 * Broker - A messaging system that can be broken down into the following
   * Queue   - a first in, first out queue the sends a message to one Consumer
-    * Tag - Each queue is created via number of "tags" that define the queue.
-* Message - A unit of work that is sent or pulled from the queue
+    * TagGroup - Each queue is created via number of "tags" that define specific item details.
+* Item - A unit of work that is sent or pulled from the queue
 * Producer - This is the client that sends messages to willow
-  * Tag - when sending Messages, all tags must mutch exactly 1 queue that will recieve the message
+  * TagGroup - when sending Messages, all tags must mutch exactly 1 queue that will recieve the message
 * Consumer - This is the client that receives messages from willow
-  * Tag - when consuming message, there are a number of stratagies. See [#easy_consumer_setup]
+  * MatchRestrctions - when consuming message, there are a number of stratagies. See [#easy_consumer_setup]
 
 
 # Unique Features

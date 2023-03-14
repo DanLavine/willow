@@ -16,11 +16,15 @@ const (
 // BTree is a 2-3-4 tree implementation of a generic BTree.
 // See https://www.geeksforgeeks.org/2-3-4-tree/ for details on what a 2-3-4 tree is
 type BTree interface {
-	// Find the item in the Tree. will be nil if it does not exists
+	// Find the item in the Tree and option to run the OnFind() function for a TreeItem. will be nil if it does not exists
 	Find(key TreeKey) TreeItem
 
 	// Find the provided tree item if it already exists. Or return the newly inserted tree item
 	FindOrCreate(key TreeKey, item TreeItem) TreeItem
+
+	// Remove an item in the Tree
+	// TODO
+	//Remove(key TreeKey)
 }
 
 // BRoot contains the root to the btree. As part of the split operation on inserts and
@@ -80,6 +84,9 @@ func newBTreeNode(order int) *bNode {
 }
 
 // Find a tree item with a thread safe read lock
+//
+// PARAMS:
+// * key - key to use when searching for the associated value
 func (ttr *BRoot) Find(key TreeKey) TreeItem {
 	if key == nil {
 		panic("key is nil")
@@ -100,6 +107,7 @@ func (bn *bNode) find(key TreeKey) TreeItem {
 	for index, value := range bn.values {
 		if !value.key.Less(key) {
 			if !key.Less(value.key) {
+				value.item.OnFind()
 				return value.item
 			}
 
@@ -169,7 +177,7 @@ func (bn *bNode) findOrCreate(order int, key TreeKey, item TreeItem) (TreeItem, 
 
 	switch len(bn.children) {
 	case 0: // leaf node
-		item = bn.insertTreeItem(key, item)
+		item = bn.insertTreeItem(key, item, true)
 
 		if len(bn.values) > order {
 			return item, bn.splitLeaf(order)
@@ -182,6 +190,7 @@ func (bn *bNode) findOrCreate(order int, key TreeKey, item TreeItem) (TreeItem, 
 			if !value.key.Less(key) {
 				// item already exists, return the original value
 				if !key.Less(value.key) {
+					bn.values[index].item.OnFind()
 					return bn.values[index].item, nil
 				}
 
@@ -206,23 +215,37 @@ func (bn *bNode) findOrCreate(order int, key TreeKey, item TreeItem) (TreeItem, 
 }
 
 // insertTreeItem is called only on "leaf" nodes who have space for a new value
-func (bn *bNode) insertTreeItem(key TreeKey, item TreeItem) TreeItem {
+//
+// PARAMS:
+// * key - tree key value
+// * item - item to be saved and returned on a Find
+// * insert - if the value was inserted. Will be true on a create, but when a node splits this will be false
+func (bn *bNode) insertTreeItem(key TreeKey, item TreeItem, insert bool) TreeItem {
 	for index, currentValue := range bn.values {
 		if !currentValue.key.Less(key) {
 			// item already exists, return the original value
 			if !key.Less(currentValue.key) {
-				return currentValue.item
+				return callOnFind(currentValue.item, insert)
 			}
 
 			// shift current items all 1 position
 			bn.values = append(bn.values[:index+1], bn.values[index:]...)
 			// overwrite value
 			bn.values[index] = &value{key: key, item: item}
-			return item
+
+			return callOnFind(item, insert)
 		}
 	}
 
 	bn.values = append(bn.values, &value{key: key, item: item})
+	return callOnFind(item, insert)
+}
+
+func callOnFind(item TreeItem, insert bool) TreeItem {
+	if insert {
+		item.OnFind()
+	}
+
 	return item
 }
 
@@ -239,18 +262,18 @@ func (bn *bNode) splitLeaf(order int) *bNode {
 
 	// 1. create the new nodes
 	parentNode := newBTreeNode(order)
-	parentNode.insertTreeItem(bn.values[pivotIndex].key, bn.values[pivotIndex].item)
+	parentNode.insertTreeItem(bn.values[pivotIndex].key, bn.values[pivotIndex].item, false)
 
 	// 2. create left node
 	parentNode.children = append(parentNode.children, newBTreeNode(order))
 	for i := 0; i < pivotIndex; i++ {
-		_ = parentNode.children[0].insertTreeItem(bn.values[i].key, bn.values[i].item)
+		_ = parentNode.children[0].insertTreeItem(bn.values[i].key, bn.values[i].item, false)
 	}
 
 	// 3. create right node
 	parentNode.children = append(parentNode.children, newBTreeNode(order))
 	for i := pivotIndex + 1; i <= order; i++ {
-		_ = parentNode.children[1].insertTreeItem(bn.values[i].key, bn.values[i].item)
+		_ = parentNode.children[1].insertTreeItem(bn.values[i].key, bn.values[i].item, false)
 	}
 
 	return parentNode
@@ -296,13 +319,13 @@ func (bn *bNode) splitNode(order int) *bNode {
 
 	// 1. create the new nodes
 	parentNode := newBTreeNode(order)
-	parentNode.insertTreeItem(bn.values[pivotIndex].key, bn.values[pivotIndex].item)
+	parentNode.insertTreeItem(bn.values[pivotIndex].key, bn.values[pivotIndex].item, false)
 
 	// 2. create left nodes
 	parentNode.children = append(parentNode.children, newBTreeNode(order))
 	var index int
 	for index = 0; index < pivotIndex; index++ {
-		_ = parentNode.children[0].insertTreeItem(bn.values[index].key, bn.values[index].item)
+		_ = parentNode.children[0].insertTreeItem(bn.values[index].key, bn.values[index].item, false)
 		parentNode.children[0].children = append(parentNode.children[0].children, bn.children[index])
 	}
 	parentNode.children[0].children = append(parentNode.children[0].children, bn.children[index])
@@ -310,7 +333,7 @@ func (bn *bNode) splitNode(order int) *bNode {
 	// 2. create right nodes
 	parentNode.children = append(parentNode.children, newBTreeNode(order))
 	for index = pivotIndex + 1; index <= order; index++ {
-		_ = parentNode.children[1].insertTreeItem(bn.values[index].key, bn.values[index].item)
+		_ = parentNode.children[1].insertTreeItem(bn.values[index].key, bn.values[index].item, false)
 		parentNode.children[1].children = append(parentNode.children[1].children, bn.children[index])
 	}
 	parentNode.children[1].children = append(parentNode.children[1].children, bn.children[index])

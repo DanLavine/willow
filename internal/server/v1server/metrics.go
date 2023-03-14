@@ -32,7 +32,7 @@ func (mh *metricsHandler) Metrics(w http.ResponseWriter, r *http.Request) {
 
 	switch method := r.Method; method {
 	case "GET":
-		matchQuery, err := v1.ParseMatchRequest(r.Body)
+		matchQuery, err := v1.ParseMatchQueryRequest(r.Body)
 		if err != nil {
 			logger.Error("Failed to parse match request body", zap.Error(err))
 			w.WriteHeader(err.StatusCode)

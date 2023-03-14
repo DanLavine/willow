@@ -2,15 +2,17 @@ package v1
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
+	"net/http"
 	"sort"
 )
 
-type MatchRestriction int
+type MatchTagsRestrictions int
 
 const (
 	// Must be matched exactly
-	STRICT MatchRestriction = iota
+	STRICT MatchTagsRestrictions = iota
 
 	// If the Broker's Tags contain all requested tags -> true
 	SUBSET
@@ -22,97 +24,89 @@ const (
 	ALL
 )
 
-func ValidMatchRestrition(mr MatchRestriction) bool {
-	switch mr {
-	case STRICT, SUBSET, ANY, ALL:
-		return true
-	default:
-		return false
-	}
-}
-
+// Match Query can be used to match any number of brokers with a subset of tags.
+// Or all brokers and any subset of tags.
 type MatchQuery struct {
-	// Tag of the broker we want to read from
-	MatchRestriction MatchRestriction
-	BrokerTags       []string
+	// If BrokerMatches are provided, then these are the prefered matching restrcitions
+	BrokerMatches []MatchBrokers
+
+	// If BrokerMatchers are nil. then TagMatches are the default. If both are nil, then will find everything
+	TagMatches []MatchTags
 }
 
-func (mq *MatchQuery) MatchTags(tags []string) bool {
-	if mq.MatchRestriction == ALL {
-		return true
-	}
-
-	if mq.MatchRestriction == STRICT {
-		if len(tags) == len(mq.BrokerTags) {
-			for index, tag := range tags {
-				if mq.BrokerTags[index] != tag {
-					return false
-				}
-			}
-
-			return true
+func (mq *MatchQuery) validate() *Error {
+	if len(mq.BrokerMatches) != 0 {
+		if len(mq.TagMatches) != 0 {
+			return &Error{Message: "Invalid Match Query. Can only support BrokerMatches or TagMatches not both", StatusCode: http.StatusBadRequest}
 		}
 
-		return false
-	}
-
-	if mq.MatchRestriction == SUBSET {
-		// only check tags that are guranteed to at least have all the elements
-		if len(tags) >= len(mq.BrokerTags) {
-			lastFound := 0
-			for _, searchTag := range mq.BrokerTags {
-
-				found := false
-				for i := lastFound; i < len(tags); i++ {
-					if tags[i] == searchTag {
-						lastFound = i + 1 // advance next search start since things are sorted.
-						found = true
-						break
-					}
-				}
-
-				if !found {
-					return false
-				}
+		for _, brokerMatch := range mq.BrokerMatches {
+			if err := brokerMatch.validate(); err != nil {
+				return err
 			}
-
-			// found all the tags,return true
-			return true
 		}
 
-		return false
+		return nil
 	}
 
-	if mq.MatchRestriction == ANY {
-		for _, searchTag := range mq.BrokerTags {
-			for _, tag := range tags {
-				if searchTag == tag {
-					return true
-				}
-			}
+	if len(mq.TagMatches) == 0 {
+		return &Error{Message: "Invalid Match Query. Requires BrokerMatches or TagMatches to be set", StatusCode: http.StatusBadRequest}
+	}
+
+	for _, matchTags := range mq.TagMatches {
+		if err := matchTags.validate(); err != nil {
+			return err
 		}
 	}
 
-	return false
-
+	return nil
 }
 
-func ParseMatchRequest(reader io.ReadCloser) (*MatchQuery, *Error) {
-	matchRequestBody, err := io.ReadAll(reader)
+type MatchBrokers struct {
+	Name      string
+	MatchTags MatchTags
+}
+
+func (mb MatchBrokers) validate() *Error {
+	if mb.Name == "" {
+		return &Error{Message: "MatchBroker cannot have an empty Name", StatusCode: http.StatusBadRequest}
+	}
+
+	return mb.MatchTags.validate()
+}
+
+type MatchTags struct {
+	MatchTagsRestrictions MatchTagsRestrictions
+	Tags                  []string
+}
+
+func (mt MatchTags) validate() *Error {
+	switch mt.MatchTagsRestrictions {
+	case STRICT, SUBSET, ANY, ALL:
+		// nothing to do here. these are valid
+	default:
+		return (&Error{Message: "Invalid Match Tag", StatusCode: http.StatusBadRequest}).With("[STRICT(0), SUBSET(1), ANY(2), ALL(3)]", fmt.Sprintf("%d", mt.MatchTagsRestrictions))
+	}
+
+	sort.Strings(mt.Tags)
+
+	return nil
+}
+
+func ParseMatchQueryRequest(reader io.ReadCloser) (*MatchQuery, *Error) {
+	body, err := io.ReadAll(reader)
 	if err != nil {
 		return nil, InvalidRequestBody.With("", err.Error())
 	}
 
-	return ParseMatchQuery(matchRequestBody)
-}
-
-func ParseMatchQuery(b []byte) (*MatchQuery, *Error) {
 	matchQuery := &MatchQuery{}
-	if err := json.Unmarshal(b, matchQuery); err != nil {
+	if err := json.Unmarshal(body, matchQuery); err != nil {
 		return nil, ParseRequestBodyError.With("match query to be valid json", err.Error())
 	}
 
-	sort.Strings(matchQuery.BrokerTags)
+	if err := matchQuery.validate(); err != nil {
+		return nil, err
+	}
 
 	return matchQuery, nil
 }

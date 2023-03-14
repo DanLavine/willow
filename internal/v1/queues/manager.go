@@ -1,8 +1,12 @@
 package queues
 
 import (
+	"context"
+	"encoding/json"
+	"fmt"
 	"sync"
 
+	"github.com/DanLavine/goasync"
 	"github.com/DanLavine/willow/internal/datastructures"
 	"github.com/DanLavine/willow/internal/errors"
 	v1 "github.com/DanLavine/willow/pkg/models/v1"
@@ -45,6 +49,9 @@ type manager struct {
 
 	// all queues
 	queues datastructures.BTree
+
+	// task manger ensures shutdown requests are processsed properly
+	taskManager goasync.TaskManager
 }
 
 func NewManager(queueConstructor QueueConstructor) (*manager, error) {
@@ -57,7 +64,21 @@ func NewManager(queueConstructor QueueConstructor) (*manager, error) {
 		lock:             new(sync.RWMutex),
 		queueConstructor: queueConstructor,
 		queues:           btree,
+		taskManager:      goasync.NewTaskManager(goasync.RelaxedConfig()),
 	}, nil
+}
+
+func (m *manager) Initialize() error { return nil }
+func (m *manager) Cleanup() error    { return nil }
+
+func (m *manager) Execute(ctx context.Context) error {
+	errors := m.taskManager.Run(ctx)
+	if errors != nil {
+		err, _ := json.Marshal(errors)
+		return fmt.Errorf("queue manager shutdown errors: %v", err)
+	}
+
+	return nil
 }
 
 func (m *manager) Create(logger *zap.Logger, create *v1.Create) *v1.Error {
@@ -70,7 +91,11 @@ func (m *manager) Create(logger *zap.Logger, create *v1.Create) *v1.Error {
 	// on a creation the passed in item will be returned
 	foundQueue := m.queues.FindOrCreate(datastructures.NewStringTreeKey(create.Name), queue)
 	if foundQueue == queue {
-		return queue.Init()
+		if err := queue.Init(); err != nil {
+			return err
+		}
+
+		m.taskManager.AddRunningTask(create.Name, queue)
 	}
 
 	return nil

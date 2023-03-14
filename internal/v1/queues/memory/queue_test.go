@@ -10,7 +10,7 @@ import (
 
 var (
 	createParams = &v1.Create{Name: "test", QueueMaxSize: 5, ItemRetryAttempts: 2, DeadLetterQueueMaxSize: nil}
-	enqueueItem  = &v1.EnqueItem{Tag: "", Data: []byte(`hello world`), Updateable: false}
+	enqueueItem  = &v1.EnqueueItem{Tags: []string{}, Data: []byte(`hello world`), Updateable: false}
 )
 
 func TestMemoryQueue_Enque(t *testing.T) {

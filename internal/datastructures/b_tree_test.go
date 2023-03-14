@@ -11,7 +11,12 @@ import (
 )
 
 type bTreeTester struct {
-	value string
+	onFindCount int
+	value       string
+}
+
+func (btt *bTreeTester) OnFind() {
+	btt.onFindCount++
 }
 
 func validateTree(g *GomegaWithT, bNode *bNode, parentKey TreeKey, less bool) {
@@ -42,6 +47,21 @@ func validateTree(g *GomegaWithT, bNode *bNode, parentKey TreeKey, less bool) {
 	}
 }
 
+var (
+	keyOne    = NewIntTreeKey(1)
+	itemOne   = &bTreeTester{value: "1"}
+	keyTwo    = NewIntTreeKey(2)
+	itemTwo   = &bTreeTester{value: "2"}
+	keyThree  = NewIntTreeKey(3)
+	itemThree = &bTreeTester{value: "3"}
+)
+
+func cleanup() {
+	itemOne.onFindCount = 0
+	itemTwo.onFindCount = 0
+	itemThree.onFindCount = 0
+}
+
 func TestBTree_NewBTree(t *testing.T) {
 	g := NewGomegaWithT(t)
 
@@ -63,14 +83,8 @@ func TestBTree_NewBTree(t *testing.T) {
 func TestBTree_FindOrCreate_SingleNode(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	keyOne := NewIntTreeKey(1)
-	itemOne := &bTreeTester{value: "1"}
-	keyTwo := NewIntTreeKey(2)
-	itemTwo := &bTreeTester{value: "2"}
-	keyThree := NewIntTreeKey(3)
-	itemThree := &bTreeTester{value: "3"}
-
 	t.Run("creates a new tree with proper size limits", func(t *testing.T) {
+		defer cleanup()
 		bTree, err := NewBTree(2)
 		g.Expect(err).ToNot(HaveOccurred())
 
@@ -85,9 +99,12 @@ func TestBTree_FindOrCreate_SingleNode(t *testing.T) {
 		g.Expect(bTree.root.values[0].item).To(Equal(itemOne))
 		g.Expect(bTree.root.values[1].key).To(Equal(keyTwo))
 		g.Expect(bTree.root.values[1].item).To(Equal(itemTwo))
+		g.Expect(itemOne.onFindCount).To(Equal(1))
+		g.Expect(itemTwo.onFindCount).To(Equal(1))
 	})
 
 	t.Run("adding the same item multiple times returns the original inserted item", func(t *testing.T) {
+		defer cleanup()
 		bTree, err := NewBTree(2)
 		g.Expect(err).ToNot(HaveOccurred())
 
@@ -98,9 +115,11 @@ func TestBTree_FindOrCreate_SingleNode(t *testing.T) {
 
 		g.Expect(len(bTree.root.values)).To(Equal(1))
 		g.Expect(bTree.root.values[0].item).To(Equal(itemOne))
+		g.Expect(itemOne.onFindCount).To(Equal(2))
 	})
 
 	t.Run("inserts the items in the proper order, no matter how they were added to the tree", func(t *testing.T) {
+		defer cleanup()
 		bTree, err := NewBTree(2)
 		g.Expect(err).ToNot(HaveOccurred())
 
@@ -114,9 +133,12 @@ func TestBTree_FindOrCreate_SingleNode(t *testing.T) {
 		g.Expect(bTree.root.values[0].item).To(Equal(itemOne))
 		g.Expect(bTree.root.values[1].key).To(Equal(keyTwo))
 		g.Expect(bTree.root.values[1].item).To(Equal(itemTwo))
+		g.Expect(itemOne.onFindCount).To(Equal(1))
+		g.Expect(itemTwo.onFindCount).To(Equal(1))
 	})
 
 	t.Run("possible split returns an item that already exists", func(t *testing.T) {
+		defer cleanup()
 		bTree, err := NewBTree(2)
 		g.Expect(err).ToNot(HaveOccurred())
 
@@ -125,9 +147,12 @@ func TestBTree_FindOrCreate_SingleNode(t *testing.T) {
 		g.Expect(bTree.FindOrCreate(keyOne, itemOne)).To(Equal(itemOne))
 
 		g.Expect(len(bTree.root.values)).To(Equal(2))
+		g.Expect(itemOne.onFindCount).To(Equal(2))
+		g.Expect(itemTwo.onFindCount).To(Equal(1))
 	})
 
 	t.Run("it splits the node when adding a left pivot value", func(t *testing.T) {
+		defer cleanup()
 		bTree, err := NewBTree(2)
 		g.Expect(err).ToNot(HaveOccurred())
 
@@ -149,9 +174,14 @@ func TestBTree_FindOrCreate_SingleNode(t *testing.T) {
 		g.Expect(len(rightchild.values)).To(Equal(1))
 		g.Expect(rightchild.values[0].key).To(Equal(keyThree))
 		g.Expect(rightchild.values[0].item).To(Equal(itemThree))
+
+		g.Expect(itemOne.onFindCount).To(Equal(1))
+		g.Expect(itemTwo.onFindCount).To(Equal(1))
+		g.Expect(itemThree.onFindCount).To(Equal(1))
 	})
 
 	t.Run("it splits the node when adding a pivot item value", func(t *testing.T) {
+		defer cleanup()
 		bTree, err := NewBTree(2)
 		g.Expect(err).ToNot(HaveOccurred())
 
@@ -173,9 +203,14 @@ func TestBTree_FindOrCreate_SingleNode(t *testing.T) {
 		g.Expect(len(rightchild.values)).To(Equal(1))
 		g.Expect(rightchild.values[0].key).To(Equal(keyThree))
 		g.Expect(rightchild.values[0].item).To(Equal(itemThree))
+
+		g.Expect(itemOne.onFindCount).To(Equal(1))
+		g.Expect(itemTwo.onFindCount).To(Equal(1))
+		g.Expect(itemThree.onFindCount).To(Equal(1))
 	})
 
 	t.Run("it splits the node when adding a right pivot item value", func(t *testing.T) {
+		defer cleanup()
 		bTree, err := NewBTree(2)
 		g.Expect(err).ToNot(HaveOccurred())
 
@@ -197,6 +232,10 @@ func TestBTree_FindOrCreate_SingleNode(t *testing.T) {
 		g.Expect(len(rightchild.values)).To(Equal(1))
 		g.Expect(rightchild.values[0].key).To(Equal(keyThree))
 		g.Expect(rightchild.values[0].item).To(Equal(itemThree))
+
+		g.Expect(itemOne.onFindCount).To(Equal(1))
+		g.Expect(itemTwo.onFindCount).To(Equal(1))
+		g.Expect(itemThree.onFindCount).To(Equal(1))
 	})
 }
 
@@ -862,5 +901,6 @@ func TestBTree_Find(t *testing.T) {
 		treeItem := bTree.Find(NewIntTreeKey(768))
 		g.Expect(treeItem).ToNot(BeNil())
 		g.Expect(treeItem.(*bTreeTester).value).To(Equal("768"))
+		g.Expect(treeItem.(*bTreeTester).onFindCount).To(Equal(2))
 	})
 }

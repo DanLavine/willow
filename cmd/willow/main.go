@@ -33,6 +33,8 @@ func main() {
 	// setup async handlers
 	//// using strict config ensures that if any process fails, the server will ty and shutdown gracefully
 	taskManager := goasync.NewTaskManager(goasync.StrictConfig())
+	//// queue manager
+	taskManager.AddTask("queue manager", queueManager)
 
 	// v1 api handlers
 	//// http2 server to handle all client requests

@@ -60,7 +60,11 @@ func ParseEnqueueItem(reader io.ReadCloser) (*EnqueueItem, *Error) {
 		return nil, ParseRequestBodyError.With("enqueue query to be valid json", err.Error())
 	}
 
-	sort.Strings(enqueueItem.Tags)
+	if len(enqueueItem.Tags) == 0 {
+		enqueueItem.Tags = []string{""}
+	} else {
+		sort.Strings(enqueueItem.Tags)
+	}
 
 	return enqueueItem, nil
 }
