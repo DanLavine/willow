@@ -9,6 +9,7 @@ import (
 var (
 	// No Dead Letter queue Configured
 	DeadLetterQueueNotConfigured = &v1.Error{Message: "No dead letter queue configured.", StatusCode: http.StatusNotAcceptable}
+
 	// dead letter setup queue errors
 	DeadLetterQueueInvalidCreateParams = &v1.Error{Message: "Invalid create params.", StatusCode: http.StatusBadRequest}
 	DeadLetterQueueNilEncoder          = &v1.Error{Message: "No encoder received.", StatusCode: http.StatusInternalServerError}

@@ -17,13 +17,13 @@ type MetricsHandler interface {
 type metricsHandler struct {
 	logger *zap.Logger
 
-	queueManagerMetrics queues.QueueManagerMetrics
+	queueManager queues.QueueManager
 }
 
-func NewMetricsHandler(logger *zap.Logger, queueManagerMetrics queues.QueueManagerMetrics) *metricsHandler {
+func NewMetricsHandler(logger *zap.Logger, queueManager queues.QueueManager) *metricsHandler {
 	return &metricsHandler{
-		logger:              logger,
-		queueManagerMetrics: queueManagerMetrics,
+		logger:       logger,
+		queueManager: queueManager,
 	}
 }
 
@@ -40,7 +40,7 @@ func (mh *metricsHandler) Metrics(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		metrics := mh.queueManagerMetrics.Metrics(matchQuery)
+		metrics := mh.queueManager.Metrics(matchQuery)
 		metricsData, err := metrics.ToBytes()
 		if err != nil {
 			logger.Error("Failed to encode metrics response", zap.Error(err))

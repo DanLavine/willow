@@ -12,8 +12,8 @@ import (
 
 type QueueHandler interface {
 	Create(w http.ResponseWriter, r *http.Request)
-	Message(w http.ResponseWriter, r *http.Request)
-	RetrieveMessage(w http.ResponseWriter, r *http.Request)
+	Enqueue(w http.ResponseWriter, r *http.Request)
+	Dequeue(w http.ResponseWriter, r *http.Request)
 	ACK(w http.ResponseWriter, r *http.Request)
 }
 
@@ -46,7 +46,7 @@ func (qh *queueHandler) Create(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if createErr := qh.queueManager.Create(createRequest); createErr != nil {
+		if createErr := qh.queueManager.Create(logger, createRequest); createErr != nil {
 			logger.Error("failed creating queue", zap.Error(createErr))
 			errResp, _ := json.Marshal(createErr)
 

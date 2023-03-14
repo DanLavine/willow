@@ -16,6 +16,9 @@ const (
 // BTree is a 2-3-4 tree implementation of a generic BTree.
 // See https://www.geeksforgeeks.org/2-3-4-tree/ for details on what a 2-3-4 tree is
 type BTree interface {
+	// Find the item in the Tree. will be nil if it does not exists
+	Find(key TreeKey) TreeItem
+
 	// Find the provided tree item if it already exists. Or return the newly inserted tree item
 	FindOrCreate(key TreeKey, item TreeItem) TreeItem
 }

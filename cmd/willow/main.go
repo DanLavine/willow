@@ -12,6 +12,7 @@ import (
 	"github.com/DanLavine/willow/internal/server/v1server"
 	"github.com/DanLavine/willow/internal/v1/queues"
 	"github.com/DanLavine/willow/pkg/config"
+	"go.uber.org/zap"
 )
 
 func main() {
@@ -19,30 +20,27 @@ func main() {
 	if err := cfg.Parse(); err != nil {
 		log.Fatal(err)
 	}
-	if err := cfg.Validate(); err != nil {
-		log.Fatal(err)
-	}
 
 	logger := logger.NewZapLogger(cfg)
 	defer logger.Sync()
 
-	// setup dead letter queue
-	var queueManager queues.QueueManager
-
-	switch cfg.ConfigQueue.StorageType {
-	case config.DiskStorage:
-		queueManager = queues.NewDiskQueueManager(cfg.ConfigQueue)
+	queueConstructor := queues.NewQueueConstructor(cfg)
+	queueManager, err := queues.NewManager(queueConstructor)
+	if err != nil {
+		logger.Fatal("faild to create queue manager", zap.Error(err))
 	}
 
-	// v1 apis
-	v1QueueServer := v1server.NewQueueHandler(logger, queueManager)
-	v1MetricsServer := v1server.NewMetricsHandler(logger, queueManager)
-
 	// setup async handlers
+	//// using strict config ensures that if any process fails, the server will ty and shutdown gracefully
 	taskManager := goasync.NewTaskManager(goasync.StrictConfig())
-	taskManager.AddTask("metrics_server", server.NewMetrics(logger, cfg, v1MetricsServer))
-	taskManager.AddTask("tcp_server", server.NewTCP(logger, cfg, v1QueueServer))
 
+	// v1 api handlers
+	//// http2 server to handle all client requests
+	taskManager.AddTask("tcp_server", server.NewTCP(logger, cfg, v1server.NewQueueHandler(logger, queueManager)))
+	//// http server to handle a dashboard's metrics requests
+	taskManager.AddTask("metrics_server", server.NewMetrics(logger, cfg, v1server.NewMetricsHandler(logger, queueManager)))
+
+	// start all processes
 	shutdown, _ := signal.NotifyContext(context.Background(), syscall.SIGINT)
 	if errs := taskManager.Run(shutdown); errs != nil {
 		log.Fatal("Failed runnng willow cleanly: ", errs)

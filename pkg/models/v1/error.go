@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 )
@@ -43,4 +44,9 @@ func (e *Error) Error() string {
 	}
 
 	return err
+}
+
+func (e *Error) ToBytes() []byte {
+	data, _ := json.Marshal(e)
+	return data
 }
