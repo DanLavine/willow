@@ -9,9 +9,6 @@ import (
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -generate
 
 type Queue interface {
-	// Initialize any background processes or setup a queue mght need
-	Init() *v1.Error
-
 	// OnFind for BTree lookups
 	OnFind()
 

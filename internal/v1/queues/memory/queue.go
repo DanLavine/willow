@@ -3,6 +3,7 @@ package memory
 import (
 	"context"
 	"sync"
+	"sync/atomic"
 
 	"github.com/DanLavine/goasync"
 	"github.com/DanLavine/gonotify"
@@ -12,9 +13,9 @@ import (
 )
 
 type Queue struct {
-	lock     *sync.RWMutex
-	done     chan struct{}
-	doneOnce *sync.Once
+	done      chan struct{}
+	setupOnce *sync.Once
+	doneOnce  *sync.Once
 
 	// queue information and limits
 	name       string
@@ -35,16 +36,16 @@ type Queue struct {
 	//processedChan chan struct{}
 
 	// queue metrics information
-	itemReadyCount      uint64
-	itemProcessingCount uint64
+	itemReadyCount      *atomic.Uint64
+	itemProcessingCount *atomic.Uint64
 }
 
 func NewQueue(create *v1.Create) *Queue {
 	tree, _ := datastructures.NewBTree(2)
 
 	return &Queue{
-		lock:     new(sync.RWMutex),
-		doneOnce: new(sync.Once),
+		setupOnce: new(sync.Once),
+		doneOnce:  new(sync.Once),
 
 		name:       create.Name,
 		maxSize:    create.QueueMaxSize,
@@ -53,21 +54,17 @@ func NewQueue(create *v1.Create) *Queue {
 		tagGroups:  tree,
 		tagReaders: tags.NewReaderTree(),
 
-		itemReadyCount:      0,
-		itemProcessingCount: 0,
+		itemReadyCount:      new(atomic.Uint64),
+		itemProcessingCount: new(atomic.Uint64),
 	}
 }
 
-func (q *Queue) Init() *v1.Error {
-	q.done = make(chan struct{})
-	q.notifier = gonotify.New()
-	q.taskManager = goasync.NewTaskManager(goasync.RelaxedConfig())
-
-	return nil
-}
-
 func (q *Queue) OnFind() {
-	// TODO something?
+	q.setupOnce.Do(func() {
+		q.done = make(chan struct{})
+		q.notifier = gonotify.New()
+		q.taskManager = goasync.NewTaskManager(goasync.RelaxedConfig())
+	})
 }
 
 func (q *Queue) Execute(ctx context.Context) error {
@@ -76,10 +73,13 @@ func (q *Queue) Execute(ctx context.Context) error {
 }
 
 func (q *Queue) Enqueue(enqueueItem *v1.EnqueueItem) *v1.Error {
+	// TODO. Need something here to lookup my "tags" in a safe way. Combining them isn't safe since
+	// [a, b] == [ab]
 	//readers := q.tags.CreateTagsGroup(enqueueItem.Tags)
 	//q.tagGroups.FindOrCreate(datastructures.NewStringTreeKey(strings.Join(enqueueItem.Tags, ""), newTagGroup(readers)))
 
-	q.itemReadyCount++
+	q.itemProcessingCount.Add(1)
+	// q.itemProcessingCount.Add()
 	return nil
 }
 
@@ -89,13 +89,10 @@ func (q *Queue) GetItem() <-chan func() (*v1.DequeueItemResponse, *v1.Error) {
 }
 
 func (q *Queue) Metrics() *v1.QueueMetrics {
-	q.lock.Lock()
-	defer q.lock.Unlock()
-
 	return &v1.QueueMetrics{
 		Name:                   q.name,
-		Ready:                  q.itemReadyCount,
-		Processing:             q.itemProcessingCount,
+		Ready:                  q.itemReadyCount.Load(),
+		Processing:             q.itemProcessingCount.Load(),
 		Max:                    q.maxSize,
 		DeadLetterQueueMetrics: nil,
 	}

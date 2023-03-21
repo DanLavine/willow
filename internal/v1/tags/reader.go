@@ -9,7 +9,7 @@ import (
 
 // Individual tag tree keeps track of any readers for associated tags. These tags can be used for clients
 // requesting "any" readers on a match restrcition
-type Readers interface {
+type TagReader interface {
 	// Create tags for a new TagGroup
 	CreateTagsGroup(tags []string) []chan any
 
@@ -17,10 +17,10 @@ type Readers interface {
 	GetGlobalReader() chan any
 
 	// Add a collection of tags to the tag tree
-	GetReaders(tags []string) []chan any
+	GetTagReaders(tags []string) []chan any
 
 	// Add a specific tag to the tag treeand return the reader. If the tag already exists, the usage ount is increased by 1
-	GetReader(tag string) chan any
+	GetTagReader(tag string) chan any
 
 	// remove a tag if it is no longer being used by any other tag groups
 	RemoveTag(tag string)
@@ -42,6 +42,19 @@ func newReader() *reader {
 	return &reader{
 		count:   new(atomic.Int32),
 		channel: make(chan any),
+	}
+}
+
+func newReaderAsInterface() datastructures.TreeItem {
+	return &reader{
+		count:   new(atomic.Int32),
+		channel: make(chan any),
+	}
+}
+
+func wrappedReader(r *reader) func() datastructures.TreeItem {
+	return func() datastructures.TreeItem {
+		return r
 	}
 }
 
@@ -88,7 +101,7 @@ func (r *readerTree) CreateTagsGroup(tags []string) []chan any {
 
 	usingReader := false
 	for _, tag := range helpers.GenerateStringPairs(tags) {
-		treeItem := r.tree.FindOrCreate(datastructures.NewStringTreeKey(tag), newReader)
+		treeItem := r.tree.FindOrCreate(datastructures.NewStringTreeKey(tag), wrappedReader(newReader))
 		if treeItem != newReader {
 			channels[treeItem.(*reader).channel] = struct{}{}
 		} else {
@@ -114,22 +127,22 @@ func (r *readerTree) GetGlobalReader() chan any {
 	return r.global
 }
 
-func (r *readerTree) GetReaders(tags []string) []chan any {
+func (r *readerTree) GetTagReaders(tags []string) []chan any {
 	readers := map[chan any]struct{}{}
 	for _, tag := range tags {
-		readers[r.GetReader(tag)] = struct{}{}
+		readers[r.GetTagReader(tag)] = struct{}{}
 	}
 
-	returnReaders := make([]chan any, 0, len(readers))
+	returnTagReader := make([]chan any, 0, len(readers))
 	for reader, _ := range readers {
-		returnReaders = append(returnReaders, reader)
+		returnTagReader = append(returnTagReader, reader)
 	}
 
-	return returnReaders
+	return returnTagReader
 }
 
-func (r *readerTree) GetReader(tag string) chan any {
-	treeItem := r.tree.FindOrCreate(datastructures.NewStringTreeKey(tag), newReader())
+func (r *readerTree) GetTagReader(tag string) chan any {
+	treeItem := r.tree.FindOrCreate(datastructures.NewStringTreeKey(tag), newReaderAsInterface)
 	reader := treeItem.(*reader)
 
 	return reader.channel

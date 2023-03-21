@@ -91,10 +91,6 @@ func (m *manager) Create(logger *zap.Logger, create *v1.Create) *v1.Error {
 	// on a creation the passed in item will be returned
 	foundQueue := m.queues.FindOrCreate(datastructures.NewStringTreeKey(create.Name), queue)
 	if foundQueue == queue {
-		if err := queue.Init(); err != nil {
-			return err
-		}
-
 		m.taskManager.AddRunningTask(create.Name, queue)
 	}
 
