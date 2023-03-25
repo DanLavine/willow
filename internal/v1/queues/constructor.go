@@ -22,7 +22,7 @@ func NewQueueConstructor(cfg *config.Config) *queueConstructor {
 	}
 }
 
-func (qc *queueConstructor) NewQueue(create *v1.Create) (Queue, *v1.Error) {
+func (qc *queueConstructor) NewQueue(create *v1.Create) (ManagedQueue, *v1.Error) {
 	switch qc.config.StorageConfig.Type {
 	//case config.DiskStorage:
 	//	return disk.NewQueue(qc.config.StorageConfig.Disk.StorageDir, create)

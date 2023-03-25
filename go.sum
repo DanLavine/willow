@@ -1,5 +1,7 @@
 github.com/DanLavine/goasync v0.0.0-20221204033030-6fbe23639bea h1:EtUGcfuZmGyT+Tey3mM5cSogo2m46T+Hgtdo5/QdGkM=
 github.com/DanLavine/goasync v0.0.0-20221204033030-6fbe23639bea/go.mod h1:nR7mV8TA1RT5d6nVgsHEqonPB5GxuNJU1WArc9gUilA=
+github.com/DanLavine/goasync v0.0.0-20230215234041-01f9be1e627e h1:lVkJs+7BsPrri0YjnFs0CTAGVb8lk5+KtB4t86ELTP0=
+github.com/DanLavine/goasync v0.0.0-20230215234041-01f9be1e627e/go.mod h1:nR7mV8TA1RT5d6nVgsHEqonPB5GxuNJU1WArc9gUilA=
 github.com/DanLavine/gonotify v0.0.0-20221228000906-77ad21d2336e h1:zX/Z3tg0w5ud4FvftnE/laSyZez5zqRiOvTJRJFbtH8=
 github.com/DanLavine/gonotify v0.0.0-20221228000906-77ad21d2336e/go.mod h1:tttaLcWwHu0QzpydfjBNfEWBVcWFiYmlOHdjbntf8iQ=
 github.com/benbjohnson/clock v1.1.0 h1:Q92kusRqC1XV2MjkWETPvjJVqKetz1OzxZB7mHJLju8=

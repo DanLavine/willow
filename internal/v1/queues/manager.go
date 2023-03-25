@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"sync"
 
 	"github.com/DanLavine/goasync"
 	"github.com/DanLavine/willow/internal/datastructures"
@@ -13,6 +12,10 @@ import (
 	"go.uber.org/zap"
 )
 
+// QueueManager manges all queue operations such as Create/Update/Delete, etc
+// It also is a shared resource that can be used by any other structs needing to find a Queue
+// and thier associated readers
+//
 //counterfeiter:generate . QueueManager
 type QueueManager interface {
 	// Create a new queue. performs a no-op if the queue already exists
@@ -25,15 +28,16 @@ type QueueManager interface {
 	// * v1.Error - any errors encountered when creating the queue
 	Create(logger *zap.Logger, create *v1.Create) *v1.Error
 
-	// Enqueue an item to the desired queue
+	// Find a particular queue
 	//
 	// ARGS:
 	// * logger - standard zap logger
-	// * item - data requested from the producer clients to enque
+	// * queue - name of the queue to find
 	//
 	// RETURNS:
-	// * v1.Error - any errors encountered when enquing an item
-	Enqueue(logger *zap.Logger, item *v1.EnqueueItem) *v1.Error
+	// * Queue - queue if the queue is defined
+	// * v1.Error - any errors encountered when finding the queue, or an error that it does not exist
+	Find(logger *zap.Logger, queue string) (Queue, *v1.Error)
 
 	// GetItem retrieves the next item in the queue
 	//GetItem(logger *zap.Logger, ctx context.Context, ready *v1.Ready) (*v1.DequeueItemResponse, *v1.Error)
@@ -42,12 +46,10 @@ type QueueManager interface {
 }
 
 type manager struct {
-	lock *sync.RWMutex
-
 	// general constructor to create any type of queue
 	queueConstructor QueueConstructor
 
-	// all queues
+	// all queues. Each data type save in here is of interface type ManagedQueue
 	queues datastructures.BTree
 
 	// task manger ensures shutdown requests are processsed properly
@@ -61,7 +63,6 @@ func NewManager(queueConstructor QueueConstructor) (*manager, error) {
 	}
 
 	return &manager{
-		lock:             new(sync.RWMutex),
 		queueConstructor: queueConstructor,
 		queues:           btree,
 		taskManager:      goasync.NewTaskManager(goasync.RelaxedConfig()),
@@ -82,28 +83,34 @@ func (m *manager) Execute(ctx context.Context) error {
 }
 
 func (m *manager) Create(logger *zap.Logger, create *v1.Create) *v1.Error {
-	// create new queue
-	queue, err := m.queueConstructor.NewQueue(create)
-	if err != nil {
-		return err
-	}
-
-	// on a creation the passed in item will be returned
-	foundQueue := m.queues.FindOrCreate(datastructures.NewStringTreeKey(create.Name), queue)
-	if foundQueue == queue {
-		m.taskManager.AddRunningTask(create.Name, queue)
-	}
-
-	return nil
+	logger = logger.Named("Create")
+	_, err := m.queues.FindOrCreate(datastructures.NewStringTreeKey(create.Name), "", m.create(logger, create))
+	return err
 }
 
-func (m *manager) Enqueue(logger *zap.Logger, item *v1.EnqueueItem) *v1.Error {
-	queue := m.queues.Find(datastructures.NewStringTreeKey(item.Name))
+func (m *manager) create(logger *zap.Logger, create *v1.Create) func() (any, error) {
+	return func() (any, error) {
+		queue, err := m.queueConstructor.NewQueue(create)
+		if err != nil {
+			logger.Error("failed creating queue", zap.Error(err))
+			return nil, err
+		}
+
+		// if there is an error, we are shutting down so thats fine
+		_ = m.taskManager.AddRunningTask(create.Name, queue)
+
+		// return the new queue
+		return queue, nil
+	}
+}
+
+func (m *manager) Find(logger *zap.Logger, queue string) (Queue, *v1.Error) {
+	queue := m.queues.Find(datastructures.NewStringTreeKey(queue), "")
 	if queue == nil {
-		return errors.QueueNotFound
+		return nil, errors.QueueNotFound
 	}
 
-	return queue.(Queue).Enqueue(item)
+	return queue.(Queue)
 }
 
 func (m *manager) Metrics(matchQuery *v1.MatchQuery) *v1.Metrics {

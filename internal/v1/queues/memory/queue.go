@@ -6,34 +6,31 @@ import (
 	"sync/atomic"
 
 	"github.com/DanLavine/goasync"
-	"github.com/DanLavine/gonotify"
+	"github.com/DanLavine/goasync/tasks"
 	"github.com/DanLavine/willow/internal/datastructures"
+	"github.com/DanLavine/willow/internal/errors"
 	"github.com/DanLavine/willow/internal/v1/tags"
 	v1 "github.com/DanLavine/willow/pkg/models/v1"
 )
 
 type Queue struct {
-	done      chan struct{}
-	setupOnce *sync.Once
-	doneOnce  *sync.Once
+	doneOnce *sync.Once
+	done     chan struct{}
 
 	// queue information and limits
 	name       string
 	maxSize    uint64
 	retryLimit uint64
 
-	// thread safe notifier that indicates if something is available. This also is minimal on memory usage
-	notifier *gonotify.Notify
-
 	// items that are enqueued and ready to be processed
-	tagGroups  datastructures.BTree
-	tagReaders tags.Readers
+	// each item in the tree is of type *tagGroup
+	tagGroups  datastructures.DisjointTree
+	tagReaders tags.TagReaders // all readers for the various tag groups
 
-	taskManager goasync.TaskManager
-	//itemIDTracker *datastructures.IDTree
-	// item Chan that is used to pull an item from the queue. Each reader must call the func to actually get the value
-	//itemChan      chan func() (*v1.DequeueItemResponse, *v1.Error) // TODO, chang to be a struct. So we can check the tags[] on it up front, without haveing to process the message
-	//processedChan chan struct{}
+	// manage all tag groups and their associated readers
+	shutdown             context.CancelFunc
+	taskManager          goasync.TaskManager
+	taskManagerCompleted chan struct{}
 
 	// queue metrics information
 	itemReadyCount      *atomic.Uint64
@@ -41,51 +38,117 @@ type Queue struct {
 }
 
 func NewQueue(create *v1.Create) *Queue {
-	tree, _ := datastructures.NewBTree(2)
+	started := make(chan struct{})
+	taskManagerCompleted := make(chan struct{})
+	taskManager := goasync.NewTaskManager(goasync.RelaxedConfig())
+	taskManager.AddTask("start", tasks.Running(started))
+
+	// Want to wait for task manager to be running
+	// TODO. Better way to do this? Don't like the go func here to know that things are running so Enqueue won't fail
+	context, cancel := context.WithCancel(context.Background())
+	go func() {
+		defer close(taskManagerCompleted)
+		_ = taskManager.Run(context)
+	}()
+
+	<-started
 
 	return &Queue{
-		setupOnce: new(sync.Once),
-		doneOnce:  new(sync.Once),
+		doneOnce: new(sync.Once),
+		done:     make(chan struct{}),
 
 		name:       create.Name,
 		maxSize:    create.QueueMaxSize,
 		retryLimit: create.ItemRetryAttempts,
 
-		tagGroups:  tree,
-		tagReaders: tags.NewReaderTree(),
+		tagGroups:  datastructures.NewDisjointTree(),
+		tagReaders: tags.NewTagReaderTree(),
+
+		shutdown:             cancel,
+		taskManager:          taskManager,
+		taskManagerCompleted: taskManagerCompleted,
 
 		itemReadyCount:      new(atomic.Uint64),
 		itemProcessingCount: new(atomic.Uint64),
 	}
 }
 
-func (q *Queue) OnFind() {
-	q.setupOnce.Do(func() {
-		q.done = make(chan struct{})
-		q.notifier = gonotify.New()
-		q.taskManager = goasync.NewTaskManager(goasync.RelaxedConfig())
-	})
-}
-
+// Execute is a managment function used by the queue manager to shutdown and cleanup any managed goroutines
 func (q *Queue) Execute(ctx context.Context) error {
-	_ = q.taskManager.Run(ctx)
+	select {
+	case <-ctx.Done():
+	case <-q.done:
+	}
+
+	// stop running the taskmanager
+	q.shutdown()
+
+	// wait for the task manager to finish running
+	<-q.taskManagerCompleted
+
 	return nil
 }
 
+// Enqueue an item onto the message queue
 func (q *Queue) Enqueue(enqueueItem *v1.EnqueueItem) *v1.Error {
-	// TODO. Need something here to lookup my "tags" in a safe way. Combining them isn't safe since
-	// [a, b] == [ab]
-	//readers := q.tags.CreateTagsGroup(enqueueItem.Tags)
-	//q.tagGroups.FindOrCreate(datastructures.NewStringTreeKey(strings.Join(enqueueItem.Tags, ""), newTagGroup(readers)))
+	if q.itemProcessingCount.Load()+q.itemReadyCount.Load() >= q.maxSize {
+		return errors.MaxEnqueuedItems
+	}
 
-	q.itemProcessingCount.Add(1)
-	// q.itemProcessingCount.Add()
+	// generate all the keys
+	var groupTags []datastructures.TreeKey
+	for _, tag := range enqueueItem.Tags {
+		groupTags = append(groupTags, datastructures.NewStringTreeKey(tag))
+	}
+
+	// create the new tags group if it does not currently exist
+	// TODO: need something for OnFind to know that we shouldn't delete. Not sure what that is yet
+	tagsGroup, err := q.tagGroups.FindOrCreate(groupTags, "", q.setupTagsGroup(enqueueItem.Tags))
+	if err != nil {
+		return errors.InternalServerError.With("", err.Error())
+	}
+
+	if err := tagsGroup.(*tagGroup).Enqueue(enqueueItem, q.itemReadyCount); err != nil {
+		// TODO, need to try and remove tagGtoup/Readers?
+		return err
+	}
+
 	return nil
 }
 
-func (q *Queue) GetItem() <-chan func() (*v1.DequeueItemResponse, *v1.Error) {
-	//return q.itemChan
-	return nil
+// callbaack for setup Enqueue to use when setting up a new tags group
+func (q *Queue) setupTagsGroup(tags []string) func() (any, error) {
+	return func() (any, error) {
+		allPossibleReaders := q.tagReaders.CreateGroup(tags)
+		tagGroup := newTagGroup(allPossibleReaders)
+
+		_ = q.taskManager.AddRunningTask("", tagGroup)
+		return tagGroup, nil
+	}
+}
+
+// Readers is used by any clients to obtain possible readers for tag groups
+func (q *Queue) Readers(matchQuery *v1.MatchQuery) []<-chan tags.Tag {
+	var channels []<-chan tags.Tag
+
+	switch matchQuery.MatchTagsRestrictions {
+	case v1.STRICT:
+		// return the strict reader for the queue's tagGroup
+		channels = append(channels, q.tagReaders.GetStrictReader(matchQuery.Tags))
+	case v1.SUBSET:
+		// return the specific subset reader
+		channels = append(channels, q.tagReaders.GetSubsetReader(matchQuery.Tags))
+	case v1.ANY:
+		// return all readers that match
+		channels = q.tagReaders.GetAnyReaders(matchQuery.Tags)
+	case v1.ALL:
+		// return the global reader
+		channels = append(channels, q.tagReaders.GetGlobalReader())
+	default:
+		// nothing to do here. Caller should decide what to do with nil?
+	}
+
+	return channels
 }
 
 func (q *Queue) Metrics() *v1.QueueMetrics {
@@ -101,8 +164,5 @@ func (q *Queue) Metrics() *v1.QueueMetrics {
 func (q *Queue) Stop() {
 	q.doneOnce.Do(func() {
 		close(q.done)
-		//close(q.itemChan)
-
-		q.notifier.ForceStop()
 	})
 }

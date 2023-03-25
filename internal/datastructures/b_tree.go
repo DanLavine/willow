@@ -5,24 +5,34 @@ package datastructures
 import (
 	"fmt"
 	"math"
+	"reflect"
 	"sync"
-)
-
-type lockStrategy int
-
-const (
-	lockExclusive lockStrategy = iota
-	lockRead
 )
 
 // BTree is a 2-3-4 tree implementation of a generic BTree.
 // See https://www.geeksforgeeks.org/2-3-4-tree/ for details on what a 2-3-4 tree is
 type BTree interface {
 	// Find the item in the Tree and option to run the OnFind() function for a TreeItem. will be nil if it does not exists
-	Find(key TreeKey) TreeItem
+	//
+	// PARAMS:
+	// * key - key to use when comparing to other possible items
+	// * onFind - potential method to call when found by name. The methed must be public and take no parameters or return anything
+	//
+	// RETURNS:
+	// * any - the item if found or nil
+	Find(key TreeKey, onFind string) any
 
 	// Find the provided tree item if it already exists. Or return the newly inserted tree item
-	FindOrCreate(key TreeKey, onCreate func() TreeItem) TreeItem
+	//
+	// PARAMS:
+	// * key - key to use when comparing to other possible items
+	// * onFind - potential method to call when found by name. The methed must be public and take no parameters or return anything
+	// * onCreate - callback function to create the item if it does not exist. This allows for parameter encapsulation
+	//
+	// RETURNS:
+	// * any - the item if found or created
+	// * error - any errors reported from onCreate will be returned if they occur. In that case the item will not be saved
+	FindOrCreate(key TreeKey, onFind string, onCreate func() (any, error)) (any, error)
 
 	// Remove an item in the Tree
 	// TODO
@@ -50,7 +60,7 @@ type bNode struct {
 
 type value struct {
 	key  TreeKey
-	item TreeItem
+	item any
 }
 
 // create a new BTree.
@@ -73,7 +83,7 @@ func NewBTree(order int) (*BRoot, error) {
 	return &BRoot{
 		lock:  new(sync.RWMutex),
 		order: order,
-		root:  nil, // note this is nil because it can be removed on a "delete". So that case always needs to be handled
+		root:  nil, // NOTE: this is nil because it can be removed on a "delete". So that case always needs to be handled
 	}, nil
 }
 
@@ -89,7 +99,8 @@ func newBTreeNode(order int) *bNode {
 //
 // PARAMS:
 // * key - key to use when searching for the associated value
-func (ttr *BRoot) Find(key TreeKey) TreeItem {
+// * onFind - function to call when finding the item. Use the empty string to not call anything
+func (ttr *BRoot) Find(key TreeKey, onFind string) any {
 	if key == nil {
 		panic("key is nil")
 	}
@@ -101,15 +112,17 @@ func (ttr *BRoot) Find(key TreeKey) TreeItem {
 		return nil
 	}
 
-	return ttr.root.find(key)
+	return ttr.root.find(key, onFind)
 }
 
 // find an item from the tree if it exists
-func (bn *bNode) find(key TreeKey) TreeItem {
+func (bn *bNode) find(key TreeKey, onFind string) any {
 	for index, value := range bn.values {
 		if !value.key.Less(key) {
 			if !key.Less(value.key) {
-				value.item.OnFind()
+				if onFind != "" {
+					_ = reflect.ValueOf(value.item).MethodByName(onFind).Call(nil)
+				}
 				return value.item
 			}
 
@@ -117,7 +130,7 @@ func (bn *bNode) find(key TreeKey) TreeItem {
 				return nil
 			}
 
-			return bn.children[index].find(key)
+			return bn.children[index].find(key, onFind)
 		}
 	}
 
@@ -125,7 +138,7 @@ func (bn *bNode) find(key TreeKey) TreeItem {
 		return nil
 	}
 
-	return bn.children[len(bn.children)-1].find(key)
+	return bn.children[len(bn.children)-1].find(key, onFind)
 }
 
 // Inserts the item if it does not already exist. Otherwise the original item already in the
@@ -137,7 +150,7 @@ func (bn *bNode) find(key TreeKey) TreeItem {
 //
 // RETURNS:
 // * TreeItem - item that was originally passed in for insertion, or the original item that matches
-func (ttr *BRoot) FindOrCreate(key TreeKey, onCreate func() TreeItem) TreeItem {
+func (ttr *BRoot) FindOrCreate(key TreeKey, onFind string, onCreate func() (any, error)) (any, error) {
 	if key == nil {
 		panic("key is nil")
 	}
@@ -148,6 +161,10 @@ func (ttr *BRoot) FindOrCreate(key TreeKey, onCreate func() TreeItem) TreeItem {
 	// always attempt a full read find for an item first. This way multiple
 	// reads can happen at once, but an Insert or Delete will then lock the tree structure
 	// down to the nodes that need an update
+	item := ttr.Find(key, onFind)
+	if item != nil {
+		return item, nil
+	}
 
 	// item was not found. now we need to create it, so need a tree path lock
 	ttr.lock.Lock()
@@ -157,12 +174,12 @@ func (ttr *BRoot) FindOrCreate(key TreeKey, onCreate func() TreeItem) TreeItem {
 		ttr.root = newBTreeNode(ttr.order)
 	}
 
-	returnItem, newRoot := ttr.root.findOrCreate(ttr.order, key, onCreate)
+	returnItem, err, newRoot := ttr.root.findOrCreate(ttr.order, key, onFind, onCreate)
 	if newRoot != nil {
 		ttr.root = newRoot
 	}
 
-	return returnItem
+	return returnItem, err
 }
 
 // create a new item in the BTree
@@ -173,27 +190,35 @@ func (ttr *BRoot) FindOrCreate(key TreeKey, onCreate func() TreeItem) TreeItem {
 // RETURNS:
 // * TreeItem - the value inserted or item if it already existed
 // * *bNode - a new node if there was a split
-func (bn *bNode) findOrCreate(order int, key TreeKey, onCreate func() TreeItem) (TreeItem, *bNode) {
+func (bn *bNode) findOrCreate(order int, key TreeKey, onFind string, onCreate func() (any, error)) (any, error, *bNode) {
 	bn.lock.Lock()
 	defer bn.lock.Unlock()
 
 	switch len(bn.children) {
 	case 0: // leaf node
-		item := bn.createTreeItem(key, onCreate)
-
-		if len(bn.values) > order {
-			return item, bn.splitLeaf(order)
+		item, err := bn.createTreeItem(key, onFind, onCreate)
+		if err != nil {
+			return nil, err, nil
 		}
 
-		return item, nil
+		// need to split node
+		if len(bn.values) > order {
+			return item, nil, bn.splitLeaf(order)
+		}
+
+		return item, nil, nil
 	default: // internal node
 		var index int
 		for _, value := range bn.values {
 			if !value.key.Less(key) {
 				// item already exists, return the original value
 				if !key.Less(value.key) {
-					bn.values[index].item.OnFind()
-					return bn.values[index].item, nil
+					item := bn.values[index].item
+					if onFind != "" {
+						_ = reflect.ValueOf(item).MethodByName(onFind).Call(nil)
+					}
+
+					return item, nil, nil
 				}
 
 				// found index
@@ -204,15 +229,19 @@ func (bn *bNode) findOrCreate(order int, key TreeKey, onCreate func() TreeItem) 
 		}
 
 		//  will be the found index, or last child index (right child)
-		item, node := bn.children[index].findOrCreate(order, key, onCreate)
+		item, err, node := bn.children[index].findOrCreate(order, key, onFind, onCreate)
+		if err != nil {
+			return nil, err, nil
+		}
+
 		if node != nil {
 			bn.insertNode(node)
 			if len(bn.values) > order {
-				return item, bn.splitNode(order)
+				return item, nil, bn.splitNode(order)
 			}
 		}
 
-		return item, nil
+		return item, nil, nil
 	}
 }
 
@@ -221,28 +250,41 @@ func (bn *bNode) findOrCreate(order int, key TreeKey, onCreate func() TreeItem) 
 // PARAMS:
 // * key - tree key value
 // * item - item to be saved and returned on a Find
-func (bn *bNode) createTreeItem(key TreeKey, onCreate func() TreeItem) TreeItem {
+func (bn *bNode) createTreeItem(key TreeKey, onFind string, onCreate func() (any, error)) (any, error) {
 	for index, currentValue := range bn.values {
 		if !currentValue.key.Less(key) {
 			// item already exists, return the original value
 			if !key.Less(currentValue.key) {
-				currentValue.item.OnFind()
-				return currentValue.item
+				if onFind != "" {
+					_ = reflect.ValueOf(currentValue.item).MethodByName(onFind).Call(nil)
+				}
+
+				return currentValue.item, nil
+			}
+
+			item, err := onCreate()
+			if err != nil {
+				return nil, err
 			}
 
 			// shift current items all 1 position
 			bn.values = append(bn.values[:index+1], bn.values[index:]...)
 			// overwrite value
-			newValue := &value{key: key, item: onCreate()}
+			newValue := &value{key: key, item: item}
 			bn.values[index] = newValue
 
-			return newValue.item
+			return newValue.item, nil
 		}
 	}
 
-	newValue := &value{key: key, item: onCreate()}
+	item, err := onCreate()
+	if err != nil {
+		return nil, err
+	}
+
+	newValue := &value{key: key, item: item}
 	bn.values = append(bn.values, newValue)
-	return newValue.item
+	return newValue.item, nil
 }
 
 // insertTreeItem is called only on "leaf" nodes when splitting a node
@@ -250,15 +292,9 @@ func (bn *bNode) createTreeItem(key TreeKey, onCreate func() TreeItem) TreeItem 
 // PARAMS:
 // * key - tree key value
 // * item - item to be saved and returned on a Find
-func (bn *bNode) insertTreeItem(key TreeKey, item TreeItem) TreeItem {
+func (bn *bNode) insertTreeItem(key TreeKey, item any) any {
 	for index, currentValue := range bn.values {
 		if !currentValue.key.Less(key) {
-			// item already exists, return the original value
-			//if !key.Less(currentValue.key) {
-			//	currentValue.item.OnFind()
-			//	return currentValue.item
-			//}
-
 			// shift current items all 1 position
 			bn.values = append(bn.values[:index+1], bn.values[index:]...)
 			// overwrite value

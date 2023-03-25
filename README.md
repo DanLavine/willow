@@ -1,6 +1,6 @@
 # willow
 
-Willow is a message broker that can be used as either a pub-sub or message queue system.
+Willow is a message broker that can be used as an updatable queue (and someday eventually pub-sub message system).
 
 # Terms
 * Broker - A messaging system that can be broken down into the following
@@ -10,7 +10,7 @@ Willow is a message broker that can be used as either a pub-sub or message queue
 * Producer - This is the client that sends messages to willow
   * TagGroup - when sending Messages, all tags must mutch exactly 1 queue that will recieve the message
 * Consumer - This is the client that receives messages from willow
-  * MatchRestrctions - when consuming message, there are a number of stratagies. See [#easy_consumer_setup]
+  * MatchRestrctions - when consuming message, there are a number of stratagies. See [#consumer_setup]
 
 
 # Unique Features
@@ -31,7 +31,7 @@ Use Cases:
 1. Long running update operations that have multiple changes stacked can all be collapsed into the
    latest update operation, skipping any middle operations that are no longer needed or valid.
 
-## Easy Consumer Setup
+## Consumer Setup
 
 Consumer can easily be setup to pull from a number of queues (even if they don't yet exist).
 When crating the consumer, we specify what tags we are interesed in, as well as the consume stratagy:
@@ -56,6 +56,7 @@ Use Cases:
 1. can ack a queue item
 
 ## TODO
+1. cleanup types for queue items. Should just change to string for key to make things easier rather than generic? Or move key types around to models so I don't need to convert them
 1. when a queue item fails, it goes to the the dead-letter-queue
 1. add a retry ablity for queue items
 1. add a "timeout" ability for queue items

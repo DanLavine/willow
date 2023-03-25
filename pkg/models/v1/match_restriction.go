@@ -27,70 +27,12 @@ const (
 // Match Query can be used to match any number of brokers with a subset of tags.
 // Or all brokers and any subset of tags.
 type MatchQuery struct {
-	// If BrokerMatches are provided, then these are the prefered matching restrcitions
-	BrokerMatches []MatchBrokers
+	// name of the broker to chose from. Right now it is always a Queue
+	BrokerName string
 
-	// If BrokerMatchers are nil. then TagMatches are the default. If both are nil, then will find everything
-	TagMatches []MatchTags
-}
-
-func (mq *MatchQuery) validate() *Error {
-	if len(mq.BrokerMatches) != 0 {
-		if len(mq.TagMatches) != 0 {
-			return &Error{Message: "Invalid Match Query. Can only support BrokerMatches or TagMatches not both", StatusCode: http.StatusBadRequest}
-		}
-
-		for _, brokerMatch := range mq.BrokerMatches {
-			if err := brokerMatch.validate(); err != nil {
-				return err
-			}
-		}
-
-		return nil
-	}
-
-	if len(mq.TagMatches) == 0 {
-		return &Error{Message: "Invalid Match Query. Requires BrokerMatches or TagMatches to be set", StatusCode: http.StatusBadRequest}
-	}
-
-	for _, matchTags := range mq.TagMatches {
-		if err := matchTags.validate(); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-type MatchBrokers struct {
-	Name      string
-	MatchTags MatchTags
-}
-
-func (mb MatchBrokers) validate() *Error {
-	if mb.Name == "" {
-		return &Error{Message: "MatchBroker cannot have an empty Name", StatusCode: http.StatusBadRequest}
-	}
-
-	return mb.MatchTags.validate()
-}
-
-type MatchTags struct {
+	// Tags to match against
 	MatchTagsRestrictions MatchTagsRestrictions
 	Tags                  []string
-}
-
-func (mt MatchTags) validate() *Error {
-	switch mt.MatchTagsRestrictions {
-	case STRICT, SUBSET, ANY, ALL:
-		// nothing to do here. these are valid
-	default:
-		return (&Error{Message: "Invalid Match Tag", StatusCode: http.StatusBadRequest}).With("[STRICT(0), SUBSET(1), ANY(2), ALL(3)]", fmt.Sprintf("%d", mt.MatchTagsRestrictions))
-	}
-
-	sort.Strings(mt.Tags)
-
-	return nil
 }
 
 func ParseMatchQueryRequest(reader io.ReadCloser) (*MatchQuery, *Error) {
@@ -109,4 +51,21 @@ func ParseMatchQueryRequest(reader io.ReadCloser) (*MatchQuery, *Error) {
 	}
 
 	return matchQuery, nil
+}
+
+func (mq *MatchQuery) validate() *Error {
+	if mq.BrokerName == "" {
+		return &Error{Message: "BrokerName is a required request parameter", StatusCode: http.StatusBadRequest}
+	}
+
+	switch mq.MatchTagsRestrictions {
+	case STRICT, SUBSET, ANY, ALL:
+		// nothing to do here. these are valid
+	default:
+		return (&Error{Message: "Invalid Match Tag", StatusCode: http.StatusBadRequest}).With("[STRICT(0), SUBSET(1), ANY(2), ALL(3)]", fmt.Sprintf("%d", mq.MatchTagsRestrictions))
+	}
+
+	sort.Strings(mq.Tags)
+
+	return nil
 }

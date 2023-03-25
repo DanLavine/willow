@@ -4,6 +4,7 @@ import (
 	"context"
 	"reflect"
 	"sync"
+	"sync/atomic"
 
 	"github.com/DanLavine/gonotify"
 	"github.com/DanLavine/willow/internal/datastructures"
@@ -12,14 +13,13 @@ import (
 )
 
 type TagGroup interface {
+	// Call for processing messages from GoAsync
 	Execute(ctx context.Context) error
 
-	Process() *v1.DequeueItemResponse
-
+	// Enqueue a new message or updatte the last message waiting to be processed
 	Enqueue(queueItem *v1.EnqueueItem) *v1.Error
 
-	StrictTag() <-chan tags.Tag
-
+	// Stop this queue
 	Stop()
 }
 
@@ -31,40 +31,49 @@ type tagGroup struct {
 	items          *datastructures.IDTree
 	availableItems []uint64
 
-	notifier      *gonotify.Notify
-	channels      []tags.Tag
-	strictChannel chan tags.Tag
+	notifier *gonotify.Notify
+	channels []chan<- tags.Tag
 }
 
-func newTagGroup(channels []tags.Tag) *tagGroup {
+func newTagGroup(channels []chan<- tags.Tag) *tagGroup {
 	return &tagGroup{
-		lock:           new(sync.Mutex),
-		done:           make(chan struct{}),
-		doneOnce:       new(sync.Once),
+		// shutdown
+		lock:     new(sync.Mutex),
+		done:     make(chan struct{}),
+		doneOnce: new(sync.Once),
+
+		// keeping track of items
 		items:          datastructures.NewIDTree(),
 		availableItems: []uint64{},
-		notifier:       gonotify.New(),
-		channels:       channels,
-		strictChannel:  make(chan tags.Tag),
+
+		// communication
+		notifier: gonotify.New(),
+		channels: channels,
 	}
+}
+
+func (tg *tagGroup) OnFind() {
+	tg.lock.Lock()
+}
+
+func (tg *tagGroup) Unlock() {
+	tg.lock.Unlock()
 }
 
 // Handled by GoAsync to constantly read items from the queue and handle shutdown
 func (tg *tagGroup) Execute(ctx context.Context) error {
 	defer func() {
 		tg.Stop()
-		close(tg.strictChannel)
 		tg.notifier.ForceStop()
 	}()
 
 	cases := []reflect.SelectCase{
-		reflect.SelectCase{Dir: reflect.SelectSend, Chan: reflect.ValueOf(tg.strictChannel), Send: reflect.ValueOf(tg.Process)},
 		reflect.SelectCase{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(ctx.Done())},
 		reflect.SelectCase{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(tg.done)}}
 
 	// setup all possible channels
 	for _, channel := range tg.channels {
-		cases = append(cases, reflect.SelectCase{Dir: reflect.SelectSend, Chan: reflect.ValueOf(channel), Send: reflect.ValueOf(tg.Process)})
+		cases = append(cases, reflect.SelectCase{Dir: reflect.SelectSend, Chan: reflect.ValueOf(channel), Send: reflect.ValueOf(tg.process)})
 	}
 
 	for {
@@ -86,8 +95,8 @@ func (tg *tagGroup) Execute(ctx context.Context) error {
 	}
 }
 
-// Process is called from any clients that pull messages from any of the channels passed into 'newTagGroup'
-func (tg *tagGroup) Process() *v1.DequeueItemResponse {
+// process is called from any clients that pull messages from any of the channels passed into 'newTagGroup'
+func (tg *tagGroup) process() *v1.DequeueItemResponse {
 	tg.lock.Lock()
 	defer tg.lock.Unlock()
 
@@ -104,10 +113,7 @@ func (tg *tagGroup) Process() *v1.DequeueItemResponse {
 }
 
 // Enqueue a new item onto the tag group.
-func (tg *tagGroup) Enqueue(queueItem *v1.EnqueueItem) *v1.Error {
-	tg.lock.Lock()
-	defer tg.lock.Unlock()
-
+func (tg *tagGroup) Enqueue(queueItem *v1.EnqueueItem, readyCount *atomic.Uint64) *v1.Error {
 	if len(tg.availableItems) >= 1 {
 		lastItemId := tg.availableItems[len(tg.availableItems)-1]
 		lastItem := tg.items.Get(lastItemId)
@@ -120,14 +126,11 @@ func (tg *tagGroup) Enqueue(queueItem *v1.EnqueueItem) *v1.Error {
 		}
 	}
 
+	readyCount.Add(uint64(1))
 	tg.availableItems = append(tg.availableItems, tg.items.Add(queueItem))
 	_ = tg.notifier.Add() // don't care about the error. on a shutdown message will be dropped anyways
 
 	return nil
-}
-
-func (tg *tagGroup) StrictTag() <-chan tags.Tag {
-	return tg.strictChannel
 }
 
 func (tg *tagGroup) Stop() {

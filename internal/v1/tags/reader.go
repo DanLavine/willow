@@ -1,92 +1,89 @@
 package tags
 
 import (
-	"sync/atomic"
-
 	"github.com/DanLavine/willow/internal/datastructures"
 	"github.com/DanLavine/willow/internal/helpers"
 )
 
-// Individual tag tree keeps track of any readers for associated tags. These tags can be used for clients
-// requesting "any" readers on a match restrcition
-type TagReader interface {
-	// Create tags for a new TagGroup
-	CreateTagsGroup(tags []string) []chan any
+// TagReaders is used as a record keeper for possible tag combinations. This data structure is used by:
+//  1. Queues
+//     a. Setup all possible readers when an Item is enqueued as part of the Enqueue process
+//     b. Any client trying to find possible tag groups, they pull fromavailable readers here. In some
+//     cases they will create the readers if there are none that are usinig those readers yet. It is
+//     important to remember that the clients will just hang in that case untill a queue message matches the reader options
+type TagReaders interface {
+	// Create all possible readers for a particular group of tags. This will create every possible set rather than just the tags provided
+	// * used by readers to create a new tag group
+	CreateGroup(tags []string) []chan<- Tag
 
-	// Get the global reader for all tag groups
-	GetGlobalReader() chan any
+	// Get the global reader for a particular queue. This can return nil if the queue does not exists
+	// * used by clients
+	GetGlobalReader() <-chan Tag
 
-	// Add a collection of tags to the tag tree
-	GetTagReaders(tags []string) []chan any
+	// Get the strict reader for a particular set of tags. Will create the tag and readers if they do not yet exist
+	// * used by clients
+	GetStrictReader(tags []string) <-chan Tag
 
-	// Add a specific tag to the tag treeand return the reader. If the tag already exists, the usage ount is increased by 1
-	GetTagReader(tag string) chan any
+	// Get reader for a particular set of tags. Will create the tag and readers if they do not yet exist
+	// * used by clients
+	GetSubsetReader(tags []string) <-chan Tag
 
-	// remove a tag if it is no longer being used by any other tag groups
-	RemoveTag(tag string)
+	// Get any readers that exists for all provided tags. Will create the tags and readeds if they do not yet exist
+	// * used by clients
+	GetAnyReaders(tags []string) []<-chan Tag
 
-	// remove any tags if they ate no longer being used by any other groups
-	RemoveTags(tag []string)
+	// Remove any tags if they ate no longer being used by any other clients
+	RemoveReaders(tag []string)
 
 	// remove all tags for a specific tag group
-	RemoveTagsGroup(tags []string)
+	RemoveReadersGroup(tags []string)
 }
 
-// reader is a "tag" for a queue that a client might be interested in reading from
-type reader struct {
-	count   *atomic.Int32
-	channel chan any
+// Root structure for the reader tree
+type tagReadersTree struct {
+	// globala reader all brokers using this TagReaders set
+	globalReader chan Tag
+
+	// each element must be of type *tagReadersNode
+	readers datastructures.DisjointTree
 }
 
-func newReader() *reader {
-	return &reader{
-		count:   new(atomic.Int32),
-		channel: make(chan any),
+func NewTagReaderTree() *tagReadersTree {
+	return &tagReadersTree{
+		globalReader: make(chan Tag),
+		readers:      datastructures.NewDisjointTree(),
 	}
 }
 
-func newReaderAsInterface() datastructures.TreeItem {
-	return &reader{
-		count:   new(atomic.Int32),
-		channel: make(chan any),
+// node for each element in the disjoint tree
+type tagReadersNode struct {
+	// total number of possible readers/clients using this specific tag. On 0 this can be deleted
+	//count *atomic.Int64
+
+	// reader for this specific tag
+	reader chan Tag
+	// strict reader for a queue that is created from all nested tags. Most of the time this will be nil
+	strictReader chan Tag
+}
+
+func newTagReadersNode(reader chan Tag, setupStrict bool) func() (any, error) {
+	return func() (any, error) {
+		var strictReader chan Tag
+		if setupStrict {
+			strictReader = make(chan Tag)
+		}
+
+		return &tagReadersNode{
+			//count:        new(atomic.Int64),
+			reader:       reader,
+			strictReader: strictReader,
+		}, nil
 	}
 }
 
-func wrappedReader(r *reader) func() datastructures.TreeItem {
-	return func() datastructures.TreeItem {
-		return r
-	}
-}
-
-func (r *reader) OnFind() {
-	r.count.Add(1)
-}
-
-func (r *reader) CanDestroy() bool {
-	total := r.count.Add(-1)
-	if total <= 0 {
-		return true
-	}
-
-	return false
-}
-
-// readerTree is used to structure any possible "tags" or "tag combinations" for a queue and save them.
-// They should be automatically removed when there are no more clients/queues for a particular "tag"
-type readerTree struct {
-	global chan any
-	tree   datastructures.BTree
-}
-
-func NewReaderTree() *readerTree {
-	tree, err := datastructures.NewBTree(2)
-	if err != nil {
-		panic(err)
-	}
-
-	return &readerTree{
-		global: make(chan any),
-		tree:   tree,
+func (trn *tagReadersNode) OnUpdate() {
+	if trn.strictReader == nil {
+		trn.strictReader = make(chan Tag)
 	}
 }
 
@@ -95,71 +92,112 @@ func NewReaderTree() *readerTree {
 // then on a new group
 // [a,b,c,d,e,f]
 // if any subsets overlap, create a new channel for them all and return 2 channels. This way at most N unique channels, but keep overal count low
-func (r *readerTree) CreateTagsGroup(tags []string) []chan any {
-	newReader := newReader()
-	channels := map[chan any]struct{}{newReader.channel: struct{}{}, r.global: struct{}{}}
+//
+// PARAMS:
+// * tags - string collection that will create all possible groups for
+//
+// RETURNS:
+// * []chan<- Tag - a write only copy of all possible tag group channels. A new channel is used for all 1st time created channels
+func (r *tagReadersTree) CreateGroup(tags []string) []chan<- Tag {
+	tagGroups := helpers.GenerateGroupPairs(tags)
+	channels := map[chan<- Tag]struct{}{r.globalReader: struct{}{}}
 
-	usingReader := false
-	for _, tag := range helpers.GenerateStringPairs(tags) {
-		treeItem := r.tree.FindOrCreate(datastructures.NewStringTreeKey(tag), wrappedReader(newReader))
-		if treeItem != newReader {
-			channels[treeItem.(*reader).channel] = struct{}{}
+	// reader for all new tags in the provided group if they do not already exist
+	reader := make(chan Tag)
+
+	for _, tagGroup := range tagGroups {
+		if len(tagGroup) == len(tags) {
+			// cannot return an error on our callback so ignore it
+			treeItem, _ := r.readers.FindOrCreate(tagGroup, "OnUpdate", newTagReadersNode(reader, true))
+			node := treeItem.(*tagReadersNode)
+			channels[node.strictReader] = struct{}{}
+			channels[node.reader] = struct{}{}
 		} else {
-			usingReader = true
+			// cannot return an error on our callback so ignore it
+			treeItem, _ := r.readers.FindOrCreate(tagGroup, "", newTagReadersNode(reader, false))
+			node := treeItem.(*tagReadersNode)
+			channels[node.reader] = struct{}{}
 		}
 	}
 
-	if !usingReader {
-		// all tags already exists. can garbage collect the newReader and the channel
-		delete(channels, newReader.channel)
-		close(newReader.channel)
+	channelSlice := []chan<- Tag{}
+	for ch, _ := range channels {
+		channelSlice = append(channelSlice, ch)
 	}
 
-	chans := make([]chan any, 0, len(channels))
-	for channel, _ := range channels {
-		chans = append(chans, channel)
+	// cleanup if all channels are already created
+	if _, ok := channels[reader]; !ok {
+		close(reader)
 	}
 
-	return chans
+	return channelSlice
 }
 
-func (r *readerTree) GetGlobalReader() chan any {
-	return r.global
+// GetGlobalReader gets the global reader for the TagGroup
+//
+// RETURNS:
+// * <-chan Tag - Read Only copy of the global reader
+func (r *tagReadersTree) GetGlobalReader() <-chan Tag {
+	return r.globalReader
 }
 
-func (r *readerTree) GetTagReaders(tags []string) []chan any {
-	readers := map[chan any]struct{}{}
+// GeStrictReader gets a strict reader for the given tags
+//
+// RETURNS:
+// * <-chan Tag - Read Only copy of the strict reader if it exists. Otherwise will be nil
+func (r *tagReadersTree) GetStrictReader(tags []string) <-chan Tag {
+	keys := []datastructures.TreeKey{}
+
 	for _, tag := range tags {
-		readers[r.GetTagReader(tag)] = struct{}{}
+		keys = append(keys, datastructures.NewStringTreeKey(tag))
 	}
 
-	returnTagReader := make([]chan any, 0, len(readers))
-	for reader, _ := range readers {
-		returnTagReader = append(returnTagReader, reader)
+	// won't return an error
+	treeItem, _ := r.readers.FindOrCreate(keys, "OnUpdate", newTagReadersNode(make(chan Tag), true))
+	return treeItem.(*tagReadersNode).strictReader
+}
+
+// GetSubsetReader gets a strict reader for the given tags
+//
+// RETURNS:
+// * <-chan Tag - Read Only copy of the strict reader if it exists. Otherwise will be nil
+func (r *tagReadersTree) GetSubsetReader(tags []string) <-chan Tag {
+	keys := []datastructures.TreeKey{}
+
+	for _, tag := range tags {
+		keys = append(keys, datastructures.NewStringTreeKey(tag))
 	}
 
-	return returnTagReader
+	// won't return an error
+	treeItem, _ := r.readers.FindOrCreate(keys, "", newTagReadersNode(make(chan Tag), false))
+	return treeItem.(*tagReadersNode).reader
 }
 
-func (r *readerTree) GetTagReader(tag string) chan any {
-	treeItem := r.tree.FindOrCreate(datastructures.NewStringTreeKey(tag), newReaderAsInterface)
-	reader := treeItem.(*reader)
+// GetAnyReaders gets a strict reader for the given tags
+//
+// RETURNS:
+// * []<-chan Tag - Read Only copy of any readers that match any tags
+func (r *tagReadersTree) GetAnyReaders(tags []string) []<-chan Tag {
+	potentialReader := map[<-chan Tag]struct{}{}
+	readers := []<-chan Tag{}
 
-	return reader.channel
+	newReader := make(chan Tag)
+	for _, tag := range tags {
+		// won't return an error
+		treeItem, _ := r.readers.FindOrCreate([]datastructures.TreeKey{datastructures.NewStringTreeKey(tag)}, "", newTagReadersNode(newReader, false))
+		potentialReader[treeItem.(*tagReadersNode).reader] = struct{}{}
+	}
+
+	for reader, _ := range potentialReader {
+		readers = append(readers, reader)
+	}
+
+	return readers
 }
 
-func (r *readerTree) RemoveTags(tags []string) {
-	panic("todo")
-	//for _, tag := range tags {
-	//	r.RemoveTag(tag)
-	//}
+func (r *tagReadersTree) RemoveReaders(tags []string) {
+	panic("not implemented")
 }
-
-func (r *readerTree) RemoveTag(tag string) {
-	panic("todo")
-	//_ := r.tree.Remove(datastructures.NewStringTreeKey(tag))
-}
-
-func (r *readerTree) RemoveTagsGroup(tags []string) {
-	panic("todo")
+func (r *tagReadersTree) RemoveReadersGroup(tags []string) {
+	panic("not implemented")
 }

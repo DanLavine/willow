@@ -21,4 +21,5 @@ var (
 	ItemNotfound            = &v1.Error{Message: "Item not found.", StatusCode: http.StatusNotFound}
 	ItemNotProcessing       = &v1.Error{Message: "Item not processing.", StatusCode: http.StatusBadRequest}
 	MessageTypeNotSupported = &v1.Error{Message: "Message type not supported", StatusCode: http.StatusBadRequest}
+	MaxEnqueuedItems        = &v1.Error{Message: "Queue reached max number of in flight items. Cannot queue request", StatusCode: http.StatusTooManyRequests}
 )

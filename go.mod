@@ -3,7 +3,7 @@ module github.com/DanLavine/willow
 go 1.19
 
 require (
-	github.com/DanLavine/goasync v0.0.0-20221204033030-6fbe23639bea
+	github.com/DanLavine/goasync v0.0.0-20230215234041-01f9be1e627e
 	github.com/google/uuid v1.3.0
 	github.com/maxbrunsfeld/counterfeiter/v6 v6.5.0
 	github.com/onsi/gomega v1.24.1
