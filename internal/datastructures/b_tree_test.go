@@ -60,9 +60,9 @@ func validateTree(g *GomegaWithT, bNode *bNode, parentKey TreeKey, less bool) {
 }
 
 var (
-	keyOne   = NewIntTreeKey(1)
-	keyTwo   = NewIntTreeKey(2)
-	keyThree = NewIntTreeKey(3)
+	keyOne   = IntTreeKey(1)
+	keyTwo   = IntTreeKey(2)
+	keyThree = IntTreeKey(3)
 )
 
 func TestBTree_NewBTree(t *testing.T) {
@@ -255,9 +255,9 @@ func TestBTree_FindOrCreate_SingleNode(t *testing.T) {
 func TestBTree_FindOrCreate_Tree_SimpleOperations(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	key10 := NewIntTreeKey(10)
-	key20 := NewIntTreeKey(20)
-	key30 := NewIntTreeKey(30)
+	key10 := IntTreeKey(10)
+	key20 := IntTreeKey(20)
+	key30 := IntTreeKey(30)
 
 	// generate a tree of
 	/*
@@ -306,7 +306,7 @@ func TestBTree_FindOrCreate_Tree_SimpleOperations(t *testing.T) {
 	 */
 	t.Run("can add a new entry on the leftChild[0]", func(t *testing.T) {
 		bTree := setupTree(g)
-		key5 := NewIntTreeKey(5)
+		key5 := IntTreeKey(5)
 
 		_, _ = bTree.FindOrCreate(key5, "OnFind", newBTreeTester("5"))
 
@@ -328,7 +328,7 @@ func TestBTree_FindOrCreate_Tree_SimpleOperations(t *testing.T) {
 	 */
 	t.Run("can add a new entry on the rightChild[0]", func(t *testing.T) {
 		bTree := setupTree(g)
-		key25 := NewIntTreeKey(25)
+		key25 := IntTreeKey(25)
 
 		_, _ = bTree.FindOrCreate(key25, "OnFind", newBTreeTester("25"))
 
@@ -350,7 +350,7 @@ func TestBTree_FindOrCreate_Tree_SimpleOperations(t *testing.T) {
 	 */
 	t.Run("can add a new entry on the leftChild[1]", func(t *testing.T) {
 		bTree := setupTree(g)
-		key15 := NewIntTreeKey(15)
+		key15 := IntTreeKey(15)
 
 		_, _ = bTree.FindOrCreate(key15, "OnFind", newBTreeTester("15"))
 
@@ -372,7 +372,7 @@ func TestBTree_FindOrCreate_Tree_SimpleOperations(t *testing.T) {
 	 */
 	t.Run("can add a new entry on the rightChild[1]", func(t *testing.T) {
 		bTree := setupTree(g)
-		key35 := NewIntTreeKey(35)
+		key35 := IntTreeKey(35)
 
 		_, _ = bTree.FindOrCreate(key35, "OnFind", newBTreeTester("35"))
 
@@ -391,17 +391,17 @@ func TestBTree_FindOrCreate_Tree_SimplePromoteOperations(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	// setup values
-	key10 := NewIntTreeKey(10)
-	key20 := NewIntTreeKey(20)
-	key30 := NewIntTreeKey(30)
+	key10 := IntTreeKey(10)
+	key20 := IntTreeKey(20)
+	key30 := IntTreeKey(30)
 
 	t.Run("leftChild promotions", func(t *testing.T) {
-		key15 := NewIntTreeKey(15)
+		key15 := IntTreeKey(15)
 
 		// values to add
-		key8 := NewIntTreeKey(8)
-		key12 := NewIntTreeKey(12)
-		key17 := NewIntTreeKey(17)
+		key8 := IntTreeKey(8)
+		key12 := IntTreeKey(12)
+		key17 := IntTreeKey(17)
 
 		// all tests in this section start with a base tree like so
 		/*
@@ -513,12 +513,12 @@ func TestBTree_FindOrCreate_Tree_SimplePromoteOperations(t *testing.T) {
 	})
 
 	t.Run("rightChild promotions", func(t *testing.T) {
-		key35 := NewIntTreeKey(35)
+		key35 := IntTreeKey(35)
 
 		// values to add
-		key25 := NewIntTreeKey(25)
-		key32 := NewIntTreeKey(32)
-		key37 := NewIntTreeKey(37)
+		key25 := IntTreeKey(25)
+		key32 := IntTreeKey(32)
+		key37 := IntTreeKey(37)
 
 		// all tests in this section start with a base tree like so
 		/*
@@ -634,14 +634,14 @@ func TestBTree_FindOrCreate_Tree_NewRootNode(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	// setup values
-	key5 := NewIntTreeKey(5)
-	key10 := NewIntTreeKey(10)
-	key20 := NewIntTreeKey(20)
-	key25 := NewIntTreeKey(25)
-	key30 := NewIntTreeKey(30)
-	key40 := NewIntTreeKey(40)
-	key45 := NewIntTreeKey(45)
-	key50 := NewIntTreeKey(50)
+	key5 := IntTreeKey(5)
+	key10 := IntTreeKey(10)
+	key20 := IntTreeKey(20)
+	key25 := IntTreeKey(25)
+	key30 := IntTreeKey(30)
+	key40 := IntTreeKey(40)
+	key45 := IntTreeKey(45)
+	key50 := IntTreeKey(50)
 
 	// all tests in this section start with a base tree like so
 	/*
@@ -694,7 +694,7 @@ func TestBTree_FindOrCreate_Tree_NewRootNode(t *testing.T) {
 	 */
 	t.Run("adding the leftChild promotes properly", func(t *testing.T) {
 		bTree := setupTree(g)
-		key0 := NewIntTreeKey(0)
+		key0 := IntTreeKey(0)
 
 		treeItem, err := bTree.FindOrCreate(key0, "OnFind", newBTreeTester("0"))
 		g.Expect(err).ToNot(HaveOccurred())
@@ -742,7 +742,7 @@ func TestBTree_FindOrCreate_Tree_NewRootNode(t *testing.T) {
 	 */
 	t.Run("adding the middleChild promotes properly", func(t *testing.T) {
 		bTree := setupTree(g)
-		key22 := NewIntTreeKey(22)
+		key22 := IntTreeKey(22)
 
 		treeItem, err := bTree.FindOrCreate(key22, "OnFind", newBTreeTester("22"))
 		g.Expect(err).ToNot(HaveOccurred())
@@ -790,7 +790,7 @@ func TestBTree_FindOrCreate_Tree_NewRootNode(t *testing.T) {
 	 */
 	t.Run("adding the right promotes properly", func(t *testing.T) {
 		bTree := setupTree(g)
-		key47 := NewIntTreeKey(47)
+		key47 := IntTreeKey(47)
 
 		treeItem, err := bTree.FindOrCreate(key47, "OnFind", newBTreeTester("47"))
 		g.Expect(err).ToNot(HaveOccurred())
@@ -839,7 +839,7 @@ func TestBTree_RandomAssertion(t *testing.T) {
 		randomGenerator := rand.New(rand.NewSource(time.Now().UnixNano()))
 		for i := 0; i < 10_000; i++ {
 			num := randomGenerator.Intn(10_000)
-			key := NewIntTreeKey(num)
+			key := IntTreeKey(num)
 			_, _ = bTree.FindOrCreate(key, "OnFind", newBTreeTester(fmt.Sprintf("%d", num)))
 		}
 
@@ -853,7 +853,7 @@ func TestBTree_RandomAssertion(t *testing.T) {
 		randomGenerator := rand.New(rand.NewSource(time.Now().UnixNano()))
 		for i := 0; i < 10_000; i++ {
 			num := randomGenerator.Intn(10_000)
-			key := NewIntTreeKey(num)
+			key := IntTreeKey(num)
 			_, _ = bTree.FindOrCreate(key, "OnFind", newBTreeTester(fmt.Sprintf("%d", num)))
 		}
 
@@ -867,7 +867,7 @@ func TestBTree_RandomAssertion(t *testing.T) {
 		randomGenerator := rand.New(rand.NewSource(time.Now().UnixNano()))
 		for i := 0; i < 10_000; i++ {
 			num := randomGenerator.Intn(10_000)
-			key := NewIntTreeKey(num)
+			key := IntTreeKey(num)
 			_, _ = bTree.FindOrCreate(key, "OnFind", newBTreeTester(fmt.Sprintf("%d", num)))
 		}
 
@@ -883,7 +883,7 @@ func TestBTree_Find(t *testing.T) {
 		g.Expect(err).ToNot(HaveOccurred())
 
 		for i := 0; i < 1_024; i++ {
-			_, _ = bTree.FindOrCreate(NewIntTreeKey(i), "OnFind", newBTreeTester(fmt.Sprintf("%d", i)))
+			_, _ = bTree.FindOrCreate(IntTreeKey(i), "OnFind", newBTreeTester(fmt.Sprintf("%d", i)))
 		}
 
 		return bTree
@@ -893,15 +893,54 @@ func TestBTree_Find(t *testing.T) {
 		bTree, err := NewBTree(2)
 		g.Expect(err).ToNot(HaveOccurred())
 
-		g.Expect(bTree.Find(NewIntTreeKey(1), "OnFind")).To(BeNil())
+		g.Expect(bTree.Find(IntTreeKey(1), "OnFind")).To(BeNil())
 	})
 
 	t.Run("returns the item in the tree", func(t *testing.T) {
 		bTree := setupTree(g)
 
-		treeItem := bTree.Find(NewIntTreeKey(768), "OnFind")
+		treeItem := bTree.Find(IntTreeKey(768), "OnFind")
 		g.Expect(treeItem).ToNot(BeNil())
 		g.Expect(treeItem.(*bTreeTester).value).To(Equal("768"))
 		g.Expect(treeItem.(*bTreeTester).onFindCount).To(Equal(1))
+	})
+}
+
+func TestBTree_Iterate(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	t.Run("it does not run the iterative function if there are no values", func(t *testing.T) {
+		bTree, err := NewBTree(2)
+		g.Expect(err).ToNot(HaveOccurred())
+
+		iterate := func(val any) {
+			panic("should not call")
+		}
+
+		g.Expect(func() { bTree.Iterate(iterate) }).ToNot(Panic())
+	})
+
+	t.Run("it calls the iterative function on each tree item with a value", func(t *testing.T) {
+		bTree, err := NewBTree(2)
+		g.Expect(err).ToNot(HaveOccurred())
+
+		for i := 0; i < 1_024; i++ {
+			_, _ = bTree.FindOrCreate(IntTreeKey(i), "OnFind", newBTreeTester(fmt.Sprintf("%d", i)))
+		}
+
+		seenValues := map[string]struct{}{}
+		count := 0
+		iterate := func(val any) {
+			bTreeTester := val.(*bTreeTester)
+
+			// check that each value is unique
+			g.Expect(seenValues).ToNot(HaveKey(bTreeTester.value))
+			seenValues[bTreeTester.value] = struct{}{}
+
+			count++
+		}
+
+		bTree.Iterate(iterate)
+		g.Expect(count).To(Equal(1_024))
 	})
 }

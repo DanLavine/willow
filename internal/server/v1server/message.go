@@ -15,14 +15,21 @@ func (qh *queueHandler) Enqueue(w http.ResponseWriter, r *http.Request) {
 	case "POST":
 		logger.Debug("GET enqueue")
 
-		enqueueItem, err := v1.ParseEnqueueItem(r.Body)
+		enqueueItem, err := v1.ParseEnqueueItemRequest(r.Body)
 		if err != nil {
 			w.WriteHeader(err.StatusCode)
 			w.Write(err.ToBytes())
 			return
 		}
 
-		if err = qh.queueManager.Enqueue(logger, enqueueItem); err != nil {
+		queue, err := qh.queueManager.Find(logger, enqueueItem.BrokerInfo.Name)
+		if err != nil {
+			w.WriteHeader(err.StatusCode)
+			w.Write(err.ToBytes())
+			return
+		}
+
+		if err = queue.Enqueue(logger, enqueueItem); err != nil {
 			w.WriteHeader(err.StatusCode)
 			w.Write(err.ToBytes())
 			return

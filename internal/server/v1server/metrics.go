@@ -5,7 +5,6 @@ import (
 
 	"github.com/DanLavine/willow/internal/logger"
 	"github.com/DanLavine/willow/internal/v1/queues"
-	v1 "github.com/DanLavine/willow/pkg/models/v1"
 	"go.uber.org/zap"
 )
 
@@ -32,15 +31,15 @@ func (mh *metricsHandler) Metrics(w http.ResponseWriter, r *http.Request) {
 
 	switch method := r.Method; method {
 	case "GET":
-		matchQuery, err := v1.ParseMatchQueryRequest(r.Body)
-		if err != nil {
-			logger.Error("Failed to parse match request body", zap.Error(err))
-			w.WriteHeader(err.StatusCode)
-			w.Write([]byte(err.Error()))
-			return
-		}
+		//matchQuery, err := v1.ParseMatchQueryRequest(r.Body)
+		//if err != nil {
+		//	logger.Error("Failed to parse match request body", zap.Error(err))
+		//	w.WriteHeader(err.StatusCode)
+		//	w.Write([]byte(err.Error()))
+		//	return
+		//}
 
-		metrics := mh.queueManager.Metrics(matchQuery)
+		metrics := mh.queueManager.Metrics()
 		metricsData, err := metrics.ToBytes()
 		if err != nil {
 			logger.Error("Failed to encode metrics response", zap.Error(err))

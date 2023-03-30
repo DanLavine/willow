@@ -3,17 +3,11 @@ package v1
 import (
 	"encoding/json"
 	"io"
-	"sort"
 )
 
-type EnqueueItem struct {
-	// specific queue name for the message
-	// For a "private" queue, this will be needed. Hard to do auh on only "tags"
-	Name string
-
-	// Tags for an item. Can be used to update specific item if the previous item has not yet processed
-	// OR so the queue pulls the items in a first in, first out order.
-	Tags []string
+type EnqueueItemRequest struct {
+	// common broker info
+	BrokerInfo BrokerInfo
 
 	// Message body that will be used by clients receiving this message
 	Data []byte
@@ -27,43 +21,40 @@ type EnqueueItem struct {
 }
 
 type DequeueItemRequest struct {
-	// specific queue name for the message
-	Name string
-
-	// specific tag that this message was pulled from
-	Tags []string
+	// common broker info
+	// NOTE: this could be inlined, but for model consistency have the value named
+	BrokerInfo BrokerInfo
 }
 
 type DequeueItemResponse struct {
+	// common broker info
+	BrokerInfo BrokerInfo
+
 	// ID of the message that can be ACKed
 	ID uint64
-
-	// specific queue name for the message
-	Name string
-
-	// specific tag that this message was pulled from
-	Tags []string
 
 	// Message body that will be used by clients receiving this message
 	Data []byte
 }
 
-func ParseEnqueueItem(reader io.ReadCloser) (*EnqueueItem, *Error) {
+func ParseEnqueueItemRequest(reader io.ReadCloser) (*EnqueueItemRequest, *Error) {
 	body, err := io.ReadAll(reader)
 	if err != nil {
 		return nil, InvalidRequestBody.With("", err.Error())
 	}
 	defer reader.Close()
 
-	enqueueItem := &EnqueueItem{}
+	enqueueItem := &EnqueueItemRequest{}
 	if err := json.Unmarshal(body, enqueueItem); err != nil {
 		return nil, ParseRequestBodyError.With("enqueue query to be valid json", err.Error())
 	}
 
-	if len(enqueueItem.Tags) == 0 {
-		enqueueItem.Tags = []string{""}
-	} else {
-		sort.Strings(enqueueItem.Tags)
+	if enqueueItem.BrokerInfo.Name == "" {
+		return nil, InvalidRequestBody.With("Name to be provided", "Name is the empty string")
+	}
+
+	if err := enqueueItem.BrokerInfo.validate(); err != nil {
+		return nil, err
 	}
 
 	return enqueueItem, nil
@@ -81,7 +72,9 @@ func ParseDequeueItemRequest(reader io.ReadCloser) (*DequeueItemRequest, *Error)
 		return nil, ParseRequestBodyError.With("dequeue query to be valid json", err.Error())
 	}
 
-	sort.Strings(dequeueItemRequest.Tags)
+	if err := dequeueItemRequest.BrokerInfo.validate(); err != nil {
+		return nil, err
+	}
 
 	return dequeueItemRequest, nil
 }

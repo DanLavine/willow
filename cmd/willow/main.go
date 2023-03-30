@@ -12,7 +12,6 @@ import (
 	"github.com/DanLavine/willow/internal/server/v1server"
 	"github.com/DanLavine/willow/internal/v1/queues"
 	"github.com/DanLavine/willow/pkg/config"
-	"go.uber.org/zap"
 )
 
 func main() {
@@ -25,10 +24,7 @@ func main() {
 	defer logger.Sync()
 
 	queueConstructor := queues.NewQueueConstructor(cfg)
-	queueManager, err := queues.NewManager(queueConstructor)
-	if err != nil {
-		logger.Fatal("faild to create queue manager", zap.Error(err))
-	}
+	queueManager := queues.NewManager(queueConstructor)
 
 	// setup async handlers
 	//// using strict config ensures that if any process fails, the server will ty and shutdown gracefully
@@ -45,7 +41,7 @@ func main() {
 	// start all processes
 	shutdown, _ := signal.NotifyContext(context.Background(), syscall.SIGINT)
 	if errs := taskManager.Run(shutdown); errs != nil {
-		log.Fatal("Failed runnng willow cleanly: ", errs)
+		log.Fatal("Failed runnng willow cleanly", errs)
 	}
 
 	logger.Info("Successfully shutdown")

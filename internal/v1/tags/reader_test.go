@@ -39,7 +39,7 @@ func TestTagReaders_CreateGroup(t *testing.T) {
 
 	t.Run("Creates all tag combinations and assigns one channel for all of them", func(t *testing.T) {
 		reader := NewTagReaderTree()
-		channels := reader.CreateGroup([]string{"a", "b", "c", "d", "e"})
+		channels := reader.CreateGroup(v1.Tags{"a", "b", "c", "d", "e"})
 
 		// Note 3 here for (global, strict, new reader for all tag combos)
 		g.Expect(len(channels)).To(Equal(3))
@@ -51,10 +51,10 @@ func TestTagReaders_CreateGroup(t *testing.T) {
 	t.Run("when creating subseet of the same tags, a new 'strict' channel is created", func(t *testing.T) {
 		reader := NewTagReaderTree()
 
-		channels := reader.CreateGroup([]string{"a", "b", "c", "d", "e"})
+		channels := reader.CreateGroup(v1.Tags{"a", "b", "c", "d", "e"})
 		g.Expect(len(channels)).To(Equal(3))
 
-		channels2 := reader.CreateGroup([]string{"a", "b", "c", "d"})
+		channels2 := reader.CreateGroup(v1.Tags{"a", "b", "c", "d"})
 		g.Expect(len(channels2)).To(Equal(3))
 
 		// global + general are the same
@@ -65,10 +65,10 @@ func TestTagReaders_CreateGroup(t *testing.T) {
 	t.Run("when creating new tags a new channel is used in addition to the common channel for exists pairs", func(t *testing.T) {
 		reader := NewTagReaderTree()
 
-		channels := reader.CreateGroup([]string{"a", "b", "c", "d", "e"})
+		channels := reader.CreateGroup(v1.Tags{"a", "b", "c", "d", "e"})
 		g.Expect(len(channels)).To(Equal(3))
 
-		channels2 := reader.CreateGroup([]string{"a", "b", "c", "d", "f"})
+		channels2 := reader.CreateGroup(v1.Tags{"a", "b", "c", "d", "f"})
 		g.Expect(len(channels2)).To(Equal(4))
 
 		// global + 1 general are the same
@@ -82,10 +82,10 @@ func TestTagReader_GetStrictReader(t *testing.T) {
 
 	t.Run("Getting a tag group that already exists returns the proper strict reader", func(t *testing.T) {
 		reader := NewTagReaderTree()
-		channels := reader.CreateGroup([]string{"a", "b", "c", "d", "e"})
+		channels := reader.CreateGroup(v1.Tags{"a", "b", "c", "d", "e"})
 		g.Expect(len(channels)).To(Equal(3))
 
-		strictChan := reader.GetStrictReader([]string{"a", "b", "c", "d", "e"})
+		strictChan := reader.GetStrictReader(v1.Tags{"a", "b", "c", "d", "e"})
 
 		// ensure the strict chan is a proper reader from the CreateGroup writers
 		for index, channel := range channels {
@@ -108,7 +108,7 @@ func TestTagReader_GetStrictReader(t *testing.T) {
 
 	t.Run("Getting a tag group that does not exists returns a new strict reader", func(t *testing.T) {
 		reader := NewTagReaderTree()
-		strictChan := reader.GetStrictReader([]string{"a", "b", "c", "d", "e"})
+		strictChan := reader.GetStrictReader(v1.Tags{"a", "b", "c", "d", "e"})
 		g.Expect(strictChan).ToNot(BeNil())
 	})
 }
@@ -118,10 +118,10 @@ func TestTagReader_GetSubsetReader(t *testing.T) {
 
 	t.Run("Getting a tag group that already exists returns the proper subset reader", func(t *testing.T) {
 		reader := NewTagReaderTree()
-		channels := reader.CreateGroup([]string{"a", "b", "c", "d", "e"})
+		channels := reader.CreateGroup(v1.Tags{"a", "b", "c", "d", "e"})
 		g.Expect(len(channels)).To(Equal(3))
 
-		subsetChan := reader.GetSubsetReader([]string{"a", "b", "c", "d"})
+		subsetChan := reader.GetSubsetReader(v1.Tags{"a", "b", "c", "d"})
 
 		// ensure the subset chan is a proper reader from the CreateGroup writers
 		for index, channel := range channels {
@@ -144,7 +144,7 @@ func TestTagReader_GetSubsetReader(t *testing.T) {
 
 	t.Run("Getting a tag group that does not exists returns a new subset reader", func(t *testing.T) {
 		reader := NewTagReaderTree()
-		strictChan := reader.GetSubsetReader([]string{"a", "b", "c", "d"})
+		strictChan := reader.GetSubsetReader(v1.Tags{"a", "b", "c", "d"})
 		g.Expect(strictChan).ToNot(BeNil())
 	})
 }
@@ -154,10 +154,10 @@ func TestTagReader_GetAnyReaders(t *testing.T) {
 
 	t.Run("Getting all readers for each tag", func(t *testing.T) {
 		reader := NewTagReaderTree()
-		channels := reader.CreateGroup([]string{"a", "b", "c", "d", "e"})
+		channels := reader.CreateGroup(v1.Tags{"a", "b", "c", "d", "e"})
 		g.Expect(len(channels)).To(Equal(3))
 
-		anyChan := reader.GetAnyReaders([]string{"a", "b", "c", "d", "e"})
+		anyChan := reader.GetAnyReaders(v1.Tags{"a", "b", "c", "d", "e"})
 		g.Expect(len(anyChan)).To(Equal(1))
 
 		// ensure the subset chan is a proper reader from the CreateGroup writers
@@ -181,19 +181,19 @@ func TestTagReader_GetAnyReaders(t *testing.T) {
 
 	t.Run("Getting all readers returns multiple readers if they were made on differnt create requests", func(t *testing.T) {
 		reader := NewTagReaderTree()
-		channels := reader.CreateGroup([]string{"a", "b", "c"})
+		channels := reader.CreateGroup(v1.Tags{"a", "b", "c"})
 		g.Expect(len(channels)).To(Equal(3))
 
-		channels = reader.CreateGroup([]string{"d", "e"})
+		channels = reader.CreateGroup(v1.Tags{"d", "e"})
 		g.Expect(len(channels)).To(Equal(3))
 
-		anyChan := reader.GetAnyReaders([]string{"a", "e"})
+		anyChan := reader.GetAnyReaders(v1.Tags{"a", "e"})
 		g.Expect(len(anyChan)).To(Equal(2))
 	})
 
 	t.Run("Getting a number of tags that does not exists returns a new reader", func(t *testing.T) {
 		reader := NewTagReaderTree()
-		anyChans := reader.GetAnyReaders([]string{"a", "b", "c", "d"})
+		anyChans := reader.GetAnyReaders(v1.Tags{"a", "b", "c", "d"})
 		g.Expect(len(anyChans)).To(Equal(1))
 	})
 }

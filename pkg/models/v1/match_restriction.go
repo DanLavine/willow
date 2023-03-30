@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"sort"
 )
 
 type MatchTagsRestrictions int
@@ -32,7 +31,7 @@ type MatchQuery struct {
 
 	// Tags to match against
 	MatchTagsRestrictions MatchTagsRestrictions
-	Tags                  []string
+	Tags                  Tags
 }
 
 func ParseMatchQueryRequest(reader io.ReadCloser) (*MatchQuery, *Error) {
@@ -65,7 +64,6 @@ func (mq *MatchQuery) validate() *Error {
 		return (&Error{Message: "Invalid Match Tag", StatusCode: http.StatusBadRequest}).With("[STRICT(0), SUBSET(1), ANY(2), ALL(3)]", fmt.Sprintf("%d", mq.MatchTagsRestrictions))
 	}
 
-	sort.Strings(mq.Tags)
-
+	mq.Tags.Sort()
 	return nil
 }

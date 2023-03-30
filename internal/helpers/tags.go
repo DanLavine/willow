@@ -1,7 +1,7 @@
 package helpers
 
 import (
-	"github.com/DanLavine/willow/internal/datastructures"
+	v1 "github.com/DanLavine/willow/pkg/models/v1"
 )
 
 // GenerateGroupPairs can be used to go through a list of strings and create all unique ordered groupings
@@ -10,22 +10,22 @@ import (
 //
 // NOTE that as part of willow we assume all requests with tags to be sorted and so this is the reason we
 // only care about the in order groupings.
-func GenerateGroupPairs(group []string) [][]datastructures.TreeKey {
-	var allGroupPairs [][]datastructures.TreeKey
+func GenerateGroupPairs(group v1.Tags) []v1.Tags {
+	var allGroupPairs []v1.Tags
 	groupLen := len(group)
 
 	switch groupLen {
 	case 0:
 		return allGroupPairs
 	case 1:
-		allGroupPairs = append(allGroupPairs, []datastructures.TreeKey{datastructures.NewStringTreeKey(group[0])})
+		allGroupPairs = append(allGroupPairs, v1.Tags{group[0]})
 	default:
 		// add the first index each time. Will recurse through original group shrinking by [0] each time to capture all elements
-		allGroupPairs = append(allGroupPairs, []datastructures.TreeKey{datastructures.NewStringTreeKey(group[0])})
+		allGroupPairs = append(allGroupPairs, v1.Tags{group[0]})
 
 		for i := 1; i < groupLen; i++ {
 			// generate all n[0] + n[x] groupings. I.E [[a,b], [a,c], [a,d], [a,e]]
-			newGrouping := []datastructures.TreeKey{datastructures.NewStringTreeKey(group[0]), datastructures.NewStringTreeKey(group[i])}
+			newGrouping := v1.Tags{group[0], group[i]}
 			allGroupPairs = append(allGroupPairs, generateGroupPairs(newGrouping, group[i+1:])...)
 		}
 
@@ -36,8 +36,8 @@ func GenerateGroupPairs(group []string) [][]datastructures.TreeKey {
 	return allGroupPairs
 }
 
-func generateGroupPairs(prefix []datastructures.TreeKey, suffix []string) [][]datastructures.TreeKey {
-	var allGroupPairs [][]datastructures.TreeKey
+func generateGroupPairs(prefix, suffix v1.Tags) []v1.Tags {
+	var allGroupPairs []v1.Tags
 	groupLen := len(suffix)
 
 	// add initial combined slice
@@ -45,11 +45,12 @@ func generateGroupPairs(prefix []datastructures.TreeKey, suffix []string) [][]da
 
 	// recurse building up to n size
 	for i := 0; i < groupLen; i++ {
-		newGrouping := []datastructures.TreeKey{}
+		newGrouping := v1.Tags{}
 		for _, element := range prefix {
 			newGrouping = append(newGrouping, element)
 		}
-		newGrouping = append(newGrouping, datastructures.NewStringTreeKey(suffix[i]))
+
+		newGrouping = append(newGrouping, suffix[i])
 		allGroupPairs = append(allGroupPairs, generateGroupPairs(newGrouping, suffix[i+1:])...)
 	}
 

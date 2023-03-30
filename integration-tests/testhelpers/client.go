@@ -27,7 +27,7 @@ func (itc *IntegrationTestConstruct) Create(g *gomega.WithT, createBody v1.Creat
 	return response
 }
 
-func (itc *IntegrationTestConstruct) Enqueue(g *gomega.WithT, enqueueBody v1.EnqueMessage) *http.Response {
+func (itc *IntegrationTestConstruct) Enqueue(g *gomega.WithT, enqueueBody v1.EnqueueItemRequest) *http.Response {
 	body, err := json.Marshal(enqueueBody)
 	g.Expect(err).ToNot(HaveOccurred())
 
@@ -70,12 +70,7 @@ func (itc *IntegrationTestConstruct) ACKMessage(g *gomega.WithT, ackBody v1.ACK)
 }
 
 func (itc *IntegrationTestConstruct) Metrics(g *gomega.WithT) v1.Metrics {
-	matchQuery := v1.MatchQuery{MatchRestriction: v1.ALL}
-
-	matchBody, err := json.Marshal(matchQuery)
-	g.Expect(err).ToNot(HaveOccurred())
-
-	request, err := http.NewRequest("GET", fmt.Sprintf("%s/v1/metrics", itc.metricsAddress), bytes.NewBuffer(matchBody))
+	request, err := http.NewRequest("GET", fmt.Sprintf("%s/v1/metrics", itc.metricsAddress), nil)
 	g.Expect(err).ToNot(HaveOccurred())
 
 	response, err := itc.MetricsClient.Do(request)

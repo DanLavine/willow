@@ -13,13 +13,15 @@ func Test_Create(t *testing.T) {
 	g := NewGomegaWithT(t)
 	testConstruct := testhelpers.NewIntrgrationTestConstruct(g)
 
-	t.Run("can create a queue with no tags", func(t *testing.T) {
+	t.Run("can create a queue with proper name", func(t *testing.T) {
 		testConstruct.Start(g)
 		defer testConstruct.Shutdown(g)
 
 		createBody := v1.Create{
-			BrokerType: v1.Queue,
-			BrokerTags: nil,
+			Name:                   "test queue",
+			QueueMaxSize:           5,
+			ItemRetryAttempts:      0,
+			DeadLetterQueueMaxSize: 0,
 		}
 
 		createResponse := testConstruct.Create(g, createBody)
@@ -27,47 +29,41 @@ func Test_Create(t *testing.T) {
 
 		metrics := testConstruct.Metrics(g)
 		g.Expect(len(metrics.Queues)).To(Equal(1))
+		g.Expect(metrics.Queues[0].Name).To(Equal(v1.String("test queue")))
+		g.Expect(metrics.Queues[0].Total).To(Equal(uint64(0)))
+		g.Expect(metrics.Queues[0].Max).To(Equal(uint64(5)))
 		g.Expect(metrics.Queues[0].Tags).To(BeNil())
-		g.Expect(metrics.Queues[0].Ready).To(Equal(uint64(0)))
-		g.Expect(metrics.Queues[0].Processing).To(Equal(uint64(0)))
+		g.Expect(metrics.Queues[0].DeadLetterQueueMetrics).To(BeNil())
 	})
 
-	t.Run("can create a queue with empty tags", func(t *testing.T) {
+	t.Run("can create a multiple queues", func(t *testing.T) {
 		testConstruct.Start(g)
 		defer testConstruct.Shutdown(g)
 
 		createBody := v1.Create{
-			BrokerType: v1.Queue,
-			BrokerTags: []string{},
+			Name:                   "test queue",
+			QueueMaxSize:           5,
+			ItemRetryAttempts:      0,
+			DeadLetterQueueMaxSize: 0,
 		}
 
 		createResponse := testConstruct.Create(g, createBody)
 		g.Expect(createResponse.StatusCode).To(Equal(http.StatusCreated))
 
-		metrics := testConstruct.Metrics(g)
-		g.Expect(len(metrics.Queues)).To(Equal(1))
-		g.Expect(metrics.Queues[0].Tags).To(Equal([]string{}))
-		g.Expect(metrics.Queues[0].Ready).To(Equal(uint64(0)))
-		g.Expect(metrics.Queues[0].Processing).To(Equal(uint64(0)))
-	})
-
-	t.Run("will create a new queue", func(t *testing.T) {
-		testConstruct.Start(g)
-		defer testConstruct.Shutdown(g)
-
-		createBody := v1.Create{
-			BrokerType: v1.Queue,
-			BrokerTags: []string{"a", "b", "c"},
+		createBody = v1.Create{
+			Name:                   "other queue",
+			QueueMaxSize:           5,
+			ItemRetryAttempts:      0,
+			DeadLetterQueueMaxSize: 0,
 		}
 
-		createResponse := testConstruct.Create(g, createBody)
+		createResponse = testConstruct.Create(g, createBody)
 		g.Expect(createResponse.StatusCode).To(Equal(http.StatusCreated))
 
 		metrics := testConstruct.Metrics(g)
-		g.Expect(len(metrics.Queues)).To(Equal(1))
-		g.Expect(metrics.Queues[0].Tags).To(Equal([]string{"a", "b", "c"}))
-		g.Expect(metrics.Queues[0].Ready).To(Equal(uint64(0)))
-		g.Expect(metrics.Queues[0].Processing).To(Equal(uint64(0)))
+		g.Expect(len(metrics.Queues)).To(Equal(2))
+		g.Expect(metrics.Queues).To(ContainElement(&v1.QueueMetrics{Name: "test queue", Total: 0, Max: 5, Tags: nil, DeadLetterQueueMetrics: nil}))
+		g.Expect(metrics.Queues).To(ContainElement(&v1.QueueMetrics{Name: "other queue", Total: 0, Max: 5, Tags: nil, DeadLetterQueueMetrics: nil}))
 	})
 
 	t.Run("can create the same queue multple times", func(t *testing.T) {
@@ -75,8 +71,10 @@ func Test_Create(t *testing.T) {
 		defer testConstruct.Shutdown(g)
 
 		createBody := v1.Create{
-			BrokerType: v1.Queue,
-			BrokerTags: []string{"a", "b", "c"},
+			Name:                   "test queue",
+			QueueMaxSize:           5,
+			ItemRetryAttempts:      0,
+			DeadLetterQueueMaxSize: 0,
 		}
 
 		// first create
@@ -89,8 +87,6 @@ func Test_Create(t *testing.T) {
 
 		metrics := testConstruct.Metrics(g)
 		g.Expect(len(metrics.Queues)).To(Equal(1))
-		g.Expect(metrics.Queues[0].Tags).To(Equal([]string{"a", "b", "c"}))
-		g.Expect(metrics.Queues[0].Ready).To(Equal(uint64(0)))
-		g.Expect(metrics.Queues[0].Processing).To(Equal(uint64(0)))
+		g.Expect(metrics.Queues).To(ContainElement(&v1.QueueMetrics{Name: "test queue", Total: 0, Max: 5, Tags: nil, DeadLetterQueueMetrics: nil}))
 	})
 }

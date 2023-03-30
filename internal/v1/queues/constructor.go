@@ -9,7 +9,8 @@ import (
 
 //counterfeiter:generate . QueueConstructor
 type QueueConstructor interface {
-	NewQueue(createParams *v1.Create) (Queue, *v1.Error)
+	// create a new Queue
+	NewQueue(createParams *v1.Create) (ManagedQueue, *v1.Error)
 }
 
 type queueConstructor struct {

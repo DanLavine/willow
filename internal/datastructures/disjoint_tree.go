@@ -26,11 +26,14 @@ import (
 // the root level for "Farm" and then recurse into the tree at that level to find "HayStack" for example
 type DisjointTree interface {
 	// Find the provided tree item if it already exists. retrns nil if not found
-	Find(keys []TreeKey, onFind string) (any, error)
+	Find(keys EnumerableTreeKeys, onFind string) (any, error)
 
 	// Find the provided tree item if it already exists. Or return the newly inserted tree item
 	// TODO rename this to UpdateOrCreate?
-	FindOrCreate(keys []TreeKey, onFind string, onCreate func() (any, error)) (any, error)
+	FindOrCreate(keys EnumerableTreeKeys, onFind string, onCreate func() (any, error)) (any, error)
+
+	// Iterate over the tree and for each value found invoke the callback with the node's value iff != nil
+	Iterate(callback func(value any))
 }
 
 // tree structure holding all nodes
@@ -58,6 +61,7 @@ func (dt *disjointTree) newDisjointNodeWithValue(onCreate func() (any, error)) f
 
 		value, err := onCreate()
 		if err != nil {
+			lock.Unlock()
 			return nil, err
 		}
 
@@ -88,88 +92,131 @@ type disjointNode struct {
 	children *disjointTree
 }
 
-func (dt *disjointNode) OnUpdate() {
-	dt.lock.Lock()
-}
 func (dt *disjointNode) OnFind() {
 	dt.lock.RLock()
 }
 
-func (dt *disjointTree) Find(keys []TreeKey, onFind string) (any, error) {
-	switch len(keys) {
-	case 0:
-		return nil, fmt.Errorf("Received an invalid keys length. Needs to be at least 1")
-	case 1:
-		// create the item or find the item if it does not currently exist
-		treeItem := dt.tree.Find(keys[0], "OnFind")
-		if treeItem == nil {
-			return nil, fmt.Errorf("item not found")
-		}
+func (dt *disjointNode) OnUpdate() {
+	dt.lock.Lock()
+}
 
-		disjointNode := treeItem.(*disjointNode)
-		defer disjointNode.lock.RUnlock()
-
-		if onFind != "" {
-			_ = reflect.ValueOf(disjointNode.value).MethodByName(onFind).Call(nil)
-		}
-
-		return disjointNode.value, nil
-	default:
-		treeItem := dt.tree.Find(keys[0], "OnFind")
-		if treeItem == nil {
-			return nil, fmt.Errorf("item not found")
-		}
-
-		disjointNode := treeItem.(*disjointNode)
-		defer disjointNode.lock.RUnlock()
-
-		return disjointNode.children.Find(keys[1:], onFind)
+func (dt *disjointTree) Find(keys EnumerableTreeKeys, onFind string) (any, error) {
+	if keys == nil {
+		return nil, fmt.Errorf("EnumberableTreeKeys must have at least 1 element")
 	}
+
+	var err error
+	var value any
+	tree := dt.tree
+	size := keys.Len() - 1
+
+	if size < 0 {
+		return nil, fmt.Errorf("EnumberableTreeKeys must have at least 1 element")
+	}
+
+	keys.Each(func(index int, key TreeKey) bool {
+		if key == nil {
+			err = fmt.Errorf("Received an invalid EnumberableTreeKeys. Can not have a nil value")
+			return false
+		}
+
+		treeItem := tree.Find(key, "OnFind")
+		if treeItem == nil {
+			err = fmt.Errorf("item not found")
+			return false
+		}
+
+		if index == size {
+			// create the item or find the item if it does not currently exist
+			disjointNode := treeItem.(*disjointNode)
+			defer disjointNode.lock.RUnlock()
+
+			if onFind != "" {
+				_ = reflect.ValueOf(disjointNode.value).MethodByName(onFind).Call(nil)
+			}
+
+			value = disjointNode.value
+			return false
+		} else {
+			disjointNode := treeItem.(*disjointNode)
+			defer disjointNode.lock.RUnlock()
+
+			tree = disjointNode.children.tree
+		}
+
+		return true
+	})
+
+	return value, err
 }
 
 // FindORCreate is a thread safe way to create, find or update items in the DisjointTree
 // All Operations are currently guarded by an exclusive lock to save on memory... which might want to change
 // in the future
-func (dt *disjointTree) FindOrCreate(keys []TreeKey, onFind string, onCreate func() (any, error)) (any, error) {
+func (dt *disjointTree) FindOrCreate(keys EnumerableTreeKeys, onFind string, onCreate func() (any, error)) (any, error) {
+	if keys == nil {
+		return nil, fmt.Errorf("EnumberableTreeKeys must have at least 1 element")
+	}
+
 	if onCreate == nil {
 		return nil, fmt.Errorf("Received a nil onCreate callback. Needs to not be nil")
 	}
 
-	switch len(keys) {
-	case 0:
-		return nil, fmt.Errorf("Received an invalid keys length. Needs to be at least 1")
-	case 1:
-		// create the item or find the item if it does not currently exist
-		treeItem, err := dt.tree.FindOrCreate(keys[0], "OnUpdate", dt.newDisjointNodeWithValue(onCreate))
-		if err != nil {
-			return nil, err
+	var returnErr error
+	var returnValue any
+	size := keys.Len() - 1
+	tree := dt.tree
+
+	if size < 0 {
+		return nil, fmt.Errorf("EnumberableTreeKeys must have at least 1 element")
+	}
+
+	keys.Each(func(index int, key TreeKey) bool {
+		if key == nil {
+			returnErr = fmt.Errorf("Received an invalid EnumberableTreeKeys. Can not have a nil value")
+			return false
 		}
 
-		disjointNode := treeItem.(*disjointNode)
-		defer disjointNode.lock.Unlock()
-
-		if disjointNode.value == nil {
-			// this is an update for a node that was added that didn't have an original value
-			// similar to an OnCreate since the value was not set
-			value, err := onCreate()
+		// last index so create case
+		if index == size {
+			// create the item or find the item if it does not currently exist
+			treeItem, err := tree.FindOrCreate(key, "OnUpdate", dt.newDisjointNodeWithValue(onCreate))
 			if err != nil {
-				return nil, err
+				returnErr = err
+				return false
 			}
 
-			disjointNode.value = value
-		} else {
-			// This is an on find call
-			if onFind != "" {
-				_ = reflect.ValueOf(disjointNode.value).MethodByName(onFind).Call(nil)
+			disjointNode := treeItem.(*disjointNode)
+			defer disjointNode.lock.Unlock()
+
+			if disjointNode.value == nil {
+				// this is an update for a node that was added that didn't have an original value
+				// similar to an OnCreate since the value was not set
+				value, err := onCreate()
+				if err != nil {
+					returnErr = err
+					return false
+				}
+
+				disjointNode.value = value
+				returnValue = value
+				return false
+			} else {
+				// This is an on find call
+				if onFind != "" {
+					_ = reflect.ValueOf(disjointNode.value).MethodByName(onFind).Call(nil)
+				}
 			}
+
+			returnValue = disjointNode.value
+			return false
 		}
 
-		return disjointNode.value, nil
-	default:
-		// don't need an on find callback here since we are recursing down
-		treeItem, err := dt.tree.FindOrCreate(keys[0], "OnUpdate", dt.newDisjointNode)
+		// keep recursing
+		treeItem, err := tree.FindOrCreate(key, "OnUpdate", dt.newDisjointNode)
 		if err != nil {
-			return nil, err
+			returnErr = err
+			return false
 		}
 
 		disjointNode := treeItem.(*disjointNode)
@@ -179,6 +226,28 @@ func (dt *disjointTree) FindOrCreate(keys []TreeKey, onFind string, onCreate fun
 			disjointNode.children = NewDisjointTree()
 		}
 
-		return disjointNode.children.FindOrCreate(keys[1:], onFind, onCreate)
+		tree = disjointNode.children.tree
+		return true
+	})
+
+	return returnValue, returnErr
+}
+
+func (dt *disjointTree) Iterate(callback func(value any)) {
+	if callback == nil {
+		panic("callback is nil")
 	}
+
+	iterator := func(value any) {
+		node := value.(*disjointNode)
+		if node.value != nil {
+			callback(node.value)
+		}
+
+		if node.children != nil {
+			node.children.Iterate(callback)
+		}
+	}
+
+	dt.tree.Iterate(iterator)
 }

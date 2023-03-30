@@ -13,14 +13,13 @@ var (
 	metricsPort = flag.String("metrics-port", "8081", "willow server metrics port. can be set by env var METRICS_PORT")
 
 	// general queue configurations
-	queueMaxSize     = flag.Uint64("queue-max-size", 4096, "max size of a qeueue for any nuber of items that can be enqueued at once. This includes any items that need to be retried. Can be set by env var QUEUE_MAX_SIZE")
-	queueDefaultSize = flag.Uint64("queue-defaut-size", 2048, "default size of a qeueue for any nuber of items that can be enqueued at once. This includes any items that need to be retried. Can be set by env var QUEUE_DEFAULT_SIZE")
+	queueMaxSize = flag.Uint64("queue-max-size", 4096, "max size of a qeueue for any nuber of items that can be enqueued at once. This includes any items that need to be retried. Can be set by env var QUEUE_MAX_SIZE")
 
 	// there is no default here. If these are not configured, then they are not provided
 	deadLetterQueueMaxSize = flag.Uint64("dead-letter-queue-max-size", 100, "max size of the dead letter qeueue for any nuber of items that can be saved. Can be set by env var DEAD_LETTER_QUEUE_MAX_SIZE")
 
 	// storage configurations
-	storageType = flag.String("storage-type", "disk", "storage type to use for persistence [disk| memory]. Can be set by env var STORAGE_TYPE")
+	storageType = flag.String("storage-type", "memory", "storage type to use for persistence [disk| memory]. Can be set by env var STORAGE_TYPE")
 	// disck storage configurations
 	diskStorageDir = flag.String("disk-storage-dir", "", "root location on disk where to save storage data. Can be set by env var DISK_STORAGE_DIR")
 )
@@ -54,8 +53,6 @@ type Config struct {
 type QueueConfig struct {
 	// max number of size any queue can be configured for
 	MaxSize uint64
-	// Default size for any queue to be configured if no size was provided
-	DefaultSize uint64
 
 	// max size of a dead letter queue.
 	DeadLetterMaxSize uint64
@@ -104,7 +101,6 @@ func (c *Config) parseFlags() error {
 
 	// set queue defaults
 	c.QueueConfig.MaxSize = *queueMaxSize
-	c.QueueConfig.DefaultSize = *queueMaxSize
 	c.QueueConfig.DeadLetterMaxSize = *deadLetterQueueMaxSize
 
 	// set storage type
@@ -137,13 +133,6 @@ func (c *Config) parseEnv() error {
 		maxSize, err := strconv.ParseUint(queueMaxSize, 10, 64)
 		if err != nil {
 			return fmt.Errorf("Failed to parse QUEUE_MAX_SIZE: %w", err)
-		}
-		c.QueueConfig.MaxSize = maxSize
-	}
-	if queueMaxSize := os.Getenv("QUEUE_DEFAULT_SIZE"); queueMaxSize != "" {
-		maxSize, err := strconv.ParseUint(queueMaxSize, 10, 64)
-		if err != nil {
-			return fmt.Errorf("Failed to parse QUEUE_DEFAULT_SIZE: %w", err)
 		}
 		c.QueueConfig.MaxSize = maxSize
 	}

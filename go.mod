@@ -3,7 +3,8 @@ module github.com/DanLavine/willow
 go 1.19
 
 require (
-	github.com/DanLavine/goasync v0.0.0-20230215234041-01f9be1e627e
+	github.com/DanLavine/goasync v1.0.0
+	github.com/DanLavine/gonotify v0.0.0-20221228000906-77ad21d2336e
 	github.com/google/uuid v1.3.0
 	github.com/maxbrunsfeld/counterfeiter/v6 v6.5.0
 	github.com/onsi/gomega v1.24.1
@@ -12,8 +13,6 @@ require (
 )
 
 require (
-	github.com/DanLavine/gonotify v0.0.0-20221228000906-77ad21d2336e // indirect
-	github.com/google/btree v1.1.2 // indirect
 	github.com/google/go-cmp v0.5.9 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/rogpeppe/go-internal v1.9.0 // indirect

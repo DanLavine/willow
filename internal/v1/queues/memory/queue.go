@@ -3,14 +3,13 @@ package memory
 import (
 	"context"
 	"sync"
-	"sync/atomic"
 
 	"github.com/DanLavine/goasync"
-	"github.com/DanLavine/goasync/tasks"
 	"github.com/DanLavine/willow/internal/datastructures"
 	"github.com/DanLavine/willow/internal/errors"
 	"github.com/DanLavine/willow/internal/v1/tags"
 	v1 "github.com/DanLavine/willow/pkg/models/v1"
+	"go.uber.org/zap"
 )
 
 type Queue struct {
@@ -18,7 +17,7 @@ type Queue struct {
 	done     chan struct{}
 
 	// queue information and limits
-	name       string
+	name       v1.String
 	maxSize    uint64
 	retryLimit uint64
 
@@ -28,31 +27,13 @@ type Queue struct {
 	tagReaders tags.TagReaders // all readers for the various tag groups
 
 	// manage all tag groups and their associated readers
-	shutdown             context.CancelFunc
-	taskManager          goasync.TaskManager
-	taskManagerCompleted chan struct{}
+	taskManager goasync.AsyncTaskManager
 
 	// queue metrics information
-	itemReadyCount      *atomic.Uint64
-	itemProcessingCount *atomic.Uint64
+	counter *Counter
 }
 
 func NewQueue(create *v1.Create) *Queue {
-	started := make(chan struct{})
-	taskManagerCompleted := make(chan struct{})
-	taskManager := goasync.NewTaskManager(goasync.RelaxedConfig())
-	taskManager.AddTask("start", tasks.Running(started))
-
-	// Want to wait for task manager to be running
-	// TODO. Better way to do this? Don't like the go func here to know that things are running so Enqueue won't fail
-	context, cancel := context.WithCancel(context.Background())
-	go func() {
-		defer close(taskManagerCompleted)
-		_ = taskManager.Run(context)
-	}()
-
-	<-started
-
 	return &Queue{
 		doneOnce: new(sync.Once),
 		done:     make(chan struct{}),
@@ -64,51 +45,28 @@ func NewQueue(create *v1.Create) *Queue {
 		tagGroups:  datastructures.NewDisjointTree(),
 		tagReaders: tags.NewTagReaderTree(),
 
-		shutdown:             cancel,
-		taskManager:          taskManager,
-		taskManagerCompleted: taskManagerCompleted,
+		taskManager: goasync.NewTaskManager(goasync.RelaxedConfig()),
 
-		itemReadyCount:      new(atomic.Uint64),
-		itemProcessingCount: new(atomic.Uint64),
+		counter: NewCounter(create.QueueMaxSize),
 	}
 }
 
 // Execute is a managment function used by the queue manager to shutdown and cleanup any managed goroutines
 func (q *Queue) Execute(ctx context.Context) error {
-	select {
-	case <-ctx.Done():
-	case <-q.done:
-	}
-
-	// stop running the taskmanager
-	q.shutdown()
-
-	// wait for the task manager to finish running
-	<-q.taskManagerCompleted
-
+	_ = q.taskManager.Run(ctx)
 	return nil
 }
 
 // Enqueue an item onto the message queue
-func (q *Queue) Enqueue(enqueueItem *v1.EnqueueItem) *v1.Error {
-	if q.itemProcessingCount.Load()+q.itemReadyCount.Load() >= q.maxSize {
-		return errors.MaxEnqueuedItems
-	}
-
-	// generate all the keys
-	var groupTags []datastructures.TreeKey
-	for _, tag := range enqueueItem.Tags {
-		groupTags = append(groupTags, datastructures.NewStringTreeKey(tag))
-	}
-
+func (q *Queue) Enqueue(logger *zap.Logger, enqueueItemRequest *v1.EnqueueItemRequest) *v1.Error {
 	// create the new tags group if it does not currently exist
 	// TODO: need something for OnFind to know that we shouldn't delete. Not sure what that is yet
-	tagsGroup, err := q.tagGroups.FindOrCreate(groupTags, "", q.setupTagsGroup(enqueueItem.Tags))
+	tagsGroup, err := q.tagGroups.FindOrCreate(enqueueItemRequest.BrokerInfo.Tags, "", q.setupTagsGroup(enqueueItemRequest.BrokerInfo.Tags))
 	if err != nil {
 		return errors.InternalServerError.With("", err.Error())
 	}
 
-	if err := tagsGroup.(*tagGroup).Enqueue(enqueueItem, q.itemReadyCount); err != nil {
+	if err := tagsGroup.(*tagGroup).Enqueue(q.counter, enqueueItemRequest); err != nil {
 		// TODO, need to try and remove tagGtoup/Readers?
 		return err
 	}
@@ -117,12 +75,12 @@ func (q *Queue) Enqueue(enqueueItem *v1.EnqueueItem) *v1.Error {
 }
 
 // callbaack for setup Enqueue to use when setting up a new tags group
-func (q *Queue) setupTagsGroup(tags []string) func() (any, error) {
+func (q *Queue) setupTagsGroup(tags v1.Tags) func() (any, error) {
 	return func() (any, error) {
 		allPossibleReaders := q.tagReaders.CreateGroup(tags)
-		tagGroup := newTagGroup(allPossibleReaders)
+		tagGroup := newTagGroup(tags, allPossibleReaders)
 
-		_ = q.taskManager.AddRunningTask("", tagGroup)
+		_ = q.taskManager.AddExecuteTask("", tagGroup)
 		return tagGroup, nil
 	}
 }
@@ -152,13 +110,20 @@ func (q *Queue) Readers(matchQuery *v1.MatchQuery) []<-chan tags.Tag {
 }
 
 func (q *Queue) Metrics() *v1.QueueMetrics {
-	return &v1.QueueMetrics{
+	metrics := &v1.QueueMetrics{
 		Name:                   q.name,
-		Ready:                  q.itemReadyCount.Load(),
-		Processing:             q.itemProcessingCount.Load(),
 		Max:                    q.maxSize,
+		Total:                  q.counter.Total(),
 		DeadLetterQueueMetrics: nil,
 	}
+
+	metricsFunc := func(value any) {
+		metrics.Tags = append(metrics.Tags, value.(*tagGroup).Metrics())
+	}
+
+	q.tagGroups.Iterate(metricsFunc)
+
+	return metrics
 }
 
 func (q *Queue) Stop() {

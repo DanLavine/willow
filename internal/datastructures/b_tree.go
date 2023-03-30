@@ -34,6 +34,9 @@ type BTree interface {
 	// * error - any errors reported from onCreate will be returned if they occur. In that case the item will not be saved
 	FindOrCreate(key TreeKey, onFind string, onCreate func() (any, error)) (any, error)
 
+	// Iterate over the tree and for each value found invoke the callback with the node's value
+	Iterate(callback func(value any))
+
 	// Remove an item in the Tree
 	// TODO
 	//Remove(key TreeKey)
@@ -92,6 +95,44 @@ func newBTreeNode(order int) *bNode {
 		lock:     new(sync.RWMutex),
 		values:   make([]*value, 0, order+1), // set len and cap calls to be constant
 		children: make([]*bNode, 0, order+2), // set len and cap calls to be constant
+	}
+}
+
+// Iterate over each node with a thread safe read lock and call the iterate function when the value != nil
+//
+// PARAMS:
+// * callback - function to call when the Trees value != nil. This is the value passed to callback
+func (ttr *BRoot) Iterate(callback func(value any)) {
+	if callback == nil {
+		panic("callback is nil")
+	}
+
+	ttr.lock.RLock()
+	defer ttr.lock.RUnlock()
+
+	if ttr.root != nil {
+		ttr.root.iterate(callback)
+	}
+}
+
+func (bn *bNode) iterate(callback func(value any)) {
+	bn.lock.RLock()
+	defer bn.lock.RUnlock()
+
+	for _, value := range bn.values {
+		if value == nil {
+			break
+		}
+
+		callback(value.item)
+	}
+
+	for _, child := range bn.children {
+		if child == nil {
+			break
+		}
+
+		child.iterate(callback)
 	}
 }
 

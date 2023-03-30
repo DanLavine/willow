@@ -3,12 +3,10 @@ package memory
 import (
 	"context"
 	"fmt"
-	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/DanLavine/goasync"
-	"github.com/DanLavine/goasync/tasks"
 	"github.com/DanLavine/willow/internal/v1/tags"
 	v1 "github.com/DanLavine/willow/pkg/models/v1"
 	. "github.com/onsi/gomega"
@@ -20,40 +18,33 @@ var (
 	chan3 = make(chan tags.Tag)
 
 	tagGroupChans = []chan tags.Tag{chan1, chan2, chan3}
+
+	queueTags = v1.Tags{"one", "two", "three"}
 )
 
 func TestMemoryTagGroup_Enqueue(t *testing.T) {
 	g := NewGomegaWithT(t)
-
-	queueTags := []string{"one", "two", "three"}
 	taskManager := goasync.NewTaskManager(goasync.RelaxedConfig())
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-	// start task manager
-	started := make(chan struct{})
-	taskManager.AddTask("start", tasks.Running(started))
-
-	ctx, stop := context.WithCancel(context.Background())
 	go func() {
 		_ = taskManager.Run(ctx)
 	}()
-	defer stop()
-
-	g.Eventually(started).Should(BeClosed())
 
 	t.Run("allows a message to be processed from all readers", func(t *testing.T) {
-		counter := new(atomic.Uint64)
-		chans := []chan<- tags.Tag{chan1, chan2, chan3}
-		tagsGroup := newTagGroup(chans)
+		// setup tags group
+		counter := NewCounter(5)
+		tagsGroup := newTagGroup(queueTags, []chan<- tags.Tag{chan1, chan2, chan3})
 		defer tagsGroup.Stop()
 
 		// allow for message processing
-		g.Expect(taskManager.AddRunningTask("", tagsGroup)).ToNot(HaveOccurred())
+		g.Expect(taskManager.AddExecuteTask("", tagsGroup)).ToNot(HaveOccurred())
 
 		var dequeueFunc tags.Tag
 		for index, channel := range tagGroupChans {
-			enqueueItem := &v1.EnqueueItem{Name: "name", Tags: queueTags, Data: []byte(fmt.Sprintf("%d", index)), Updateable: false}
-
-			g.Expect(tagsGroup.Enqueue(enqueueItem, counter)).ToNot(HaveOccurred())
+			enqueueItem := &v1.EnqueueItemRequest{BrokerInfo: v1.BrokerInfo{Name: "test", BrokerType: v1.Queue, Tags: v1.Tags{""}}, Data: []byte(fmt.Sprintf("%d", index)), Updateable: false}
+			g.Expect(tagsGroup.Enqueue(counter, enqueueItem)).ToNot(HaveOccurred())
 
 			cdl, cancel := context.WithDeadline(context.Background(), time.Now().Add(time.Second))
 			g.Eventually(func() tags.Tag {
@@ -67,30 +58,33 @@ func TestMemoryTagGroup_Enqueue(t *testing.T) {
 			cancel()
 
 			dequeueMessage := dequeueFunc()
-			g.Expect(dequeueMessage.Name).To(Equal("name"))
+			g.Expect(dequeueMessage.BrokerInfo.Name).To(Equal(v1.String("test")))
+			g.Expect(dequeueMessage.BrokerInfo.Tags).To(Equal(queueTags))
 			g.Expect(dequeueMessage.ID).To(Equal(uint64(index + 1)))
 			g.Expect(dequeueMessage.Data).To(Equal([]byte(fmt.Sprintf("%d", index))))
-			g.Expect(dequeueMessage.Tags).To(Equal(queueTags))
 		}
-
-		g.Expect(counter.Load()).To(Equal(uint64(3)))
 	})
 
 	t.Run("when a message is updateable, they collapse when not being processed", func(t *testing.T) {
-		counter := new(atomic.Uint64)
+		counter := NewCounter(5)
 		chans := []chan<- tags.Tag{chan1}
-		tagsGroup := newTagGroup(chans)
+		tagsGroup := newTagGroup(queueTags, chans)
 		defer tagsGroup.Stop()
 
 		// allow for message processing
-		g.Expect(taskManager.AddRunningTask("", tagsGroup)).ToNot(HaveOccurred())
+		g.Expect(taskManager.AddExecuteTask("", tagsGroup)).ToNot(HaveOccurred())
+
+		// enqueue 4 items that shoudl collapse to the last
+		enqueueItem1 := &v1.EnqueueItemRequest{BrokerInfo: v1.BrokerInfo{Name: "name", BrokerType: v1.Queue, Tags: v1.Tags{""}}, Data: []byte(`1`), Updateable: true}
+		enqueueItem2 := &v1.EnqueueItemRequest{BrokerInfo: v1.BrokerInfo{Name: "name", BrokerType: v1.Queue, Tags: v1.Tags{""}}, Data: []byte(`2`), Updateable: true}
+		enqueueItem3 := &v1.EnqueueItemRequest{BrokerInfo: v1.BrokerInfo{Name: "name", BrokerType: v1.Queue, Tags: v1.Tags{""}}, Data: []byte(`3`), Updateable: true}
+		enqueueItem4 := &v1.EnqueueItemRequest{BrokerInfo: v1.BrokerInfo{Name: "name", BrokerType: v1.Queue, Tags: v1.Tags{""}}, Data: []byte(`4`), Updateable: true}
+		g.Expect(tagsGroup.Enqueue(counter, enqueueItem1)).ToNot(HaveOccurred())
+		g.Expect(tagsGroup.Enqueue(counter, enqueueItem2)).ToNot(HaveOccurred())
+		g.Expect(tagsGroup.Enqueue(counter, enqueueItem3)).ToNot(HaveOccurred())
+		g.Expect(tagsGroup.Enqueue(counter, enqueueItem4)).ToNot(HaveOccurred())
 
 		// only last enqueu should be valid
-		g.Expect(tagsGroup.Enqueue(&v1.EnqueueItem{Name: "name", Tags: queueTags, Data: []byte(`1`), Updateable: true}, counter)).ToNot(HaveOccurred())
-		g.Expect(tagsGroup.Enqueue(&v1.EnqueueItem{Name: "name", Tags: queueTags, Data: []byte(`2`), Updateable: true}, counter)).ToNot(HaveOccurred())
-		g.Expect(tagsGroup.Enqueue(&v1.EnqueueItem{Name: "name", Tags: queueTags, Data: []byte(`3`), Updateable: true}, counter)).ToNot(HaveOccurred())
-		g.Expect(tagsGroup.Enqueue(&v1.EnqueueItem{Name: "name", Tags: queueTags, Data: []byte(`4`), Updateable: true}, counter)).ToNot(HaveOccurred())
-
 		var dequeueFunc tags.Tag
 		cdl, cancel := context.WithDeadline(context.Background(), time.Now().Add(time.Second))
 		g.Eventually(func() tags.Tag {
@@ -104,25 +98,24 @@ func TestMemoryTagGroup_Enqueue(t *testing.T) {
 		cancel()
 
 		dequeueMessage := dequeueFunc()
-		g.Expect(dequeueMessage.Name).To(Equal("name"))
+		g.Expect(dequeueMessage.BrokerInfo.Name).To(Equal(v1.String("name")))
+		g.Expect(dequeueMessage.BrokerInfo.Tags).To(Equal(queueTags))
 		g.Expect(dequeueMessage.ID).To(Equal(uint64(1)))
 		g.Expect(dequeueMessage.Data).To(Equal([]byte(`4`)))
-		g.Expect(dequeueMessage.Tags).To(Equal(queueTags))
-
-		g.Expect(counter.Load()).To(Equal(uint64(1)))
 	})
 
 	t.Run("when a message is updateable and is processing, the next message is added as a new message", func(t *testing.T) {
-		counter := new(atomic.Uint64)
+		counter := NewCounter(5)
 		chans := []chan<- tags.Tag{chan1}
-		tagsGroup := newTagGroup(chans)
+		tagsGroup := newTagGroup(queueTags, chans)
 		defer tagsGroup.Stop()
 
 		// allow for message processing
-		g.Expect(taskManager.AddRunningTask("", tagsGroup)).ToNot(HaveOccurred())
+		g.Expect(taskManager.AddExecuteTask("", tagsGroup)).ToNot(HaveOccurred())
 
-		// only last enqueu should be valid
-		g.Expect(tagsGroup.Enqueue(&v1.EnqueueItem{Name: "name", Tags: queueTags, Data: []byte(`1`), Updateable: true}, counter)).ToNot(HaveOccurred())
+		// enqueue first item
+		enqueueItem1 := &v1.EnqueueItemRequest{BrokerInfo: v1.BrokerInfo{Name: "name", BrokerType: v1.Queue, Tags: v1.Tags{""}}, Data: []byte(`1`), Updateable: true}
+		g.Expect(tagsGroup.Enqueue(counter, enqueueItem1)).ToNot(HaveOccurred())
 
 		var dequeueFunc tags.Tag
 		cdl, cancel := context.WithDeadline(context.Background(), time.Now().Add(time.Second))
@@ -140,7 +133,8 @@ func TestMemoryTagGroup_Enqueue(t *testing.T) {
 		g.Expect(dequeueMessage.Data).To(Equal([]byte(`1`)))
 
 		// enqueu another message should process
-		g.Expect(tagsGroup.Enqueue(&v1.EnqueueItem{Name: "name", Tags: queueTags, Data: []byte(`2`), Updateable: true}, counter)).ToNot(HaveOccurred())
+		enqueueItem2 := &v1.EnqueueItemRequest{BrokerInfo: v1.BrokerInfo{Name: "name", BrokerType: v1.Queue, Tags: v1.Tags{""}}, Data: []byte(`2`), Updateable: true}
+		g.Expect(tagsGroup.Enqueue(counter, enqueueItem2)).ToNot(HaveOccurred())
 
 		cdl, cancel = context.WithDeadline(context.Background(), time.Now().Add(time.Second))
 		g.Eventually(func() tags.Tag {
@@ -155,6 +149,24 @@ func TestMemoryTagGroup_Enqueue(t *testing.T) {
 
 		dequeueMessage = dequeueFunc()
 		g.Expect(dequeueMessage.Data).To(Equal([]byte(`2`)))
-		g.Expect(counter.Load()).To(Equal(uint64(2)))
+	})
+}
+
+func TestMemoryTagGroup_Metrics(t *testing.T) {
+	g := NewGomegaWithT(t)
+	taskManager := goasync.NewTaskManager(goasync.RelaxedConfig())
+	context, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	go func() {
+		_ = taskManager.Run(context)
+	}()
+
+	t.Run("returns the tags group properties", func(t *testing.T) {
+		chans := []chan<- tags.Tag{chan1, chan2, chan3}
+		tagsGroup := newTagGroup(queueTags, chans)
+
+		metrics := tagsGroup.Metrics()
+		g.Expect(metrics.Tags).To(Equal(queueTags))
 	})
 }
