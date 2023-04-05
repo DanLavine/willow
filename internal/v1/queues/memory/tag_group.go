@@ -36,12 +36,12 @@ type tagGroup struct {
 	notifier *gonotify.Notify
 	channels []chan<- tags.Tag
 
-	tags                v1.Tags
+	tags                v1.Strings
 	itemReadyCount      *atomic.Uint64
 	itemProcessingCount *atomic.Uint64
 }
 
-func newTagGroup(tags v1.Tags, channels []chan<- tags.Tag) *tagGroup {
+func newTagGroup(tags v1.Strings, channels []chan<- tags.Tag) *tagGroup {
 	return &tagGroup{
 		// shutdown
 		lock:     new(sync.Mutex),
@@ -151,8 +151,8 @@ func (tg *tagGroup) Enqueue(totalQueueCounter *Counter, queueItem *v1.EnqueueIte
 	return errors.MaxEnqueuedItems
 }
 
-func (tg *tagGroup) Metrics() *v1.TagMetrics {
-	return &v1.TagMetrics{
+func (tg *tagGroup) Metrics() *v1.TagMetricsResponse {
+	return &v1.TagMetricsResponse{
 		Tags:       tg.tags,
 		Ready:      tg.itemReadyCount.Load(),
 		Processing: tg.itemProcessingCount.Load(),

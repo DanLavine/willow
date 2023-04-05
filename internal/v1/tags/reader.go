@@ -15,7 +15,7 @@ import (
 type TagReaders interface {
 	// Create all possible readers for a particular group of tags. This will create every possible set rather than just the tags provided
 	// * used by readers to create a new tag group
-	CreateGroup(tags v1.Tags) []chan<- Tag
+	CreateGroup(tags v1.Strings) []chan<- Tag
 
 	// Get the global reader for a particular queue. This can return nil if the queue does not exists
 	// * used by clients
@@ -23,21 +23,21 @@ type TagReaders interface {
 
 	// Get the strict reader for a particular set of tags. Will create the tag and readers if they do not yet exist
 	// * used by clients
-	GetStrictReader(tags v1.Tags) <-chan Tag
+	GetStrictReader(tags v1.Strings) <-chan Tag
 
 	// Get reader for a particular set of tags. Will create the tag and readers if they do not yet exist
 	// * used by clients
-	GetSubsetReader(tags v1.Tags) <-chan Tag
+	GetSubsetReader(tags v1.Strings) <-chan Tag
 
 	// Get any readers that exists for all provided tags. Will create the tags and readeds if they do not yet exist
 	// * used by clients
-	GetAnyReaders(tags v1.Tags) []<-chan Tag
+	GetAnyReaders(tags v1.Strings) []<-chan Tag
 
 	// Remove any tags if they ate no longer being used by any other clients
-	RemoveReaders(tag v1.Tags)
+	RemoveReaders(tag v1.Strings)
 
 	// remove all tags for a specific tag group
-	RemoveReadersGroup(tags v1.Tags)
+	RemoveReadersGroup(tags v1.Strings)
 }
 
 // Root structure for the reader tree
@@ -99,7 +99,7 @@ func (trn *tagReadersNode) OnUpdate() {
 //
 // RETURNS:
 // * []chan<- Tag - a write only copy of all possible tag group channels. A new channel is used for all 1st time created channels
-func (r *tagReadersTree) CreateGroup(tags v1.Tags) []chan<- Tag {
+func (r *tagReadersTree) CreateGroup(tags v1.Strings) []chan<- Tag {
 	tagGroups := helpers.GenerateGroupPairs(tags)
 	channels := map[chan<- Tag]struct{}{r.globalReader: struct{}{}}
 
@@ -146,7 +146,7 @@ func (r *tagReadersTree) GetGlobalReader() <-chan Tag {
 //
 // RETURNS:
 // * <-chan Tag - Read Only copy of the strict reader if it exists. Otherwise will be nil
-func (r *tagReadersTree) GetStrictReader(tags v1.Tags) <-chan Tag {
+func (r *tagReadersTree) GetStrictReader(tags v1.Strings) <-chan Tag {
 	// won't return an error
 	treeItem, _ := r.readers.FindOrCreate(tags, "OnUpdate", newTagReadersNode(make(chan Tag), true))
 	return treeItem.(*tagReadersNode).strictReader
@@ -156,7 +156,7 @@ func (r *tagReadersTree) GetStrictReader(tags v1.Tags) <-chan Tag {
 //
 // RETURNS:
 // * <-chan Tag - Read Only copy of the strict reader if it exists. Otherwise will be nil
-func (r *tagReadersTree) GetSubsetReader(tags v1.Tags) <-chan Tag {
+func (r *tagReadersTree) GetSubsetReader(tags v1.Strings) <-chan Tag {
 	// won't return an error
 	treeItem, _ := r.readers.FindOrCreate(tags, "", newTagReadersNode(make(chan Tag), false))
 	return treeItem.(*tagReadersNode).reader
@@ -166,14 +166,14 @@ func (r *tagReadersTree) GetSubsetReader(tags v1.Tags) <-chan Tag {
 //
 // RETURNS:
 // * []<-chan Tag - Read Only copy of any readers that match any tags
-func (r *tagReadersTree) GetAnyReaders(tags v1.Tags) []<-chan Tag {
+func (r *tagReadersTree) GetAnyReaders(tags v1.Strings) []<-chan Tag {
 	potentialReader := map[<-chan Tag]struct{}{}
 	readers := []<-chan Tag{}
 
 	newReader := make(chan Tag)
 	for _, tag := range tags {
 		// won't return an error
-		treeItem, _ := r.readers.FindOrCreate(v1.Tags{tag}, "", newTagReadersNode(newReader, false))
+		treeItem, _ := r.readers.FindOrCreate(v1.Strings{tag}, "", newTagReadersNode(newReader, false))
 		potentialReader[treeItem.(*tagReadersNode).reader] = struct{}{}
 	}
 
@@ -184,9 +184,9 @@ func (r *tagReadersTree) GetAnyReaders(tags v1.Tags) []<-chan Tag {
 	return readers
 }
 
-func (r *tagReadersTree) RemoveReaders(tags v1.Tags) {
+func (r *tagReadersTree) RemoveReaders(tags v1.Strings) {
 	panic("not implemented")
 }
-func (r *tagReadersTree) RemoveReadersGroup(tags v1.Tags) {
+func (r *tagReadersTree) RemoveReadersGroup(tags v1.Strings) {
 	panic("not implemented")
 }

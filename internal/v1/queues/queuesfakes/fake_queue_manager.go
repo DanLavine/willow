@@ -36,15 +36,15 @@ type FakeQueueManager struct {
 		result1 queues.Queue
 		result2 *v1.Error
 	}
-	MetricsStub        func() *v1.Metrics
+	MetricsStub        func() *v1.MetricsResponse
 	metricsMutex       sync.RWMutex
 	metricsArgsForCall []struct {
 	}
 	metricsReturns struct {
-		result1 *v1.Metrics
+		result1 *v1.MetricsResponse
 	}
 	metricsReturnsOnCall map[int]struct {
-		result1 *v1.Metrics
+		result1 *v1.MetricsResponse
 	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
@@ -177,7 +177,7 @@ func (fake *FakeQueueManager) FindReturnsOnCall(i int, result1 queues.Queue, res
 	}{result1, result2}
 }
 
-func (fake *FakeQueueManager) Metrics() *v1.Metrics {
+func (fake *FakeQueueManager) Metrics() *v1.MetricsResponse {
 	fake.metricsMutex.Lock()
 	ret, specificReturn := fake.metricsReturnsOnCall[len(fake.metricsArgsForCall)]
 	fake.metricsArgsForCall = append(fake.metricsArgsForCall, struct {
@@ -201,32 +201,32 @@ func (fake *FakeQueueManager) MetricsCallCount() int {
 	return len(fake.metricsArgsForCall)
 }
 
-func (fake *FakeQueueManager) MetricsCalls(stub func() *v1.Metrics) {
+func (fake *FakeQueueManager) MetricsCalls(stub func() *v1.MetricsResponse) {
 	fake.metricsMutex.Lock()
 	defer fake.metricsMutex.Unlock()
 	fake.MetricsStub = stub
 }
 
-func (fake *FakeQueueManager) MetricsReturns(result1 *v1.Metrics) {
+func (fake *FakeQueueManager) MetricsReturns(result1 *v1.MetricsResponse) {
 	fake.metricsMutex.Lock()
 	defer fake.metricsMutex.Unlock()
 	fake.MetricsStub = nil
 	fake.metricsReturns = struct {
-		result1 *v1.Metrics
+		result1 *v1.MetricsResponse
 	}{result1}
 }
 
-func (fake *FakeQueueManager) MetricsReturnsOnCall(i int, result1 *v1.Metrics) {
+func (fake *FakeQueueManager) MetricsReturnsOnCall(i int, result1 *v1.MetricsResponse) {
 	fake.metricsMutex.Lock()
 	defer fake.metricsMutex.Unlock()
 	fake.MetricsStub = nil
 	if fake.metricsReturnsOnCall == nil {
 		fake.metricsReturnsOnCall = make(map[int]struct {
-			result1 *v1.Metrics
+			result1 *v1.MetricsResponse
 		})
 	}
 	fake.metricsReturnsOnCall[i] = struct {
-		result1 *v1.Metrics
+		result1 *v1.MetricsResponse
 	}{result1}
 }
 

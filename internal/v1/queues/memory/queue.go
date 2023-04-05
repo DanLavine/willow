@@ -75,7 +75,7 @@ func (q *Queue) Enqueue(logger *zap.Logger, enqueueItemRequest *v1.EnqueueItemRe
 }
 
 // callbaack for setup Enqueue to use when setting up a new tags group
-func (q *Queue) setupTagsGroup(tags v1.Tags) func() (any, error) {
+func (q *Queue) setupTagsGroup(tags v1.Strings) func() (any, error) {
 	return func() (any, error) {
 		allPossibleReaders := q.tagReaders.CreateGroup(tags)
 		tagGroup := newTagGroup(tags, allPossibleReaders)
@@ -109,8 +109,8 @@ func (q *Queue) Readers(matchQuery *v1.MatchQuery) []<-chan tags.Tag {
 	return channels
 }
 
-func (q *Queue) Metrics() *v1.QueueMetrics {
-	metrics := &v1.QueueMetrics{
+func (q *Queue) Metrics() *v1.QueueMetricsResponse {
+	metrics := &v1.QueueMetricsResponse{
 		Name:                   q.name,
 		Max:                    q.maxSize,
 		Total:                  q.counter.Total(),

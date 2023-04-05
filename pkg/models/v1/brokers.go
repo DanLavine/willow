@@ -15,7 +15,7 @@ type BrokerInfo struct {
 	BrokerType BrokerType
 
 	// possible tags used by the broker
-	Tags Tags
+	Tags Strings
 }
 
 func (b BrokerInfo) validate() *Error {

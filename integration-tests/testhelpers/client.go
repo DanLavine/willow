@@ -32,7 +32,7 @@ func (itc *IntegrationTestConstruct) Enqueue(g *gomega.WithT, enqueueBody v1.Enq
 	g.Expect(err).ToNot(HaveOccurred())
 
 	enqueueBuffer := bytes.NewBuffer(body)
-	request, err := http.NewRequest("POST", fmt.Sprintf("%s/v1/message/add", itc.serverAddress), enqueueBuffer)
+	request, err := http.NewRequest("POST", fmt.Sprintf("%s/v1/brokers/item/enqueue", itc.serverAddress), enqueueBuffer)
 	g.Expect(err).ToNot(HaveOccurred())
 
 	response, err := itc.ServerClient.Do(request)
@@ -69,7 +69,7 @@ func (itc *IntegrationTestConstruct) ACKMessage(g *gomega.WithT, ackBody v1.ACK)
 	return response
 }
 
-func (itc *IntegrationTestConstruct) Metrics(g *gomega.WithT) v1.Metrics {
+func (itc *IntegrationTestConstruct) Metrics(g *gomega.WithT) v1.MetricsResponse {
 	request, err := http.NewRequest("GET", fmt.Sprintf("%s/v1/metrics", itc.metricsAddress), nil)
 	g.Expect(err).ToNot(HaveOccurred())
 
@@ -83,7 +83,7 @@ func (itc *IntegrationTestConstruct) Metrics(g *gomega.WithT) v1.Metrics {
 	metricsData, err := io.ReadAll(body)
 	g.Expect(err).ToNot(HaveOccurred())
 
-	metrics := v1.Metrics{}
+	metrics := v1.MetricsResponse{}
 	g.Expect(json.Unmarshal(metricsData, &metrics)).ToNot(HaveOccurred())
 
 	return metrics

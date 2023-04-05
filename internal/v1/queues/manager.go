@@ -83,8 +83,8 @@ func (m *manager) Find(logger *zap.Logger, queueName v1.String) (Queue, *v1.Erro
 }
 
 // Metrics is currently a simple call that will report all metrics for all queues
-func (m *manager) Metrics() *v1.Metrics {
-	metrics := &v1.Metrics{}
+func (m *manager) Metrics() *v1.MetricsResponse {
+	metrics := &v1.MetricsResponse{}
 
 	iterator := func(queue any) {
 		managedQueue := queue.(ManagedQueue)

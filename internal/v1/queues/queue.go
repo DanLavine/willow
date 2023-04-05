@@ -40,7 +40,7 @@ type QueueManager interface {
 	// GetItem retrieves the next item in the queue
 	//GetItem(logger *zap.Logger, ctx context.Context, ready *v1.Ready) (*v1.DequeueItemResponse, *v1.Error)
 
-	Metrics() *v1.Metrics
+	Metrics() *v1.MetricsResponse
 }
 
 // Managed queue defines all the managment functions that queue needs for its lifecycle.
@@ -67,5 +67,5 @@ type Queue interface {
 	Readers(matchQuery *v1.MatchQuery) []<-chan tags.Tag
 
 	// Get Metrics info
-	Metrics() *v1.QueueMetrics
+	Metrics() *v1.QueueMetricsResponse
 }

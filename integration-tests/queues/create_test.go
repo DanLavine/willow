@@ -6,6 +6,7 @@ import (
 
 	"github.com/DanLavine/willow/integration-tests/testhelpers"
 	v1 "github.com/DanLavine/willow/pkg/models/v1"
+
 	. "github.com/onsi/gomega"
 )
 
@@ -62,8 +63,8 @@ func Test_Create(t *testing.T) {
 
 		metrics := testConstruct.Metrics(g)
 		g.Expect(len(metrics.Queues)).To(Equal(2))
-		g.Expect(metrics.Queues).To(ContainElement(&v1.QueueMetrics{Name: "test queue", Total: 0, Max: 5, Tags: nil, DeadLetterQueueMetrics: nil}))
-		g.Expect(metrics.Queues).To(ContainElement(&v1.QueueMetrics{Name: "other queue", Total: 0, Max: 5, Tags: nil, DeadLetterQueueMetrics: nil}))
+		g.Expect(metrics.Queues).To(ContainElement(&v1.QueueMetricsResponse{Name: "test queue", Total: 0, Max: 5, Tags: nil, DeadLetterQueueMetrics: nil}))
+		g.Expect(metrics.Queues).To(ContainElement(&v1.QueueMetricsResponse{Name: "other queue", Total: 0, Max: 5, Tags: nil, DeadLetterQueueMetrics: nil}))
 	})
 
 	t.Run("can create the same queue multple times", func(t *testing.T) {
@@ -87,6 +88,6 @@ func Test_Create(t *testing.T) {
 
 		metrics := testConstruct.Metrics(g)
 		g.Expect(len(metrics.Queues)).To(Equal(1))
-		g.Expect(metrics.Queues).To(ContainElement(&v1.QueueMetrics{Name: "test queue", Total: 0, Max: 5, Tags: nil, DeadLetterQueueMetrics: nil}))
+		g.Expect(metrics.Queues).To(ContainElement(&v1.QueueMetricsResponse{Name: "test queue", Total: 0, Max: 5, Tags: nil, DeadLetterQueueMetrics: nil}))
 	})
 }

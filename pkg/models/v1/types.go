@@ -7,23 +7,27 @@ import (
 )
 
 // Satisfy disjoint Set
-type Tags []String
+type Strings []String
 
-func (ts Tags) Each(callback func(int, datastructures.TreeKey) bool) {
-	for index, tag := range ts {
+// Each can be used to call a functionfor each element in the slice where
+// the paramanters are the index + element of the slice
+func (s Strings) Each(callback func(int, datastructures.TreeKey) bool) {
+	for index, tag := range s {
 		if !callback(index, tag) {
 			break
 		}
 	}
 }
 
-func (ts Tags) Sort() {
-	sort.SliceStable(ts, func(i, j int) bool {
-		return ts[i] < ts[j]
+// Sort a slice of strings into ascending order
+func (s Strings) Sort() {
+	sort.SliceStable(s, func(i, j int) bool {
+		return s[i] < s[j]
 	})
 }
 
-func (ts Tags) Len() int {
+// Len returns the len() call of the wrapped type
+func (ts Strings) Len() int {
 	return len(ts)
 }
 

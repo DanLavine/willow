@@ -114,9 +114,9 @@ func TestQueueManager_Metrics(t *testing.T) {
 		metrics := queueManager.Metrics()
 		g.Expect(metrics).ToNot(BeNil())
 		g.Expect(len(metrics.Queues)).To(Equal(3))
-		g.Expect(metrics.Queues).To(ContainElement(&v1.QueueMetrics{Name: "test1", Total: 0, Max: 5, DeadLetterQueueMetrics: nil}))
-		g.Expect(metrics.Queues).To(ContainElement(&v1.QueueMetrics{Name: "test2", Total: 0, Max: 5, DeadLetterQueueMetrics: nil}))
-		g.Expect(metrics.Queues).To(ContainElement(&v1.QueueMetrics{Name: "test3", Total: 0, Max: 5, DeadLetterQueueMetrics: nil}))
+		g.Expect(metrics.Queues).To(ContainElement(&v1.QueueMetricsResponse{Name: "test1", Total: 0, Max: 5, DeadLetterQueueMetrics: nil}))
+		g.Expect(metrics.Queues).To(ContainElement(&v1.QueueMetricsResponse{Name: "test2", Total: 0, Max: 5, DeadLetterQueueMetrics: nil}))
+		g.Expect(metrics.Queues).To(ContainElement(&v1.QueueMetricsResponse{Name: "test3", Total: 0, Max: 5, DeadLetterQueueMetrics: nil}))
 
 		// publish a few messages
 		test1, err := queueManager.Find(logger, "test1")
@@ -126,21 +126,21 @@ func TestQueueManager_Metrics(t *testing.T) {
 		test3, err := queueManager.Find(logger, "test3")
 		g.Expect(err).ToNot(HaveOccurred())
 
-		test1.Enqueue(logger, &v1.EnqueueItemRequest{BrokerInfo: v1.BrokerInfo{Name: "test1", Tags: v1.Tags{""}}, Data: []byte(`hello`), Updateable: false})
-		test1.Enqueue(logger, &v1.EnqueueItemRequest{BrokerInfo: v1.BrokerInfo{Name: "test1", Tags: v1.Tags{"other"}}, Data: []byte(`hello`), Updateable: false})
+		test1.Enqueue(logger, &v1.EnqueueItemRequest{BrokerInfo: v1.BrokerInfo{Name: "test1", Tags: v1.Strings{""}}, Data: []byte(`hello`), Updateable: false})
+		test1.Enqueue(logger, &v1.EnqueueItemRequest{BrokerInfo: v1.BrokerInfo{Name: "test1", Tags: v1.Strings{"other"}}, Data: []byte(`hello`), Updateable: false})
 
-		test2.Enqueue(logger, &v1.EnqueueItemRequest{BrokerInfo: v1.BrokerInfo{Name: "test2", Tags: v1.Tags{""}}, Data: []byte(`hello`), Updateable: false})
+		test2.Enqueue(logger, &v1.EnqueueItemRequest{BrokerInfo: v1.BrokerInfo{Name: "test2", Tags: v1.Strings{""}}, Data: []byte(`hello`), Updateable: false})
 
-		test3.Enqueue(logger, &v1.EnqueueItemRequest{BrokerInfo: v1.BrokerInfo{Name: "test3", Tags: v1.Tags{"one"}}, Data: []byte(`hello1`), Updateable: false})
-		test3.Enqueue(logger, &v1.EnqueueItemRequest{BrokerInfo: v1.BrokerInfo{Name: "test3", Tags: v1.Tags{"one"}}, Data: []byte(`hello2`), Updateable: false})
-		test3.Enqueue(logger, &v1.EnqueueItemRequest{BrokerInfo: v1.BrokerInfo{Name: "test3", Tags: v1.Tags{"one", "two"}}, Data: []byte(`hello3`), Updateable: false})
+		test3.Enqueue(logger, &v1.EnqueueItemRequest{BrokerInfo: v1.BrokerInfo{Name: "test3", Tags: v1.Strings{"one"}}, Data: []byte(`hello1`), Updateable: false})
+		test3.Enqueue(logger, &v1.EnqueueItemRequest{BrokerInfo: v1.BrokerInfo{Name: "test3", Tags: v1.Strings{"one"}}, Data: []byte(`hello2`), Updateable: false})
+		test3.Enqueue(logger, &v1.EnqueueItemRequest{BrokerInfo: v1.BrokerInfo{Name: "test3", Tags: v1.Strings{"one", "two"}}, Data: []byte(`hello3`), Updateable: false})
 
 		// check the new ready counts
 		metrics = queueManager.Metrics()
 		g.Expect(metrics).ToNot(BeNil())
 		g.Expect(len(metrics.Queues)).To(Equal(3))
-		g.Expect(metrics.Queues).To(ContainElement(&v1.QueueMetrics{Name: "test1", Total: 2, Max: 5, Tags: []*v1.TagMetrics{{Tags: v1.Tags{""}, Ready: 1, Processing: 0}, {Tags: v1.Tags{"other"}, Ready: 1, Processing: 0}}, DeadLetterQueueMetrics: nil}))
-		g.Expect(metrics.Queues).To(ContainElement(&v1.QueueMetrics{Name: "test2", Total: 1, Max: 5, Tags: []*v1.TagMetrics{{Tags: v1.Tags{""}, Ready: 1, Processing: 0}}, DeadLetterQueueMetrics: nil}))
-		g.Expect(metrics.Queues).To(ContainElement(&v1.QueueMetrics{Name: "test3", Total: 3, Max: 5, Tags: []*v1.TagMetrics{{Tags: v1.Tags{"one"}, Ready: 2, Processing: 0}, {Tags: v1.Tags{"one", "two"}, Ready: 1, Processing: 0}}, DeadLetterQueueMetrics: nil}))
+		g.Expect(metrics.Queues).To(ContainElement(&v1.QueueMetricsResponse{Name: "test1", Total: 2, Max: 5, Tags: []*v1.TagMetricsResponse{{Tags: v1.Strings{""}, Ready: 1, Processing: 0}, {Tags: v1.Strings{"other"}, Ready: 1, Processing: 0}}, DeadLetterQueueMetrics: nil}))
+		g.Expect(metrics.Queues).To(ContainElement(&v1.QueueMetricsResponse{Name: "test2", Total: 1, Max: 5, Tags: []*v1.TagMetricsResponse{{Tags: v1.Strings{""}, Ready: 1, Processing: 0}}, DeadLetterQueueMetrics: nil}))
+		g.Expect(metrics.Queues).To(ContainElement(&v1.QueueMetricsResponse{Name: "test3", Total: 3, Max: 5, Tags: []*v1.TagMetricsResponse{{Tags: v1.Strings{"one"}, Ready: 2, Processing: 0}, {Tags: v1.Strings{"one", "two"}, Ready: 1, Processing: 0}}, DeadLetterQueueMetrics: nil}))
 	})
 }

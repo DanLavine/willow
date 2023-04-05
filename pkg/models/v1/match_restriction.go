@@ -31,7 +31,7 @@ type MatchQuery struct {
 
 	// Tags to match against
 	MatchTagsRestrictions MatchTagsRestrictions
-	Tags                  Tags
+	Tags                  Strings
 }
 
 func ParseMatchQueryRequest(reader io.ReadCloser) (*MatchQuery, *Error) {

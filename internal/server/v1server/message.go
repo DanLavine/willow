@@ -13,7 +13,7 @@ func (qh *queueHandler) Enqueue(w http.ResponseWriter, r *http.Request) {
 
 	switch method := r.Method; method {
 	case "POST":
-		logger.Debug("GET enqueue")
+		logger.Debug("POST enqueue")
 
 		enqueueItem, err := v1.ParseEnqueueItemRequest(r.Body)
 		if err != nil {

@@ -48,9 +48,9 @@ func (t *tcp) Execute(ctx context.Context) error {
 	mux.HandleFunc("/v1/brokers/queues/create", t.queueHandler.Create)
 
 	// message handlers
-	mux.HandleFunc("/v1/brokers/queues/item/enqueu", t.queueHandler.Enqueue)
-	mux.HandleFunc("/v1/brokers/queues/item/dequeue", t.queueHandler.Dequeue)
-	mux.HandleFunc("/v1/brokers/queues/item/ack", t.queueHandler.ACK)
+	mux.HandleFunc("/v1/brokers/item/enqueue", t.queueHandler.Enqueue)
+	mux.HandleFunc("/v1/brokers/item/dequeue", t.queueHandler.Dequeue)
+	mux.HandleFunc("/v1/brokers/item/ack", t.queueHandler.ACK)
 
 	server := http2.Server{}
 

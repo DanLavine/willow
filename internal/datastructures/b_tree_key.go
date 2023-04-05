@@ -13,21 +13,6 @@ type TreeKey interface {
 	Less(compareKey any) bool
 }
 
-//type StringTreeKey struct {
-//	key string
-//}
-//
-//func NewStringTreeKey(key string) *StringTreeKey {
-//	return &StringTreeKey{
-//		key: key,
-//	}
-//}
-//
-//func (stk *StringTreeKey) Less(compareKey TreeKey) bool {
-//	return stk.key < compareKey.(*StringTreeKey).key
-//}
-//
-
 // used for testing BTree
 type EnumerableIntTreeKey []IntTreeKey
 
