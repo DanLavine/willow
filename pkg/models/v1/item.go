@@ -20,11 +20,10 @@ type EnqueueItemRequest struct {
 	Updateable bool
 }
 
-type DequeueItemRequest struct {
-	// common broker info
-	// NOTE: this could be inlined, but for model consistency have the value named
-	BrokerInfo BrokerInfo
-}
+//type DequeueItemRequest struct {
+//	// common broker info
+//	BrokerInfo BrokerInfo
+//}
 
 type DequeueItemResponse struct {
 	// common broker info
@@ -60,24 +59,24 @@ func ParseEnqueueItemRequest(reader io.ReadCloser) (*EnqueueItemRequest, *Error)
 	return enqueueItem, nil
 }
 
-func ParseDequeueItemRequest(reader io.ReadCloser) (*DequeueItemRequest, *Error) {
-	body, err := io.ReadAll(reader)
-	if err != nil {
-		return nil, InvalidRequestBody.With("", err.Error())
-	}
-	defer reader.Close()
-
-	dequeueItemRequest := &DequeueItemRequest{}
-	if err := json.Unmarshal(body, dequeueItemRequest); err != nil {
-		return nil, ParseRequestBodyError.With("dequeue query to be valid json", err.Error())
-	}
-
-	if err := dequeueItemRequest.BrokerInfo.validate(); err != nil {
-		return nil, err
-	}
-
-	return dequeueItemRequest, nil
-}
+//func ParseDequeueItemRequest(reader io.ReadCloser) (*DequeueItemRequest, *Error) {
+//	body, err := io.ReadAll(reader)
+//	if err != nil {
+//		return nil, InvalidRequestBody.With("", err.Error())
+//	}
+//	defer reader.Close()
+//
+//	dequeueItemRequest := &DequeueItemRequest{}
+//	if err := json.Unmarshal(body, dequeueItemRequest); err != nil {
+//		return nil, ParseRequestBodyError.With("dequeue query to be valid json", err.Error())
+//	}
+//
+//	if err := dequeueItemRequest.BrokerInfo.validate(); err != nil {
+//		return nil, err
+//	}
+//
+//	return dequeueItemRequest, nil
+//}
 
 func (dqr *DequeueItemResponse) ToBytes() []byte {
 	data, _ := json.Marshal(dqr)

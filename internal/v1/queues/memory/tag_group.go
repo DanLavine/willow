@@ -2,7 +2,6 @@ package memory
 
 import (
 	"context"
-	"fmt"
 	"reflect"
 	"sync"
 	"sync/atomic"
@@ -106,7 +105,6 @@ func (tg *tagGroup) process() *v1.DequeueItemResponse {
 	index := tg.availableItems[0]
 	tg.availableItems = tg.availableItems[1:]
 	enqueuedItem := tg.items.Get(index).(*v1.EnqueueItemRequest)
-	fmt.Printf("%#v\n", enqueuedItem)
 
 	// update counters
 	tg.itemProcessingCount.Add(1)

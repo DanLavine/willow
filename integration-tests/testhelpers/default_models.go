@@ -2,35 +2,40 @@ package testhelpers
 
 import v1 "github.com/DanLavine/willow/pkg/models/v1"
 
-func DefaultCreate() v1.Create {
-	return v1.Create{
-		Name:                   "test queue",
+var (
+	// some general queues
+	Queue1 = v1.Create{
+		Name:                   v1.String("queue1"),
 		QueueMaxSize:           5,
-		ItemRetryAttempts:      0,
-		DeadLetterQueueMaxSize: 0,
+		ItemRetryAttempts:      1,
+		DeadLetterQueueMaxSize: 1,
 	}
-}
 
-func DefaultEnqueueItemRequestNotUpdateable() v1.EnqueueItemRequest {
-	return v1.EnqueueItemRequest{
-		BrokerInfo: v1.BrokerInfo{
-			Name:       "test queue",
-			BrokerType: v1.Queue,
-			Tags:       v1.Strings{"some tag"},
-		},
-		Data:       []byte(`hello world`),
-		Updateable: false,
+	Queue2 = v1.Create{
+		Name:                   v1.String("queue2"),
+		QueueMaxSize:           5,
+		ItemRetryAttempts:      1,
+		DeadLetterQueueMaxSize: 1,
 	}
-}
 
-func DefaultEnqueueItemRequestUpdateable() v1.EnqueueItemRequest {
-	return v1.EnqueueItemRequest{
+	// some general enqueu message
+	Queue1UpdateableEnqueue = v1.EnqueueItemRequest{
 		BrokerInfo: v1.BrokerInfo{
-			Name:       "test queue",
+			Name:       v1.String("queue1"),
 			BrokerType: v1.Queue,
 			Tags:       v1.Strings{"some tag"},
 		},
 		Data:       []byte(`hello world`),
 		Updateable: true,
 	}
-}
+
+	Queue2UpdateableEnqueue = v1.EnqueueItemRequest{
+		BrokerInfo: v1.BrokerInfo{
+			Name:       v1.String("queue2"),
+			BrokerType: v1.Queue,
+			Tags:       v1.Strings{"some tag"},
+		},
+		Data:       []byte(`hello world`),
+		Updateable: true,
+	}
+)

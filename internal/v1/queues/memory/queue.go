@@ -2,6 +2,7 @@ package memory
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
 	"github.com/DanLavine/goasync"
@@ -78,6 +79,7 @@ func (q *Queue) Enqueue(logger *zap.Logger, enqueueItemRequest *v1.EnqueueItemRe
 func (q *Queue) setupTagsGroup(tags v1.Strings) func() (any, error) {
 	return func() (any, error) {
 		allPossibleReaders := q.tagReaders.CreateGroup(tags)
+		fmt.Printf("tags %v has readers %v\n", tags, allPossibleReaders)
 		tagGroup := newTagGroup(tags, allPossibleReaders)
 
 		_ = q.taskManager.AddExecuteTask("", tagGroup)
@@ -88,6 +90,10 @@ func (q *Queue) setupTagsGroup(tags v1.Strings) func() (any, error) {
 // Readers is used by any clients to obtain possible readers for tag groups
 func (q *Queue) Readers(matchQuery *v1.MatchQuery) []<-chan tags.Tag {
 	var channels []<-chan tags.Tag
+
+	if matchQuery == nil {
+		return channels
+	}
 
 	switch matchQuery.MatchTagsRestrictions {
 	case v1.STRICT:

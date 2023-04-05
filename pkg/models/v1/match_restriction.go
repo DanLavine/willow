@@ -27,7 +27,10 @@ const (
 // Or all brokers and any subset of tags.
 type MatchQuery struct {
 	// name of the broker to chose from. Right now it is always a Queue
-	BrokerName string
+	BrokerName String
+
+	// eventually this will be useful
+	//BrokerType BrokerType
 
 	// Tags to match against
 	MatchTagsRestrictions MatchTagsRestrictions

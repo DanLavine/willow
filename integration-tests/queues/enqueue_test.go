@@ -72,26 +72,25 @@ func Test_Enqueue(t *testing.T) {
 		testConstruct.Start(g)
 		defer testConstruct.Shutdown(g)
 
-		createBody := testhelpers.DefaultCreate()
-		createResponse := testConstruct.Create(g, createBody)
+		createResponse := testConstruct.Create(g, testhelpers.Queue1)
 		g.Expect(createResponse.StatusCode).To(Equal(http.StatusCreated))
 
-		enqueueBody := testhelpers.DefaultEnqueueItemRequestNotUpdateable()
-
 		// enqueue 4 times
-		enqueurResponse := testConstruct.Enqueue(g, enqueueBody)
+		item := testhelpers.Queue1UpdateableEnqueue
+		item.Updateable = false
+		enqueurResponse := testConstruct.Enqueue(g, item)
 		g.Expect(enqueurResponse.StatusCode).To(Equal(http.StatusOK))
-		enqueurResponse = testConstruct.Enqueue(g, enqueueBody)
+		enqueurResponse = testConstruct.Enqueue(g, item)
 		g.Expect(enqueurResponse.StatusCode).To(Equal(http.StatusOK))
-		enqueurResponse = testConstruct.Enqueue(g, enqueueBody)
+		enqueurResponse = testConstruct.Enqueue(g, item)
 		g.Expect(enqueurResponse.StatusCode).To(Equal(http.StatusOK))
-		enqueurResponse = testConstruct.Enqueue(g, enqueueBody)
+		enqueurResponse = testConstruct.Enqueue(g, item)
 		g.Expect(enqueurResponse.StatusCode).To(Equal(http.StatusOK))
 
 		// check the metrics
 		metrics := testConstruct.Metrics(g)
 		g.Expect(len(metrics.Queues)).To(Equal(1))
-		g.Expect(metrics.Queues[0].Name).To(Equal(v1.String("test queue")))
+		g.Expect(metrics.Queues[0].Name).To(Equal(v1.String("queue1")))
 		g.Expect(metrics.Queues[0].Max).To(Equal(uint64(5)))
 		g.Expect(metrics.Queues[0].Total).To(Equal(uint64(4)))
 		g.Expect(len(metrics.Queues[0].Tags)).To(Equal(1))
@@ -104,24 +103,22 @@ func Test_Enqueue(t *testing.T) {
 		testConstruct.Start(g)
 		defer testConstruct.Shutdown(g)
 
-		createBody := testhelpers.DefaultCreate()
-		createResponse := testConstruct.Create(g, createBody)
+		createResponse := testConstruct.Create(g, testhelpers.Queue1)
 		g.Expect(createResponse.StatusCode).To(Equal(http.StatusCreated))
 
-		enqueueBody := testhelpers.DefaultEnqueueItemRequestNotUpdateable()
-
 		// enqueue multiple tags
-		enqueurResponse := testConstruct.Enqueue(g, enqueueBody)
+		item := testhelpers.Queue1UpdateableEnqueue
+		enqueurResponse := testConstruct.Enqueue(g, item)
 		g.Expect(enqueurResponse.StatusCode).To(Equal(http.StatusOK))
 
-		enqueueBody.BrokerInfo.Tags = v1.Strings{"new tag", "of course"}
-		enqueurResponse = testConstruct.Enqueue(g, enqueueBody)
+		item.BrokerInfo.Tags = v1.Strings{"new tag", "of course"}
+		enqueurResponse = testConstruct.Enqueue(g, item)
 		g.Expect(enqueurResponse.StatusCode).To(Equal(http.StatusOK))
 
 		// check the metrics
 		metrics := testConstruct.Metrics(g)
 		g.Expect(len(metrics.Queues)).To(Equal(1))
-		g.Expect(metrics.Queues[0].Name).To(Equal(v1.String("test queue")))
+		g.Expect(metrics.Queues[0].Name).To(Equal(v1.String("queue1")))
 		g.Expect(metrics.Queues[0].Max).To(Equal(uint64(5)))
 		g.Expect(metrics.Queues[0].Total).To(Equal(uint64(2)))
 		g.Expect(len(metrics.Queues[0].Tags)).To(Equal(2))
@@ -133,26 +130,25 @@ func Test_Enqueue(t *testing.T) {
 		testConstruct.Start(g)
 		defer testConstruct.Shutdown(g)
 
-		createBody := testhelpers.DefaultCreate()
-		createResponse := testConstruct.Create(g, createBody)
+		createResponse := testConstruct.Create(g, testhelpers.Queue1)
 		g.Expect(createResponse.StatusCode).To(Equal(http.StatusCreated))
 
-		enqueueBody := testhelpers.DefaultEnqueueItemRequestUpdateable()
-
 		// enqueue 4 times
-		enqueurResponse := testConstruct.Enqueue(g, enqueueBody)
+		item := testhelpers.Queue1UpdateableEnqueue
+		item.Updateable = true
+		enqueurResponse := testConstruct.Enqueue(g, item)
 		g.Expect(enqueurResponse.StatusCode).To(Equal(http.StatusOK))
-		enqueurResponse = testConstruct.Enqueue(g, enqueueBody)
+		enqueurResponse = testConstruct.Enqueue(g, item)
 		g.Expect(enqueurResponse.StatusCode).To(Equal(http.StatusOK))
-		enqueurResponse = testConstruct.Enqueue(g, enqueueBody)
+		enqueurResponse = testConstruct.Enqueue(g, item)
 		g.Expect(enqueurResponse.StatusCode).To(Equal(http.StatusOK))
-		enqueurResponse = testConstruct.Enqueue(g, enqueueBody)
+		enqueurResponse = testConstruct.Enqueue(g, item)
 		g.Expect(enqueurResponse.StatusCode).To(Equal(http.StatusOK))
 
 		// check the metrics
 		metrics := testConstruct.Metrics(g)
 		g.Expect(len(metrics.Queues)).To(Equal(1))
-		g.Expect(metrics.Queues[0].Name).To(Equal(v1.String("test queue")))
+		g.Expect(metrics.Queues[0].Name).To(Equal(v1.String("queue1")))
 		g.Expect(metrics.Queues[0].Max).To(Equal(uint64(5)))
 		g.Expect(metrics.Queues[0].Total).To(Equal(uint64(1)))
 		g.Expect(len(metrics.Queues[0].Tags)).To(Equal(1))
@@ -166,21 +162,20 @@ func Test_Enqueue(t *testing.T) {
 			testConstruct.Start(g)
 			defer testConstruct.Shutdown(g)
 
-			createBody := testhelpers.DefaultCreate()
+			createBody := testhelpers.Queue1
 			createBody.QueueMaxSize = 1
 			createResponse := testConstruct.Create(g, createBody)
 			g.Expect(createResponse.StatusCode).To(Equal(http.StatusCreated))
 
-			enqueueBody := testhelpers.DefaultEnqueueItemRequestNotUpdateable()
-
-			// enqueue 4 times
-			enqueurResponse := testConstruct.Enqueue(g, enqueueBody)
+			// enqueue
+			item := testhelpers.Queue1UpdateableEnqueue
+			item.Updateable = false
+			enqueurResponse := testConstruct.Enqueue(g, item)
 			g.Expect(enqueurResponse.StatusCode).To(Equal(http.StatusOK))
-			enqueurResponse = testConstruct.Enqueue(g, enqueueBody)
 
 			//should case an error when enquing 2nd item
+			enqueurResponse = testConstruct.Enqueue(g, item)
 			g.Expect(enqueurResponse.StatusCode).To(Equal(http.StatusTooManyRequests))
-			enqueurResponse = testConstruct.Enqueue(g, enqueueBody)
 		})
 	})
 }

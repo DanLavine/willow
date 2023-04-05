@@ -67,7 +67,7 @@ type tagReadersNode struct {
 	strictReader chan Tag
 }
 
-func newTagReadersNode(reader chan Tag, setupStrict bool) func() (any, error) {
+func newTagReadersNode(setupStrict bool) func() (any, error) {
 	return func() (any, error) {
 		var strictReader chan Tag
 		if setupStrict {
@@ -76,7 +76,7 @@ func newTagReadersNode(reader chan Tag, setupStrict bool) func() (any, error) {
 
 		return &tagReadersNode{
 			//count:        new(atomic.Int64),
-			reader:       reader,
+			reader:       make(chan Tag),
 			strictReader: strictReader,
 		}, nil
 	}
@@ -88,11 +88,10 @@ func (trn *tagReadersNode) OnUpdate() {
 	}
 }
 
-// [a,b,c,d,e]
-// a,b,c,d,e,ab,ac,ad,ae,abc,abd,abe,acd,ace,ade,abcd,abde,acde,abcde,bc,bd,be,bcd,bce,bde,cd,ce,cde,de -> 1 channel?
-// then on a new group
-// [a,b,c,d,e,f]
-// if any subsets overlap, create a new channel for them all and return 2 channels. This way at most N unique channels, but keep overal count low
+// Create Groups tags a v1.Strings and generates all possible tag combinations.
+// [a,b,c,d,e] for example is split into 31 unique combos. Each tag in the combo is in descending order
+// since it is assumed to be in a sorted order:
+// a,b,c,d,e,ab,ac,ad,ae,abc,abd,abe,acd,ace,ade,abcd,abde,acde,abcde,bc,bd,be,bcd,bce,bde,cd,ce,cde,de
 //
 // PARAMS:
 // * tags - string collection that will create all possible groups for
@@ -101,37 +100,26 @@ func (trn *tagReadersNode) OnUpdate() {
 // * []chan<- Tag - a write only copy of all possible tag group channels. A new channel is used for all 1st time created channels
 func (r *tagReadersTree) CreateGroup(tags v1.Strings) []chan<- Tag {
 	tagGroups := helpers.GenerateGroupPairs(tags)
-	channels := map[chan<- Tag]struct{}{r.globalReader: struct{}{}}
+	channels := []chan<- Tag{r.globalReader}
 
-	// reader for all new tags in the provided group if they do not already exist
-	reader := make(chan Tag)
+	//fmt.Println(tagGroups)
 
 	for _, tagGroup := range tagGroups {
 		if len(tagGroup) == len(tags) {
 			// cannot return an error on our callback so ignore it
-			treeItem, _ := r.readers.FindOrCreate(tagGroup, "OnUpdate", newTagReadersNode(reader, true))
+			treeItem, _ := r.readers.FindOrCreate(tagGroup, "OnUpdate", newTagReadersNode(true))
 			node := treeItem.(*tagReadersNode)
-			channels[node.strictReader] = struct{}{}
-			channels[node.reader] = struct{}{}
+			channels = append(channels, node.strictReader)
+			channels = append(channels, node.reader)
 		} else {
 			// cannot return an error on our callback so ignore it
-			treeItem, _ := r.readers.FindOrCreate(tagGroup, "", newTagReadersNode(reader, false))
+			treeItem, _ := r.readers.FindOrCreate(tagGroup, "", newTagReadersNode(false))
 			node := treeItem.(*tagReadersNode)
-			channels[node.reader] = struct{}{}
+			channels = append(channels, node.reader)
 		}
 	}
 
-	channelSlice := []chan<- Tag{}
-	for ch, _ := range channels {
-		channelSlice = append(channelSlice, ch)
-	}
-
-	// cleanup if all channels are already created
-	if _, ok := channels[reader]; !ok {
-		close(reader)
-	}
-
-	return channelSlice
+	return channels
 }
 
 // GetGlobalReader gets the global reader for the TagGroup
@@ -148,7 +136,7 @@ func (r *tagReadersTree) GetGlobalReader() <-chan Tag {
 // * <-chan Tag - Read Only copy of the strict reader if it exists. Otherwise will be nil
 func (r *tagReadersTree) GetStrictReader(tags v1.Strings) <-chan Tag {
 	// won't return an error
-	treeItem, _ := r.readers.FindOrCreate(tags, "OnUpdate", newTagReadersNode(make(chan Tag), true))
+	treeItem, _ := r.readers.FindOrCreate(tags, "OnUpdate", newTagReadersNode(true))
 	return treeItem.(*tagReadersNode).strictReader
 }
 
@@ -158,7 +146,7 @@ func (r *tagReadersTree) GetStrictReader(tags v1.Strings) <-chan Tag {
 // * <-chan Tag - Read Only copy of the strict reader if it exists. Otherwise will be nil
 func (r *tagReadersTree) GetSubsetReader(tags v1.Strings) <-chan Tag {
 	// won't return an error
-	treeItem, _ := r.readers.FindOrCreate(tags, "", newTagReadersNode(make(chan Tag), false))
+	treeItem, _ := r.readers.FindOrCreate(tags, "", newTagReadersNode(false))
 	return treeItem.(*tagReadersNode).reader
 }
 
@@ -167,18 +155,12 @@ func (r *tagReadersTree) GetSubsetReader(tags v1.Strings) <-chan Tag {
 // RETURNS:
 // * []<-chan Tag - Read Only copy of any readers that match any tags
 func (r *tagReadersTree) GetAnyReaders(tags v1.Strings) []<-chan Tag {
-	potentialReader := map[<-chan Tag]struct{}{}
 	readers := []<-chan Tag{}
 
-	newReader := make(chan Tag)
 	for _, tag := range tags {
 		// won't return an error
-		treeItem, _ := r.readers.FindOrCreate(v1.Strings{tag}, "", newTagReadersNode(newReader, false))
-		potentialReader[treeItem.(*tagReadersNode).reader] = struct{}{}
-	}
-
-	for reader, _ := range potentialReader {
-		readers = append(readers, reader)
+		treeItem, _ := r.readers.FindOrCreate(v1.Strings{tag}, "", newTagReadersNode(false))
+		readers = append(readers, treeItem.(*tagReadersNode).reader)
 	}
 
 	return readers

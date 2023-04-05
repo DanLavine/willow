@@ -1,8 +1,11 @@
 package memory
 
 import (
+	"context"
 	"testing"
+	"time"
 
+	"github.com/DanLavine/goasync"
 	"github.com/DanLavine/willow/internal/errors"
 	v1 "github.com/DanLavine/willow/pkg/models/v1"
 	. "github.com/onsi/gomega"
@@ -107,5 +110,200 @@ func TestMemoryQueue_Enqueue(t *testing.T) {
 		err := queue.Enqueue(zap.NewNop(), enqueueItemNotUpdateable)
 		g.Expect(err).To(HaveOccurred())
 		g.Expect(err).To(Equal(errors.MaxEnqueuedItems))
+	})
+}
+
+func TestMemoryQueue_Readers(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	enqueueItem1 := v1.EnqueueItemRequest{
+		BrokerInfo: v1.BrokerInfo{
+			Name:       "test",
+			BrokerType: v1.Queue,
+			Tags:       v1.Strings{"a", "b", "c"},
+		},
+		Data:       []byte(`first`),
+		Updateable: false,
+	}
+	enqueueItem2 := v1.EnqueueItemRequest{
+		BrokerInfo: v1.BrokerInfo{
+			Name:       "test",
+			BrokerType: v1.Queue,
+			Tags:       v1.Strings{"b", "c", "d"},
+		},
+		Data:       []byte(`first`),
+		Updateable: false,
+	}
+	enqueueItem3 := v1.EnqueueItemRequest{
+		BrokerInfo: v1.BrokerInfo{
+			Name:       "test",
+			BrokerType: v1.Queue,
+			Tags:       v1.Strings{"c", "d", "e"},
+		},
+		Data:       []byte(`first`),
+		Updateable: false,
+	}
+
+	// setup the queue with a proper item
+	setupQueue := func(g *GomegaWithT) *Queue {
+		queue := NewQueue(createParams)
+		g.Expect(queue).ToNot(BeNil())
+
+		// run the queue in the background
+		taskManager := goasync.NewTaskManager(goasync.RelaxedConfig())
+		g.Expect(taskManager.AddExecuteTask("queue", queue)).ToNot(HaveOccurred())
+		go func() {
+			_ = taskManager.Run(context.Background())
+		}()
+
+		return queue
+	}
+
+	t.Run("it return nil if the match query is nil", func(t *testing.T) {
+		queue := setupQueue(g)
+		defer queue.Stop()
+
+		readers := queue.Readers(nil)
+		g.Expect(readers).To(BeNil())
+	})
+
+	t.Run("it return nil with an invalid MatchTagsRestrictions", func(t *testing.T) {
+		queue := setupQueue(g)
+		defer queue.Stop()
+
+		readers := queue.Readers(&v1.MatchQuery{MatchTagsRestrictions: 300})
+		g.Expect(readers).To(BeNil())
+	})
+
+	t.Run("it updates the processing count on metrics for the tag group", func(t *testing.T) {
+		queue := setupQueue(g)
+		defer queue.Stop()
+
+		// add an item in into the queue
+		g.Expect(queue.Enqueue(zap.NewNop(), enqueueItemNotUpdateable)).ToNot(HaveOccurred())
+
+		readers := queue.Readers(&v1.MatchQuery{MatchTagsRestrictions: v1.ALL})
+		g.Expect(len(readers)).To(Equal(1))
+
+		select {
+		case <-time.After(time.Second):
+			g.Fail("Failed to dequeue item")
+		case dequeueFunc := <-readers[0]:
+			dequeueFunc()
+		}
+
+		metrics := queue.Metrics()
+		g.Expect(metrics).ToNot(BeNil())
+		g.Expect(metrics).To(Equal(&v1.QueueMetricsResponse{Name: "test", Total: 1, Max: 5, Tags: []*v1.TagMetricsResponse{{Processing: 1, Ready: 0, Tags: v1.Strings{"not updateable"}}}}))
+	})
+
+	t.Run("STRICT match restrictions", func(t *testing.T) {
+		t.Run("only finds the reader for a message queue", func(t *testing.T) {
+			queue := setupQueue(g)
+			defer queue.Stop()
+
+			// add an item in into the queue
+			g.Expect(queue.Enqueue(zap.NewNop(), &enqueueItem1)).ToNot(HaveOccurred())
+			g.Expect(queue.Enqueue(zap.NewNop(), &enqueueItem2)).ToNot(HaveOccurred())
+			g.Expect(queue.Enqueue(zap.NewNop(), &enqueueItem3)).ToNot(HaveOccurred())
+
+			readers := queue.Readers(&v1.MatchQuery{MatchTagsRestrictions: v1.STRICT, Tags: v1.Strings{"a", "b", "c"}})
+			g.Expect(len(readers)).To(Equal(1))
+
+			var dequeuedItemResponses []*v1.DequeueItemResponse
+			select {
+			case <-time.After(time.Second):
+				g.Fail("Failed to dequeue item")
+			case dequeueFunc := <-readers[0]:
+				dequeuedItemResponses = append(dequeuedItemResponses, dequeueFunc())
+			}
+
+			g.Expect(dequeuedItemResponses).To(ContainElement(&v1.DequeueItemResponse{BrokerInfo: v1.BrokerInfo{Name: "test", BrokerType: v1.Queue, Tags: v1.Strings{"a", "b", "c"}}, ID: 1, Data: []byte(`first`)}))
+		})
+	})
+
+	t.Run("SUBSET match restrictions", func(t *testing.T) {
+		t.Run("it can find any message that matches the subset", func(t *testing.T) {
+			queue := setupQueue(g)
+			defer queue.Stop()
+
+			// add an item in into the queue
+			g.Expect(queue.Enqueue(zap.NewNop(), &enqueueItem1)).ToNot(HaveOccurred())
+			g.Expect(queue.Enqueue(zap.NewNop(), &enqueueItem2)).ToNot(HaveOccurred())
+			g.Expect(queue.Enqueue(zap.NewNop(), &enqueueItem3)).ToNot(HaveOccurred())
+
+			readers := queue.Readers(&v1.MatchQuery{MatchTagsRestrictions: v1.SUBSET, Tags: v1.Strings{"a", "c"}})
+			g.Expect(len(readers)).To(Equal(1))
+
+			var dequeuedItemResponses []*v1.DequeueItemResponse
+			select {
+			case <-time.After(time.Second):
+				g.Fail("Failed to dequeue item")
+			case dequeueFunc := <-readers[0]:
+				dequeuedItemResponses = append(dequeuedItemResponses, dequeueFunc())
+			}
+
+			g.Expect(dequeuedItemResponses).To(ContainElement(&v1.DequeueItemResponse{BrokerInfo: v1.BrokerInfo{Name: "test", BrokerType: v1.Queue, Tags: v1.Strings{"a", "b", "c"}}, ID: 1, Data: []byte(`first`)}))
+		})
+	})
+
+	t.Run("ANY match restrictions", func(t *testing.T) {
+		t.Run("it can find any message that matches one of the provided tags", func(t *testing.T) {
+			queue := setupQueue(g)
+			defer queue.Stop()
+
+			// add an item in into the queue
+			g.Expect(queue.Enqueue(zap.NewNop(), &enqueueItem1)).ToNot(HaveOccurred())
+			g.Expect(queue.Enqueue(zap.NewNop(), &enqueueItem2)).ToNot(HaveOccurred())
+			g.Expect(queue.Enqueue(zap.NewNop(), &enqueueItem3)).ToNot(HaveOccurred())
+
+			readers := queue.Readers(&v1.MatchQuery{MatchTagsRestrictions: v1.ANY, Tags: v1.Strings{"b"}})
+			g.Expect(len(readers)).To(Equal(1))
+
+			var dequeuedItemResponses []*v1.DequeueItemResponse
+			for i := 0; i < 2; i++ {
+				select {
+				case <-time.After(time.Second):
+					g.Fail("Failed to dequeue item")
+				case dequeueFunc := <-readers[0]:
+					dequeuedItemResponses = append(dequeuedItemResponses, dequeueFunc())
+				}
+			}
+
+			g.Expect(dequeuedItemResponses).To(ContainElement(&v1.DequeueItemResponse{BrokerInfo: v1.BrokerInfo{Name: "test", BrokerType: v1.Queue, Tags: v1.Strings{"a", "b", "c"}}, ID: 1, Data: []byte(`first`)}))
+			g.Expect(dequeuedItemResponses).To(ContainElement(&v1.DequeueItemResponse{BrokerInfo: v1.BrokerInfo{Name: "test", BrokerType: v1.Queue, Tags: v1.Strings{"b", "c", "d"}}, ID: 1, Data: []byte(`first`)}))
+		})
+	})
+
+	t.Run("ALL match restrictions", func(t *testing.T) {
+		t.Run("it can find any message regardless of tag groups", func(t *testing.T) {
+			queue := setupQueue(g)
+			defer queue.Stop()
+
+			// add an item in into the queue
+			g.Expect(queue.Enqueue(zap.NewNop(), enqueueItemNotUpdateable)).ToNot(HaveOccurred())
+
+			// add another item
+			item2 := *enqueueItemNotUpdateable
+			item2.BrokerInfo.Tags = v1.Strings{"another", "tag", "set"}
+			g.Expect(queue.Enqueue(zap.NewNop(), &item2)).ToNot(HaveOccurred())
+
+			readers := queue.Readers(&v1.MatchQuery{MatchTagsRestrictions: v1.ALL})
+			g.Expect(len(readers)).To(Equal(1))
+
+			var dequeuedItemResponses []*v1.DequeueItemResponse
+
+			for i := 0; i < 2; i++ {
+				select {
+				case <-time.After(time.Second):
+					g.Fail("Failed to dequeue item")
+				case dequeueFunc := <-readers[0]:
+					dequeuedItemResponses = append(dequeuedItemResponses, dequeueFunc())
+				}
+			}
+
+			g.Expect(dequeuedItemResponses).To(ContainElement(&v1.DequeueItemResponse{BrokerInfo: v1.BrokerInfo{Name: "test", BrokerType: v1.Queue, Tags: v1.Strings{"not updateable"}}, ID: 1, Data: []byte(`hello world`)}))
+			g.Expect(dequeuedItemResponses).To(ContainElement(&v1.DequeueItemResponse{BrokerInfo: v1.BrokerInfo{Name: "test", BrokerType: v1.Queue, Tags: v1.Strings{"another", "tag", "set"}}, ID: 1, Data: []byte(`hello world`)}))
+		})
 	})
 }
