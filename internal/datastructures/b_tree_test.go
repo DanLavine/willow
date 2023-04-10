@@ -37,7 +37,8 @@ func validateTree(g *GomegaWithT, bNode *bNode, parentKey TreeKey, less bool) {
 	}
 
 	var index int
-	for index = 0; index < len(bNode.values)-1; index++ {
+	for index = 0; index < bNode.numberOfValues-1; index++ {
+		// check parent key
 		if parentKey != nil {
 			if less {
 				g.Expect(bNode.values[index].key.Less(parentKey)).To(BeTrue())
@@ -46,14 +47,16 @@ func validateTree(g *GomegaWithT, bNode *bNode, parentKey TreeKey, less bool) {
 			}
 		}
 
+		// check current vllue is less than the next index
 		g.Expect(bNode.values[index].key.Less(bNode.values[index+1].key)).To(BeTrue())
 
-		if len(bNode.children) != 0 {
+		if bNode.numberOfChildren != 0 {
 			validateTree(g, bNode.children[index], bNode.values[index].key, true)
 		}
 	}
 
-	if len(bNode.children) != 0 {
+	// if there are any children, we need to check the last 2 indexes
+	if bNode.numberOfChildren != 0 {
 		validateTree(g, bNode.children[index], bNode.values[index].key, true)
 		validateTree(g, bNode.children[index+1], bNode.values[index].key, false)
 	}
@@ -63,22 +66,24 @@ var (
 	keyOne   = IntTreeKey(1)
 	keyTwo   = IntTreeKey(2)
 	keyThree = IntTreeKey(3)
+	keyFour  = IntTreeKey(4)
+	keyFive  = IntTreeKey(5)
 )
 
 func TestBTree_NewBTree(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	t.Run("returns an error if the order is to small", func(t *testing.T) {
+	t.Run("returns an error if the nodeSize is to small", func(t *testing.T) {
 		bTree, err := NewBTree(1)
 		g.Expect(err).To(HaveOccurred())
-		g.Expect(err.Error()).To(Equal("order must be greater than 1 for BTree"))
+		g.Expect(err.Error()).To(Equal("nodeSize must be greater than 1 for BTree"))
 		g.Expect(bTree).To(BeNil())
 	})
 
-	t.Run("returns an error if the order is to large", func(t *testing.T) {
+	t.Run("returns an error if the nodeSize is to large", func(t *testing.T) {
 		bTree, err := NewBTree(math.MaxInt)
 		g.Expect(err).To(HaveOccurred())
-		g.Expect(err.Error()).To(Equal(fmt.Sprintf("order must be 2 less than %d", math.MaxInt)))
+		g.Expect(err.Error()).To(Equal(fmt.Sprintf("nodeSize must be 2 less than %d", math.MaxInt)))
 		g.Expect(bTree).To(BeNil())
 	})
 }
@@ -95,7 +100,7 @@ func TestBTree_FindOrCreate_SingleNode(t *testing.T) {
 		g.Expect(err.Error()).To(Equal("failure"))
 		g.Expect(treeItem1).To(BeNil())
 
-		g.Expect(len(bTree.root.values)).To(Equal(0))
+		g.Expect(bTree.root.numberOfValues).To(Equal(0))
 	})
 
 	t.Run("creates a new tree with proper size limits", func(t *testing.T) {
@@ -107,7 +112,7 @@ func TestBTree_FindOrCreate_SingleNode(t *testing.T) {
 		treeItem2, err := bTree.FindOrCreate(keyTwo, "OnFind", newBTreeTester("2"))
 		g.Expect(err).ToNot(HaveOccurred())
 
-		g.Expect(len(bTree.root.values)).To(Equal(2))
+		g.Expect(bTree.root.numberOfValues).To(Equal(2))
 		g.Expect(bTree.root.values[0].key).To(Equal(keyOne))
 		g.Expect(bTree.root.values[0].item).To(Equal(treeItem1))
 		g.Expect(bTree.root.values[0].item.(*bTreeTester).value).To(Equal("1"))
@@ -128,12 +133,12 @@ func TestBTree_FindOrCreate_SingleNode(t *testing.T) {
 		g.Expect(err).ToNot(HaveOccurred())
 
 		g.Expect(treeItem1).To(Equal(treeItem2))
-		g.Expect(len(bTree.root.values)).To(Equal(1))
+		g.Expect(bTree.root.numberOfValues).To(Equal(1))
 		g.Expect(bTree.root.values[0].item.(*bTreeTester).value).To(Equal("1"))
 		g.Expect(bTree.root.values[0].item.(*bTreeTester).onFindCount).To(Equal(1))
 	})
 
-	t.Run("inserts the items in the proper order, no matter how they were added to the tree", func(t *testing.T) {
+	t.Run("inserts the items in the proper nodeSize, no matter how they were added to the tree", func(t *testing.T) {
 		bTree, err := NewBTree(2)
 		g.Expect(err).ToNot(HaveOccurred())
 
@@ -142,7 +147,7 @@ func TestBTree_FindOrCreate_SingleNode(t *testing.T) {
 		treeItem2, err := bTree.FindOrCreate(keyTwo, "OnFind", newBTreeTester("2"))
 		g.Expect(err).ToNot(HaveOccurred())
 
-		g.Expect(len(bTree.root.values)).To(Equal(2))
+		g.Expect(bTree.root.numberOfValues).To(Equal(2))
 		g.Expect(bTree.root.values[0].key).To(Equal(keyOne))
 		g.Expect(bTree.root.values[0].item).To(Equal(treeItem1))
 		g.Expect(bTree.root.values[0].item.(*bTreeTester).value).To(Equal("1"))
@@ -161,7 +166,7 @@ func TestBTree_FindOrCreate_SingleNode(t *testing.T) {
 		_, _ = bTree.FindOrCreate(keyOne, "OnFind", newBTreeTester("1"))
 		_, _ = bTree.FindOrCreate(keyOne, "OnFind", newBTreeTester("3"))
 
-		g.Expect(len(bTree.root.values)).To(Equal(2))
+		g.Expect(bTree.root.numberOfValues).To(Equal(2))
 		g.Expect(bTree.root.values[0].key).To(Equal(keyOne))
 		g.Expect(bTree.root.values[0].item.(*bTreeTester).value).To(Equal("1"))
 		g.Expect(bTree.root.values[0].item.(*bTreeTester).onFindCount).To(Equal(1))
@@ -181,18 +186,18 @@ func TestBTree_FindOrCreate_SingleNode(t *testing.T) {
 		treeItem1, err := bTree.FindOrCreate(keyOne, "OnFind", newBTreeTester("1"))
 		g.Expect(err).ToNot(HaveOccurred())
 
-		g.Expect(len(bTree.root.values)).To(Equal(1))
+		g.Expect(bTree.root.numberOfValues).To(Equal(1))
 		g.Expect(bTree.root.values[0].key).To(Equal(keyTwo))
 		g.Expect(bTree.root.values[0].item).To(Equal(treeItem2))
 
 		// left child
 		leftchild := bTree.root.children[0]
-		g.Expect(len(leftchild.values)).To(Equal(1))
+		g.Expect(leftchild.numberOfValues).To(Equal(1))
 		g.Expect(leftchild.values[0].key).To(Equal(keyOne))
 		g.Expect(leftchild.values[0].item).To(Equal(treeItem1))
 		// right child
 		rightchild := bTree.root.children[1]
-		g.Expect(len(rightchild.values)).To(Equal(1))
+		g.Expect(rightchild.numberOfValues).To(Equal(1))
 		g.Expect(rightchild.values[0].key).To(Equal(keyThree))
 		g.Expect(rightchild.values[0].item).To(Equal(treeItem3))
 	})
@@ -208,18 +213,18 @@ func TestBTree_FindOrCreate_SingleNode(t *testing.T) {
 		treeItem1, err := bTree.FindOrCreate(keyOne, "OnFind", newBTreeTester("1"))
 		g.Expect(err).ToNot(HaveOccurred())
 
-		g.Expect(len(bTree.root.values)).To(Equal(1))
+		g.Expect(bTree.root.numberOfValues).To(Equal(1))
 		g.Expect(bTree.root.values[0].key).To(Equal(keyTwo))
 		g.Expect(bTree.root.values[0].item).To(Equal(treeItem2))
 
 		// left child
 		leftchild := bTree.root.children[0]
-		g.Expect(len(leftchild.values)).To(Equal(1))
+		g.Expect(leftchild.numberOfValues).To(Equal(1))
 		g.Expect(leftchild.values[0].key).To(Equal(keyOne))
 		g.Expect(leftchild.values[0].item).To(Equal(treeItem1))
 		// right child
 		rightchild := bTree.root.children[1]
-		g.Expect(len(rightchild.values)).To(Equal(1))
+		g.Expect(rightchild.numberOfValues).To(Equal(1))
 		g.Expect(rightchild.values[0].key).To(Equal(keyThree))
 		g.Expect(rightchild.values[0].item).To(Equal(treeItem3))
 	})
@@ -235,18 +240,18 @@ func TestBTree_FindOrCreate_SingleNode(t *testing.T) {
 		treeItem3, err := bTree.FindOrCreate(keyThree, "OnFind", newBTreeTester("3"))
 		g.Expect(err).ToNot(HaveOccurred())
 
-		g.Expect(len(bTree.root.values)).To(Equal(1))
+		g.Expect(bTree.root.numberOfValues).To(Equal(1))
 		g.Expect(bTree.root.values[0].key).To(Equal(keyTwo))
 		g.Expect(bTree.root.values[0].item).To(Equal(treeItem2))
 
 		// left child
 		leftchild := bTree.root.children[0]
-		g.Expect(len(leftchild.values)).To(Equal(1))
+		g.Expect(leftchild.numberOfValues).To(Equal(1))
 		g.Expect(leftchild.values[0].key).To(Equal(keyOne))
 		g.Expect(leftchild.values[0].item).To(Equal(treeItem1))
 		// right child
 		rightchild := bTree.root.children[1]
-		g.Expect(len(rightchild.values)).To(Equal(1))
+		g.Expect(rightchild.numberOfValues).To(Equal(1))
 		g.Expect(rightchild.values[0].key).To(Equal(keyThree))
 		g.Expect(rightchild.values[0].item).To(Equal(treeItem3))
 	})
@@ -283,7 +288,7 @@ func TestBTree_FindOrCreate_Tree_SimpleOperations(t *testing.T) {
 		g.Expect(err).ToNot(HaveOccurred())
 
 		leftChild := bTree.root.children[0]
-		g.Expect(len(leftChild.values)).To(Equal(1))
+		g.Expect(leftChild.numberOfValues).To(Equal(1))
 		g.Expect(leftChild.values[0].item).To(Equal(treeItem))
 	})
 
@@ -294,7 +299,7 @@ func TestBTree_FindOrCreate_Tree_SimpleOperations(t *testing.T) {
 		g.Expect(err).ToNot(HaveOccurred())
 
 		rightChild := bTree.root.children[1]
-		g.Expect(len(rightChild.values)).To(Equal(1))
+		g.Expect(rightChild.numberOfValues).To(Equal(1))
 		g.Expect(rightChild.values[0].item).To(Equal(treeItem))
 	})
 
@@ -311,7 +316,7 @@ func TestBTree_FindOrCreate_Tree_SimpleOperations(t *testing.T) {
 		_, _ = bTree.FindOrCreate(key5, "OnFind", newBTreeTester("5"))
 
 		leftChild := bTree.root.children[0]
-		g.Expect(len(leftChild.values)).To(Equal(2))
+		g.Expect(leftChild.numberOfValues).To(Equal(2))
 		g.Expect(leftChild.values[0].key).To(Equal(key5))
 		g.Expect(leftChild.values[0].item.(*bTreeTester).value).To(Equal("5"))
 		g.Expect(leftChild.values[0].item.(*bTreeTester).onFindCount).To(Equal(0))
@@ -333,7 +338,7 @@ func TestBTree_FindOrCreate_Tree_SimpleOperations(t *testing.T) {
 		_, _ = bTree.FindOrCreate(key25, "OnFind", newBTreeTester("25"))
 
 		rightChild := bTree.root.children[1]
-		g.Expect(len(rightChild.values)).To(Equal(2))
+		g.Expect(rightChild.numberOfValues).To(Equal(2))
 		g.Expect(rightChild.values[0].key).To(Equal(key25))
 		g.Expect(rightChild.values[0].item.(*bTreeTester).value).To(Equal("25"))
 		g.Expect(rightChild.values[0].item.(*bTreeTester).onFindCount).To(Equal(0))
@@ -355,7 +360,7 @@ func TestBTree_FindOrCreate_Tree_SimpleOperations(t *testing.T) {
 		_, _ = bTree.FindOrCreate(key15, "OnFind", newBTreeTester("15"))
 
 		leftChild := bTree.root.children[0]
-		g.Expect(len(leftChild.values)).To(Equal(2))
+		g.Expect(leftChild.numberOfValues).To(Equal(2))
 		g.Expect(leftChild.values[0].key).To(Equal(key10))
 		g.Expect(leftChild.values[0].item.(*bTreeTester).value).To(Equal("10"))
 		g.Expect(leftChild.values[0].item.(*bTreeTester).onFindCount).To(Equal(0))
@@ -377,7 +382,7 @@ func TestBTree_FindOrCreate_Tree_SimpleOperations(t *testing.T) {
 		_, _ = bTree.FindOrCreate(key35, "OnFind", newBTreeTester("35"))
 
 		rightChild := bTree.root.children[1]
-		g.Expect(len(rightChild.values)).To(Equal(2))
+		g.Expect(rightChild.numberOfValues).To(Equal(2))
 		g.Expect(rightChild.values[0].key).To(Equal(key30))
 		g.Expect(rightChild.values[0].item.(*bTreeTester).value).To(Equal("30"))
 		g.Expect(rightChild.values[0].item.(*bTreeTester).onFindCount).To(Equal(0))
@@ -433,21 +438,21 @@ func TestBTree_FindOrCreate_Tree_SimplePromoteOperations(t *testing.T) {
 			treeItem, err := bTree.FindOrCreate(key8, "OnFind", newBTreeTester("8"))
 			g.Expect(err).ToNot(HaveOccurred())
 
-			g.Expect(len(bTree.root.values)).To(Equal(2))
+			g.Expect(bTree.root.numberOfValues).To(Equal(2))
 			g.Expect(bTree.root.values[0].key).To(Equal(key10))
 			g.Expect(bTree.root.values[1].key).To(Equal(key20))
 
 			child1 := bTree.root.children[0]
-			g.Expect(len(child1.values)).To(Equal(1))
+			g.Expect(child1.numberOfValues).To(Equal(1))
 			g.Expect(child1.values[0].key).To(Equal(key8))
 			g.Expect(child1.values[0].item).To(Equal(treeItem))
 
 			child2 := bTree.root.children[1]
-			g.Expect(len(child2.values)).To(Equal(1))
+			g.Expect(child2.numberOfValues).To(Equal(1))
 			g.Expect(child2.values[0].key).To(Equal(key15))
 
 			child3 := bTree.root.children[2]
-			g.Expect(len(child3.values)).To(Equal(1))
+			g.Expect(child3.numberOfValues).To(Equal(1))
 			g.Expect(child3.values[0].key).To(Equal(key30))
 		})
 
@@ -463,21 +468,21 @@ func TestBTree_FindOrCreate_Tree_SimplePromoteOperations(t *testing.T) {
 			treeItem, err := bTree.FindOrCreate(key12, "OnFind", newBTreeTester("12"))
 			g.Expect(err).ToNot(HaveOccurred())
 
-			g.Expect(len(bTree.root.values)).To(Equal(2))
+			g.Expect(bTree.root.numberOfValues).To(Equal(2))
 			g.Expect(bTree.root.values[0].key).To(Equal(key12))
 			g.Expect(bTree.root.values[0].item).To(Equal(treeItem))
 			g.Expect(bTree.root.values[1].key).To(Equal(key20))
 
 			child1 := bTree.root.children[0]
-			g.Expect(len(child1.values)).To(Equal(1))
+			g.Expect(child1.numberOfValues).To(Equal(1))
 			g.Expect(child1.values[0].key).To(Equal(key10))
 
 			child2 := bTree.root.children[1]
-			g.Expect(len(child2.values)).To(Equal(1))
+			g.Expect(child2.numberOfValues).To(Equal(1))
 			g.Expect(child2.values[0].key).To(Equal(key15))
 
 			child3 := bTree.root.children[2]
-			g.Expect(len(child3.values)).To(Equal(1))
+			g.Expect(child3.numberOfValues).To(Equal(1))
 			g.Expect(child3.values[0].key).To(Equal(key30))
 		})
 
@@ -493,21 +498,21 @@ func TestBTree_FindOrCreate_Tree_SimplePromoteOperations(t *testing.T) {
 			treeItem, err := bTree.FindOrCreate(key17, "OnFind", newBTreeTester("17"))
 			g.Expect(err).ToNot(HaveOccurred())
 
-			g.Expect(len(bTree.root.values)).To(Equal(2))
+			g.Expect(bTree.root.numberOfValues).To(Equal(2))
 			g.Expect(bTree.root.values[0].key).To(Equal(key15))
 			g.Expect(bTree.root.values[1].key).To(Equal(key20))
 
 			child1 := bTree.root.children[0]
-			g.Expect(len(child1.values)).To(Equal(1))
+			g.Expect(child1.numberOfValues).To(Equal(1))
 			g.Expect(child1.values[0].key).To(Equal(key10))
 
 			child2 := bTree.root.children[1]
-			g.Expect(len(child2.values)).To(Equal(1))
+			g.Expect(child2.numberOfValues).To(Equal(1))
 			g.Expect(child2.values[0].key).To(Equal(key17))
 			g.Expect(child2.values[0].item).To(Equal(treeItem))
 
 			child3 := bTree.root.children[2]
-			g.Expect(len(child3.values)).To(Equal(1))
+			g.Expect(child3.numberOfValues).To(Equal(1))
 			g.Expect(child3.values[0].key).To(Equal(key30))
 		})
 	})
@@ -550,21 +555,21 @@ func TestBTree_FindOrCreate_Tree_SimplePromoteOperations(t *testing.T) {
 			treeItem, err := bTree.FindOrCreate(key25, "OnFind", newBTreeTester("25"))
 			g.Expect(err).ToNot(HaveOccurred())
 
-			g.Expect(len(bTree.root.values)).To(Equal(2))
+			g.Expect(bTree.root.numberOfValues).To(Equal(2))
 			g.Expect(bTree.root.values[0].key).To(Equal(key20))
 			g.Expect(bTree.root.values[1].key).To(Equal(key30))
 
 			child1 := bTree.root.children[0]
-			g.Expect(len(child1.values)).To(Equal(1))
+			g.Expect(child1.numberOfValues).To(Equal(1))
 			g.Expect(child1.values[0].key).To(Equal(key10))
 
 			child2 := bTree.root.children[1]
-			g.Expect(len(child2.values)).To(Equal(1))
+			g.Expect(child2.numberOfValues).To(Equal(1))
 			g.Expect(child2.values[0].key).To(Equal(key25))
 			g.Expect(child2.values[0].item).To(Equal(treeItem))
 
 			child3 := bTree.root.children[2]
-			g.Expect(len(child3.values)).To(Equal(1))
+			g.Expect(child3.numberOfValues).To(Equal(1))
 			g.Expect(child3.values[0].key).To(Equal(key35))
 		})
 
@@ -580,21 +585,21 @@ func TestBTree_FindOrCreate_Tree_SimplePromoteOperations(t *testing.T) {
 			treeItem, err := bTree.FindOrCreate(key32, "OnFind", newBTreeTester("32"))
 			g.Expect(err).ToNot(HaveOccurred())
 
-			g.Expect(len(bTree.root.values)).To(Equal(2))
+			g.Expect(bTree.root.numberOfValues).To(Equal(2))
 			g.Expect(bTree.root.values[0].key).To(Equal(key20))
 			g.Expect(bTree.root.values[1].key).To(Equal(key32))
 			g.Expect(bTree.root.values[1].item).To(Equal(treeItem))
 
 			child1 := bTree.root.children[0]
-			g.Expect(len(child1.values)).To(Equal(1))
+			g.Expect(child1.numberOfValues).To(Equal(1))
 			g.Expect(child1.values[0].key).To(Equal(key10))
 
 			child2 := bTree.root.children[1]
-			g.Expect(len(child2.values)).To(Equal(1))
+			g.Expect(child2.numberOfValues).To(Equal(1))
 			g.Expect(child2.values[0].key).To(Equal(key30))
 
 			child3 := bTree.root.children[2]
-			g.Expect(len(child3.values)).To(Equal(1))
+			g.Expect(child3.numberOfValues).To(Equal(1))
 			g.Expect(child3.values[0].key).To(Equal(key35))
 		})
 
@@ -610,20 +615,20 @@ func TestBTree_FindOrCreate_Tree_SimplePromoteOperations(t *testing.T) {
 			treeItem, err := bTree.FindOrCreate(key37, "OnFind", newBTreeTester("37"))
 			g.Expect(err).ToNot(HaveOccurred())
 
-			g.Expect(len(bTree.root.values)).To(Equal(2))
+			g.Expect(bTree.root.numberOfValues).To(Equal(2))
 			g.Expect(bTree.root.values[0].key).To(Equal(key20))
 			g.Expect(bTree.root.values[1].key).To(Equal(key35))
 
 			child1 := bTree.root.children[0]
-			g.Expect(len(child1.values)).To(Equal(1))
+			g.Expect(child1.numberOfValues).To(Equal(1))
 			g.Expect(child1.values[0].key).To(Equal(key10))
 
 			child2 := bTree.root.children[1]
-			g.Expect(len(child2.values)).To(Equal(1))
+			g.Expect(child2.numberOfValues).To(Equal(1))
 			g.Expect(child2.values[0].key).To(Equal(key30))
 
 			child3 := bTree.root.children[2]
-			g.Expect(len(child3.values)).To(Equal(1))
+			g.Expect(child3.numberOfValues).To(Equal(1))
 			g.Expect(child3.values[0].key).To(Equal(key37))
 			g.Expect(child3.values[0].item).To(Equal(treeItem))
 		})
@@ -662,22 +667,22 @@ func TestBTree_FindOrCreate_Tree_NewRootNode(t *testing.T) {
 		bTree.FindOrCreate(key25, "OnFind", newBTreeTester("25"))
 		bTree.FindOrCreate(key45, "OnFind", newBTreeTester("45"))
 
-		g.Expect(len(bTree.root.values)).To(Equal(2))
+		g.Expect(bTree.root.numberOfValues).To(Equal(2))
 		g.Expect(bTree.root.values[0].key).To(Equal(key20))
 		g.Expect(bTree.root.values[1].key).To(Equal(key40))
 
 		child1 := bTree.root.children[0]
-		g.Expect(len(child1.values)).To(Equal(2))
+		g.Expect(child1.numberOfValues).To(Equal(2))
 		g.Expect(child1.values[0].key).To(Equal(key5))
 		g.Expect(child1.values[1].key).To(Equal(key10))
 
 		child2 := bTree.root.children[1]
-		g.Expect(len(child2.values)).To(Equal(2))
+		g.Expect(child2.numberOfValues).To(Equal(2))
 		g.Expect(child2.values[0].key).To(Equal(key25))
 		g.Expect(child2.values[1].key).To(Equal(key30))
 
 		child3 := bTree.root.children[2]
-		g.Expect(len(child3.values)).To(Equal(2))
+		g.Expect(child3.numberOfValues).To(Equal(2))
 		g.Expect(child3.values[0].key).To(Equal(key45))
 		g.Expect(child3.values[1].key).To(Equal(key50))
 
@@ -699,35 +704,35 @@ func TestBTree_FindOrCreate_Tree_NewRootNode(t *testing.T) {
 		treeItem, err := bTree.FindOrCreate(key0, "OnFind", newBTreeTester("0"))
 		g.Expect(err).ToNot(HaveOccurred())
 
-		g.Expect(len(bTree.root.values)).To(Equal(1))
+		g.Expect(bTree.root.numberOfValues).To(Equal(1))
 		g.Expect(bTree.root.values[0].key).To(Equal(key20))
 
 		// left sub stree
 		child1 := bTree.root.children[0]
-		g.Expect(len(child1.values)).To(Equal(1))
+		g.Expect(child1.numberOfValues).To(Equal(1))
 		g.Expect(child1.values[0].key).To(Equal(key5))
 
 		gchild1 := child1.children[0]
-		g.Expect(len(gchild1.values)).To(Equal(1))
+		g.Expect(gchild1.numberOfValues).To(Equal(1))
 		g.Expect(gchild1.values[0].key).To(Equal(key0))
 		g.Expect(gchild1.values[0].item).To(Equal(treeItem))
 
 		gchild2 := child1.children[1]
-		g.Expect(len(gchild2.values)).To(Equal(1))
+		g.Expect(gchild2.numberOfValues).To(Equal(1))
 		g.Expect(gchild2.values[0].key).To(Equal(key10))
 
 		// right sub tree
 		child2 := bTree.root.children[1]
-		g.Expect(len(child2.values)).To(Equal(1))
+		g.Expect(child2.numberOfValues).To(Equal(1))
 		g.Expect(child2.values[0].key).To(Equal(key40))
 
 		gchild1 = child2.children[0]
-		g.Expect(len(gchild1.values)).To(Equal(2))
+		g.Expect(gchild1.numberOfValues).To(Equal(2))
 		g.Expect(gchild1.values[0].key).To(Equal(key25))
 		g.Expect(gchild1.values[1].key).To(Equal(key30))
 
 		gchild2 = child2.children[1]
-		g.Expect(len(gchild2.values)).To(Equal(2))
+		g.Expect(gchild2.numberOfValues).To(Equal(2))
 		g.Expect(gchild2.values[0].key).To(Equal(key45))
 		g.Expect(gchild2.values[1].key).To(Equal(key50))
 	})
@@ -747,35 +752,35 @@ func TestBTree_FindOrCreate_Tree_NewRootNode(t *testing.T) {
 		treeItem, err := bTree.FindOrCreate(key22, "OnFind", newBTreeTester("22"))
 		g.Expect(err).ToNot(HaveOccurred())
 
-		g.Expect(len(bTree.root.values)).To(Equal(1))
+		g.Expect(bTree.root.numberOfValues).To(Equal(1))
 		g.Expect(bTree.root.values[0].key).To(Equal(key25))
 
 		// left sub stree
 		child1 := bTree.root.children[0]
-		g.Expect(len(child1.values)).To(Equal(1))
+		g.Expect(child1.numberOfValues).To(Equal(1))
 		g.Expect(child1.values[0].key).To(Equal(key20))
 
 		gchild1 := child1.children[0]
-		g.Expect(len(gchild1.values)).To(Equal(2))
+		g.Expect(gchild1.numberOfValues).To(Equal(2))
 		g.Expect(gchild1.values[0].key).To(Equal(key5))
 		g.Expect(gchild1.values[1].key).To(Equal(key10))
 
 		gchild2 := child1.children[1]
-		g.Expect(len(gchild2.values)).To(Equal(1))
+		g.Expect(gchild2.numberOfValues).To(Equal(1))
 		g.Expect(gchild2.values[0].key).To(Equal(key22))
 		g.Expect(gchild2.values[0].item).To(Equal(treeItem))
 
 		// right sub tree
 		child2 := bTree.root.children[1]
-		g.Expect(len(child2.values)).To(Equal(1))
+		g.Expect(child2.numberOfValues).To(Equal(1))
 		g.Expect(child2.values[0].key).To(Equal(key40))
 
 		gchild1 = child2.children[0]
-		g.Expect(len(gchild1.values)).To(Equal(1))
+		g.Expect(gchild1.numberOfValues).To(Equal(1))
 		g.Expect(gchild1.values[0].key).To(Equal(key30))
 
 		gchild2 = child2.children[1]
-		g.Expect(len(gchild2.values)).To(Equal(2))
+		g.Expect(gchild2.numberOfValues).To(Equal(2))
 		g.Expect(gchild2.values[0].key).To(Equal(key45))
 		g.Expect(gchild2.values[1].key).To(Equal(key50))
 	})
@@ -785,7 +790,7 @@ func TestBTree_FindOrCreate_Tree_NewRootNode(t *testing.T) {
 	 *              40
 	 *         /         \
 	 *        20         47
-	 *      /    \        /   \
+	 *      /    \      /   \
 	 *    5,10  25,30  45   50
 	 */
 	t.Run("adding the right promotes properly", func(t *testing.T) {
@@ -795,36 +800,36 @@ func TestBTree_FindOrCreate_Tree_NewRootNode(t *testing.T) {
 		treeItem, err := bTree.FindOrCreate(key47, "OnFind", newBTreeTester("47"))
 		g.Expect(err).ToNot(HaveOccurred())
 
-		g.Expect(len(bTree.root.values)).To(Equal(1))
+		g.Expect(bTree.root.numberOfValues).To(Equal(1))
 		g.Expect(bTree.root.values[0].key).To(Equal(key40))
 
 		// left sub stree
 		child1 := bTree.root.children[0]
-		g.Expect(len(child1.values)).To(Equal(1))
+		g.Expect(child1.numberOfValues).To(Equal(1))
 		g.Expect(child1.values[0].key).To(Equal(key20))
 
 		gchild1 := child1.children[0]
-		g.Expect(len(gchild1.values)).To(Equal(2))
+		g.Expect(gchild1.numberOfValues).To(Equal(2))
 		g.Expect(gchild1.values[0].key).To(Equal(key5))
 		g.Expect(gchild1.values[1].key).To(Equal(key10))
 
 		gchild2 := child1.children[1]
-		g.Expect(len(gchild2.values)).To(Equal(2))
+		g.Expect(gchild2.numberOfValues).To(Equal(2))
 		g.Expect(gchild2.values[0].key).To(Equal(key25))
 		g.Expect(gchild2.values[1].key).To(Equal(key30))
 
 		// right sub tree
 		child2 := bTree.root.children[1]
-		g.Expect(len(child2.values)).To(Equal(1))
+		g.Expect(child2.numberOfValues).To(Equal(1))
 		g.Expect(child2.values[0].key).To(Equal(key47))
 		g.Expect(child2.values[0].item).To(Equal(treeItem))
 
 		gchild1 = child2.children[0]
-		g.Expect(len(gchild1.values)).To(Equal(1))
+		g.Expect(gchild1.numberOfValues).To(Equal(1))
 		g.Expect(gchild1.values[0].key).To(Equal(key45))
 
 		gchild2 = child2.children[1]
-		g.Expect(len(gchild2.values)).To(Equal(1))
+		g.Expect(gchild2.numberOfValues).To(Equal(1))
 		g.Expect(gchild2.values[0].key).To(Equal(key50))
 	})
 }
@@ -832,7 +837,7 @@ func TestBTree_FindOrCreate_Tree_NewRootNode(t *testing.T) {
 func TestBTree_RandomAssertion(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	t.Run("works for a tree order of 2", func(t *testing.T) {
+	t.Run("works for a tree nodeSize of 2", func(t *testing.T) {
 		bTree, err := NewBTree(2)
 		g.Expect(err).ToNot(HaveOccurred())
 
@@ -846,7 +851,7 @@ func TestBTree_RandomAssertion(t *testing.T) {
 		validateTree(g, bTree.root, nil, true)
 	})
 
-	t.Run("works for a tree order of 3", func(t *testing.T) {
+	t.Run("works for a tree nodeSize of 3", func(t *testing.T) {
 		bTree, err := NewBTree(3)
 		g.Expect(err).ToNot(HaveOccurred())
 
@@ -860,7 +865,7 @@ func TestBTree_RandomAssertion(t *testing.T) {
 		validateTree(g, bTree.root, nil, true)
 	})
 
-	t.Run("works for a tree order of 4", func(t *testing.T) {
+	t.Run("works for a tree nodeSize of 4", func(t *testing.T) {
 		bTree, err := NewBTree(4)
 		g.Expect(err).ToNot(HaveOccurred())
 

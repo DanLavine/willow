@@ -9,7 +9,7 @@ import (
 	"sync"
 )
 
-// BTree is a 2-3-4 tree implementation of a generic BTree.
+// BTree is a generic 2-3-4 Btree implementation.
 // See https://www.geeksforgeeks.org/2-3-4-tree/ for details on what a 2-3-4 tree is
 type BTree interface {
 	// Find the item in the Tree and option to run the OnFind() function for a TreeItem. will be nil if it does not exists
@@ -37,9 +37,8 @@ type BTree interface {
 	// Iterate over the tree and for each value found invoke the callback with the node's value
 	Iterate(callback func(value any))
 
-	// Remove an item in the Tree
-	// TODO
-	//Remove(key TreeKey)
+	// Delete an item in the Tree
+	Delete(key TreeKey)
 }
 
 // BRoot contains the root to the btree. As part of the split operation on inserts and
@@ -48,8 +47,8 @@ type BTree interface {
 type BRoot struct {
 	lock *sync.RWMutex
 
-	order int
-	root  *bNode
+	nodeSize int
+	root     *bNode
 }
 
 // bNode is the internal node for a BTree. Each node in the tree is a bNode and stores
@@ -57,8 +56,11 @@ type BRoot struct {
 type bNode struct {
 	lock *sync.RWMutex
 
-	values   []*value // the items for this node
-	children []*bNode // children for this node
+	numberOfValues int      // number of current values set. Cannot use len(values) since nil counts in that list
+	values         []*value // the items for this node
+
+	numberOfChildren int      // number of current chidlrent set. Cannot use len(children) since nil counts in that list
+	children         []*bNode // children for this node
 }
 
 type value struct {
@@ -69,32 +71,32 @@ type value struct {
 // create a new BTree.
 //
 // PARAMS:
-// * order - how many values to store in each node. order must be at leas 2
+// * nodeSize - how many values to store in each node. must be at least 2
 //
 // RETURNS:
 // * BRoot - root of the BTree that is thread safe for any number of goroutines
-// * error - an error if the order is not acceptable
-func NewBTree(order int) (*BRoot, error) {
-	if order <= 1 {
-		return nil, fmt.Errorf("order must be greater than 1 for BTree")
+// * error - an error if the nodeSize is not acceptable
+func NewBTree(nodeSize int) (*BRoot, error) {
+	if nodeSize <= 1 {
+		return nil, fmt.Errorf("nodeSize must be greater than 1 for BTree")
 	}
 
-	if order >= math.MaxInt-2 {
-		return nil, fmt.Errorf("order must be 2 less than %d", math.MaxInt)
+	if nodeSize >= math.MaxInt-2 {
+		return nil, fmt.Errorf("nodeSize must be 2 less than %d", math.MaxInt)
 	}
 
 	return &BRoot{
-		lock:  new(sync.RWMutex),
-		order: order,
-		root:  nil, // NOTE: this is nil because it can be removed on a "delete". So that case always needs to be handled
+		lock:     new(sync.RWMutex),
+		nodeSize: nodeSize,
+		root:     nil, // NOTE: this is nil because it can be removed on a "delete". So that case always needs to be handled
 	}, nil
 }
 
-func newBTreeNode(order int) *bNode {
+func newBTreeNode(nodeSize int) *bNode {
 	return &bNode{
 		lock:     new(sync.RWMutex),
-		values:   make([]*value, 0, order+1), // set len and cap calls to be constant
-		children: make([]*bNode, 0, order+2), // set len and cap calls to be constant
+		values:   make([]*value, nodeSize+1, nodeSize+1), // set len and cap calls to be constant
+		children: make([]*bNode, nodeSize+2, nodeSize+2), // set len and cap calls to be constant
 	}
 }
 
@@ -119,20 +121,12 @@ func (bn *bNode) iterate(callback func(value any)) {
 	bn.lock.RLock()
 	defer bn.lock.RUnlock()
 
-	for _, value := range bn.values {
-		if value == nil {
-			break
-		}
-
-		callback(value.item)
+	for i := 0; i < bn.numberOfValues; i++ {
+		callback(bn.values[i].item)
 	}
 
-	for _, child := range bn.children {
-		if child == nil {
-			break
-		}
-
-		child.iterate(callback)
+	for i := 0; i < bn.numberOfChildren; i++ {
+		bn.children[i].iterate(callback)
 	}
 }
 
@@ -158,7 +152,9 @@ func (ttr *BRoot) Find(key TreeKey, onFind string) any {
 
 // find an item from the tree if it exists
 func (bn *bNode) find(key TreeKey, onFind string) any {
-	for index, value := range bn.values {
+	for index := 0; index < bn.numberOfValues; index++ {
+		value := bn.values[index]
+
 		if !value.key.Less(key) {
 			if !key.Less(value.key) {
 				if onFind != "" {
@@ -167,7 +163,7 @@ func (bn *bNode) find(key TreeKey, onFind string) any {
 				return value.item
 			}
 
-			if len(bn.children) == 0 {
+			if bn.numberOfChildren == 0 {
 				return nil
 			}
 
@@ -175,11 +171,11 @@ func (bn *bNode) find(key TreeKey, onFind string) any {
 		}
 	}
 
-	if len(bn.children) == 0 {
+	if bn.numberOfChildren == 0 {
 		return nil
 	}
 
-	return bn.children[len(bn.children)-1].find(key, onFind)
+	return bn.children[bn.numberOfChildren-1].find(key, onFind)
 }
 
 // Inserts the item if it does not already exist. Otherwise the original item already in the
@@ -212,10 +208,10 @@ func (ttr *BRoot) FindOrCreate(key TreeKey, onFind string, onCreate func() (any,
 	defer ttr.lock.Unlock()
 
 	if ttr.root == nil {
-		ttr.root = newBTreeNode(ttr.order)
+		ttr.root = newBTreeNode(ttr.nodeSize)
 	}
 
-	returnItem, err, newRoot := ttr.root.findOrCreate(ttr.order, key, onFind, onCreate)
+	returnItem, err, newRoot := ttr.root.findOrCreate(ttr.nodeSize, key, onFind, onCreate)
 	if newRoot != nil {
 		ttr.root = newRoot
 	}
@@ -231,11 +227,11 @@ func (ttr *BRoot) FindOrCreate(key TreeKey, onFind string, onCreate func() (any,
 // RETURNS:
 // * TreeItem - the value inserted or item if it already existed
 // * *bNode - a new node if there was a split
-func (bn *bNode) findOrCreate(order int, key TreeKey, onFind string, onCreate func() (any, error)) (any, error, *bNode) {
+func (bn *bNode) findOrCreate(nodeSize int, key TreeKey, onFind string, onCreate func() (any, error)) (any, error, *bNode) {
 	bn.lock.Lock()
 	defer bn.lock.Unlock()
 
-	switch len(bn.children) {
+	switch bn.numberOfChildren {
 	case 0: // leaf node
 		item, err := bn.createTreeItem(key, onFind, onCreate)
 		if err != nil {
@@ -243,14 +239,16 @@ func (bn *bNode) findOrCreate(order int, key TreeKey, onFind string, onCreate fu
 		}
 
 		// need to split node
-		if len(bn.values) > order {
-			return item, nil, bn.splitLeaf(order)
+		if bn.numberOfValues > nodeSize {
+			return item, nil, bn.splitLeaf(nodeSize)
 		}
 
 		return item, nil, nil
 	default: // internal node
 		var index int
-		for _, value := range bn.values {
+		for index = 0; index < bn.numberOfValues; index++ {
+			value := bn.values[index]
+
 			if !value.key.Less(key) {
 				// item already exists, return the original value
 				if !key.Less(value.key) {
@@ -265,20 +263,18 @@ func (bn *bNode) findOrCreate(order int, key TreeKey, onFind string, onCreate fu
 				// found index
 				break
 			}
-
-			index++
 		}
 
-		//  will be the found index, or last child index (right child)
-		item, err, node := bn.children[index].findOrCreate(order, key, onFind, onCreate)
+		//  will be the found or created on the last child index (right child)
+		item, err, node := bn.children[index].findOrCreate(nodeSize, key, onFind, onCreate)
 		if err != nil {
 			return nil, err, nil
 		}
 
 		if node != nil {
 			bn.insertNode(node)
-			if len(bn.values) > order {
-				return item, nil, bn.splitNode(order)
+			if bn.numberOfValues > nodeSize {
+				return item, nil, bn.splitNode(nodeSize)
 			}
 		}
 
@@ -292,7 +288,10 @@ func (bn *bNode) findOrCreate(order int, key TreeKey, onFind string, onCreate fu
 // * key - tree key value
 // * item - item to be saved and returned on a Find
 func (bn *bNode) createTreeItem(key TreeKey, onFind string, onCreate func() (any, error)) (any, error) {
-	for index, currentValue := range bn.values {
+	var index int
+	for index = 0; index < bn.numberOfValues; index++ {
+		currentValue := bn.values[index]
+
 		if !currentValue.key.Less(key) {
 			// item already exists, return the original value
 			if !key.Less(currentValue.key) {
@@ -303,18 +302,12 @@ func (bn *bNode) createTreeItem(key TreeKey, onFind string, onCreate func() (any
 				return currentValue.item, nil
 			}
 
-			item, err := onCreate()
-			if err != nil {
-				return nil, err
+			// shift current items all 1 position
+			for i := bn.numberOfValues; i > index; i-- {
+				bn.values[i] = bn.values[i-1]
 			}
 
-			// shift current items all 1 position
-			bn.values = append(bn.values[:index+1], bn.values[index:]...)
-			// overwrite value
-			newValue := &value{key: key, item: item}
-			bn.values[index] = newValue
-
-			return newValue.item, nil
+			break
 		}
 	}
 
@@ -323,9 +316,9 @@ func (bn *bNode) createTreeItem(key TreeKey, onFind string, onCreate func() (any
 		return nil, err
 	}
 
-	newValue := &value{key: key, item: item}
-	bn.values = append(bn.values, newValue)
-	return newValue.item, nil
+	bn.numberOfValues++
+	bn.values[index] = &value{key: key, item: item}
+	return item, nil
 }
 
 // insertTreeItem is called only on "leaf" nodes when splitting a node
@@ -334,19 +327,51 @@ func (bn *bNode) createTreeItem(key TreeKey, onFind string, onCreate func() (any
 // * key - tree key value
 // * item - item to be saved and returned on a Find
 func (bn *bNode) insertTreeItem(key TreeKey, item any) any {
-	for index, currentValue := range bn.values {
+	var index int
+	for index = 0; index < bn.numberOfValues; index++ {
+		currentValue := bn.values[index]
+
 		if !currentValue.key.Less(key) {
 			// shift current items all 1 position
-			bn.values = append(bn.values[:index+1], bn.values[index:]...)
+			for i := bn.numberOfValues + 1; i > index; i-- {
+				bn.values[i] = bn.values[i-1]
+			}
+
 			// overwrite value
 			bn.values[index] = &value{key: key, item: item}
+			bn.numberOfValues++
 
 			return item
 		}
 	}
 
-	bn.values = append(bn.values, &value{key: key, item: item})
+	bn.values[index] = &value{key: key, item: item}
+	bn.numberOfValues++
 	return item
+}
+
+// copyTreeItem is called when rebalancing nodes
+//
+// PARAMS:
+// * treeItem - tree item to copy
+func (bn *bNode) copyTreeItem(treeItem *value) {
+	var index int
+	for index = 0; index < bn.numberOfValues; index++ {
+		currentValue := bn.values[index]
+
+		if !currentValue.key.Less(treeItem.key) {
+			// shift current items all 1 position
+			for i := bn.numberOfValues + 1; i > index; i-- {
+				bn.values[i] = bn.values[i-1]
+			}
+
+			break
+		}
+	}
+
+	// save value
+	bn.values[index] = treeItem
+	bn.numberOfValues++
 }
 
 // splitLeaf is called only on "leaf" nodes and reurns a new node with 1 value and 2 children
@@ -357,22 +382,23 @@ func (bn *bNode) insertTreeItem(key TreeKey, item any) any {
 // RETURNS:
 // * TreeItem - tree item to be inserted or original item if found
 // * bNode - new "root" node of the split nodes. Will be nil if original item is found
-func (bn *bNode) splitLeaf(order int) *bNode {
-	pivotIndex := order / 2
+func (bn *bNode) splitLeaf(nodeSize int) *bNode {
+	pivotIndex := nodeSize / 2
 
 	// 1. create the new nodes
-	parentNode := newBTreeNode(order)
+	parentNode := newBTreeNode(nodeSize)
 	parentNode.insertTreeItem(bn.values[pivotIndex].key, bn.values[pivotIndex].item)
+	parentNode.numberOfChildren = 2
 
 	// 2. create left node
-	parentNode.children = append(parentNode.children, newBTreeNode(order))
+	parentNode.children[0] = newBTreeNode(nodeSize)
 	for i := 0; i < pivotIndex; i++ {
 		_ = parentNode.children[0].insertTreeItem(bn.values[i].key, bn.values[i].item)
 	}
 
 	// 3. create right node
-	parentNode.children = append(parentNode.children, newBTreeNode(order))
-	for i := pivotIndex + 1; i <= order; i++ {
+	parentNode.children[1] = newBTreeNode(nodeSize)
+	for i := pivotIndex + 1; i <= nodeSize; i++ {
 		_ = parentNode.children[1].insertTreeItem(bn.values[i].key, bn.values[i].item)
 	}
 
@@ -381,27 +407,39 @@ func (bn *bNode) splitLeaf(order int) *bNode {
 
 // insertNode is called only on "internal" nodes who have space for a promoted node value
 func (bn *bNode) insertNode(node *bNode) {
-	for index, value := range bn.values {
+	if node.numberOfChildren == 0 && node.numberOfValues == 0 {
+		return
+	}
+
+	var index int
+	for index = 0; index < bn.numberOfValues; index++ {
+		value := bn.values[index]
+
 		if node.values[0].key.Less(value.key) {
 			// shift current items all 1 position
-			bn.values = append(bn.values[:index+1], bn.values[index:]...)
-			bn.children = append(bn.children[:index+1], bn.children[index:]...)
-			// overwrite value and children
-			bn.values[index] = node.values[0]
-			bn.children[index] = node.children[0]
-			bn.children[index+1] = node.children[1]
+			for i := bn.numberOfValues; i > index; i-- {
+				bn.values[i] = bn.values[i-1]
+			}
 
-			return
+			for i := bn.numberOfChildren; i > index; i-- {
+				bn.children[i] = bn.children[i-1]
+			}
+
+			break
 		}
 	}
 
-	if len(bn.values) == 0 {
-		bn.values = append(bn.values, node.values[0])
-		bn.children = append(bn.children, node.children...)
-	} else {
-		bn.values = append(bn.values, node.values[0])
-		bn.children = bn.children[:len(bn.children)-1]
-		bn.children = append(bn.children, node.children...)
+	// adding a node to the end
+	bn.values[index] = node.values[0]
+	bn.children[index] = node.children[0]
+	bn.children[index+1] = node.children[1]
+
+	if bn.values[index] != nil {
+		bn.numberOfValues++
+	}
+
+	if bn.children[index] != nil {
+		bn.numberOfChildren++
 	}
 }
 
@@ -414,29 +452,34 @@ func (bn *bNode) insertNode(node *bNode) {
 // RETURNS:
 // * TreeItem - tree item to be inserted or original item if found
 // * bNode - new "root" node of the split nodes. Will be nil if original item is found
-func (bn *bNode) splitNode(order int) *bNode {
-	pivotIndex := order / 2
+func (bn *bNode) splitNode(nodeSize int) *bNode {
+	pivotIndex := nodeSize / 2
 
 	// 1. create the new nodes
-	parentNode := newBTreeNode(order)
+	parentNode := newBTreeNode(nodeSize)
 	parentNode.insertTreeItem(bn.values[pivotIndex].key, bn.values[pivotIndex].item)
+	parentNode.numberOfChildren = 2
 
 	// 2. create left nodes
-	parentNode.children = append(parentNode.children, newBTreeNode(order))
+	parentNode.children[0] = newBTreeNode(nodeSize)
 	var index int
 	for index = 0; index < pivotIndex; index++ {
 		_ = parentNode.children[0].insertTreeItem(bn.values[index].key, bn.values[index].item)
-		parentNode.children[0].children = append(parentNode.children[0].children, bn.children[index])
+		parentNode.children[0].children[index] = bn.children[index]
+		parentNode.children[0].numberOfChildren++
 	}
-	parentNode.children[0].children = append(parentNode.children[0].children, bn.children[index])
+	parentNode.children[0].children[index] = bn.children[index]
+	parentNode.children[0].numberOfChildren++
 
 	// 2. create right nodes
-	parentNode.children = append(parentNode.children, newBTreeNode(order))
-	for index = pivotIndex + 1; index <= order; index++ {
+	parentNode.children[1] = newBTreeNode(nodeSize)
+	for index = pivotIndex + 1; index <= nodeSize; index++ {
 		_ = parentNode.children[1].insertTreeItem(bn.values[index].key, bn.values[index].item)
-		parentNode.children[1].children = append(parentNode.children[1].children, bn.children[index])
+		parentNode.children[1].children[index-pivotIndex-1] = bn.children[index]
+		parentNode.children[1].numberOfChildren++
 	}
-	parentNode.children[1].children = append(parentNode.children[1].children, bn.children[index])
+	parentNode.children[1].numberOfChildren++
+	parentNode.children[1].children[index-pivotIndex-1] = bn.children[index]
 
 	return parentNode
 }
