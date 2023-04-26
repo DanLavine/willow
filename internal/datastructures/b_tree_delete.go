@@ -130,30 +130,28 @@ func (bn *bNode) rebalance(childIndex int) {
 		if bn.children[childIndex+1].numberOfValues > bn.minValues() {
 			// rotate a value from right to left
 			bn.rotateLeft(childIndex)
-		} else {
-			// merge nodes down
-			bn.mergeDown(childIndex)
+			return
 		}
 	case bn.numberOfChildren - 1: // can only look to the left children
 		if bn.children[childIndex-1].numberOfValues > bn.minValues() {
 			// rotate a value from left to right
 			bn.rotateRightNew(childIndex)
-		} else {
-			// merge nodes down
-			bn.mergeDown(childIndex)
+			return
 		}
 	default: // can look to both left and right children
 		if bn.children[childIndex+1].numberOfValues > bn.minValues() {
 			// rotate a value from right to left
 			bn.rotateLeft(childIndex)
+			return
 		} else if bn.children[childIndex-1].numberOfValues > bn.minValues() {
 			// rotate a value from left to right
 			bn.rotateRightNew(childIndex)
-		} else {
-			// merge the nodes down
-			bn.mergeDown(childIndex)
+			return
 		}
 	}
+
+	// merge nodes down
+	bn.mergeDown(childIndex)
 }
 
 // Rotate left can be used to rotate a value from a right child tree into a left child tree
@@ -169,10 +167,16 @@ func (bn *bNode) rebalance(childIndex int) {
 // PARAMS:
 // * rotateChildIndex - left index that will need a value to be rotated into it
 func (bn *bNode) rotateLeft(rotateChildIndex int) {
+	child := bn.children[rotateChildIndex]
+
 	// perform rotation
-	bn.children[rotateChildIndex].copyTreeItem(bn.values[rotateChildIndex])                                   // copy current value into left child tree
-	bn.children[rotateChildIndex].children[bn.numberOfChildren] = bn.children[rotateChildIndex+1].children[0] // copy right children to left children if they are there
-	bn.values[rotateChildIndex] = bn.children[rotateChildIndex+1].values[0]                                   // move right child to new nodes values
+	child.copyTreeItem(bn.values[rotateChildIndex])                                      // copy current value into left child tree
+	child.children[child.numberOfChildren] = bn.children[rotateChildIndex+1].children[0] // copy right children to left children if they are there
+	bn.values[rotateChildIndex] = bn.children[rotateChildIndex+1].values[0]              // move right child to new nodes values
+
+	if child.numberOfChildren != 0 {
+		child.numberOfChildren++
+	}
 
 	// shift right child left 1, removing the 0 indexes now they have been rotated to the left child and new values
 	bn.children[rotateChildIndex+1].shiftNodeLeft(0, 1)
@@ -193,11 +197,13 @@ func (bn *bNode) rotateLeft(rotateChildIndex int) {
 // PARAMS:
 // * rotateChildIndex - right index that will need a value to be rotated into it
 func (bn *bNode) rotateRightNew(rotateChildIndex int) {
-	bn.children[rotateChildIndex].shiftNodeRight(0, 1) // shift all right child elements right 1
+	child := bn.children[rotateChildIndex]
 
-	bn.children[rotateChildIndex].values[0] = bn.values[rotateChildIndex-1]                 // copy current value into the right child
-	bn.children[rotateChildIndex].children[0] = bn.children[rotateChildIndex-1].lastChild() // copy left's greatest value children to the right
-	bn.values[rotateChildIndex-1] = bn.children[rotateChildIndex-1].lastValue()             // copy the left child's greates value into current value
+	child.shiftNodeRight(0, 1) // shift all right child elements right 1
+
+	child.values[0] = bn.values[rotateChildIndex-1]                             // copy current value into the right child
+	child.children[0] = bn.children[rotateChildIndex-1].lastChild()             // copy left's greatest value children to the right
+	bn.values[rotateChildIndex-1] = bn.children[rotateChildIndex-1].lastValue() // copy the left child's greates value into current value
 
 	// drop the greatest value and children of the left child
 	bn.children[rotateChildIndex-1].dropGreatest()

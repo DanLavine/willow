@@ -6,24 +6,6 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var (
-	key0  = IntTreeKey(0)
-	key1  = IntTreeKey(1)
-	key2  = IntTreeKey(2)
-	key3  = IntTreeKey(3)
-	key4  = IntTreeKey(4)
-	key5  = IntTreeKey(5)
-	key6  = IntTreeKey(6)
-	key7  = IntTreeKey(7)
-	key7  = IntTreeKey(8)
-	key7  = IntTreeKey(9)
-	key10 = IntTreeKey(10)
-	key20 = IntTreeKey(20)
-	key30 = IntTreeKey(30)
-	key40 = IntTreeKey(40)
-	key50 = IntTreeKey(50)
-)
-
 func TestBTree_Delete_ShiftNode(t *testing.T) {
 	g := NewGomegaWithT(t)
 
@@ -769,435 +751,481 @@ func TestBTree_Delete_HeightTwo(t *testing.T) {
 	})
 }
 
-// TODO this is the start tomorrow
 func TestBTree_Delete_HeightThreeAndAbove(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	// Each test will start with a tree like
-	//       2,5
-	//   /    |   \
-	//  0,1  3,4  6,7
+	//
+	//                40,80
+	//       /          |         \
+	//    20,35        60,75      100,120
+	//   /  |   \     /  |  \    /   |   \
+	//  10, 30 ,38   50  70 78  90  110  130
 	setupTree := func(g *GomegaWithT) *BRoot {
 		bTree, err := NewBTree(2)
 		g.Expect(err).ToNot(HaveOccurred())
 
-		_, _ = bTree.FindOrCreate(key0, "OnFind", newBTreeTester("0"))
-		_, _ = bTree.FindOrCreate(key1, "OnFind", newBTreeTester("1"))
-		_, _ = bTree.FindOrCreate(key2, "OnFind", newBTreeTester("2"))
-		_, _ = bTree.FindOrCreate(key3, "OnFind", newBTreeTester("3"))
-		_, _ = bTree.FindOrCreate(key4, "OnFind", newBTreeTester("4"))
-		_, _ = bTree.FindOrCreate(key5, "OnFind", newBTreeTester("5"))
-		_, _ = bTree.FindOrCreate(key6, "OnFind", newBTreeTester("6"))
-		_, _ = bTree.FindOrCreate(key7, "OnFind", newBTreeTester("7"))
-		_, _ = bTree.FindOrCreate(key8, "OnFind", newBTreeTester("8"))
-		_, _ = bTree.FindOrCreate(key9, "OnFind", newBTreeTester("9"))
 		_, _ = bTree.FindOrCreate(key10, "OnFind", newBTreeTester("10"))
+		_, _ = bTree.FindOrCreate(key20, "OnFind", newBTreeTester("20"))
+		_, _ = bTree.FindOrCreate(key30, "OnFind", newBTreeTester("30"))
+		_, _ = bTree.FindOrCreate(key40, "OnFind", newBTreeTester("40"))
+		_, _ = bTree.FindOrCreate(key50, "OnFind", newBTreeTester("50"))
+		_, _ = bTree.FindOrCreate(key60, "OnFind", newBTreeTester("60"))
+		_, _ = bTree.FindOrCreate(key70, "OnFind", newBTreeTester("70"))
+
+		//  fill in left tree
+		_, _ = bTree.FindOrCreate(key35, "OnFind", newBTreeTester("35"))
+		_, _ = bTree.FindOrCreate(key38, "OnFind", newBTreeTester("38"))
+
+		_, _ = bTree.FindOrCreate(key80, "OnFind", newBTreeTester("80"))
+		_, _ = bTree.FindOrCreate(key90, "OnFind", newBTreeTester("90"))
+		_, _ = bTree.FindOrCreate(key100, "OnFind", newBTreeTester("100"))
+		_, _ = bTree.FindOrCreate(key110, "OnFind", newBTreeTester("110"))
+
+		// fill in middle tree
+		_, _ = bTree.FindOrCreate(key75, "OnFind", newBTreeTester("75"))
+		_, _ = bTree.FindOrCreate(key78, "OnFind", newBTreeTester("78"))
+
+		// fill in right tree
+		_, _ = bTree.FindOrCreate(key120, "OnFind", newBTreeTester("120"))
+		_, _ = bTree.FindOrCreate(key130, "OnFind", newBTreeTester("130"))
 
 		g.Expect(bTree.root.numberOfValues).To(Equal(2))
-		g.Expect(bTree.root.values[0].key).To(Equal(key2))
-		g.Expect(bTree.root.values[1].key).To(Equal(key5))
-
 		g.Expect(bTree.root.numberOfChildren).To(Equal(3))
+		g.Expect(bTree.root.values[0].key).To(Equal(key40))
+		g.Expect(bTree.root.values[1].key).To(Equal(key80))
 
+		// left tree
 		child1 := bTree.root.children[0]
-		g.Expect(child1.numberOfChildren).To(Equal(0))
+		g.Expect(child1.numberOfChildren).To(Equal(3))
 		g.Expect(child1.numberOfValues).To(Equal(2))
-		g.Expect(child1.values[0].key).To(Equal(key0))
-		g.Expect(child1.values[1].key).To(Equal(key1))
+		g.Expect(child1.values[0].key).To(Equal(key20))
+		g.Expect(child1.values[1].key).To(Equal(key35))
 
+		gchild1_1 := child1.children[0]
+		g.Expect(gchild1_1.numberOfChildren).To(Equal(0))
+		g.Expect(gchild1_1.numberOfValues).To(Equal(1))
+		g.Expect(gchild1_1.values[0].key).To(Equal(key10))
+
+		gchild1_2 := child1.children[1]
+		g.Expect(gchild1_2.numberOfChildren).To(Equal(0))
+		g.Expect(gchild1_2.numberOfValues).To(Equal(1))
+		g.Expect(gchild1_2.values[0].key).To(Equal(key30))
+
+		gchild1_3 := child1.children[2]
+		g.Expect(gchild1_3.numberOfChildren).To(Equal(0))
+		g.Expect(gchild1_3.numberOfValues).To(Equal(1))
+		g.Expect(gchild1_3.values[0].key).To(Equal(key38))
+
+		// middle tree
 		child2 := bTree.root.children[1]
-		g.Expect(child2.numberOfChildren).To(Equal(0))
+		g.Expect(child2.numberOfChildren).To(Equal(3))
 		g.Expect(child2.numberOfValues).To(Equal(2))
-		g.Expect(child2.values[0].key).To(Equal(key3))
-		g.Expect(child2.values[1].key).To(Equal(key4))
+		g.Expect(child2.values[0].key).To(Equal(key60))
+		g.Expect(child2.values[1].key).To(Equal(key75))
 
+		gchild2_1 := child2.children[0]
+		g.Expect(gchild2_1.numberOfChildren).To(Equal(0))
+		g.Expect(gchild2_1.numberOfValues).To(Equal(1))
+		g.Expect(gchild2_1.values[0].key).To(Equal(key50))
+
+		gchild2_2 := child2.children[1]
+		g.Expect(gchild2_2.numberOfChildren).To(Equal(0))
+		g.Expect(gchild2_2.numberOfValues).To(Equal(1))
+		g.Expect(gchild2_2.values[0].key).To(Equal(key70))
+
+		gchild2_3 := child2.children[2]
+		g.Expect(gchild2_3.numberOfChildren).To(Equal(0))
+		g.Expect(gchild2_3.numberOfValues).To(Equal(1))
+		g.Expect(gchild2_3.values[0].key).To(Equal(key78))
+
+		// right tree
 		child3 := bTree.root.children[2]
-		g.Expect(child3.numberOfChildren).To(Equal(0))
+		g.Expect(child3.numberOfChildren).To(Equal(3))
 		g.Expect(child3.numberOfValues).To(Equal(2))
-		g.Expect(child3.values[0].key).To(Equal(key6))
-		g.Expect(child3.values[1].key).To(Equal(key7))
+		g.Expect(child3.values[0].key).To(Equal(key100))
+		g.Expect(child3.values[1].key).To(Equal(key120))
+
+		gchild3_1 := child3.children[0]
+		g.Expect(gchild3_1.numberOfChildren).To(Equal(0))
+		g.Expect(gchild3_1.numberOfValues).To(Equal(1))
+		g.Expect(gchild3_1.values[0].key).To(Equal(key90))
+
+		gchild3_2 := child3.children[1]
+		g.Expect(gchild3_2.numberOfChildren).To(Equal(0))
+		g.Expect(gchild3_2.numberOfValues).To(Equal(1))
+		g.Expect(gchild3_2.values[0].key).To(Equal(key110))
+
+		gchild3_3 := child3.children[2]
+		g.Expect(gchild3_3.numberOfChildren).To(Equal(0))
+		g.Expect(gchild3_3.numberOfValues).To(Equal(1))
+		g.Expect(gchild3_3.values[0].key).To(Equal(key130))
 
 		return bTree
 	}
 
-	t.Run("swapping top layer keys", func(t *testing.T) {
-		t.Run("removing left keys swaps with the left child", func(t *testing.T) {
+	t.Run("swapping internal node keys", func(t *testing.T) {
+		t.Run("it choses the left child's greates value when the child nodes have the same number of values", func(t *testing.T) {
 			// final tree
-			//       1,5
-			//     /  |   \
-			//    0  3,4  6,7
+			//
+			//              38,80
+			//       /        |         \
+			//     20       60,75      100,120
+			//   /   \     /  |  \    /   |   \
+			//  10, 30,35  50  70 78  90  110  130
 			bTree := setupTree(g)
 
-			bTree.Delete(key2)
-			g.Expect(bTree.root.numberOfValues).To(Equal(2))
-			g.Expect(bTree.root.values[0].key).To(Equal(key1))
-			g.Expect(bTree.root.values[1].key).To(Equal(key5))
+			bTree.Delete(key40)
+			g.Expect(bTree.root.values[0].key).To(Equal(key38))
+			g.Expect(bTree.root.values[1].key).To(Equal(key80))
 
 			child1 := bTree.root.children[0]
+			g.Expect(child1.numberOfChildren).To(Equal(2))
 			g.Expect(child1.numberOfValues).To(Equal(1))
-			g.Expect(child1.numberOfChildren).To(Equal(0))
-			g.Expect(child1.values[0].key).To(Equal(key0))
+			g.Expect(child1.values[0].key).To(Equal(key20))
 
-			child2 := bTree.root.children[1]
-			g.Expect(child2.numberOfValues).To(Equal(2))
-			g.Expect(child2.numberOfChildren).To(Equal(0))
-			g.Expect(child2.values[0].key).To(Equal(key3))
-			g.Expect(child2.values[1].key).To(Equal(key4))
+			gchild1_1 := child1.children[0]
+			g.Expect(gchild1_1.numberOfChildren).To(Equal(0))
+			g.Expect(gchild1_1.numberOfValues).To(Equal(1))
+			g.Expect(gchild1_1.values[0].key).To(Equal(key10))
 
-			child3 := bTree.root.children[2]
-			g.Expect(child3.numberOfValues).To(Equal(2))
-			g.Expect(child3.numberOfChildren).To(Equal(0))
-			g.Expect(child3.values[0].key).To(Equal(key6))
-			g.Expect(child3.values[1].key).To(Equal(key7))
+			gchild1_2 := child1.children[1]
+			g.Expect(gchild1_2.numberOfChildren).To(Equal(0))
+			g.Expect(gchild1_2.numberOfValues).To(Equal(2))
+			g.Expect(gchild1_2.values[0].key).To(Equal(key30))
+			g.Expect(gchild1_2.values[1].key).To(Equal(key35))
+
+			// validate the rest of tree
+			validateTree(g, bTree.root, nil, false)
 		})
 
-		t.Run("removing a right key swaps with the left key first", func(t *testing.T) {
+		t.Run("the right child's smalles value is chosen iff the left child has less values", func(t *testing.T) {
 			// final tree
-			//       2,4
-			//     /  |   \
-			//    0,1 3  6,7
+			//
+			//              50,80
+			//       /        |         \
+			//     20        75      100,120
+			//   /   \      /  \    /   |   \
+			//  10, 30,35 60,70 78  90  110  130
 			bTree := setupTree(g)
 
-			bTree.Delete(key5)
-			g.Expect(bTree.root.numberOfValues).To(Equal(2))
-			g.Expect(bTree.root.values[0].key).To(Equal(key2))
-			g.Expect(bTree.root.values[1].key).To(Equal(key4))
+			bTree.Delete(key40)
+			bTree.Delete(key38)
+			g.Expect(bTree.root.values[0].key).To(Equal(key50))
+			g.Expect(bTree.root.values[1].key).To(Equal(key80))
 
-			child1 := bTree.root.children[0]
-			g.Expect(child1.numberOfValues).To(Equal(2))
-			g.Expect(child1.numberOfChildren).To(Equal(0))
-			g.Expect(child1.values[0].key).To(Equal(key0))
-			g.Expect(child1.values[1].key).To(Equal(key1))
+			child1 := bTree.root.children[1]
+			g.Expect(child1.numberOfChildren).To(Equal(2))
+			g.Expect(child1.numberOfValues).To(Equal(1))
+			g.Expect(child1.values[0].key).To(Equal(key75))
 
-			child2 := bTree.root.children[1]
-			g.Expect(child2.numberOfValues).To(Equal(1))
-			g.Expect(child2.numberOfChildren).To(Equal(0))
-			g.Expect(child2.values[0].key).To(Equal(key3))
+			gchild1_1 := child1.children[0]
+			g.Expect(gchild1_1.numberOfChildren).To(Equal(0))
+			g.Expect(gchild1_1.numberOfValues).To(Equal(2))
+			g.Expect(gchild1_1.values[0].key).To(Equal(key60))
+			g.Expect(gchild1_1.values[1].key).To(Equal(key70))
 
-			child3 := bTree.root.children[2]
-			g.Expect(child3.numberOfValues).To(Equal(2))
-			g.Expect(child3.numberOfChildren).To(Equal(0))
-			g.Expect(child3.values[0].key).To(Equal(key6))
-			g.Expect(child3.values[1].key).To(Equal(key7))
-		})
+			gchild1_2 := child1.children[1]
+			g.Expect(gchild1_2.numberOfChildren).To(Equal(0))
+			g.Expect(gchild1_2.numberOfValues).To(Equal(1))
+			g.Expect(gchild1_2.values[0].key).To(Equal(key78))
 
-		t.Run("removing a key swaps with the right as a last resort", func(t *testing.T) {
-			// final tree
-			//       2,6
-			//     /  |  \
-			//    0,1 3   7
-			bTree := setupTree(g)
-
-			bTree.Delete(key5)
-			bTree.Delete(key4)
-			g.Expect(bTree.root.numberOfValues).To(Equal(2))
-			g.Expect(bTree.root.values[0].key).To(Equal(key2))
-			g.Expect(bTree.root.values[1].key).To(Equal(key6))
-
-			child1 := bTree.root.children[0]
-			g.Expect(child1.numberOfValues).To(Equal(2))
-			g.Expect(child1.numberOfChildren).To(Equal(0))
-			g.Expect(child1.values[0].key).To(Equal(key0))
-			g.Expect(child1.values[1].key).To(Equal(key1))
-
-			child2 := bTree.root.children[1]
-			g.Expect(child2.numberOfValues).To(Equal(1))
-			g.Expect(child2.numberOfChildren).To(Equal(0))
-			g.Expect(child2.values[0].key).To(Equal(key3))
-
-			child3 := bTree.root.children[2]
-			g.Expect(child3.numberOfValues).To(Equal(1))
-			g.Expect(child3.numberOfChildren).To(Equal(0))
-			g.Expect(child3.values[0].key).To(Equal(key7))
+			// validate the rest of tree
+			validateTree(g, bTree.root, nil, false)
 		})
 	})
 
-	t.Run("rotating single layer keys", func(t *testing.T) {
-		// Each test will start with a tree like
-		//       2,5
-		//   /    |   \
-		//  0,1  3,4  6,7
-		setupTree := func(g *GomegaWithT) *BRoot {
-			bTree, err := NewBTree(2)
-			g.Expect(err).ToNot(HaveOccurred())
+	t.Run("when internal nodes are below minimum required values", func(t *testing.T) {
+		t.Run("it can rotate a right value left with children", func(t *testing.T) {
+			bTree := setupTree(g)
+			// setup tree
+			//              40,80
+			//       /        |         \
+			//     35        60,75      100,120
+			//   /   \     /  |  \    /   |   \
+			//  30   38   50  70 78  90  110  130
+			bTree.Delete(key10)
+			bTree.Delete(key20)
+			validateTree(g, bTree.root, nil, false)
 
-			_, _ = bTree.FindOrCreate(key1, "OnFind", newBTreeTester("1"))
-			_, _ = bTree.FindOrCreate(key2, "OnFind", newBTreeTester("2"))
-			_, _ = bTree.FindOrCreate(key3, "OnFind", newBTreeTester("3"))
-			_, _ = bTree.FindOrCreate(key0, "OnFind", newBTreeTester("0"))
-			_, _ = bTree.FindOrCreate(key6, "OnFind", newBTreeTester("6"))
-			_, _ = bTree.FindOrCreate(key5, "OnFind", newBTreeTester("5"))
-			_, _ = bTree.FindOrCreate(key4, "OnFind", newBTreeTester("4"))
-			_, _ = bTree.FindOrCreate(key7, "OnFind", newBTreeTester("7"))
-
+			// deleting anything on left tree (in this case 35) to merge down to the left and look like so:
+			//            40,80
+			//       /      |         \
+			//[  empty]   60,75      100,120
+			//   /       /  |  \    /   |   \
+			//  30,38  38   50  70 78  90  110  130
+			//
+			//
+			// with a final rotation seting up the final tree:
+			//              60,80
+			//       /        |         \
+			//     40        75       100,120
+			//    /   \     /  \    /   |   \
+			// 30,38   50  70  78  90  110  130
+			bTree.Delete(key35)
 			g.Expect(bTree.root.numberOfValues).To(Equal(2))
-			g.Expect(bTree.root.values[0].key).To(Equal(key2))
-			g.Expect(bTree.root.values[1].key).To(Equal(key5))
-
 			g.Expect(bTree.root.numberOfChildren).To(Equal(3))
+			g.Expect(bTree.root.values[0].key).To(Equal(key60))
+			g.Expect(bTree.root.values[1].key).To(Equal(key80))
 
 			child1 := bTree.root.children[0]
-			g.Expect(child1.numberOfChildren).To(Equal(0))
-			g.Expect(child1.numberOfValues).To(Equal(2))
-			g.Expect(child1.values[0].key).To(Equal(key0))
-			g.Expect(child1.values[1].key).To(Equal(key1))
+			g.Expect(child1.numberOfChildren).To(Equal(2))
+			g.Expect(child1.numberOfValues).To(Equal(1))
+			g.Expect(child1.values[0].key).To(Equal(key40))
+
+			gchild1_1 := child1.children[0]
+			g.Expect(gchild1_1.numberOfChildren).To(Equal(0))
+			g.Expect(gchild1_1.numberOfValues).To(Equal(2))
+			g.Expect(gchild1_1.values[0].key).To(Equal(key30))
+			g.Expect(gchild1_1.values[1].key).To(Equal(key38))
+
+			gchild1_2 := child1.children[1]
+			g.Expect(gchild1_2.numberOfChildren).To(Equal(0))
+			g.Expect(gchild1_2.numberOfValues).To(Equal(1))
+			g.Expect(gchild1_2.values[0].key).To(Equal(key50))
 
 			child2 := bTree.root.children[1]
-			g.Expect(child2.numberOfChildren).To(Equal(0))
+			g.Expect(child2.numberOfChildren).To(Equal(2))
+			g.Expect(child2.numberOfValues).To(Equal(1))
+			g.Expect(child2.values[0].key).To(Equal(key75))
+
+			gchild2_1 := child2.children[0]
+			g.Expect(gchild2_1.numberOfChildren).To(Equal(0))
+			g.Expect(gchild2_1.numberOfValues).To(Equal(1))
+			g.Expect(gchild2_1.values[0].key).To(Equal(key70))
+
+			gchild2_2 := child2.children[1]
+			g.Expect(gchild2_2.numberOfChildren).To(Equal(0))
+			g.Expect(gchild2_2.numberOfValues).To(Equal(1))
+			g.Expect(gchild2_2.values[0].key).To(Equal(key78))
+
+			// validate the rest of tree
+			validateTree(g, bTree.root, nil, false)
+		})
+
+		t.Run("it can rotate a left value right with children", func(t *testing.T) {
+			bTree := setupTree(g)
+			// setup tree
+			//               40,80
+			//        /        |      \
+			//    20,35      60,75     100
+			//   /  |  \    /  |  \   /  \
+			//  10 30 38  50  70 78  90   110
+			bTree.Delete(key120)
+			bTree.Delete(key130)
+			validateTree(g, bTree.root, nil, false)
+
+			// deleting anything on right tree (in this case 110) to merge down to the left and look like so:
+			//               40,80
+			//        /        |         \
+			//    20,35      60,75      [empty]
+			//   /  |  \    /  |  \     /
+			//  10 30 38  50  70 78  90,100
+			//
+			//
+			// with a final rotation seting up the final tree:
+			//              40,75
+			//        /       |       \
+			//    20,35      60 			80
+			//   /  |  \    /  \    /   \
+			//  10 30 38   50  70  78  90,100
+			bTree.Delete(key110)
+			g.Expect(bTree.root.numberOfValues).To(Equal(2))
+			g.Expect(bTree.root.numberOfChildren).To(Equal(3))
+			g.Expect(bTree.root.values[0].key).To(Equal(key40))
+			g.Expect(bTree.root.values[1].key).To(Equal(key75))
+
+			child2 := bTree.root.children[1]
+			g.Expect(child2.numberOfChildren).To(Equal(2))
+			g.Expect(child2.numberOfValues).To(Equal(1))
+			g.Expect(child2.values[0].key).To(Equal(key60))
+
+			gchild2_1 := child2.children[0]
+			g.Expect(gchild2_1.numberOfChildren).To(Equal(0))
+			g.Expect(gchild2_1.numberOfValues).To(Equal(1))
+			g.Expect(gchild2_1.values[0].key).To(Equal(key50))
+
+			gchild2_2 := child2.children[1]
+			g.Expect(gchild2_2.numberOfChildren).To(Equal(0))
+			g.Expect(gchild2_2.numberOfValues).To(Equal(1))
+			g.Expect(gchild2_2.values[0].key).To(Equal(key70))
+
+			child3 := bTree.root.children[2]
+			g.Expect(child3.numberOfChildren).To(Equal(2))
+			g.Expect(child3.numberOfValues).To(Equal(1))
+			g.Expect(child3.values[0].key).To(Equal(key80))
+
+			gchild3_1 := child3.children[0]
+			g.Expect(gchild3_1.numberOfChildren).To(Equal(0))
+			g.Expect(gchild3_1.numberOfValues).To(Equal(1))
+			g.Expect(gchild3_1.values[0].key).To(Equal(key78))
+
+			gchild3_2 := child3.children[1]
+			g.Expect(gchild3_2.numberOfChildren).To(Equal(0))
+			g.Expect(gchild3_2.numberOfValues).To(Equal(2))
+			g.Expect(gchild3_2.values[0].key).To(Equal(key90))
+			g.Expect(gchild3_2.values[1].key).To(Equal(key100))
+
+			// validate the rest of tree
+			validateTree(g, bTree.root, nil, false)
+		})
+
+		t.Run("it can merge a parent value down when the left is under the required minimum values", func(t *testing.T) {
+			bTree := setupTree(g)
+			// setup tree
+			//               40,80
+			//       /          |         \
+			//      35         75      100,120
+			//   /     \     /    \    /   |   \
+			//  30     38   70    78  90  110  130
+			bTree.Delete(key10)
+			bTree.Delete(key20)
+			bTree.Delete(key50)
+			bTree.Delete(key60)
+			validateTree(g, bTree.root, nil, false)
+
+			// deleting anything on left or middle tree (in this case 30) to merge down to the left and look like so:
+			//               40,80
+			//       /          |         \
+			//    [empty]      75      100,120
+			//   /           /    \    /   |   \
+			//  35,38      70    78  90  110  130
+			//
+			//
+			// with a final merge seting up the final tree:
+			//              80
+			//         /          \
+			//       40,75      100,120
+			//     /   |  \    /   |   \
+			//  35,38 70  78  90  110  130
+			bTree.Delete(key30)
+			g.Expect(bTree.root.numberOfValues).To(Equal(1))
+			g.Expect(bTree.root.numberOfChildren).To(Equal(2))
+			g.Expect(bTree.root.values[0].key).To(Equal(key80))
+
+			// left child
+			child1 := bTree.root.children[00]
+			g.Expect(child1.numberOfChildren).To(Equal(3))
+			g.Expect(child1.numberOfValues).To(Equal(2))
+			g.Expect(child1.values[0].key).To(Equal(key40))
+			g.Expect(child1.values[1].key).To(Equal(key75))
+
+			gchild1_1 := child1.children[0]
+			g.Expect(gchild1_1.numberOfChildren).To(Equal(0))
+			g.Expect(gchild1_1.numberOfValues).To(Equal(2))
+			g.Expect(gchild1_1.values[0].key).To(Equal(key35))
+			g.Expect(gchild1_1.values[1].key).To(Equal(key38))
+
+			gchild1_2 := child1.children[1]
+			g.Expect(gchild1_2.numberOfChildren).To(Equal(0))
+			g.Expect(gchild1_2.numberOfValues).To(Equal(1))
+			g.Expect(gchild1_2.values[0].key).To(Equal(key70))
+
+			gchild1_3 := child1.children[2]
+			g.Expect(gchild1_3.numberOfChildren).To(Equal(0))
+			g.Expect(gchild1_3.numberOfValues).To(Equal(1))
+			g.Expect(gchild1_3.values[0].key).To(Equal(key78))
+
+			// right child
+			child2 := bTree.root.children[1]
+			g.Expect(child2.numberOfChildren).To(Equal(3))
 			g.Expect(child2.numberOfValues).To(Equal(2))
-			g.Expect(child2.values[0].key).To(Equal(key3))
-			g.Expect(child2.values[1].key).To(Equal(key4))
+			g.Expect(child2.values[0].key).To(Equal(key100))
+			g.Expect(child2.values[1].key).To(Equal(key120))
 
-			child3 := bTree.root.children[2]
-			g.Expect(child3.numberOfChildren).To(Equal(0))
-			g.Expect(child3.numberOfValues).To(Equal(2))
-			g.Expect(child3.values[0].key).To(Equal(key6))
-			g.Expect(child3.values[1].key).To(Equal(key7))
+			gchild2_1 := child2.children[0]
+			g.Expect(gchild2_1.numberOfChildren).To(Equal(0))
+			g.Expect(gchild2_1.numberOfValues).To(Equal(1))
+			g.Expect(gchild2_1.values[0].key).To(Equal(key90))
 
-			return bTree
-		}
+			gchild2_2 := child2.children[1]
+			g.Expect(gchild2_2.numberOfChildren).To(Equal(0))
+			g.Expect(gchild2_2.numberOfValues).To(Equal(1))
+			g.Expect(gchild2_2.values[0].key).To(Equal(key110))
 
-		t.Run("removing left keys rotates a middle child left", func(t *testing.T) {
-			// final tree
-			//       3,5
-			//     /  |  \
-			//    2   4  6,7
-			bTree := setupTree(g)
-
-			bTree.Delete(key0)
-			bTree.Delete(key1)
-			g.Expect(bTree.root.numberOfValues).To(Equal(2))
-			g.Expect(bTree.root.values[0].key).To(Equal(key3))
-			g.Expect(bTree.root.values[1].key).To(Equal(key5))
-
-			child1 := bTree.root.children[0]
-			g.Expect(child1.numberOfValues).To(Equal(1))
-			g.Expect(child1.numberOfChildren).To(Equal(0))
-			g.Expect(child1.values[0].key).To(Equal(key2))
-
-			child2 := bTree.root.children[1]
-			g.Expect(child2.numberOfValues).To(Equal(1))
-			g.Expect(child2.numberOfChildren).To(Equal(0))
-			g.Expect(child2.values[0].key).To(Equal(key4))
-
-			child3 := bTree.root.children[2]
-			g.Expect(child3.numberOfValues).To(Equal(2))
-			g.Expect(child3.numberOfChildren).To(Equal(0))
-			g.Expect(child3.values[0].key).To(Equal(key6))
-			g.Expect(child3.values[1].key).To(Equal(key7))
+			gchild2_3 := child2.children[2]
+			g.Expect(gchild2_3.numberOfChildren).To(Equal(0))
+			g.Expect(gchild2_3.numberOfValues).To(Equal(1))
+			g.Expect(gchild2_3.values[0].key).To(Equal(key130))
 		})
 
-		t.Run("removing a middle key rotates a right child to the left", func(t *testing.T) {
-			// final tree
-			//       2,6
-			//     /  |  \
-			//   0,1  5   7
+		t.Run("it can merge a parent value down when the right child is under the required minimum values", func(t *testing.T) {
 			bTree := setupTree(g)
+			// setup tree
+			//                40,80
+			//       /          |       \
+			//    20,35        60      100
+			//   /  |   \     /  \    /   \
+			//  10, 30 ,38   50  70  90  110
+			bTree.Delete(key78)
+			bTree.Delete(key75)
+			bTree.Delete(key130)
+			bTree.Delete(key120)
+			validateTree(g, bTree.root, nil, false)
 
-			bTree.Delete(key3)
-			bTree.Delete(key4)
-			g.Expect(bTree.root.numberOfValues).To(Equal(2))
-			g.Expect(bTree.root.values[0].key).To(Equal(key2))
-			g.Expect(bTree.root.values[1].key).To(Equal(key6))
+			// deleting anything on left or middle tree (in this case 110) to merge down to the left and look like so:
+			//                40,80
+			//       /          |       \
+			//    20,35        60      [empty]
+			//   /  |   \     /  \    /
+			//  10, 30 ,38   50  70  90,100
+			//
+			//
+			// with a final merge seting up the final tree:
+			//            40
+			//       /            \
+			//    20,35        60, 80
+			//   /  |   \     /   |   \
+			//  10, 30 ,38   50  70  90,100
+			bTree.Delete(key110)
+			g.Expect(bTree.root.numberOfValues).To(Equal(1))
+			g.Expect(bTree.root.numberOfChildren).To(Equal(2))
+			g.Expect(bTree.root.values[0].key).To(Equal(key40))
 
-			child1 := bTree.root.children[0]
+			// left child
+			child1 := bTree.root.children[00]
+			g.Expect(child1.numberOfChildren).To(Equal(3))
 			g.Expect(child1.numberOfValues).To(Equal(2))
-			g.Expect(child1.numberOfChildren).To(Equal(0))
-			g.Expect(child1.values[0].key).To(Equal(key0))
-			g.Expect(child1.values[1].key).To(Equal(key1))
+			g.Expect(child1.values[0].key).To(Equal(key20))
+			g.Expect(child1.values[1].key).To(Equal(key35))
 
+			gchild1_1 := child1.children[0]
+			g.Expect(gchild1_1.numberOfChildren).To(Equal(0))
+			g.Expect(gchild1_1.numberOfValues).To(Equal(1))
+			g.Expect(gchild1_1.values[0].key).To(Equal(key10))
+
+			gchild1_2 := child1.children[1]
+			g.Expect(gchild1_2.numberOfChildren).To(Equal(0))
+			g.Expect(gchild1_2.numberOfValues).To(Equal(1))
+			g.Expect(gchild1_2.values[0].key).To(Equal(key30))
+
+			gchild1_3 := child1.children[2]
+			g.Expect(gchild1_3.numberOfChildren).To(Equal(0))
+			g.Expect(gchild1_3.numberOfValues).To(Equal(1))
+			g.Expect(gchild1_3.values[0].key).To(Equal(key38))
+
+			// right child
 			child2 := bTree.root.children[1]
-			g.Expect(child2.numberOfValues).To(Equal(1))
-			g.Expect(child2.numberOfChildren).To(Equal(0))
-			g.Expect(child2.values[0].key).To(Equal(key5))
+			g.Expect(child2.numberOfChildren).To(Equal(3))
+			g.Expect(child2.numberOfValues).To(Equal(2))
+			g.Expect(child2.values[0].key).To(Equal(key60))
+			g.Expect(child2.values[1].key).To(Equal(key80))
 
-			child3 := bTree.root.children[2]
-			g.Expect(child3.numberOfValues).To(Equal(1))
-			g.Expect(child3.numberOfChildren).To(Equal(0))
-			g.Expect(child3.values[0].key).To(Equal(key7))
-		})
+			gchild2_1 := child2.children[0]
+			g.Expect(gchild2_1.numberOfChildren).To(Equal(0))
+			g.Expect(gchild2_1.numberOfValues).To(Equal(1))
+			g.Expect(gchild2_1.values[0].key).To(Equal(key50))
 
-		t.Run("removing a right key rotates a left child to the right iff its the only option", func(t *testing.T) {
-			// final tree
-			//       2,4
-			//     /  |  \
-			//   0,1  3   5
-			bTree := setupTree(g)
+			gchild2_2 := child2.children[1]
+			g.Expect(gchild2_2.numberOfChildren).To(Equal(0))
+			g.Expect(gchild2_2.numberOfValues).To(Equal(1))
+			g.Expect(gchild2_2.values[0].key).To(Equal(key70))
 
-			bTree.Delete(key6)
-			bTree.Delete(key7)
-			g.Expect(bTree.root.numberOfValues).To(Equal(2))
-			g.Expect(bTree.root.values[0].key).To(Equal(key2))
-			g.Expect(bTree.root.values[1].key).To(Equal(key4))
-
-			child1 := bTree.root.children[0]
-			g.Expect(child1.numberOfValues).To(Equal(2))
-			g.Expect(child1.numberOfChildren).To(Equal(0))
-			g.Expect(child1.values[0].key).To(Equal(key0))
-			g.Expect(child1.values[1].key).To(Equal(key1))
-
-			child2 := bTree.root.children[1]
-			g.Expect(child2.numberOfValues).To(Equal(1))
-			g.Expect(child2.numberOfChildren).To(Equal(0))
-			g.Expect(child2.values[0].key).To(Equal(key3))
-
-			child3 := bTree.root.children[2]
-			g.Expect(child3.numberOfValues).To(Equal(1))
-			g.Expect(child3.numberOfChildren).To(Equal(0))
-			g.Expect(child3.values[0].key).To(Equal(key5))
-		})
-	})
-
-	t.Run("squashing single layer trees", func(t *testing.T) {
-		t.Run("it setups a one node tree when the left child is deleted", func(t *testing.T) {
-			// final tree
-			// [2,3]
-			bTree := setupTree(g)
-
-			bTree.Delete(key1)
-			g.Expect(bTree.root.numberOfValues).To(Equal(2))
-			g.Expect(bTree.root.values[0].key).To(Equal(key2))
-			g.Expect(bTree.root.values[1].key).To(Equal(key3))
-		})
-
-		t.Run("it setups a one node tree when the right child is deleted", func(t *testing.T) {
-			// final tree
-			// [1,2]
-			bTree := setupTree(g)
-
-			bTree.Delete(key3)
-			g.Expect(bTree.root.numberOfValues).To(Equal(2))
-			g.Expect(bTree.root.values[0].key).To(Equal(key1))
-			g.Expect(bTree.root.values[1].key).To(Equal(key2))
-		})
-
-		t.Run("it sets up a one node tree when the root value is deleted", func(t *testing.T) {
-			// final tree
-			// [1,3]
-			bTree := setupTree(g)
-
-			bTree.Delete(key2)
-			g.Expect(bTree.root.numberOfValues).To(Equal(2))
-			g.Expect(bTree.root.values[0].key).To(Equal(key1))
-			g.Expect(bTree.root.values[1].key).To(Equal(key3))
-		})
-	})
-
-	t.Run("merging keys", func(t *testing.T) {
-		t.Run("deleteing the left child merges properly", func(t *testing.T) {
-			// final tree
-			//      4
-			//    /   \
-			//  2,3    5
-			bTree := setupTree(g)
-
-			bTree.Delete(key1)
-			g.Expect(bTree.root.numberOfValues).To(Equal(1))
-			g.Expect(bTree.root.values[0].key).To(Equal(keyFour))
-
-			g.Expect(bTree.root.numberOfChildren).To(Equal(2))
-			child0 := bTree.root.children[0]
-			child1 := bTree.root.children[1]
-
-			g.Expect(child0.numberOfValues).To(Equal(2))
-			g.Expect(child0.values[0].key).To(Equal(key2))
-			g.Expect(child0.values[1].key).To(Equal(key3))
-
-			g.Expect(child1.numberOfValues).To(Equal(1))
-			g.Expect(child1.values[0].key).To(Equal(keyFive))
-		})
-
-		t.Run("deleteing a middle child merges properly", func(t *testing.T) {
-			// final tree
-			//      4
-			//    /   \
-			//  1,2    5
-			bTree := setupTree(g)
-
-			bTree.Delete(key3)
-			g.Expect(bTree.root.numberOfValues).To(Equal(1))
-			g.Expect(bTree.root.values[0].key).To(Equal(key4))
-
-			g.Expect(bTree.root.numberOfChildren).To(Equal(2))
-			child0 := bTree.root.children[0]
-			child1 := bTree.root.children[1]
-
-			g.Expect(child0.numberOfValues).To(Equal(2))
-			g.Expect(child0.values[0].key).To(Equal(key1))
-			g.Expect(child0.values[1].key).To(Equal(key2))
-
-			g.Expect(child1.numberOfValues).To(Equal(1))
-			g.Expect(child1.values[0].key).To(Equal(key5))
-		})
-
-		t.Run("deleteing a right child merges properly", func(t *testing.T) {
-			// final tree
-			//      2
-			//    /   \
-			//  1     3,4
-			bTree := setupTree(g)
-
-			bTree.Delete(keyFive)
-			g.Expect(bTree.root.numberOfValues).To(Equal(1))
-			g.Expect(bTree.root.values[0].key).To(Equal(key2))
-
-			g.Expect(bTree.root.numberOfChildren).To(Equal(2))
-			child0 := bTree.root.children[0]
-			child1 := bTree.root.children[1]
-
-			g.Expect(child0.numberOfValues).To(Equal(1))
-			g.Expect(child0.values[0].key).To(Equal(key1))
-
-			g.Expect(child1.numberOfValues).To(Equal(2))
-			g.Expect(child1.values[0].key).To(Equal(key3))
-			g.Expect(child1.values[1].key).To(Equal(keyFour))
-		})
-
-		t.Run("deleteing a left node value merges properly", func(t *testing.T) {
-			// final tree
-			//      4
-			//    /   \
-			//  1,3		 5
-			bTree := setupTree(g)
-
-			bTree.Delete(key2)
-			g.Expect(bTree.root.numberOfValues).To(Equal(1))
-			g.Expect(bTree.root.values[0].key).To(Equal(key4))
-
-			g.Expect(bTree.root.numberOfChildren).To(Equal(2))
-			child0 := bTree.root.children[0]
-			child1 := bTree.root.children[1]
-
-			g.Expect(child0.numberOfValues).To(Equal(2))
-			g.Expect(child0.values[0].key).To(Equal(key1))
-			g.Expect(child0.values[1].key).To(Equal(key3))
-
-			g.Expect(child1.numberOfValues).To(Equal(1))
-			g.Expect(child1.values[0].key).To(Equal(key5))
-		})
-
-		t.Run("deleteing a right node value merges properly", func(t *testing.T) {
-			// note, we always swap on the left and merge to left
-			// final tree
-			//      3
-			//    /   \
-			//  1,2		 5
-			bTree := setupTree(g)
-
-			bTree.Delete(keyFour)
-			g.Expect(bTree.root.numberOfValues).To(Equal(1))
-			g.Expect(bTree.root.values[0].key).To(Equal(key3))
-
-			g.Expect(bTree.root.numberOfChildren).To(Equal(2))
-			child0 := bTree.root.children[0]
-			child1 := bTree.root.children[1]
-
-			g.Expect(child0.numberOfValues).To(Equal(2))
-			g.Expect(child0.values[0].key).To(Equal(key1))
-			g.Expect(child0.values[1].key).To(Equal(key2))
-
-			g.Expect(child1.numberOfValues).To(Equal(1))
-			g.Expect(child1.values[0].key).To(Equal(key5))
+			gchild2_3 := child2.children[2]
+			g.Expect(gchild2_3.numberOfChildren).To(Equal(0))
+			g.Expect(gchild2_3.numberOfValues).To(Equal(2))
+			g.Expect(gchild2_3.values[0].key).To(Equal(key90))
+			g.Expect(gchild2_3.values[1].key).To(Equal(key100))
 		})
 	})
 }
