@@ -38,7 +38,7 @@ type BTree interface {
 	Iterate(callback func(value any))
 
 	// Delete an item in the Tree
-	Delete(key TreeKey)
+	Delete(key TreeKey, canDelete CanDelete)
 }
 
 // BRoot contains the root to the btree. As part of the split operation on inserts and

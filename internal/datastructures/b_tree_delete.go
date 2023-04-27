@@ -1,5 +1,7 @@
 package datastructures
 
+type CanDelete func(item any) bool
+
 // Deletion tutorial: https://www.youtube.com/watch?v=GKa_t7fF8o0
 //
 // order is the number of children a tree can have
@@ -13,8 +15,9 @@ package datastructures
 // in the tree then this performs a no-op. If the key is nil, then Delete will panic
 //
 // PARAMS:
-// * key - they key for the item to delete from the tree
-func (ttr *BRoot) Delete(key TreeKey) {
+// * key - the key for the item to delete from the tree
+// * canDelete - optional function to check if an item can be deleted. If this is nil, the item will be deleted from the tree
+func (ttr *BRoot) Delete(key TreeKey, canDelete CanDelete) {
 	if key == nil {
 		panic("key is nil")
 	}
@@ -23,7 +26,7 @@ func (ttr *BRoot) Delete(key TreeKey) {
 	defer ttr.lock.Unlock()
 
 	if ttr.root != nil {
-		ttr.root.remove(key)
+		ttr.root.remove(key, canDelete)
 
 		if ttr.root.numberOfValues == 0 {
 			ttr.root = ttr.root.children[0]
@@ -32,7 +35,7 @@ func (ttr *BRoot) Delete(key TreeKey) {
 }
 
 // remove an item from the tree.
-func (bn *bNode) remove(keyToDelete TreeKey) {
+func (bn *bNode) remove(keyToDelete TreeKey, canDelete CanDelete) {
 	bn.lock.Lock()
 	defer bn.lock.Unlock()
 
@@ -49,11 +52,20 @@ func (bn *bNode) remove(keyToDelete TreeKey) {
 
 		if bn.isLeaf() {
 			// return on the leaf. there are no further actions to take other than remove
-			bn.removeLeafItem(index)
+			bn.removeLeafItem(index, canDelete)
 			return
 		} else {
-			// need to swap and remove the item from this node
-			bn.removeNodeItem(index)
+			if canDelete == nil {
+				bn.removeNodeItem(index)
+			} else {
+				if canDelete(bn.values[index]) {
+					// need to swap and remove the item from this node
+					bn.removeNodeItem(index)
+				} else {
+					// just return early, cannot delete the item
+					return
+				}
+			}
 		}
 	} else {
 		// index to delete is not in this node
@@ -64,7 +76,7 @@ func (bn *bNode) remove(keyToDelete TreeKey) {
 		}
 
 		// recurse and remove the node
-		bn.children[index].remove(keyToDelete)
+		bn.children[index].remove(keyToDelete, canDelete)
 	}
 
 	bn.rebalance(index)
@@ -72,7 +84,14 @@ func (bn *bNode) remove(keyToDelete TreeKey) {
 
 // called when removing an item from a leaf node. this is
 // the only time any item will be removed from the actual tree
-func (bn *bNode) removeLeafItem(index int) {
+func (bn *bNode) removeLeafItem(index int, canDelete CanDelete) {
+	// check the optional argument for deletion
+	if canDelete != nil {
+		if !canDelete(bn.values[index]) {
+			return
+		}
+	}
+
 	// need to shift the rest of the values to the left by 1
 	for shiftIndex := index; shiftIndex < bn.numberOfValues-1; shiftIndex++ {
 		bn.values[shiftIndex] = bn.values[shiftIndex+1]
@@ -105,11 +124,11 @@ func (bn *bNode) swap(swapNode *bNode, swapIndex int) {
 		if bn.values[0].greater(swapNode.values[swapIndex].key) {
 			// swapping on the left most value and deleting
 			swapNode.values[swapIndex] = bn.values[0]
-			bn.removeLeafItem(0)
+			bn.removeLeafItem(0, nil) // already checked if item can be deleted
 		} else {
 			// swapping on the right most value and deleting
 			swapNode.values[swapIndex] = bn.values[bn.numberOfValues-1]
-			bn.removeLeafItem(bn.numberOfValues - 1)
+			bn.removeLeafItem(bn.numberOfValues-1, nil) // already checked if item can be deleted
 		}
 
 		return
