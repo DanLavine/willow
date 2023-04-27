@@ -1,7 +1,10 @@
 package datastructures
 
 import (
+	"fmt"
+	"math/rand"
 	"testing"
+	"time"
 
 	. "github.com/onsi/gomega"
 )
@@ -1227,5 +1230,69 @@ func TestBTree_Delete_HeightThreeAndAbove(t *testing.T) {
 			g.Expect(gchild2_3.values[0].key).To(Equal(key90))
 			g.Expect(gchild2_3.values[1].key).To(Equal(key100))
 		})
+	})
+}
+
+func TestBTree_Delete_RandomValidation(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	setupTree := func(g *GomegaWithT, numberOfValues int) *BRoot {
+		bTree, err := NewBTree(numberOfValues)
+		g.Expect(err).ToNot(HaveOccurred())
+
+		for i := 0; i < 10_000; i++ {
+			_, err = bTree.FindOrCreate(IntTreeKey(i), "OnFind", newBTreeTester(fmt.Sprintf("%d", i)))
+			g.Expect(err).ToNot(HaveOccurred())
+		}
+
+		return bTree
+	}
+
+	t.Run("it works when a tree has 2 nodes", func(t *testing.T) {
+		bTree := setupTree(g, 2)
+
+		randomGenerator := rand.New(rand.NewSource(time.Now().UnixNano()))
+		for i := 0; i < 1_024; i++ {
+			key := IntTreeKey(randomGenerator.Intn(10_000))
+			bTree.Delete(key)
+		}
+
+		validateTree(g, bTree.root, nil, false)
+	})
+
+	t.Run("it works when a tree has 3 nodes", func(t *testing.T) {
+		bTree := setupTree(g, 3)
+
+		randomGenerator := rand.New(rand.NewSource(time.Now().UnixNano()))
+		for i := 0; i < 1_024; i++ {
+			key := IntTreeKey(randomGenerator.Intn(10_000))
+			bTree.Delete(key)
+		}
+
+		validateTree(g, bTree.root, nil, false)
+	})
+
+	t.Run("it works when a tree has 4 nodes", func(t *testing.T) {
+		bTree := setupTree(g, 4)
+
+		randomGenerator := rand.New(rand.NewSource(time.Now().UnixNano()))
+		for i := 0; i < 1_024; i++ {
+			key := IntTreeKey(randomGenerator.Intn(10_000))
+			bTree.Delete(key)
+		}
+
+		validateTree(g, bTree.root, nil, false)
+	})
+
+	t.Run("it works when a tree has a 5 nodes", func(t *testing.T) {
+		bTree := setupTree(g, 5)
+
+		randomGenerator := rand.New(rand.NewSource(time.Now().UnixNano()))
+		for i := 0; i < 1_024; i++ {
+			key := IntTreeKey(randomGenerator.Intn(10_000))
+			bTree.Delete(key)
+		}
+
+		validateTree(g, bTree.root, nil, false)
 	})
 }

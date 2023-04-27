@@ -9,7 +9,11 @@ package datastructures
 // min children = (order + 1)/ 2
 // max children = order
 
-// Delete a value from the BTree for the given Key
+// Delete a value from the BTree for the given Key. If the key does not exist
+// in the tree then this performs a no-op. If the key is nil, then Delete will panic
+//
+// PARAMS:
+// * key - they key for the item to delete from the tree
 func (ttr *BRoot) Delete(key TreeKey) {
 	if key == nil {
 		panic("key is nil")
@@ -66,7 +70,8 @@ func (bn *bNode) remove(keyToDelete TreeKey) {
 	bn.rebalance(index)
 }
 
-// called when removing an item from a leaf node
+// called when removing an item from a leaf node. this is
+// the only time any item will be removed from the actual tree
 func (bn *bNode) removeLeafItem(index int) {
 	// need to shift the rest of the values to the left by 1
 	for shiftIndex := index; shiftIndex < bn.numberOfValues-1; shiftIndex++ {
@@ -78,7 +83,10 @@ func (bn *bNode) removeLeafItem(index int) {
 	bn.numberOfValues--
 }
 
-// called when trying to remove an item from an internal node
+// called when the item to remove is on an internal node. In this case, we need to
+// swap the item with a leaf node and delete from there.
+//
+// NOTE: we need to swap on the left side when both values are at the minimum number of values
 func (bn *bNode) removeNodeItem(index int) {
 	if bn.children[index+1].numberOfValues > bn.children[index].numberOfValues {
 		// swap the smallest element on right sub tree
@@ -119,6 +127,7 @@ func (bn *bNode) swap(swapNode *bNode, swapIndex int) {
 	}
 }
 
+// rebalance is used to chek if a node needs to be rebalanced after removing an index
 func (bn *bNode) rebalance(childIndex int) {
 	// no action to take if the child is still saturated
 	if bn.children[childIndex].numberOfValues >= bn.minValues() {
@@ -301,28 +310,6 @@ func (bn *bNode) dropIndexByShiftLeft(nodeIndex, childIndex int) {
 	bn.numberOfValues--
 	if bn.numberOfChildren != 0 {
 		bn.numberOfChildren--
-	}
-}
-
-// mergeChidNode copies all values and children indexes
-// into the current node begining at the startIndex
-func (bn *bNode) mergeChildNode(startIndex int, node *bNode) {
-	valueIndex := startIndex
-	childIndex := startIndex
-
-	if node == nil {
-		return
-	}
-
-	for index := 0; index < node.numberOfValues; index++ {
-		bn.values[valueIndex] = node.values[index]
-		bn.numberOfValues++
-		valueIndex++
-	}
-
-	for index := 0; index < node.numberOfChildren; index++ {
-		bn.children[childIndex] = node.children[index]
-		childIndex++
 	}
 }
 
