@@ -5,6 +5,7 @@ import (
 	"io"
 	"testing"
 
+	"github.com/DanLavine/willow/pkg/models/datatypes"
 	. "github.com/onsi/gomega"
 )
 
@@ -15,6 +16,6 @@ func TestEnqueueItemRequest_ParseEnqueueItemRequest(t *testing.T) {
 		item, err := ParseEnqueueItemRequest(io.NopCloser(bytes.NewBufferString(`{"BrokerInfo": {"Name":"test","Tags": ["b", "a"]}}`)))
 		g.Expect(err).ToNot(HaveOccurred())
 
-		g.Expect(item.BrokerInfo.Tags).To(Equal(Strings{"a", "b"}))
+		g.Expect(item.BrokerInfo.Tags).To(Equal(datatypes.Strings{"a", "b"}))
 	})
 }

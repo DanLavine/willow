@@ -4,8 +4,9 @@ import (
 	"context"
 
 	"github.com/DanLavine/goasync"
-	"github.com/DanLavine/willow/internal/datastructures"
+	"github.com/DanLavine/willow/internal/datastructures/btree"
 	"github.com/DanLavine/willow/internal/errors"
+	"github.com/DanLavine/willow/pkg/models/datatypes"
 	v1 "github.com/DanLavine/willow/pkg/models/v1"
 	"go.uber.org/zap"
 )
@@ -15,14 +16,14 @@ type manager struct {
 	queueConstructor QueueConstructor
 
 	// all queues. Each data type save in here is of interface type ManagedQueue
-	queues datastructures.BTree
+	queues btree.BTree
 
 	// task manger ensures shutdown requests are processsed properly
 	taskManager goasync.AsyncTaskManager
 }
 
 func NewManager(queueConstructor QueueConstructor) *manager {
-	btree, err := datastructures.NewBTree(2)
+	btree, err := btree.New(2)
 	if err != nil {
 		panic(err)
 	}
@@ -45,9 +46,9 @@ func (m *manager) Execute(ctx context.Context) error {
 	return nil
 }
 
-func (m *manager) Create(logger *zap.Logger, create *v1.Create) *v1.Error {
+func (m *manager) Create(logger *zap.Logger, createRequest *v1.Create) *v1.Error {
 	logger = logger.Named("Create")
-	_, err := m.queues.FindOrCreate(create.Name, "", m.create(logger, create))
+	_, err := m.queues.CreateOrFind(createRequest.Name, nil, m.create(logger, createRequest))
 	if err != nil {
 		return err.(*v1.Error)
 	}
@@ -71,9 +72,10 @@ func (m *manager) create(logger *zap.Logger, create *v1.Create) func() (any, err
 	}
 }
 
-func (m *manager) Find(logger *zap.Logger, queueName v1.String) (Queue, *v1.Error) {
+func (m *manager) Find(logger *zap.Logger, queueName datatypes.String) (Queue, *v1.Error) {
 	logger = logger.Named("Find")
-	queue := m.queues.Find(queueName, "")
+
+	queue := m.queues.Find(queueName, nil)
 	if queue == nil {
 		logger.Error("failed to find queue", zap.String("name", queueName.ToString()))
 		return nil, errors.QueueNotFound

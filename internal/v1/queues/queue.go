@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/DanLavine/willow/internal/v1/tags"
+	"github.com/DanLavine/willow/pkg/models/datatypes"
 	v1 "github.com/DanLavine/willow/pkg/models/v1"
 	"go.uber.org/zap"
 )
@@ -35,7 +36,7 @@ type QueueManager interface {
 	// RETURNS:
 	// * Queue - queue if the queue is defined
 	// * v1.Error - any errors encountered when finding the queue, or an error that it does not exist
-	Find(logger *zap.Logger, queue v1.String) (Queue, *v1.Error)
+	Find(logger *zap.Logger, queue datatypes.String) (Queue, *v1.Error)
 
 	// GetItem retrieves the next item in the queue
 	//GetItem(logger *zap.Logger, ctx context.Context, ready *v1.Ready) (*v1.DequeueItemResponse, *v1.Error)

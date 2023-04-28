@@ -1,5 +1,7 @@
 package v1
 
+import "github.com/DanLavine/willow/pkg/models/datatypes"
+
 type BrokerType uint32
 
 const (
@@ -8,14 +10,14 @@ const (
 
 type BrokerInfo struct {
 	// specific queue name for the message
-	Name String
+	Name datatypes.String
 
 	// Type of broker
 	// NOTE: not currently used
 	BrokerType BrokerType
 
 	// possible tags used by the broker
-	Tags Strings
+	Tags datatypes.Strings
 }
 
 func (b BrokerInfo) validate() *Error {
@@ -24,7 +26,7 @@ func (b BrokerInfo) validate() *Error {
 	}
 
 	if len(b.Tags) == 0 {
-		b.Tags = []String{""}
+		b.Tags = []datatypes.String{""}
 	}
 
 	b.Tags.Sort()

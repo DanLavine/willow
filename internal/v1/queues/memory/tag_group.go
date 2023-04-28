@@ -7,10 +7,12 @@ import (
 	"sync/atomic"
 
 	"github.com/DanLavine/gonotify"
-	"github.com/DanLavine/willow/internal/datastructures"
 	"github.com/DanLavine/willow/internal/errors"
 	"github.com/DanLavine/willow/internal/v1/tags"
+	"github.com/DanLavine/willow/pkg/models/datatypes"
 	v1 "github.com/DanLavine/willow/pkg/models/v1"
+
+	idtree "github.com/DanLavine/willow/internal/datastructures/id_tree"
 )
 
 type TagGroup interface {
@@ -29,18 +31,18 @@ type tagGroup struct {
 	done     chan struct{}
 	doneOnce *sync.Once
 
-	items          *datastructures.IDTree
+	items          *idtree.IDTree
 	availableItems []uint64
 
 	notifier *gonotify.Notify
 	channels []chan<- tags.Tag
 
-	tags                v1.Strings
+	tags                datatypes.Strings
 	itemReadyCount      *atomic.Uint64
 	itemProcessingCount *atomic.Uint64
 }
 
-func newTagGroup(tags v1.Strings, channels []chan<- tags.Tag) *tagGroup {
+func newTagGroup(tags datatypes.Strings, channels []chan<- tags.Tag) *tagGroup {
 	return &tagGroup{
 		// shutdown
 		lock:     new(sync.Mutex),
@@ -48,7 +50,7 @@ func newTagGroup(tags v1.Strings, channels []chan<- tags.Tag) *tagGroup {
 		doneOnce: new(sync.Once),
 
 		// keeping track of items
-		items:          datastructures.NewIDTree(),
+		items:          idtree.NewIDTree(),
 		availableItems: []uint64{},
 
 		// communication

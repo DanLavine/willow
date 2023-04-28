@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/DanLavine/willow/internal/v1/queues"
+	"github.com/DanLavine/willow/pkg/models/datatypes"
 	v1 "github.com/DanLavine/willow/pkg/models/v1"
 	"go.uber.org/zap"
 )
@@ -22,11 +23,11 @@ type FakeQueueManager struct {
 	createReturnsOnCall map[int]struct {
 		result1 *v1.Error
 	}
-	FindStub        func(*zap.Logger, v1.String) (queues.Queue, *v1.Error)
+	FindStub        func(*zap.Logger, datatypes.String) (queues.Queue, *v1.Error)
 	findMutex       sync.RWMutex
 	findArgsForCall []struct {
 		arg1 *zap.Logger
-		arg2 v1.String
+		arg2 datatypes.String
 	}
 	findReturns struct {
 		result1 queues.Queue
@@ -112,12 +113,12 @@ func (fake *FakeQueueManager) CreateReturnsOnCall(i int, result1 *v1.Error) {
 	}{result1}
 }
 
-func (fake *FakeQueueManager) Find(arg1 *zap.Logger, arg2 v1.String) (queues.Queue, *v1.Error) {
+func (fake *FakeQueueManager) Find(arg1 *zap.Logger, arg2 datatypes.String) (queues.Queue, *v1.Error) {
 	fake.findMutex.Lock()
 	ret, specificReturn := fake.findReturnsOnCall[len(fake.findArgsForCall)]
 	fake.findArgsForCall = append(fake.findArgsForCall, struct {
 		arg1 *zap.Logger
-		arg2 v1.String
+		arg2 datatypes.String
 	}{arg1, arg2})
 	stub := fake.FindStub
 	fakeReturns := fake.findReturns
@@ -138,13 +139,13 @@ func (fake *FakeQueueManager) FindCallCount() int {
 	return len(fake.findArgsForCall)
 }
 
-func (fake *FakeQueueManager) FindCalls(stub func(*zap.Logger, v1.String) (queues.Queue, *v1.Error)) {
+func (fake *FakeQueueManager) FindCalls(stub func(*zap.Logger, datatypes.String) (queues.Queue, *v1.Error)) {
 	fake.findMutex.Lock()
 	defer fake.findMutex.Unlock()
 	fake.FindStub = stub
 }
 
-func (fake *FakeQueueManager) FindArgsForCall(i int) (*zap.Logger, v1.String) {
+func (fake *FakeQueueManager) FindArgsForCall(i int) (*zap.Logger, datatypes.String) {
 	fake.findMutex.RLock()
 	defer fake.findMutex.RUnlock()
 	argsForCall := fake.findArgsForCall[i]

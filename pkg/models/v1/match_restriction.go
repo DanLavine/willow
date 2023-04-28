@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+
+	"github.com/DanLavine/willow/pkg/models/datatypes"
 )
 
 type MatchTagsRestrictions int
@@ -27,14 +29,14 @@ const (
 // Or all brokers and any subset of tags.
 type MatchQuery struct {
 	// name of the broker to chose from. Right now it is always a Queue
-	BrokerName String
+	BrokerName datatypes.String
 
 	// eventually this will be useful
 	//BrokerType BrokerType
 
 	// Tags to match against
 	MatchTagsRestrictions MatchTagsRestrictions
-	Tags                  Strings
+	Tags                  datatypes.Strings
 }
 
 func ParseMatchQueryRequest(reader io.ReadCloser) (*MatchQuery, *Error) {

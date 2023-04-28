@@ -6,6 +6,7 @@ import (
 	"github.com/DanLavine/willow/internal/v1/queues"
 	"github.com/DanLavine/willow/internal/v1/queues/queuesfakes"
 	"github.com/DanLavine/willow/pkg/config"
+	"github.com/DanLavine/willow/pkg/models/datatypes"
 	v1 "github.com/DanLavine/willow/pkg/models/v1"
 	. "github.com/onsi/gomega"
 	"go.uber.org/zap"
@@ -126,21 +127,21 @@ func TestQueueManager_Metrics(t *testing.T) {
 		test3, err := queueManager.Find(logger, "test3")
 		g.Expect(err).ToNot(HaveOccurred())
 
-		test1.Enqueue(logger, &v1.EnqueueItemRequest{BrokerInfo: v1.BrokerInfo{Name: "test1", Tags: v1.Strings{""}}, Data: []byte(`hello`), Updateable: false})
-		test1.Enqueue(logger, &v1.EnqueueItemRequest{BrokerInfo: v1.BrokerInfo{Name: "test1", Tags: v1.Strings{"other"}}, Data: []byte(`hello`), Updateable: false})
+		test1.Enqueue(logger, &v1.EnqueueItemRequest{BrokerInfo: v1.BrokerInfo{Name: "test1", Tags: datatypes.Strings{""}}, Data: []byte(`hello`), Updateable: false})
+		test1.Enqueue(logger, &v1.EnqueueItemRequest{BrokerInfo: v1.BrokerInfo{Name: "test1", Tags: datatypes.Strings{"other"}}, Data: []byte(`hello`), Updateable: false})
 
-		test2.Enqueue(logger, &v1.EnqueueItemRequest{BrokerInfo: v1.BrokerInfo{Name: "test2", Tags: v1.Strings{""}}, Data: []byte(`hello`), Updateable: false})
+		test2.Enqueue(logger, &v1.EnqueueItemRequest{BrokerInfo: v1.BrokerInfo{Name: "test2", Tags: datatypes.Strings{""}}, Data: []byte(`hello`), Updateable: false})
 
-		test3.Enqueue(logger, &v1.EnqueueItemRequest{BrokerInfo: v1.BrokerInfo{Name: "test3", Tags: v1.Strings{"one"}}, Data: []byte(`hello1`), Updateable: false})
-		test3.Enqueue(logger, &v1.EnqueueItemRequest{BrokerInfo: v1.BrokerInfo{Name: "test3", Tags: v1.Strings{"one"}}, Data: []byte(`hello2`), Updateable: false})
-		test3.Enqueue(logger, &v1.EnqueueItemRequest{BrokerInfo: v1.BrokerInfo{Name: "test3", Tags: v1.Strings{"one", "two"}}, Data: []byte(`hello3`), Updateable: false})
+		test3.Enqueue(logger, &v1.EnqueueItemRequest{BrokerInfo: v1.BrokerInfo{Name: "test3", Tags: datatypes.Strings{"one"}}, Data: []byte(`hello1`), Updateable: false})
+		test3.Enqueue(logger, &v1.EnqueueItemRequest{BrokerInfo: v1.BrokerInfo{Name: "test3", Tags: datatypes.Strings{"one"}}, Data: []byte(`hello2`), Updateable: false})
+		test3.Enqueue(logger, &v1.EnqueueItemRequest{BrokerInfo: v1.BrokerInfo{Name: "test3", Tags: datatypes.Strings{"one", "two"}}, Data: []byte(`hello3`), Updateable: false})
 
 		// check the new ready counts
 		metrics = queueManager.Metrics()
 		g.Expect(metrics).ToNot(BeNil())
 		g.Expect(len(metrics.Queues)).To(Equal(3))
-		g.Expect(metrics.Queues).To(ContainElement(&v1.QueueMetricsResponse{Name: "test1", Total: 2, Max: 5, Tags: []*v1.TagMetricsResponse{{Tags: v1.Strings{""}, Ready: 1, Processing: 0}, {Tags: v1.Strings{"other"}, Ready: 1, Processing: 0}}, DeadLetterQueueMetrics: nil}))
-		g.Expect(metrics.Queues).To(ContainElement(&v1.QueueMetricsResponse{Name: "test2", Total: 1, Max: 5, Tags: []*v1.TagMetricsResponse{{Tags: v1.Strings{""}, Ready: 1, Processing: 0}}, DeadLetterQueueMetrics: nil}))
-		g.Expect(metrics.Queues).To(ContainElement(&v1.QueueMetricsResponse{Name: "test3", Total: 3, Max: 5, Tags: []*v1.TagMetricsResponse{{Tags: v1.Strings{"one"}, Ready: 2, Processing: 0}, {Tags: v1.Strings{"one", "two"}, Ready: 1, Processing: 0}}, DeadLetterQueueMetrics: nil}))
+		g.Expect(metrics.Queues).To(ContainElement(&v1.QueueMetricsResponse{Name: "test1", Total: 2, Max: 5, Tags: []*v1.TagMetricsResponse{{Tags: datatypes.Strings{""}, Ready: 1, Processing: 0}, {Tags: datatypes.Strings{"other"}, Ready: 1, Processing: 0}}, DeadLetterQueueMetrics: nil}))
+		g.Expect(metrics.Queues).To(ContainElement(&v1.QueueMetricsResponse{Name: "test2", Total: 1, Max: 5, Tags: []*v1.TagMetricsResponse{{Tags: datatypes.Strings{""}, Ready: 1, Processing: 0}}, DeadLetterQueueMetrics: nil}))
+		g.Expect(metrics.Queues).To(ContainElement(&v1.QueueMetricsResponse{Name: "test3", Total: 3, Max: 5, Tags: []*v1.TagMetricsResponse{{Tags: datatypes.Strings{"one"}, Ready: 2, Processing: 0}, {Tags: datatypes.Strings{"one", "two"}, Ready: 1, Processing: 0}}, DeadLetterQueueMetrics: nil}))
 	})
 }

@@ -8,6 +8,7 @@ import (
 
 	"github.com/DanLavine/goasync"
 	"github.com/DanLavine/willow/internal/v1/tags"
+	"github.com/DanLavine/willow/pkg/models/datatypes"
 	v1 "github.com/DanLavine/willow/pkg/models/v1"
 	. "github.com/onsi/gomega"
 )
@@ -19,7 +20,7 @@ var (
 
 	tagGroupChans = []chan tags.Tag{chan1, chan2, chan3}
 
-	queueTags = v1.Strings{"one", "two", "three"}
+	queueTags = datatypes.Strings{"one", "two", "three"}
 )
 
 func TestMemoryTagGroup_Enqueue(t *testing.T) {
@@ -43,7 +44,7 @@ func TestMemoryTagGroup_Enqueue(t *testing.T) {
 
 		var dequeueFunc tags.Tag
 		for index, channel := range tagGroupChans {
-			enqueueItem := &v1.EnqueueItemRequest{BrokerInfo: v1.BrokerInfo{Name: "test", BrokerType: v1.Queue, Tags: v1.Strings{""}}, Data: []byte(fmt.Sprintf("%d", index)), Updateable: false}
+			enqueueItem := &v1.EnqueueItemRequest{BrokerInfo: v1.BrokerInfo{Name: "test", BrokerType: v1.Queue, Tags: datatypes.Strings{""}}, Data: []byte(fmt.Sprintf("%d", index)), Updateable: false}
 			g.Expect(tagsGroup.Enqueue(counter, enqueueItem)).ToNot(HaveOccurred())
 
 			cdl, cancel := context.WithDeadline(context.Background(), time.Now().Add(time.Second))
@@ -58,7 +59,7 @@ func TestMemoryTagGroup_Enqueue(t *testing.T) {
 			cancel()
 
 			dequeueMessage := dequeueFunc()
-			g.Expect(dequeueMessage.BrokerInfo.Name).To(Equal(v1.String("test")))
+			g.Expect(dequeueMessage.BrokerInfo.Name).To(Equal(datatypes.String("test")))
 			g.Expect(dequeueMessage.BrokerInfo.Tags).To(Equal(queueTags))
 			g.Expect(dequeueMessage.ID).To(Equal(uint64(index + 1)))
 			g.Expect(dequeueMessage.Data).To(Equal([]byte(fmt.Sprintf("%d", index))))
@@ -75,10 +76,10 @@ func TestMemoryTagGroup_Enqueue(t *testing.T) {
 		g.Expect(taskManager.AddExecuteTask("", tagsGroup)).ToNot(HaveOccurred())
 
 		// enqueue 4 items that shoudl collapse to the last
-		enqueueItem1 := &v1.EnqueueItemRequest{BrokerInfo: v1.BrokerInfo{Name: "name", BrokerType: v1.Queue, Tags: v1.Strings{""}}, Data: []byte(`1`), Updateable: true}
-		enqueueItem2 := &v1.EnqueueItemRequest{BrokerInfo: v1.BrokerInfo{Name: "name", BrokerType: v1.Queue, Tags: v1.Strings{""}}, Data: []byte(`2`), Updateable: true}
-		enqueueItem3 := &v1.EnqueueItemRequest{BrokerInfo: v1.BrokerInfo{Name: "name", BrokerType: v1.Queue, Tags: v1.Strings{""}}, Data: []byte(`3`), Updateable: true}
-		enqueueItem4 := &v1.EnqueueItemRequest{BrokerInfo: v1.BrokerInfo{Name: "name", BrokerType: v1.Queue, Tags: v1.Strings{""}}, Data: []byte(`4`), Updateable: true}
+		enqueueItem1 := &v1.EnqueueItemRequest{BrokerInfo: v1.BrokerInfo{Name: "name", BrokerType: v1.Queue, Tags: datatypes.Strings{""}}, Data: []byte(`1`), Updateable: true}
+		enqueueItem2 := &v1.EnqueueItemRequest{BrokerInfo: v1.BrokerInfo{Name: "name", BrokerType: v1.Queue, Tags: datatypes.Strings{""}}, Data: []byte(`2`), Updateable: true}
+		enqueueItem3 := &v1.EnqueueItemRequest{BrokerInfo: v1.BrokerInfo{Name: "name", BrokerType: v1.Queue, Tags: datatypes.Strings{""}}, Data: []byte(`3`), Updateable: true}
+		enqueueItem4 := &v1.EnqueueItemRequest{BrokerInfo: v1.BrokerInfo{Name: "name", BrokerType: v1.Queue, Tags: datatypes.Strings{""}}, Data: []byte(`4`), Updateable: true}
 		g.Expect(tagsGroup.Enqueue(counter, enqueueItem1)).ToNot(HaveOccurred())
 		g.Expect(tagsGroup.Enqueue(counter, enqueueItem2)).ToNot(HaveOccurred())
 		g.Expect(tagsGroup.Enqueue(counter, enqueueItem3)).ToNot(HaveOccurred())
@@ -98,7 +99,7 @@ func TestMemoryTagGroup_Enqueue(t *testing.T) {
 		cancel()
 
 		dequeueMessage := dequeueFunc()
-		g.Expect(dequeueMessage.BrokerInfo.Name).To(Equal(v1.String("name")))
+		g.Expect(dequeueMessage.BrokerInfo.Name).To(Equal(datatypes.String("name")))
 		g.Expect(dequeueMessage.BrokerInfo.Tags).To(Equal(queueTags))
 		g.Expect(dequeueMessage.ID).To(Equal(uint64(1)))
 		g.Expect(dequeueMessage.Data).To(Equal([]byte(`4`)))
@@ -114,7 +115,7 @@ func TestMemoryTagGroup_Enqueue(t *testing.T) {
 		g.Expect(taskManager.AddExecuteTask("", tagsGroup)).ToNot(HaveOccurred())
 
 		// enqueue first item
-		enqueueItem1 := &v1.EnqueueItemRequest{BrokerInfo: v1.BrokerInfo{Name: "name", BrokerType: v1.Queue, Tags: v1.Strings{""}}, Data: []byte(`1`), Updateable: true}
+		enqueueItem1 := &v1.EnqueueItemRequest{BrokerInfo: v1.BrokerInfo{Name: "name", BrokerType: v1.Queue, Tags: datatypes.Strings{""}}, Data: []byte(`1`), Updateable: true}
 		g.Expect(tagsGroup.Enqueue(counter, enqueueItem1)).ToNot(HaveOccurred())
 
 		var dequeueFunc tags.Tag
@@ -133,7 +134,7 @@ func TestMemoryTagGroup_Enqueue(t *testing.T) {
 		g.Expect(dequeueMessage.Data).To(Equal([]byte(`1`)))
 
 		// enqueu another message should process
-		enqueueItem2 := &v1.EnqueueItemRequest{BrokerInfo: v1.BrokerInfo{Name: "name", BrokerType: v1.Queue, Tags: v1.Strings{""}}, Data: []byte(`2`), Updateable: true}
+		enqueueItem2 := &v1.EnqueueItemRequest{BrokerInfo: v1.BrokerInfo{Name: "name", BrokerType: v1.Queue, Tags: datatypes.Strings{""}}, Data: []byte(`2`), Updateable: true}
 		g.Expect(tagsGroup.Enqueue(counter, enqueueItem2)).ToNot(HaveOccurred())
 
 		cdl, cancel = context.WithDeadline(context.Background(), time.Now().Add(time.Second))

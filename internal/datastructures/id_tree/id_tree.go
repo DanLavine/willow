@@ -1,4 +1,4 @@
-package datastructures
+package idtree
 
 type direction int
 
@@ -18,8 +18,11 @@ const (
 /* Example tree
 height |						   ID
 h0 - 1 (first index in this row) |                 1
-h1 - 2 (first index in this row) |        2                 3
+                                 |         /               \
+h1 - 2 (first index in this row) |        2                3
+                                 |     /      \         /      \
 h2 - 4 (first index in this row) |    4        6       5        7
+                                 |  /   \    /   \   /   \    /   \
 h3 - 8 (first index in this row) |  8   12  10	 14  9   13  11   15
 */
 //  A left Node can always be calculated as: ((1 << parent.height) + parent.id)

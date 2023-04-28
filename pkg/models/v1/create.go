@@ -7,11 +7,12 @@ import (
 	"net/http"
 
 	"github.com/DanLavine/willow/pkg/config"
+	"github.com/DanLavine/willow/pkg/models/datatypes"
 )
 
 type Create struct {
 	// Name of the broker object
-	Name String
+	Name datatypes.String
 
 	// max size of the dead letter queue
 	// Cannot be set to  0

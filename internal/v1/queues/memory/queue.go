@@ -2,15 +2,16 @@ package memory
 
 import (
 	"context"
-	"fmt"
 	"sync"
 
 	"github.com/DanLavine/goasync"
-	"github.com/DanLavine/willow/internal/datastructures"
 	"github.com/DanLavine/willow/internal/errors"
 	"github.com/DanLavine/willow/internal/v1/tags"
+	"github.com/DanLavine/willow/pkg/models/datatypes"
 	v1 "github.com/DanLavine/willow/pkg/models/v1"
 	"go.uber.org/zap"
+
+	disjointtree "github.com/DanLavine/willow/internal/datastructures/disjoint_tree"
 )
 
 type Queue struct {
@@ -18,13 +19,13 @@ type Queue struct {
 	done     chan struct{}
 
 	// queue information and limits
-	name       v1.String
+	name       datatypes.String
 	maxSize    uint64
 	retryLimit uint64
 
 	// items that are enqueued and ready to be processed
 	// each item in the tree is of type *tagGroup
-	tagGroups  datastructures.DisjointTree
+	tagGroups  disjointtree.DisjointTree
 	tagReaders tags.TagReaders // all readers for the various tag groups
 
 	// manage all tag groups and their associated readers
@@ -43,7 +44,7 @@ func NewQueue(create *v1.Create) *Queue {
 		maxSize:    create.QueueMaxSize,
 		retryLimit: create.ItemRetryAttempts,
 
-		tagGroups:  datastructures.NewDisjointTree(),
+		tagGroups:  disjointtree.New(),
 		tagReaders: tags.NewTagReaderTree(),
 
 		taskManager: goasync.NewTaskManager(goasync.RelaxedConfig()),
@@ -62,7 +63,7 @@ func (q *Queue) Execute(ctx context.Context) error {
 func (q *Queue) Enqueue(logger *zap.Logger, enqueueItemRequest *v1.EnqueueItemRequest) *v1.Error {
 	// create the new tags group if it does not currently exist
 	// TODO: need something for OnFind to know that we shouldn't delete. Not sure what that is yet
-	tagsGroup, err := q.tagGroups.FindOrCreate(enqueueItemRequest.BrokerInfo.Tags, "", q.setupTagsGroup(enqueueItemRequest.BrokerInfo.Tags))
+	tagsGroup, err := q.tagGroups.CreateOrFind(enqueueItemRequest.BrokerInfo.Tags, nil, q.setupTagsGroup(enqueueItemRequest.BrokerInfo.Tags))
 	if err != nil {
 		return errors.InternalServerError.With("", err.Error())
 	}
@@ -76,10 +77,9 @@ func (q *Queue) Enqueue(logger *zap.Logger, enqueueItemRequest *v1.EnqueueItemRe
 }
 
 // callbaack for setup Enqueue to use when setting up a new tags group
-func (q *Queue) setupTagsGroup(tags v1.Strings) func() (any, error) {
+func (q *Queue) setupTagsGroup(tags datatypes.Strings) func() (any, error) {
 	return func() (any, error) {
 		allPossibleReaders := q.tagReaders.CreateGroup(tags)
-		fmt.Printf("tags %v has readers %v\n", tags, allPossibleReaders)
 		tagGroup := newTagGroup(tags, allPossibleReaders)
 
 		_ = q.taskManager.AddExecuteTask("", tagGroup)

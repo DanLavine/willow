@@ -1,6 +1,9 @@
-package datastructures
+package btree
 
-type CanDelete func(item any) bool
+import (
+	"github.com/DanLavine/willow/internal/datastructures"
+	"github.com/DanLavine/willow/pkg/models/datatypes"
+)
 
 // Deletion tutorial: https://www.youtube.com/watch?v=GKa_t7fF8o0
 //
@@ -17,25 +20,25 @@ type CanDelete func(item any) bool
 // PARAMS:
 // * key - the key for the item to delete from the tree
 // * canDelete - optional function to check if an item can be deleted. If this is nil, the item will be deleted from the tree
-func (ttr *BRoot) Delete(key TreeKey, canDelete CanDelete) {
+func (btree *bTree) Delete(key datatypes.CompareType, canDelete datastructures.CanDelete) {
 	if key == nil {
 		panic("key is nil")
 	}
 
-	ttr.lock.Lock()
-	defer ttr.lock.Unlock()
+	btree.lock.Lock()
+	defer btree.lock.Unlock()
 
-	if ttr.root != nil {
-		ttr.root.remove(key, canDelete)
+	if btree.root != nil {
+		btree.root.remove(key, canDelete)
 
-		if ttr.root.numberOfValues == 0 {
-			ttr.root = ttr.root.children[0]
+		if btree.root.numberOfValues == 0 {
+			btree.root = btree.root.children[0]
 		}
 	}
 }
 
 // remove an item from the tree.
-func (bn *bNode) remove(keyToDelete TreeKey, canDelete CanDelete) {
+func (bn *bNode) remove(keyToDelete datatypes.CompareType, canDelete datastructures.CanDelete) {
 	bn.lock.Lock()
 	defer bn.lock.Unlock()
 
@@ -84,10 +87,10 @@ func (bn *bNode) remove(keyToDelete TreeKey, canDelete CanDelete) {
 
 // called when removing an item from a leaf node. this is
 // the only time any item will be removed from the actual tree
-func (bn *bNode) removeLeafItem(index int, canDelete CanDelete) {
+func (bn *bNode) removeLeafItem(index int, canDelete datastructures.CanDelete) {
 	// check the optional argument for deletion
 	if canDelete != nil {
-		if !canDelete(bn.values[index]) {
+		if !canDelete(bn.values[index].item) {
 			return
 		}
 	}

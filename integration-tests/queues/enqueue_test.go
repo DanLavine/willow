@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/DanLavine/willow/integration-tests/testhelpers"
+	"github.com/DanLavine/willow/pkg/models/datatypes"
 	v1 "github.com/DanLavine/willow/pkg/models/v1"
 
 	. "github.com/onsi/gomega"
@@ -22,7 +23,7 @@ func Test_Enqueue(t *testing.T) {
 			BrokerInfo: v1.BrokerInfo{
 				Name:       "test queue",
 				BrokerType: v1.Queue,
-				Tags:       v1.Strings{"some tag"},
+				Tags:       datatypes.Strings{"some tag"},
 			},
 			Data:       []byte(`hello world`),
 			Updateable: false,
@@ -49,7 +50,7 @@ func Test_Enqueue(t *testing.T) {
 			BrokerInfo: v1.BrokerInfo{
 				Name:       "test queue",
 				BrokerType: v1.Queue,
-				Tags:       v1.Strings{"some tag"},
+				Tags:       datatypes.Strings{"some tag"},
 			},
 			Data:       []byte(`hello world`),
 			Updateable: false,
@@ -59,11 +60,11 @@ func Test_Enqueue(t *testing.T) {
 
 		metrics := testConstruct.Metrics(g)
 		g.Expect(len(metrics.Queues)).To(Equal(1))
-		g.Expect(metrics.Queues[0].Name).To(Equal(v1.String("test queue")))
+		g.Expect(metrics.Queues[0].Name).To(Equal(datatypes.String("test queue")))
 		g.Expect(metrics.Queues[0].Max).To(Equal(uint64(5)))
 		g.Expect(metrics.Queues[0].Total).To(Equal(uint64(1)))
 		g.Expect(len(metrics.Queues[0].Tags)).To(Equal(1))
-		g.Expect(metrics.Queues[0].Tags[0].Tags).To(Equal(v1.Strings{"some tag"}))
+		g.Expect(metrics.Queues[0].Tags[0].Tags).To(Equal(datatypes.Strings{"some tag"}))
 		g.Expect(metrics.Queues[0].Tags[0].Ready).To(Equal(uint64(1)))
 		g.Expect(metrics.Queues[0].Tags[0].Processing).To(Equal(uint64(0)))
 	})
@@ -90,11 +91,11 @@ func Test_Enqueue(t *testing.T) {
 		// check the metrics
 		metrics := testConstruct.Metrics(g)
 		g.Expect(len(metrics.Queues)).To(Equal(1))
-		g.Expect(metrics.Queues[0].Name).To(Equal(v1.String("queue1")))
+		g.Expect(metrics.Queues[0].Name).To(Equal(datatypes.String("queue1")))
 		g.Expect(metrics.Queues[0].Max).To(Equal(uint64(5)))
 		g.Expect(metrics.Queues[0].Total).To(Equal(uint64(4)))
 		g.Expect(len(metrics.Queues[0].Tags)).To(Equal(1))
-		g.Expect(metrics.Queues[0].Tags[0].Tags).To(Equal(v1.Strings{"some tag"}))
+		g.Expect(metrics.Queues[0].Tags[0].Tags).To(Equal(datatypes.Strings{"some tag"}))
 		g.Expect(metrics.Queues[0].Tags[0].Ready).To(Equal(uint64(4)))
 		g.Expect(metrics.Queues[0].Tags[0].Processing).To(Equal(uint64(0)))
 	})
@@ -111,19 +112,19 @@ func Test_Enqueue(t *testing.T) {
 		enqueurResponse := testConstruct.Enqueue(g, item)
 		g.Expect(enqueurResponse.StatusCode).To(Equal(http.StatusOK))
 
-		item.BrokerInfo.Tags = v1.Strings{"new tag", "of course"}
+		item.BrokerInfo.Tags = datatypes.Strings{"new tag", "of course"}
 		enqueurResponse = testConstruct.Enqueue(g, item)
 		g.Expect(enqueurResponse.StatusCode).To(Equal(http.StatusOK))
 
 		// check the metrics
 		metrics := testConstruct.Metrics(g)
 		g.Expect(len(metrics.Queues)).To(Equal(1))
-		g.Expect(metrics.Queues[0].Name).To(Equal(v1.String("queue1")))
+		g.Expect(metrics.Queues[0].Name).To(Equal(datatypes.String("queue1")))
 		g.Expect(metrics.Queues[0].Max).To(Equal(uint64(5)))
 		g.Expect(metrics.Queues[0].Total).To(Equal(uint64(2)))
 		g.Expect(len(metrics.Queues[0].Tags)).To(Equal(2))
-		g.Expect(metrics.Queues[0].Tags).To(ContainElement(&v1.TagMetricsResponse{Tags: v1.Strings{"some tag"}, Ready: 1, Processing: 0}))
-		g.Expect(metrics.Queues[0].Tags).To(ContainElement(&v1.TagMetricsResponse{Tags: v1.Strings{"new tag", "of course"}, Ready: 1, Processing: 0}))
+		g.Expect(metrics.Queues[0].Tags).To(ContainElement(&v1.TagMetricsResponse{Tags: datatypes.Strings{"some tag"}, Ready: 1, Processing: 0}))
+		g.Expect(metrics.Queues[0].Tags).To(ContainElement(&v1.TagMetricsResponse{Tags: datatypes.Strings{"new tag", "of course"}, Ready: 1, Processing: 0}))
 	})
 
 	t.Run("updateable messages can collapse", func(t *testing.T) {
@@ -148,11 +149,11 @@ func Test_Enqueue(t *testing.T) {
 		// check the metrics
 		metrics := testConstruct.Metrics(g)
 		g.Expect(len(metrics.Queues)).To(Equal(1))
-		g.Expect(metrics.Queues[0].Name).To(Equal(v1.String("queue1")))
+		g.Expect(metrics.Queues[0].Name).To(Equal(datatypes.String("queue1")))
 		g.Expect(metrics.Queues[0].Max).To(Equal(uint64(5)))
 		g.Expect(metrics.Queues[0].Total).To(Equal(uint64(1)))
 		g.Expect(len(metrics.Queues[0].Tags)).To(Equal(1))
-		g.Expect(metrics.Queues[0].Tags[0].Tags).To(Equal(v1.Strings{"some tag"}))
+		g.Expect(metrics.Queues[0].Tags[0].Tags).To(Equal(datatypes.Strings{"some tag"}))
 		g.Expect(metrics.Queues[0].Tags[0].Ready).To(Equal(uint64(1)))
 		g.Expect(metrics.Queues[0].Tags[0].Processing).To(Equal(uint64(0)))
 	})

@@ -1,4 +1,4 @@
-package datastructures_test
+package idtree
 
 import (
 	"fmt"
@@ -6,7 +6,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DanLavine/willow/internal/datastructures"
 	. "github.com/onsi/gomega"
 )
 
@@ -14,7 +13,7 @@ func TestIDGenerator_Add(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	t.Run("adds values and returns ids in chronilogical order", func(t *testing.T) {
-		itemTracker := datastructures.NewIDTree()
+		itemTracker := NewIDTree()
 
 		for i := 1; i <= 1024; i++ {
 			g.Expect(itemTracker.Add(i)).To(Equal(uint64(i)))
@@ -22,7 +21,7 @@ func TestIDGenerator_Add(t *testing.T) {
 	})
 
 	t.Run("replaces nodes at proper hights on the left", func(t *testing.T) {
-		itemTracker := datastructures.NewIDTree()
+		itemTracker := NewIDTree()
 		/* generate a tree like so:
 		height |						   ID
 		h0 - 1 (first index in this row) |                1
@@ -64,7 +63,7 @@ func TestIDGenerator_Add(t *testing.T) {
 	})
 
 	t.Run("replaces nodes at proper hights on the right", func(t *testing.T) {
-		itemTracker := datastructures.NewIDTree()
+		itemTracker := NewIDTree()
 		/* generate a tree like so:
 		height |						   ID
 		h0 - 1 (first index in this row) |                1
@@ -106,7 +105,7 @@ func TestIDGenerator_Add(t *testing.T) {
 	})
 
 	t.Run("replaces nodes at proper indexes on an imbalanced tree", func(t *testing.T) {
-		itemTracker := datastructures.NewIDTree()
+		itemTracker := NewIDTree()
 		/* generate a tree like so:
 		height |						   ID
 		h0 - 1 (first index in this row) |                1
@@ -150,12 +149,12 @@ func TestIDGenerator_Get(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	t.Run("returns nil if nothing has been added", func(t *testing.T) {
-		itemTracker := datastructures.NewIDTree()
+		itemTracker := NewIDTree()
 		g.Expect(itemTracker.Get(1)).To(BeNil())
 	})
 
 	t.Run("returns the value at the desired index", func(t *testing.T) {
-		itemTracker := datastructures.NewIDTree()
+		itemTracker := NewIDTree()
 
 		for i := 1; i <= 1024; i++ {
 			g.Expect(itemTracker.Add(fmt.Sprintf("%d", i))).To(Equal(uint64(i)))
@@ -171,12 +170,12 @@ func TestIDGenerator_Remove(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	t.Run("returns nil if nothing has been added", func(t *testing.T) {
-		itemTracker := datastructures.NewIDTree()
+		itemTracker := NewIDTree()
 		g.Expect(itemTracker.Remove(1)).To(BeNil())
 	})
 
 	t.Run("clears the root if everything has been removed", func(t *testing.T) {
-		itemTracker := datastructures.NewIDTree()
+		itemTracker := NewIDTree()
 
 		g.Expect(itemTracker.Add("1")).To(Equal(uint64(1)))
 		g.Expect(itemTracker.Add("2")).To(Equal(uint64(2)))
@@ -188,7 +187,7 @@ func TestIDGenerator_Remove(t *testing.T) {
 	})
 
 	t.Run("returns the value at the desired index", func(t *testing.T) {
-		itemTracker := datastructures.NewIDTree()
+		itemTracker := NewIDTree()
 
 		for i := 1; i <= 1024; i++ {
 			g.Expect(itemTracker.Add(fmt.Sprintf("%d", i))).To(Equal(uint64(i)))
@@ -200,7 +199,7 @@ func TestIDGenerator_Remove(t *testing.T) {
 	})
 
 	t.Run("removing a left leaf node can be replaced properly", func(t *testing.T) {
-		itemTracker := datastructures.NewIDTree()
+		itemTracker := NewIDTree()
 
 		/* generate a tree like so:
 		 *
@@ -226,7 +225,7 @@ func TestIDGenerator_Remove(t *testing.T) {
 	})
 
 	t.Run("removing a right leaf node can be replaced properly", func(t *testing.T) {
-		itemTracker := datastructures.NewIDTree()
+		itemTracker := NewIDTree()
 
 		/* generate a tree like so:
 		 *
@@ -252,7 +251,7 @@ func TestIDGenerator_Remove(t *testing.T) {
 	})
 
 	t.Run("removing a left child and parent allow fo indexes to still be recreated properly", func(t *testing.T) {
-		itemTracker := datastructures.NewIDTree()
+		itemTracker := NewIDTree()
 
 		/* generate a tree like so:
 		 *
@@ -295,7 +294,7 @@ func TestIDGenerator_Remove(t *testing.T) {
 	})
 
 	t.Run("removing a right child and parent allow fo indexes to still be recreated properly", func(t *testing.T) {
-		itemTracker := datastructures.NewIDTree()
+		itemTracker := NewIDTree()
 
 		/* generate a tree like so:
 		 *
@@ -338,7 +337,7 @@ func TestIDGenerator_Remove(t *testing.T) {
 	})
 
 	t.Run("removing an index means the next add can re-insert to that empty index", func(t *testing.T) {
-		itemTracker := datastructures.NewIDTree()
+		itemTracker := NewIDTree()
 
 		for i := 1; i <= 1024; i++ {
 			g.Expect(itemTracker.Add(fmt.Sprintf("%d", i))).To(Equal(uint64(i)))
@@ -353,7 +352,7 @@ func TestIDGenerator_Remove(t *testing.T) {
 	})
 
 	t.Run("removing the same index multiple times, does not mess up insert count", func(t *testing.T) {
-		itemTracker := datastructures.NewIDTree()
+		itemTracker := NewIDTree()
 
 		/* generate a tree like so:
 		 *

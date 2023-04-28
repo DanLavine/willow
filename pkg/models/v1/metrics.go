@@ -2,6 +2,8 @@ package v1
 
 import (
 	"encoding/json"
+
+	"github.com/DanLavine/willow/pkg/models/datatypes"
 )
 
 // Metrics for all queues and dead letter queues
@@ -13,7 +15,7 @@ type MetricsResponse struct {
 // Metrics for each individual queue
 // TODO put response on this
 type QueueMetricsResponse struct {
-	Name  String
+	Name  datatypes.String
 	Total uint64
 	Max   uint64
 
@@ -24,7 +26,7 @@ type QueueMetricsResponse struct {
 
 // Metrics for all tags Groups for a given queue
 type TagMetricsResponse struct {
-	Tags       Strings
+	Tags       datatypes.Strings
 	Ready      uint64
 	Processing uint64
 }

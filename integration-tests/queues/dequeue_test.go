@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/DanLavine/willow/integration-tests/testhelpers"
+	"github.com/DanLavine/willow/pkg/models/datatypes"
 	v1 "github.com/DanLavine/willow/pkg/models/v1"
 
 	. "github.com/onsi/gomega"
@@ -34,7 +35,7 @@ func Test_Dequeue(t *testing.T) {
 			enqueueResponse := testConstruct.Enqueue(g, item1)
 			g.Expect(enqueueResponse.StatusCode).To(Equal(http.StatusOK))
 
-			item1.BrokerInfo.Tags = v1.Strings{"a", "b", "c"}
+			item1.BrokerInfo.Tags = datatypes.Strings{"a", "b", "c"}
 			item1.Data = []byte(`retrieve me`)
 			enqueueResponse = testConstruct.Enqueue(g, item1)
 			g.Expect(enqueueResponse.StatusCode).To(Equal(http.StatusOK))
@@ -44,16 +45,16 @@ func Test_Dequeue(t *testing.T) {
 			enqueueResponse = testConstruct.Enqueue(g, item2)
 			g.Expect(enqueueResponse.StatusCode).To(Equal(http.StatusOK))
 
-			item2.BrokerInfo.Tags = v1.Strings{"a", "b", "c"}
+			item2.BrokerInfo.Tags = datatypes.Strings{"a", "b", "c"}
 			item2.Data = []byte(`dont retrieve me`)
 			enqueueResponse = testConstruct.Enqueue(g, item2)
 			g.Expect(enqueueResponse.StatusCode).To(Equal(http.StatusOK))
 
 			// retrieve a message
 			matchBody := v1.MatchQuery{
-				BrokerName:            v1.String("queue1"),
+				BrokerName:            datatypes.String("queue1"),
 				MatchTagsRestrictions: v1.STRICT,
-				Tags:                  v1.Strings{"a", "b", "c"},
+				Tags:                  datatypes.Strings{"a", "b", "c"},
 			}
 
 			messageResponse := testConstruct.GetItem(g, matchBody)
@@ -67,7 +68,7 @@ func Test_Dequeue(t *testing.T) {
 			g.Expect(json.Unmarshal(queueItemBody, &queueItem)).ToNot(HaveOccurred())
 			g.Expect(queueItem.ID).To(Equal(uint64(1)))
 			g.Expect(queueItem.Data).To(Equal([]byte(`retrieve me`)))
-			g.Expect(queueItem.BrokerInfo.Tags).To(Equal(v1.Strings{"a", "b", "c"}))
+			g.Expect(queueItem.BrokerInfo.Tags).To(Equal(datatypes.Strings{"a", "b", "c"}))
 		})
 	})
 
