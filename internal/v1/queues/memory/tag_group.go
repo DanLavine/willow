@@ -34,8 +34,9 @@ type tagGroup struct {
 	items          *idtree.IDTree
 	availableItems []uint64
 
-	notifier *gonotify.Notify
-	channels []chan<- tags.Tag
+	notifier      *gonotify.Notify
+	strictChannel chan tags.Tag
+	channels      []chan<- tags.Tag
 
 	tags                datatypes.Strings
 	itemReadyCount      *atomic.Uint64
@@ -54,8 +55,9 @@ func newTagGroup(tags datatypes.Strings, channels []chan<- tags.Tag) *tagGroup {
 		availableItems: []uint64{},
 
 		// communication
-		notifier: gonotify.New(),
-		channels: channels,
+		notifier:      gonotify.New(),
+		strictChannel: make(chan Tag),
+		channels:      channels,
 
 		// counters and info
 		tags:                tags,

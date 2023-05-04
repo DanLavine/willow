@@ -2,6 +2,7 @@ package memory
 
 import (
 	"context"
+	"net/http"
 	"sync"
 
 	"github.com/DanLavine/goasync"
@@ -19,14 +20,15 @@ type Queue struct {
 	done     chan struct{}
 
 	// queue information and limits
-	name       datatypes.String
-	maxSize    uint64
-	retryLimit uint64
+	name    datatypes.String
+	maxSize uint64
+
+	// reader for all tag groups in this queue
+	globalChannel chan tags.Tag
 
 	// items that are enqueued and ready to be processed
-	// each item in the tree is of type *tagGroup
-	tagGroups  disjointtree.DisjointTree
-	tagReaders tags.TagReaders // all readers for the various tag groups
+	// Each element in this tree is of tyoe *tagNode
+	tagGroups disjointtree.DisjointTree
 
 	// manage all tag groups and their associated readers
 	taskManager goasync.AsyncTaskManager
@@ -40,12 +42,12 @@ func NewQueue(create *v1.Create) *Queue {
 		doneOnce: new(sync.Once),
 		done:     make(chan struct{}),
 
-		name:       create.Name,
-		maxSize:    create.QueueMaxSize,
-		retryLimit: create.ItemRetryAttempts,
+		name:    create.Name,
+		maxSize: create.QueueMaxSize,
 
-		tagGroups:  disjointtree.New(),
-		tagReaders: tags.NewTagReaderTree(),
+		globalChannel: make(chan tags.Tag),
+
+		tagGroups: disjointtree.New(),
 
 		taskManager: goasync.NewTaskManager(goasync.RelaxedConfig()),
 
@@ -61,58 +63,73 @@ func (q *Queue) Execute(ctx context.Context) error {
 
 // Enqueue an item onto the message queue
 func (q *Queue) Enqueue(logger *zap.Logger, enqueueItemRequest *v1.EnqueueItemRequest) *v1.Error {
-	// create the new tags group if it does not currently exist
-	// TODO: need something for OnFind to know that we shouldn't delete. Not sure what that is yet
-	tagsGroup, err := q.tagGroups.CreateOrFind(enqueueItemRequest.BrokerInfo.Tags, nil, q.setupTagsGroup(enqueueItemRequest.BrokerInfo.Tags))
+	// try and be fast to know if the queue already exist
+	item, err := q.tagGroups.Find(enqueueItemRequest.BrokerInfo.SortedTags(), nil)
 	if err != nil {
 		return errors.InternalServerError.With("", err.Error())
 	}
 
-	if err := tagsGroup.(*tagGroup).Enqueue(q.counter, enqueueItemRequest); err != nil {
-		// TODO, need to try and remove tagGtoup/Readers?
-		return err
+	// need to create the queue group
+	if item != nil && item.(*tagNode).tagGroup != nil {
+		// generate all possible tag combinations
+		queueTags := enqueueItemRequest.BrokerInfo.GenerateTagPairs()
+
+		// channel to be updated as part of insertion
+		channels := []chan tags.Tag{}
+		channels = append(channels, q.globalChannel)
+
+		// NOTE: the queue tags are guaranteed to have the full queue tags as the last index
+		for index, tagGroup := range queueTags {
+			if index == len(queueTags)-1 {
+				// we are on the last index, so create the actual queue
+				item, err = q.tagGroups.CreateOrFind(queueTags, q.updateTagNode(queueTags, channels), q.newTagNode(queueTags, channels))
+				if err != nil {
+					return errors.InternalServerError.With("", err.Error())
+				}
+			} else {
+				// we only need to create the channels
+				if _, err := q.tagGroups.CreateOrFind(queueTags, q.findChannels(channels), q.newChannels(channels)); err != nil {
+					return errors.InternalServerError.With("", err.Error())
+				}
+			}
+		}
 	}
 
-	return nil
+	node := item.(*tagNode)
+	return node.tagGroup.Enqueue(q.counter, enqueueItemRequest)
 }
 
-// callbaack for setup Enqueue to use when setting up a new tags group
-func (q *Queue) setupTagsGroup(tags datatypes.Strings) func() (any, error) {
-	return func() (any, error) {
-		allPossibleReaders := q.tagReaders.CreateGroup(tags)
-		tagGroup := newTagGroup(tags, allPossibleReaders)
-
-		_ = q.taskManager.AddExecuteTask("", tagGroup)
-		return tagGroup, nil
-	}
-}
-
+// TODO NEXT: I'M implementing all the search features for this
 // Readers is used by any clients to obtain possible readers for tag groups
-func (q *Queue) Readers(matchQuery *v1.MatchQuery) []<-chan tags.Tag {
+func (q *Queue) Readers(logger *zap.Logger, query *v1.Query) ([]<-chan tags.Tag, *v1.Error) {
+	logger = logger.Named("Readers")
 	var channels []<-chan tags.Tag
 
-	if matchQuery == nil {
-		return channels
+	if query.Matches.All {
+		// using the global channel
+		channels = append(channels, q.globalChannel)
+	} else if query.Matches.StrictMatches != nil {
+		// need to only find the strict channel
+		item, err := q.tagGroups.Find(query.Matches.StrictMatches.Equals.ToStrings(), nil)
+		if err != nil {
+			logger.Error("failed to find tag group", zap.Error(err))
+			return nil, &v1.Equals{Message: "Failed to find the queue", StatusCode: http.StatusInternalServerError}
+		}
+
+		if item == nil {
+			return nil, nil
+		}
+
+		node := item.(*tagNode)
+		if node.tagGroup != nil {
+			channels = append(channels, node.tagGroup.strictChannel)
+		}
+	} else {
+		// can find any number of channels
+		// This needs a general recursive search for keys
 	}
 
-	switch matchQuery.MatchTagsRestrictions {
-	case v1.STRICT:
-		// return the strict reader for the queue's tagGroup
-		channels = append(channels, q.tagReaders.GetStrictReader(matchQuery.Tags))
-	case v1.SUBSET:
-		// return the specific subset reader
-		channels = append(channels, q.tagReaders.GetSubsetReader(matchQuery.Tags))
-	case v1.ANY:
-		// return all readers that match
-		channels = q.tagReaders.GetAnyReaders(matchQuery.Tags)
-	case v1.ALL:
-		// return the global reader
-		channels = append(channels, q.tagReaders.GetGlobalReader())
-	default:
-		// nothing to do here. Caller should decide what to do with nil?
-	}
-
-	return channels
+	return channels, nil
 }
 
 func (q *Queue) Metrics() *v1.QueueMetricsResponse {

@@ -16,7 +16,7 @@ func TestDisjointTree_Iterate(t *testing.T) {
 		disjointTree.CreateOrFind(datatypes.Ints{1, 2}, nil, NewBTreeTester("first"))
 
 		count := 0
-		iterator := func(value any) {
+		iterator := func(key datatypes.CompareType, value any) {
 			treeTester := value.(*BTreeTester)
 			g.Expect(treeTester.Value).To(Equal("first"))
 			count++

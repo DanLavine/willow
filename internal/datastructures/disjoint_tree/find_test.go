@@ -47,3 +47,62 @@ func TestDisjointTree_Find(t *testing.T) {
 		g.Expect(treeItem.(*BTreeTester).OnFindCount).To(Equal(1))
 	})
 }
+
+//func TestDisjointTree_Search(t *testing.T) {
+//	g := NewGomegaWithT(t)
+//
+//	t.Run("it returns an error if the keys are nil", func(t *testing.T) {
+//		disjointTree := New()
+//
+//		searchResults, err := disjointTree.searchKeys(nil, nil)
+//		g.Expect(err).ToNot(BeNil())
+//		g.Expect(err.Error()).To(ContainSubstring("cannot have empty search keys"))
+//		g.Expect(searchResults).To(BeNil())
+//	})
+//
+//	t.Run("it returns an error if the keys are empty", func(t *testing.T) {
+//		disjointTree := New()
+//
+//		searchResults, err := disjointTree.searchKeys(datatypes.Ints{}, nil)
+//		g.Expect(err).ToNot(BeNil())
+//		g.Expect(err.Error()).To(ContainSubstring("cannot have empty search keys"))
+//		g.Expect(searchResults).To(BeNil())
+//	})
+//
+//	t.Run("it returns an empty list if there are no results", func(t *testing.T) {
+//		disjointTree := New()
+//
+//		searchResults, err := disjointTree.searchKeys(datatypes.Ints{1, 2}, nil)
+//		g.Expect(err).ToNot(HaveOccurred())
+//		g.Expect(searchResults).To(Equal(SearchResults))
+//	})
+//
+//	t.Run("when the tree has a number of values inserted", func(t *testing.T) {
+//		setup := func(g *GomegaWithT) *disjointTree {
+//			disjointTree := New()
+//
+//			var err error
+//			_, err = disjointTree.CreateOrFind(datatypes.Ints{1, 1}, nil, NewBTreeTester("1"))
+//			g.Expect(err).ToNot(HaveOccurred())
+//			_, err = disjointTree.CreateOrFind(datatypes.Ints{1, 2}, nil, NewBTreeTester("2"))
+//			g.Expect(err).ToNot(HaveOccurred())
+//			_, err = disjointTree.CreateOrFind(datatypes.Ints{1, 3}, nil, NewBTreeTester("3"))
+//			g.Expect(err).ToNot(HaveOccurred())
+//			_, err = disjointTree.CreateOrFind(datatypes.Ints{1, 4}, nil, NewBTreeTester("4"))
+//			g.Expect(err).ToNot(HaveOccurred())
+//			_, err = disjointTree.CreateOrFind(datatypes.Ints{1, 5, 20, 30}, nil, NewBTreeTester("30"))
+//			g.Expect(err).ToNot(HaveOccurred())
+//
+//			return disjointTree
+//		}
+//
+//		t.Run("it returns all the properly tagged values, and not internal nodes", func(t *testing.T) {
+//			disjointTree := setup(g)
+//
+//			searchResults, err := disjointTree.searchKeys(datatypes.Ints{}, nil)
+//			g.Expect(err).ToNot(HaveOccurred())
+//
+//			g.Expect(len(searchResults)).To(Equal(5))
+//		})
+//	})
+//}

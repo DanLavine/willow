@@ -24,7 +24,7 @@ func (bn *bNode) iterate(callback datastructures.Iterate) {
 	defer bn.lock.RUnlock()
 
 	for i := 0; i < bn.numberOfValues; i++ {
-		callback(bn.values[i].item)
+		callback(bn.values[i].key, bn.values[i].item)
 	}
 
 	for i := 0; i < bn.numberOfChildren; i++ {

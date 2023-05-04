@@ -8,6 +8,13 @@ import (
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 )
 
+type SearchResults []SearchResult
+
+type SearchResult struct {
+	Tags  datatypes.CompareType
+	Value any
+}
+
 // Disjoint tree structure create trees with any number of child trees. Each Disjoint Tree is a BTree
 // where each value in the tree is a node containing a possible value and child. The Trees are recursive in nature when
 // creating multiple tags.
@@ -29,6 +36,12 @@ import (
 type DisjointTree interface {
 	// Find the provided tree item if it already exists. retrns nil if not found
 	Find(keys datatypes.EnumerableCompareType, onFind datastructures.OnFind) (any, error)
+
+	// Search for any values that satify the search keys.
+	//SearchKeys(keys datatypes.EnumerableCompareType, onFind datastructures.OnFind) (SearchResults, error)
+
+	//// Search for any values that satify the search key value pairs
+	//SearchKeyValuess(keyValues datatypes.EnumerableCompareType, onFind datastructures.OnFind) (SearchResults, error)
 
 	// Find the provided tree item if it already exists. Or return the newly inserted tree item
 	CreateOrFind(keys datatypes.EnumerableCompareType, onFind datastructures.OnFind, onCreate datastructures.OnCreate) (any, error)

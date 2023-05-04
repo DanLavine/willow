@@ -9,6 +9,7 @@ import (
 	v1 "github.com/DanLavine/willow/pkg/models/v1"
 )
 
+// Enqueue handler adds an item onto a message queue, or updates a message queue that is waiting to process
 func (qh *queueHandler) Enqueue(w http.ResponseWriter, r *http.Request) {
 	logger := logger.AddRequestID(qh.logger.Named("Enqueue"), r)
 	defer logger.Debug("processed enqueue request")
@@ -43,29 +44,31 @@ func (qh *queueHandler) Enqueue(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// Dequeue handler removes an item from a message queue. If there are no messages waiting to process,
+// the connection stays open unitil. 1. the client closes the connection 2. a message is processed and sent to the client
 func (qh *queueHandler) Dequeue(w http.ResponseWriter, r *http.Request) {
 	logger := logger.AddRequestID(qh.logger.Named("Dequeue"), r)
 	defer logger.Debug("processed dequeue request")
 
 	switch method := r.Method; method {
 	case "GET":
-		logger.Debug("GET dequeue")
+		logger.Debug("GET")
 
-		matchRequst, err := v1.ParseMatchQueryRequest(r.Body)
+		query, err := v1.ParseQuery(r.Body)
 		if err != nil {
 			w.WriteHeader(err.StatusCode)
 			w.Write(err.ToBytes())
 			return
 		}
 
-		queue, err := qh.queueManager.Find(logger, matchRequst.BrokerName)
+		queue, err := qh.queueManager.Find(logger, query.BrokerName)
 		if err != nil {
 			w.WriteHeader(err.StatusCode)
 			w.Write(err.ToBytes())
 			return
 		}
 
-		readers := queue.Readers(matchRequst)
+		readers := queue.Readers(query)
 		if len(readers) == 0 {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
@@ -87,7 +90,9 @@ func (qh *queueHandler) Dequeue(w http.ResponseWriter, r *http.Request) {
 		dequeueResponse := value.Interface().(tags.Tag)()
 
 		w.WriteHeader(http.StatusOK)
-		w.Write(dequeueResponse.ToBytes())
+
+		// TODO: on an error, we need to mark the message as failed
+		_ = w.Write(dequeueResponse.ToBytes())
 	default:
 		w.WriteHeader(http.StatusNotFound)
 	}

@@ -31,10 +31,6 @@ func (dt *disjointTree) CreateOrFind(keys datatypes.EnumerableCompareType, onFin
 func (dt *disjointTree) createOrFind(keys datatypes.EnumerableCompareType, onFind datastructures.OnFind, onCreate datastructures.OnCreate) (any, error) {
 	key, keys := keys.Pop()
 
-	if key == nil {
-		return nil, fmt.Errorf("Received an invalid EnumberableTreeKeys. Can not have a nil value")
-	}
-
 	// we are at the last index
 	if keys.Len() == 0 {
 		// create the item or find the item if it does not currently exist

@@ -18,9 +18,6 @@ type Create struct {
 	// Cannot be set to  0
 	QueueMaxSize uint64
 
-	// Number of times to retry a queue item before sending it to the dead letter queue
-	ItemRetryAttempts uint64
-
 	// Max Number of items to keep in the dead letter queue. If full,
 	// any new items will just be dropped untill the queue is cleared by an admin.
 	DeadLetterQueueMaxSize uint64

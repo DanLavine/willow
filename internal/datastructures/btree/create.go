@@ -59,9 +59,6 @@ func (btree *bTree) CreateOrFind(key datatypes.CompareType, onFind datastructure
 // * TreeItem - the value inserted or item if it already existed
 // * *bNode - a new node if there was a split
 func (bn *bNode) createOrFind(nodeSize int, key datatypes.CompareType, onFind datastructures.OnFind, onCreate datastructures.OnCreate) (any, error, *bNode) {
-	bn.lock.Lock()
-	defer bn.lock.Unlock()
-
 	switch bn.numberOfChildren {
 	case 0: // leaf node
 		item, err := bn.createTreeItem(key, onFind, onCreate)

@@ -1,5 +1,7 @@
 package datastructures
 
+import "github.com/DanLavine/willow/pkg/models/datatypes"
+
 // Common way of interacting with any of the data structures
 
 // When using any of the tree's we have these special callbacks that can be used
@@ -23,7 +25,7 @@ package datastructures
 // are all expecting
 
 // Iterate is called for each value in a tree
-type Iterate func(item any)
+type Iterate func(key datatypes.CompareType, item any)
 
 // Callback for creating a value and inserting them into trees
 type OnCreate func() (any, error)

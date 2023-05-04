@@ -39,9 +39,6 @@ func (btree *bTree) Delete(key datatypes.CompareType, canDelete datastructures.C
 
 // remove an item from the tree.
 func (bn *bNode) remove(keyToDelete datatypes.CompareType, canDelete datastructures.CanDelete) {
-	bn.lock.Lock()
-	defer bn.lock.Unlock()
-
 	// find the currrent or child index to recurse down
 	var index int
 	for index = 0; index < bn.numberOfValues; index++ {

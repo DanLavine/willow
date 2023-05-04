@@ -17,7 +17,7 @@ func TestBTree_Iterate(t *testing.T) {
 		bTree, err := New(2)
 		g.Expect(err).ToNot(HaveOccurred())
 
-		iterate := func(val any) {
+		iterate := func(key datatypes.CompareType, val any) {
 			panic("should not call")
 		}
 
@@ -34,7 +34,7 @@ func TestBTree_Iterate(t *testing.T) {
 
 		seenValues := map[string]struct{}{}
 		count := 0
-		iterate := func(val any) {
+		iterate := func(_ datatypes.CompareType, val any) {
 			BTreeTester := val.(*BTreeTester)
 
 			// check that each value is unique

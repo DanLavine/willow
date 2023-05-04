@@ -10,7 +10,7 @@ var (
 	MarshelModelFailed = &Error{Message: "Failed to encode response.", StatusCode: http.StatusInternalServerError}
 
 	InvalidRequestBody    = &Error{Message: "Invalid request body.", StatusCode: http.StatusBadRequest}
-	ParseRequestBodyError = &Error{Message: "Failed to parse requeset body.", StatusCode: http.StatusBadRequest}
+	ParseRequestBodyError = &Error{Message: "Failed to parse request body.", StatusCode: http.StatusBadRequest}
 )
 
 type Error struct {
