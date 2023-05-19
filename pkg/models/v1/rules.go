@@ -9,6 +9,11 @@ type UniqueKeys map[string]struct{}
 //
 // Also, how do we find the rules to execute a tags group against?
 type Rule struct {
+	// name of the broker to apply the rule to
+	// leaving this as nil applies to all brokers
+	BrokerName *datatypes.String
+
+	// This is the unique key for upddate inser, create?
 	Name datatypes.String
 
 	// This somehow needs to be checked against the arbitrary tags
@@ -35,25 +40,5 @@ type Select struct {
 	Where *[]WhereClause
 
 	// Limits for whan a rule is found
-	Limit *Limit
-}
-
-// This is what is actually stored in the CompositeTree table. The Limits that
-// can be acted on
-type Limit struct {
-	Max uint
-
-	active uint
-}
-
-func (l *Limit) Max() bool {
-	return l.active >= l.Max
-}
-
-func (l *Limit) Increment() {
-	l.active++
-}
-
-func (l *Limit) Decriment() {
-	l.active--
+	Limit uint
 }
