@@ -12,7 +12,9 @@ import (
 	v1 "github.com/DanLavine/willow/pkg/models/v1"
 	"go.uber.org/zap"
 
+	"github.com/DanLavine/willow/internal/datastructures/btree"
 	disjointtree "github.com/DanLavine/willow/internal/datastructures/disjoint_tree"
+	idtree "github.com/DanLavine/willow/internal/datastructures/id_tree"
 )
 
 type Queue struct {
@@ -28,7 +30,8 @@ type Queue struct {
 
 	// items that are enqueued and ready to be processed
 	// Each element in this tree is of tyoe *tagNode
-	tagGroups disjointtree.DisjointTree
+	tagGroups     idtree.IDTree
+	keyValuePairs btree.BTree
 
 	// manage all tag groups and their associated readers
 	taskManager goasync.AsyncTaskManager
@@ -38,6 +41,11 @@ type Queue struct {
 }
 
 func NewQueue(create *v1.Create) *Queue {
+	tree, err := btree.New(2)
+	if err != nil {
+		panic(err)
+	}
+
 	return &Queue{
 		doneOnce: new(sync.Once),
 		done:     make(chan struct{}),
@@ -47,7 +55,8 @@ func NewQueue(create *v1.Create) *Queue {
 
 		globalChannel: make(chan tags.Tag),
 
-		tagGroups: disjointtree.New(),
+		tagGroups:     disjointtree.New(),
+		keyValuePairs: tree,
 
 		taskManager: goasync.NewTaskManager(goasync.RelaxedConfig()),
 

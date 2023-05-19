@@ -32,6 +32,7 @@ func (ct *compositeTree) CreateOrFind(keyValues map[datatypes.String]datatypes.S
 	if findResults == nil {
 		// nothing to do here will need to create the item
 	} else if len(findResults) == 1 {
+		// found the item
 		return findResults[0], nil
 	} else {
 		panic("remove me, how did we get here!")

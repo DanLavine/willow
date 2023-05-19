@@ -7,6 +7,8 @@ type Set interface {
 
 	Keep(values []uint64)
 
+	Remove(values []uint64)
+
 	Values() []uint64
 
 	Len() int
@@ -42,6 +44,12 @@ func (s *set) Keep(valuesToKeep []uint64) {
 	}
 
 	s.values = newValues
+}
+
+func (s *set) Remove(valuesToRemove []uint64) {
+	for _, valueToRemove := range valuesToRemove {
+		delete(s.values, valueToRemove)
+	}
 }
 
 func (s *set) Values() []uint64 {

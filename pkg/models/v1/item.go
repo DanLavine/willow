@@ -16,7 +16,7 @@ type EnqueueItemRequest struct {
 	// If set to true:
 	//   1. Will colapse on the previous message if it has not been processed and is also updateable
 	// If set to false:
-	//   1. Will enque the messge as unique and won't be collapsed on
+	//   1. Will enque the messge as unique and won't be collapsed on. Can still collapse the previous message iff that was true
 	Updateable bool
 }
 
