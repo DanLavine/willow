@@ -15,8 +15,8 @@ type QueryResult struct {
 
 // Find a value based on the query
 func (ct *compositeTree) Find(query v1.Query, onFind datastructures.OnFind) QueryResults {
-	ct.lock.RLock()
-	defer ct.lock.RUnlock()
+	//ct.lock.RLock()
+	//defer ct.lock.RUnlock()
 
 	var queryResults QueryResults
 

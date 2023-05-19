@@ -41,7 +41,7 @@ type Matches struct {
 	Type MatchType
 
 	// Where Clauses are a grouping of clases that will record results of any being true
-	Where *[]WhereClause
+	Where []WhereClause
 }
 
 // match the any tag group where all keys and values are found and eventually filtered out

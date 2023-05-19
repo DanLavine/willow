@@ -80,7 +80,7 @@ func TestCompositeTree_CreateOrFind(t *testing.T) {
 		keyValues := map[datatypes.String]datatypes.String{
 			"1": "one",
 			"2": "two",
-			"3": "thee",
+			"3": "three",
 			"4": "four",
 		}
 
@@ -125,7 +125,7 @@ func TestCompositeTree_CreateOrFind(t *testing.T) {
 			keyValues3 := map[datatypes.String]datatypes.String{
 				"1": "one",
 				"2": "two",
-				"3": "thee",
+				"3": "three",
 				"5": "five",
 			}
 

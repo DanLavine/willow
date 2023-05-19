@@ -1,6 +1,8 @@
 package btree
 
 import (
+	"fmt"
+
 	"github.com/DanLavine/willow/internal/datastructures"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 )
@@ -29,6 +31,7 @@ func (btree *bTree) CreateOrFind(key datatypes.CompareType, onFind datastructure
 	// down to the nodes that need an update
 	item := btree.Find(key, onFind)
 	if item != nil {
+		fmt.Println("dsl should return here!?")
 		return item, nil
 	}
 

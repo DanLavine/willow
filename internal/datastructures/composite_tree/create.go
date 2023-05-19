@@ -6,7 +6,6 @@ import (
 	"github.com/DanLavine/willow/internal/datastructures"
 	"github.com/DanLavine/willow/internal/datastructures/set"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
-	v1 "github.com/DanLavine/willow/pkg/models/v1"
 )
 
 // The locks on this are not right. IF 2 requests come in at the exact same time trying to create the same keys,
@@ -22,85 +21,100 @@ func (ct *compositeTree) CreateOrFind(keyValues map[datatypes.String]datatypes.S
 		return nil, fmt.Errorf("onCreate cannot be empty")
 	}
 
-	query := v1.Query{
-		Matches: v1.Matches{
-			StrictMatches: keyValues,
-		},
-	}
+	//query := v1.Query{
+	//	Matches: v1.Matches{
+	//		Type: v1.Strict,
+	//		Where: []v1.WhereClause{
+	//			{KeyValuePairs: keyValues},
+	//		},
+	//	},
+	//}
 
-	findResults := ct.Find(query, onFind)
-	if findResults == nil {
-		// nothing to do here will need to create the item
-	} else if len(findResults) == 1 {
-		// found the item
-		return findResults[0], nil
-	} else {
-		panic("remove me, how did we get here!")
-	}
-
-	ct.lock.Lock()
-	defer ct.lock.Unlock()
-
-	idSet := set.New()
-	create := false
-	var idHolders []*idHolder
+	//findResults := ct.Find(query, onFind)
+	//if findResults == nil {
+	//	// nothing to do here will need to create the item
+	//} else if len(findResults) == 1 {
+	//	// found the item
+	//	return findResults[0], nil
+	//}
 
 	// first find the "compositColumn" gropuings where our tags might reside.
-	castableCompositeColumn, _ := ct.compositeColumns.CreateOrFind(datatypes.Int(len(keyValues)), nil, createCompositeColumn)
-	compositeColumn := castableCompositeColumn.(*compositeColumn)
-
-	for createKey, createValue := range keyValues {
-		// create or find the key
-		castableKeyValuePairs, _ := compositeColumn.keyValuePairs.CreateOrFind(createKey, nil, createKeyValuePairs)
-		keyValuePairs := castableKeyValuePairs.(*keyValuePairs)
-
-		// create or find the ID holder from the value
-		castableIDHolder, _ := keyValuePairs.idHolders.CreateOrFind(createValue, findIDHolder(idSet), createIDHolder(&create))
-		idHolders = append(idHolders, castableIDHolder.(*idHolder))
+	castableKeyValues, err := ct.compositeColumns.CreateOrFind(datatypes.Int(len(keyValues)), KeyValuesLock, NewKeyValues)
+	if err != nil {
+		return nil, err
 	}
+	recordedKeyValues := castableKeyValues.(*KeyValues)
+	defer recordedKeyValues.lock.Unlock() //lock here since the map of keyValues is in a random order
 
-	// need to create the new value and save the ID
-	if create {
-		newValue, err := onCreate()
+	// items needed to keep track of either a create or find process
+	firstLoop := true
+	idSet := set.New()
+	var idHolders []*idHolder
+
+	for searchKey, searchValue := range keyValues {
+		// create or find the values for a particular key
+		fmt.Println("finidng key:", searchKey)
+		castableValues, err := recordedKeyValues.Values.CreateOrFind(searchKey, nil, NewKeyValues)
 		if err != nil {
-			ct.cleanFaildCreate(keyValues)
+			return nil, err
+		}
+		valuesForKey := castableValues.(*KeyValues)
+
+		// filter the IDs associated with the particualr value
+		var castableIDHolder any
+		if firstLoop {
+			castableIDHolder, err = valuesForKey.Values.CreateOrFind(searchValue, onFindIDHolderAdd(idSet), newIDHolder)
+			firstLoop = false
+		} else {
+			castableIDHolder, err = valuesForKey.Values.CreateOrFind(searchValue, onFindIDHolderKeep(idSet), newIDHolderClearSet(idSet))
+		}
+
+		if err != nil {
 			return nil, err
 		}
 
-		id := ct.idTree.Add(newValue)
-		for _, idHolder := range idHolders {
-			idHolder.add(id)
+		idHolders = append(idHolders, castableIDHolder.(*idHolder))
+	}
+
+	// must have been a race where 2 requests are creating the same item
+	if idSet.Len() == 1 {
+		item := ct.idTree.Get(idSet.Values()[0])
+		if onFind != nil {
+			onFind(item)
 		}
 
-		return newValue, nil
+		return item, nil
 	}
 
-	// should have only 1 id at this point. so its a find
-	// this happens on races where 2 item try to create the same keys simultaniously
-	if idSet.Len() != 1 {
-		panic("extra values in the set!")
+	// need to create the new value and save the ID
+	newValue, err := onCreate()
+	if err != nil {
+		ct.cleanFaildCreate(keyValues)
+		return nil, err
 	}
 
-	item := ct.idTree.Get(idSet.Values()[0])
-	if onFind != nil {
-		onFind(item)
+	id := ct.idTree.Add(newValue)
+	for _, idHolder := range idHolders {
+		idHolder.add(id)
 	}
 
-	return item, nil
+	fmt.Println(`////////////////////////////////////////////////////////////`)
+
+	return newValue, nil
 }
 
 func (ct *compositeTree) cleanFaildCreate(keyValues map[datatypes.String]datatypes.String) {
 	// first find the "compositColumn" gropuings where our tags might reside.
-	castableCompositeColumn, _ := ct.compositeColumns.CreateOrFind(datatypes.Int(len(keyValues)), nil, createCompositeColumn)
-	compositeColumn := castableCompositeColumn.(*compositeColumn)
+	castableKeyValues := ct.compositeColumns.Find(datatypes.Int(len(keyValues)), nil)
+	recordedKeyValues := castableKeyValues.(*KeyValues)
 
 	for createKey, createValue := range keyValues {
-		// create or find the key
-		castableKeyValuePairs, _ := compositeColumn.keyValuePairs.CreateOrFind(createKey, nil, createKeyValuePairs)
-		keyValuePairs := castableKeyValuePairs.(*keyValuePairs)
+		// find any values associated with the key
+		castableValues := recordedKeyValues.Values.Find(createKey, nil)
+		valuesForKey := castableValues.(*KeyValues)
 
-		keyValuePairs.idHolders.Delete(createValue, canDeleteIDHolder)          // attempt to delete the idHolder
-		compositeColumn.keyValuePairs.Delete(createKey, canDeleteKeyValuePairs) // attempt to delete the keys
+		valuesForKey.Values.Delete(createValue, canRemoveIDHolder)     // attempt to delete value + idHolder
+		recordedKeyValues.Values.Delete(createKey, CanRemoveKeyValues) // attempt to delete the key if there are no more values
 	}
 
 	ct.compositeColumns.Delete(datatypes.Int(len(keyValues)), canDeleteCompositeColumns) // attempt to delete the compositeColumns
