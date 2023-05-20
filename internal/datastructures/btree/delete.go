@@ -58,7 +58,7 @@ func (bn *bNode) remove(keyToDelete datatypes.CompareType, canDelete datastructu
 			if canDelete == nil {
 				bn.removeNodeItem(index)
 			} else {
-				if canDelete(bn.values[index]) {
+				if canDelete(bn.values[index].item) {
 					// need to swap and remove the item from this node
 					bn.removeNodeItem(index)
 				} else {

@@ -145,4 +145,60 @@ func TestCompositeTree_CreateOrFind(t *testing.T) {
 			g.Expect(compositeTreeTester3.Value).To(Equal("third"))
 		})
 	})
+
+	t.Run("when creating an item fails", func(t *testing.T) {
+		keyValues := map[datatypes.String]datatypes.String{
+			"1": "one",
+			"2": "two",
+			"3": "three",
+			"4": "four",
+		}
+
+		setup := func() *compositeTree {
+			compositeTree := New()
+
+			item, err := compositeTree.CreateOrFind(keyValues, NewJoinTreeTester("setup data"), nil)
+			g.Expect(err).ToNot(HaveOccurred())
+			g.Expect(item).ToNot(BeNil())
+
+			return compositeTree
+		}
+
+		t.Run("it cleans up extra key value pairs that might have been created", func(t *testing.T) {
+			compositeTree := setup()
+			newKeyValues := map[datatypes.String]datatypes.String{
+				"1": "other",
+				"2": "foo",
+				"3": "three",
+				"5": "this shouldn't be there",
+			}
+
+			item, err := compositeTree.CreateOrFind(newKeyValues, NewJoinTreeTesterWithError, nil)
+			g.Expect(err).To(HaveOccurred())
+			g.Expect(item).To(BeNil())
+
+			keyValues := compositeTree.compositeColumns.Find(datatypes.Int(4), nil).(*KeyValues)
+
+			// "1" values
+			oneValues := keyValues.Values.Find(datatypes.String("1"), nil).(*KeyValues)
+			g.Expect(oneValues.Values.Find(datatypes.String("one"), nil)).ToNot(BeNil())
+			g.Expect(oneValues.Values.Find(datatypes.String("other"), nil)).To(BeNil())
+
+			// "2" values
+			twoValues := keyValues.Values.Find(datatypes.String("2"), nil).(*KeyValues)
+			g.Expect(twoValues.Values.Find(datatypes.String("two"), nil)).ToNot(BeNil())
+			g.Expect(twoValues.Values.Find(datatypes.String("foo"), nil)).To(BeNil())
+
+			// "3" values should still exist
+			threeValues := keyValues.Values.Find(datatypes.String("3"), nil).(*KeyValues)
+			g.Expect(threeValues.Values.Find(datatypes.String("three"), nil)).ToNot(BeNil())
+
+			// "4" values should still exist
+			fourValues := keyValues.Values.Find(datatypes.String("4"), nil).(*KeyValues)
+			g.Expect(fourValues.Values.Find(datatypes.String("four"), nil)).ToNot(BeNil())
+
+			// "5" values should be completely removed
+			g.Expect(keyValues.Values.Find(datatypes.String("5"), nil)).To(BeNil())
+		})
+	})
 }

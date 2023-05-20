@@ -1,8 +1,6 @@
 package btree
 
 import (
-	"fmt"
-
 	"github.com/DanLavine/willow/internal/datastructures"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 )
@@ -31,11 +29,12 @@ func (btree *bTree) CreateOrFind(key datatypes.CompareType, onFind datastructure
 	// down to the nodes that need an update
 	item := btree.Find(key, onFind)
 	if item != nil {
-		fmt.Println("dsl should return here!?")
 		return item, nil
 	}
 
+	// TODO: Improve me
 	// item was not found. now we need to create it, so need a tree path lock
+	// There has to be a better way of inserting, but not sure atm how to do that properly
 	btree.lock.Lock()
 	defer btree.lock.Unlock()
 

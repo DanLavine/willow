@@ -53,7 +53,6 @@ func (ct *compositeTree) CreateOrFind(keyValues map[datatypes.String]datatypes.S
 
 	for searchKey, searchValue := range keyValues {
 		// create or find the values for a particular key
-		fmt.Println("finidng key:", searchKey)
 		castableValues, err := recordedKeyValues.Values.CreateOrFind(searchKey, nil, NewKeyValues)
 		if err != nil {
 			return nil, err
@@ -98,8 +97,6 @@ func (ct *compositeTree) CreateOrFind(keyValues map[datatypes.String]datatypes.S
 		idHolder.add(id)
 	}
 
-	fmt.Println(`////////////////////////////////////////////////////////////`)
-
 	return newValue, nil
 }
 
@@ -113,9 +110,9 @@ func (ct *compositeTree) cleanFaildCreate(keyValues map[datatypes.String]datatyp
 		castableValues := recordedKeyValues.Values.Find(createKey, nil)
 		valuesForKey := castableValues.(*KeyValues)
 
-		valuesForKey.Values.Delete(createValue, canRemoveIDHolder)     // attempt to delete value + idHolder
-		recordedKeyValues.Values.Delete(createKey, CanRemoveKeyValues) // attempt to delete the key if there are no more values
+		valuesForKey.Values.Delete(createValue, canRemoveIDHolder)       // attempt to delete value + idHolder
+		recordedKeyValues.Values.Delete(createKey, CleanFailedKeyValues) // attempt to delete the key if there are no more values
 	}
 
-	ct.compositeColumns.Delete(datatypes.Int(len(keyValues)), canDeleteCompositeColumns) // attempt to delete the compositeColumns
+	ct.compositeColumns.Delete(datatypes.Int(len(keyValues)), CleanFailedKeyValues) // attempt to delete the compositeColumns
 }

@@ -86,19 +86,3 @@ func New() *compositeTree {
 		compositeColumns: bTree,
 	}
 }
-
-// compositeColumn is a collection of all unique key + value pairs
-//
-// Using a Set for the value of idHolders and adding all IDs for each requested key + value pair
-// we are able to build a list of all IDs that contain any of the keys
-//
-// Likewise, usinig a Set, if we take the first value and subtract all subsequent
-// find for keys, we can get a unique ID that specifies the eaxct ID that matches all tags
-type compositeColumn struct {
-	keyValuePairs btree.BTree // each value in this tree is of type *KeyValues
-}
-
-func canDeleteCompositeColumns(item any) bool {
-	compositeColumn := item.(*compositeColumn)
-	return compositeColumn.keyValuePairs.Empty()
-}

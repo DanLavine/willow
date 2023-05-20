@@ -17,6 +17,7 @@ func NewJoinTreeTester(Value string) func() (any, error) {
 		}, nil
 	}
 }
+
 func NewJoinTreeTesterWithError() (any, error) {
 	return nil, fmt.Errorf("failure")
 }

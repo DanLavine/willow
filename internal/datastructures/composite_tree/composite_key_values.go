@@ -60,3 +60,10 @@ func CanRemoveKeyValues(item any) bool {
 
 	return keyValues.Values.Empty()
 }
+
+// CanRemove can be used to check that the KeyValues can be deleted. This will only return true
+// iff there are no Values for the associated key
+func CleanFailedKeyValues(item any) bool {
+	keyValues := item.(*KeyValues)
+	return keyValues.Values.Empty()
+}
