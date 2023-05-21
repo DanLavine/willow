@@ -8,22 +8,14 @@ import (
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 )
 
-type MatchType string
-
-const (
-	Strict MatchType = "strict"
-	Subset MatchType = "subset"
-	Any    MatchType = "any"
-	All    MatchType = "all"
-)
-
 type Join string
 
 const (
-	And Join = "and"
-	Or  Join = "or"
+	WhereAnd Join = "and"
+	WhereOr  Join = "or"
 )
 
+type WhereClause []Where
 type KeyValues map[datatypes.String]datatypes.String
 
 // Query to use for any APIs
@@ -32,29 +24,22 @@ type Query struct {
 	BrokerName datatypes.String
 
 	// specific matches to find
-	Matches Matches
-}
-
-// When performing a queery, only 1 will be used
-type Matches struct {
-	// What type we are searching for
-	Type MatchType
-
-	// Where Clauses are a grouping of clases that will record results of any being true
-	Where []WhereClause
+	Where WhereClause
 }
 
 // match the any tag group where all keys and values are found and eventually filtered out
-type WhereClause struct {
+type Where struct {
+	// Find all values where the KeyValue Pairs Exist
 	KeyValuePairs KeyValues
 
+	// Find all values where the key exists
 	KeyExists datatypes.String
 
 	// exclude these results from the query when set to true
 	Exclusion bool
 
 	Join            *Join
-	JoinWhereClause *WhereClause
+	JoinWhereClause *Where
 }
 
 func ParseQuery(reader io.ReadCloser) (*Query, *Error) {

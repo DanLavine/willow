@@ -23,6 +23,9 @@ type EnqueueItemRequest struct {
 //type DequeueItemRequest struct {
 //	// common broker info
 //	BrokerInfo BrokerInfo
+//
+//	// type of requuest we want
+//
 //}
 
 type DequeueItemResponse struct {
