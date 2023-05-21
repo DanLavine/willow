@@ -18,13 +18,20 @@ const (
 type WhereClause []Where
 type KeyValues map[datatypes.String]datatypes.String
 
-// Query to use for any APIs
-type Query struct {
+type BrokerQuery struct {
 	// required broker name to search
 	BrokerName datatypes.String
 
+	Query *Query
+}
+
+// Query to use for any APIs
+type Query struct {
 	// specific matches to find
 	Where WhereClause
+
+	// optional limits for restrictuning numberr of keys to search for
+	Limits *Limits
 }
 
 // match the any tag group where all keys and values are found and eventually filtered out
@@ -40,6 +47,16 @@ type Where struct {
 
 	Join            *Join
 	JoinWhereClause *Where
+}
+
+type Limits struct {
+	// only 1 value can be provided at a time
+	KeyValuePairsMin     *int
+	KeyValuePairsMax     *int
+	KeyValuePairsExactly *int
+
+	// how many reults to return
+	Size *int
 }
 
 func ParseQuery(reader io.ReadCloser) (*Query, *Error) {
