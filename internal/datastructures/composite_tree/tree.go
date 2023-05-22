@@ -1,6 +1,8 @@
 package compositetree
 
 import (
+	"sync"
+
 	"github.com/DanLavine/willow/internal/datastructures"
 	"github.com/DanLavine/willow/internal/datastructures/btree"
 	idtree "github.com/DanLavine/willow/internal/datastructures/id_tree"
@@ -60,7 +62,7 @@ type CompositeTree interface {
 }
 
 type compositeTree struct {
-	//lock *sync.RWMutex
+	lock *sync.RWMutex
 
 	// ID tree stores the created values for this tree
 	// I.E. What was passed to CreateOrFind(... onCreate) func
@@ -81,7 +83,7 @@ func New() *compositeTree {
 	}
 
 	return &compositeTree{
-		//lock:             new(sync.RWMutex),
+		lock:             new(sync.RWMutex),
 		idTree:           idtree.NewIDTree(),
 		compositeColumns: bTree,
 	}

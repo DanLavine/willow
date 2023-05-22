@@ -12,24 +12,6 @@ import (
 func TestCompositeTree_CreateOrFind(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	t.Run("it returns an error with nil keyValues", func(t *testing.T) {
-		compositeTree := New()
-
-		item, err := compositeTree.CreateOrFind(nil, nil, nil)
-		g.Expect(err).To(HaveOccurred())
-		g.Expect(err.Error()).To(ContainSubstring("keyValues cannot be empty"))
-		g.Expect(item).To(BeNil())
-	})
-
-	t.Run("it returns an error with empty keyValues", func(t *testing.T) {
-		compositeTree := New()
-
-		item, err := compositeTree.CreateOrFind(map[datatypes.String]datatypes.String{}, nil, nil)
-		g.Expect(err).To(HaveOccurred())
-		g.Expect(err.Error()).To(ContainSubstring("keyValues cannot be empty"))
-		g.Expect(item).To(BeNil())
-	})
-
 	t.Run("it returns an error with nil onCreate", func(t *testing.T) {
 		compositeTree := New()
 
@@ -39,10 +21,24 @@ func TestCompositeTree_CreateOrFind(t *testing.T) {
 		g.Expect(item).To(BeNil())
 	})
 
+	t.Run("empty key values test", func(t *testing.T) {
+		t.Run("it creates a value if it doesn't already exist", func(t *testing.T) {
+			compositeTree := New()
+
+			item, err := compositeTree.CreateOrFind(nil, NewJoinTreeTester("other"), nil)
+			g.Expect(err).ToNot(HaveOccurred())
+			g.Expect(item).ToNot(BeNil())
+
+			compositeTreeTester := item.(*JoinTreeTester)
+			g.Expect(compositeTreeTester.Value).To(Equal("other"))
+		})
+	})
+
 	t.Run("single item test", func(t *testing.T) {
 		keyValues := map[datatypes.String]datatypes.String{
 			"1": "one",
 		}
+
 		t.Run("it creates a value if it doesn't already exist", func(t *testing.T) {
 			compositeTree := New()
 

@@ -13,29 +13,16 @@ import (
 //
 // could go back to the generate *bool to know if things need to be created. how annoying
 func (ct *compositeTree) CreateOrFind(keyValues map[datatypes.String]datatypes.String, onCreate datastructures.OnCreate, onFind datastructures.OnFind) (any, error) {
-	if len(keyValues) == 0 {
-		return nil, fmt.Errorf("keyValues cannot be empty")
-	}
-
 	if onCreate == nil {
 		return nil, fmt.Errorf("onCreate cannot be empty")
 	}
 
-	//query := v1.Query{
-	//	Matches: v1.Matches{
-	//		Type: v1.Strict,
-	//		Where: []v1.WhereClause{
-	//			{KeyValuePairs: keyValues},
-	//		},
-	//	},
-	//}
-
-	//findResults := ct.Find(query, onFind)
+	//findResults := ct.FindStrict(keyValues, onFind)
 	//if findResults == nil {
 	//	// nothing to do here will need to create the item
-	//} else if len(findResults) == 1 {
+	//} else {
 	//	// found the item
-	//	return findResults[0], nil
+	//	return findResults.value, nil
 	//}
 
 	// first find the "compositColumn" gropuings where our tags might reside.
