@@ -12,16 +12,10 @@ import (
 // Composite Tree is  way of grouping arbitrary key values into a unique searchable data set.
 //
 // The tree can be broken into 3 node types:
-//
 //  1. compositeColumns - The root level of the Composite Tree is a BTree of Integer Keys and each node is a compositeColumn.
 //     Another BTree which contains an the number of key+value pairs == Integer Keys. Using this info we can gurantee
 //     that each sub tree at the Integer Node is unique.
-//
-//     NOTE: the only special case for this tree is if we provide a nil, or 0 length key + value pair. This is a single
-//     value item, which can be used to store some sort of "global" object relation.
-//
 //  2. keyValuePairs - The values of the compositeColumn's BTree are then the Keys
-//
 //  3. idholders - the values for a unique entire
 //
 // Example (tree root):
@@ -92,30 +86,5 @@ func New() *compositeTree {
 		lock:             new(sync.RWMutex),
 		idTree:           idtree.NewIDTree(),
 		compositeColumns: bTree,
-	}
-}
-
-// global value doesn't use the ID tree which I think is fine
-type globalValue struct {
-	value any
-}
-
-func globalOnFind(onFind datastructures.OnFind) func(any) {
-	return func(item any) {
-		globalValue := item.(*globalValue)
-		if onFind != nil {
-			onFind(globalValue.value)
-		}
-	}
-}
-
-func globalOnCreate(onCreate datastructures.OnCreate) func() (any, error) {
-	return func() (any, error) {
-		item, err := onCreate()
-		if err != nil {
-			return nil, err
-		}
-
-		return &globalValue{value: item}, nil
 	}
 }

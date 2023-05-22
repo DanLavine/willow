@@ -30,9 +30,9 @@ func TestCompositeTree_FindInclusive(t *testing.T) {
 			queryResults := compositeTree.FindInclusive(nil, nil)
 			g.Expect(len(queryResults)).To(Equal(1))
 
-			compositeTreeTester := queryResults[0].(*JoinTreeTester)
-			g.Expect(compositeTreeTester.Value).To(Equal("empty"))
-			g.Expect(compositeTreeTester.OnFindCount).To(Equal(0))
+			compositeTreeTesters := item.([]*JoinTreeTester)
+			g.Expect(compositeTreeTesters[0].Value).To(Equal("other"))
+			g.Expect(compositeTreeTesters[0].OnFindCount).To(Equal(0))
 		})
 	})
 

@@ -32,22 +32,6 @@ func TestCompositeTree_CreateOrFind(t *testing.T) {
 			compositeTreeTester := item.(*JoinTreeTester)
 			g.Expect(compositeTreeTester.Value).To(Equal("other"))
 		})
-
-		t.Run("it runs onFind if the value already exists", func(t *testing.T) {
-			compositeTree := New()
-
-			item, err := compositeTree.CreateOrFind(nil, NewJoinTreeTester("other"), nil)
-			g.Expect(err).ToNot(HaveOccurred())
-			g.Expect(item).ToNot(BeNil())
-
-			item, err = compositeTree.CreateOrFind(nil, NewJoinTreeTester("other"), nil)
-			g.Expect(err).ToNot(HaveOccurred())
-			g.Expect(item).ToNot(BeNil())
-
-			compositeTreeTester := item.(*JoinTreeTester)
-			g.Expect(compositeTreeTester.Value).To(Equal("other"))
-			g.Expect(compositeTreeTester.OnFindCount).To(Equal(1))
-		})
 	})
 
 	t.Run("single item test", func(t *testing.T) {
@@ -189,28 +173,28 @@ func TestCompositeTree_CreateOrFind(t *testing.T) {
 			g.Expect(err).To(HaveOccurred())
 			g.Expect(item).To(BeNil())
 
-			keyValues := compositeTree.compositeColumns.Find(datatypes.Int(4), nil).(*compositeKeyValues)
+			keyValues := compositeTree.compositeColumns.Find(datatypes.Int(4), nil).(*KeyValues)
 
 			// "1" values
-			oneValues := keyValues.values.Find(datatypes.String("1"), nil).(*compositeKeyValues)
-			g.Expect(oneValues.values.Find(datatypes.String("one"), nil)).ToNot(BeNil())
-			g.Expect(oneValues.values.Find(datatypes.String("other"), nil)).To(BeNil())
+			oneValues := keyValues.Values.Find(datatypes.String("1"), nil).(*KeyValues)
+			g.Expect(oneValues.Values.Find(datatypes.String("one"), nil)).ToNot(BeNil())
+			g.Expect(oneValues.Values.Find(datatypes.String("other"), nil)).To(BeNil())
 
 			// "2" values
-			twoValues := keyValues.values.Find(datatypes.String("2"), nil).(*compositeKeyValues)
-			g.Expect(twoValues.values.Find(datatypes.String("two"), nil)).ToNot(BeNil())
-			g.Expect(twoValues.values.Find(datatypes.String("foo"), nil)).To(BeNil())
+			twoValues := keyValues.Values.Find(datatypes.String("2"), nil).(*KeyValues)
+			g.Expect(twoValues.Values.Find(datatypes.String("two"), nil)).ToNot(BeNil())
+			g.Expect(twoValues.Values.Find(datatypes.String("foo"), nil)).To(BeNil())
 
 			// "3" values should still exist
-			threeValues := keyValues.values.Find(datatypes.String("3"), nil).(*compositeKeyValues)
-			g.Expect(threeValues.values.Find(datatypes.String("three"), nil)).ToNot(BeNil())
+			threeValues := keyValues.Values.Find(datatypes.String("3"), nil).(*KeyValues)
+			g.Expect(threeValues.Values.Find(datatypes.String("three"), nil)).ToNot(BeNil())
 
 			// "4" values should still exist
-			fourValues := keyValues.values.Find(datatypes.String("4"), nil).(*compositeKeyValues)
-			g.Expect(fourValues.values.Find(datatypes.String("four"), nil)).ToNot(BeNil())
+			fourValues := keyValues.Values.Find(datatypes.String("4"), nil).(*KeyValues)
+			g.Expect(fourValues.Values.Find(datatypes.String("four"), nil)).ToNot(BeNil())
 
 			// "5" values should be completely removed
-			g.Expect(keyValues.values.Find(datatypes.String("5"), nil)).To(BeNil())
+			g.Expect(keyValues.Values.Find(datatypes.String("5"), nil)).To(BeNil())
 		})
 	})
 }

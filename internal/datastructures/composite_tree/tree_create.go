@@ -25,95 +25,81 @@ func (ct *compositeTree) CreateOrFind(keyValues map[datatypes.String]datatypes.S
 	//	return findResults.value, nil
 	//}
 
-	switch len(keyValues) {
-	case 0:
-		// 0 is a special case as it doesn't have any associated tags. It can be used as a sort of global object if that
-		// makes sense. For example when doing a Query with no 'WHERE' clause, this object could be returned, or possibly
-		// each object within the tree. Think both use cases make sense. But in the case of each object, we can just use an
-		// iterator. That is for the caller to decided on what the query should actually call
-		castableGlobalValue, err := ct.compositeColumns.CreateOrFind(datatypes.Int(0), globalOnFind(onFind), globalOnCreate(onCreate))
-		if err != nil {
-			return nil, err
-		}
-		return castableGlobalValue.(*globalValue).value, nil
-	default:
-		// first find the "compositColumn" gropuings where our tags might reside.
-		// NOTE: we need a lock here since the tags are in a random order for creation
-		castableCompositeKeyValues, err := ct.compositeColumns.CreateOrFind(datatypes.Int(len(keyValues)), compositeKeyValuesLock, newCompositeKeyValues)
-		if err != nil {
-			return nil, err
-		}
-		knownCompositeKeyValues := castableCompositeKeyValues.(*compositeKeyValues)
-		defer knownCompositeKeyValues.lock.Unlock()
-
-		// items needed to keep track of either a create or find process
-		firstLoop := true
-		idSet := set.New()
-		var idHolders []*idHolder
-
-		for searchKey, searchValue := range keyValues {
-			// create or find the values for a particular key
-			castableValues, err := knownCompositeKeyValues.values.CreateOrFind(searchKey, nil, newCompositeKeyValues)
-			if err != nil {
-				return nil, err
-			}
-			valuesForKey := castableValues.(*compositeKeyValues)
-
-			// filter the IDs associated with the particualr value
-			var castableIDHolder any
-			if firstLoop {
-				castableIDHolder, err = valuesForKey.values.CreateOrFind(searchValue, onFindIDHolderAdd(idSet), newIDHolder)
-				firstLoop = false
-			} else {
-				castableIDHolder, err = valuesForKey.values.CreateOrFind(searchValue, onFindIDHolderKeep(idSet), newIDHolderClearSet(idSet))
-			}
-
-			if err != nil {
-				return nil, err
-			}
-
-			idHolders = append(idHolders, castableIDHolder.(*idHolder))
-		}
-
-		// must have been a race where 2 requests are creating the same item
-		if idSet.Len() == 1 {
-			item := ct.idTree.Get(idSet.Values()[0])
-			if onFind != nil {
-				onFind(item)
-			}
-
-			return item, nil
-		}
-
-		// need to create the new value and save the ID
-		newValue, err := onCreate()
-		if err != nil {
-			ct.cleanFaildCreate(keyValues)
-			return nil, err
-		}
-
-		id := ct.idTree.Add(newValue)
-		for _, idHolder := range idHolders {
-			idHolder.add(id)
-		}
-
-		return newValue, nil
+	// first find the "compositColumn" gropuings where our tags might reside.
+	castableKeyValues, err := ct.compositeColumns.CreateOrFind(datatypes.Int(len(keyValues)), KeyValuesLock, NewKeyValues)
+	if err != nil {
+		return nil, err
 	}
+	recordedKeyValues := castableKeyValues.(*KeyValues)
+	defer recordedKeyValues.lock.Unlock() //lock here since the map of keyValues is in a random order
+
+	// items needed to keep track of either a create or find process
+	firstLoop := true
+	idSet := set.New()
+	var idHolders []*idHolder
+
+	for searchKey, searchValue := range keyValues {
+		// create or find the values for a particular key
+		castableValues, err := recordedKeyValues.Values.CreateOrFind(searchKey, nil, NewKeyValues)
+		if err != nil {
+			return nil, err
+		}
+		valuesForKey := castableValues.(*KeyValues)
+
+		// filter the IDs associated with the particualr value
+		var castableIDHolder any
+		if firstLoop {
+			castableIDHolder, err = valuesForKey.Values.CreateOrFind(searchValue, onFindIDHolderAdd(idSet), newIDHolder)
+			firstLoop = false
+		} else {
+			castableIDHolder, err = valuesForKey.Values.CreateOrFind(searchValue, onFindIDHolderKeep(idSet), newIDHolderClearSet(idSet))
+		}
+
+		if err != nil {
+			return nil, err
+		}
+
+		idHolders = append(idHolders, castableIDHolder.(*idHolder))
+	}
+
+	// must have been a race where 2 requests are creating the same item
+	if idSet.Len() == 1 {
+		item := ct.idTree.Get(idSet.Values()[0])
+		if onFind != nil {
+			onFind(item)
+		}
+
+		return item, nil
+	}
+
+	// need to create the new value and save the ID
+	newValue, err := onCreate()
+	if err != nil {
+		ct.cleanFaildCreate(keyValues)
+		return nil, err
+	}
+
+	id := ct.idTree.Add(newValue)
+	for _, idHolder := range idHolders {
+		idHolder.add(id)
+	}
+
+	return newValue, nil
 }
 
 func (ct *compositeTree) cleanFaildCreate(keyValues map[datatypes.String]datatypes.String) {
 	// first find the "compositColumn" gropuings where our tags might reside.
 	castableKeyValues := ct.compositeColumns.Find(datatypes.Int(len(keyValues)), nil)
-	knownCompositeKeyValues := castableKeyValues.(*compositeKeyValues)
+	recordedKeyValues := castableKeyValues.(*KeyValues)
 
 	for createKey, createValue := range keyValues {
 		// find any values associated with the key
-		castableValues := knownCompositeKeyValues.values.Find(createKey, nil)
-		valuesForKey := castableValues.(*compositeKeyValues)
+		castableValues := recordedKeyValues.Values.Find(createKey, nil)
+		valuesForKey := castableValues.(*KeyValues)
 
-		valuesForKey.values.Delete(createValue, canRemoveIDHolder)                      // attempt to delete value + idHolder
-		knownCompositeKeyValues.values.Delete(createKey, cleanFailedCompositeKeyValues) // attempt to delete the key if there are no more values
+		valuesForKey.Values.Delete(createValue, canRemoveIDHolder)       // attempt to delete value + idHolder
+		recordedKeyValues.Values.Delete(createKey, CleanFailedKeyValues) // attempt to delete the key if there are no more values
 	}
 
-	ct.compositeColumns.Delete(datatypes.Int(len(keyValues)), cleanFailedCompositeKeyValues) // attempt to delete the compositeColumns
+	ct.compositeColumns.Delete(datatypes.Int(len(keyValues)), CleanFailedKeyValues) // attempt to delete the compositeColumns
 }

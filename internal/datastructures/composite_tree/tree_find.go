@@ -10,22 +10,17 @@ import (
 func (ct *compositeTree) FindInclusive(inclusiveClause *v1.JoinedInclusiveWhereClause, onFind datastructures.OnFind) []any {
 	var queryResults []any
 
-	// find the global value since there are no key value pairs
+	// find the single value with no key value pairs
 	if inclusiveClause == nil {
-		castableGlobalValue := ct.compositeColumns.Find(datatypes.Int(0), onFind)
-		if castableGlobalValue == nil {
+		castableKeyValues := ct.compositeColumns.Find(datatypes.Int(0), KeyValuesReadLock)
+		if castableKeyValues == nil {
 			return nil
 		}
-
-		return append(queryResults, castableGlobalValue.(*globalValue).value)
+		recordedKeyValues := castableKeyValues.(*KeyValues)
+		defer recordedKeyValues.lock.RUnlock() // unlock here since the map of keyValues is in a random order
 	}
 
-	// find the actual query we need
-	whereClause := inclusiveClause.Where
+	// TODO
 
-	if whereClause.EqualsKeyValues != nil {
-	} else if whereClause.MatchesKeyValues != nil {
-	} else if whereClause.ContainsKeys != nil {
-	}
-
+	return queryResults
 }

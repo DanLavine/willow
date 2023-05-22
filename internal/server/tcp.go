@@ -50,14 +50,6 @@ func (t *tcp) Execute(ctx context.Context) error {
 	// message handlers
 	mux.HandleFunc("/v1/brokers/item/enqueue", t.queueHandler.Enqueue)
 	mux.HandleFunc("/v1/brokers/item/dequeue", t.queueHandler.Dequeue)
-
-	// TODO: I think this is the proper way to "query" objects. In how I am using arbitrary tags,
-	// having endpoints for all values I think makes more sense, rather than constructing a odd query
-	// api. Its very weird to have ALL, ANy, STRICT, etc.
-	//mux.HandleFunc("/v1/brokers/item/dequeue/global", t.queueHandler.Dequeue)
-	//mux.HandleFunc("/v1/brokers/item/dequeue/strict", t.queueHandler.Dequeue)
-	//mux.HandleFunc("/v1/brokers/item/dequeue/query", t.queueHandler.Dequeue)
-
 	mux.HandleFunc("/v1/brokers/item/ack", t.queueHandler.ACK)
 
 	server := http2.Server{}

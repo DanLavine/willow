@@ -6,7 +6,7 @@ import (
 	"github.com/DanLavine/willow/internal/datastructures/btree"
 )
 
-// compositeKeyValues is a common datastructure that can be used with a BTree for storing key value pairs
+// KeyValues is a common datastructure that can be used with a BTree for storing key value pairs
 // where any 'key' might have multiple values.
 //
 // I.E. consider all unique key value pairs:
@@ -16,15 +16,15 @@ import (
 //   - map[string]string{"namespace":"production"}
 //
 // each key 'namespace' has a number of values. This common structure provided another BTree for the possible 'values'
-type compositeKeyValues struct {
+type KeyValues struct {
 	lock *sync.RWMutex
 
 	// Tree of all possible values assoicated with the Key
-	values btree.BTree
+	Values btree.BTree
 }
 
 // Can be passed as the OnCreate callback to initialize a new KeyValue item
-func newCompositeKeyValues() (any, error) {
+func NewKeyValues() (any, error) {
 	tree, err := btree.New(2)
 	if err != nil {
 		return nil, err
@@ -33,37 +33,37 @@ func newCompositeKeyValues() (any, error) {
 	lock := new(sync.RWMutex)
 	lock.Lock()
 
-	return &compositeKeyValues{
+	return &KeyValues{
 		lock:   lock,
-		values: tree,
+		Values: tree,
 	}, nil
 }
 
 // Can be passed to OnFind if the associated value might require exclusive locking
-func compositeKeyValuesLock(item any) {
-	compositeKeyValues := item.(*compositeKeyValues)
-	compositeKeyValues.lock.Lock()
+func KeyValuesLock(item any) {
+	keyValues := item.(*KeyValues)
+	keyValues.lock.Lock()
 }
 
 // Can be passed to OnFind if the associated value might require a shared read lock
-func compositeKeyValuesReadLock(item any) {
-	compositeKeyValues := item.(*compositeKeyValues)
-	compositeKeyValues.lock.RLock()
+func KeyValuesReadLock(item any) {
+	keyValues := item.(*KeyValues)
+	keyValues.lock.RLock()
 }
 
-// CanRemove can be used to check that the compositeKeyValues can be deleted. This will only return true
+// CanRemove can be used to check that the KeyValues can be deleted. This will only return true
 // iff there are no Values for the associated key
-func canRemovecompositeKeyValues(item any) bool {
-	compositeKeyValues := item.(*compositeKeyValues)
-	compositeKeyValues.lock.Lock()
-	defer compositeKeyValues.lock.Unlock()
+func CanRemoveKeyValues(item any) bool {
+	keyValues := item.(*KeyValues)
+	keyValues.lock.Lock()
+	defer keyValues.lock.Unlock()
 
-	return compositeKeyValues.values.Empty()
+	return keyValues.Values.Empty()
 }
 
-// CanRemove can be used to check that the compositeKeyValues can be deleted. This will only return true
+// CanRemove can be used to check that the KeyValues can be deleted. This will only return true
 // iff there are no Values for the associated key
-func cleanFailedCompositeKeyValues(item any) bool {
-	compositeKeyValues := item.(*compositeKeyValues)
-	return compositeKeyValues.values.Empty()
+func CleanFailedKeyValues(item any) bool {
+	keyValues := item.(*KeyValues)
+	return keyValues.Values.Empty()
 }
