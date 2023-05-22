@@ -15,57 +15,48 @@ const (
 	WhereOr  Join = "or"
 )
 
-type WhereClause []Where
 type KeyValues map[datatypes.String]datatypes.String
 
-type BrokerQuery struct {
+// Query to use for any APIs
+type InclusiveQuery struct {
 	// required broker name to search
 	BrokerName datatypes.String
 
-	Query *Query
+	// specific matches to find
+	Where *JoinedInclusiveWhereClause
 }
 
-// Query to use for any APIs
-type Query struct {
-	// specific matches to find
-	Where WhereClause
+type JoinedInclusiveWhereClause struct {
+	Where InclusiveWhereClause
 
-	// optional limits for restrictuning numberr of keys to search for
-	Limits *Limits
+	Join            *Join
+	JoinWhereClause *JoinedInclusiveWhereClause
 }
 
 // match the any tag group where all keys and values are found and eventually filtered out
-type Where struct {
-	// Find all values where the KeyValue Pairs Exist
-	KeyValuePairs KeyValues
+type InclusiveWhereClause struct {
+	// only one of these can be provided
+	//// All key values must equal the provided key values only
+	EqualsKeyValues KeyValues
 
-	// Find all values where the key exists
-	KeyExists datatypes.String
+	//// Any tag groups that match the provided key values
+	MatchesKeyValues KeyValues
 
-	// exclude these results from the query when set to true
-	Exclusion bool
+	//// Any tag groups that contains the requested keys
+	ContainsKeys datatypes.Strings
 
+	// optional join clause
 	Join            *Join
-	JoinWhereClause *Where
+	JoinWhereClause *InclusiveWhereClause
 }
 
-type Limits struct {
-	// only 1 value can be provided at a time
-	KeyValuePairsMin     *int
-	KeyValuePairsMax     *int
-	KeyValuePairsExactly *int
-
-	// how many reults to return
-	Size *int
-}
-
-func ParseQuery(reader io.ReadCloser) (*Query, *Error) {
+func ParseInclusiveQuery(reader io.ReadCloser) (*InclusiveQuery, *Error) {
 	body, err := io.ReadAll(reader)
 	if err != nil {
 		return nil, InvalidRequestBody.With("", err.Error())
 	}
 
-	query := &Query{}
+	query := &InclusiveQuery{}
 	if err := json.Unmarshal(body, query); err != nil {
 		return nil, ParseRequestBodyError.With("query to be valid json", err.Error())
 	}
@@ -77,7 +68,7 @@ func ParseQuery(reader io.ReadCloser) (*Query, *Error) {
 	return query, nil
 }
 
-func (q *Query) validate() *Error {
+func (q *InclusiveQuery) validate() *Error {
 	if q.BrokerName == "" {
 		return &Error{Message: "BrokerName cannot be empty", StatusCode: http.StatusBadRequest}
 	}

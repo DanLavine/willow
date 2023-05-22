@@ -23,3 +23,25 @@ Limits
     - min number of tags [inclusive] // min number of key value pairs we want to select from
 ```
 
+
+When selecting the readers (inclusive query)
+```
+Select * FROM deployments // global
+Select * FROM deployments WHERE namespace == default // select everything in the default namespace
+Select * FROM deployments WHERE namespace == default LIMITED BY KeyValuePairsMin = 2 KeyValuePirsMax = 2 // select everything in the default namespace when there are only 2 tags
+
+// This is super hard to implement... Thats because we could get unique tags that don't yet exist so we don't have the channels
+// This makes sense on the rules, but not for the readers? Also would be super slow for each request which isn't good
+Select * FROM deployments WHERE namespace != default // select everything not in default namespace
+
+// maybe its better to fx the readers for clients setup.
+```
+
+When creating the rules
+1. How do rules get applied to queues that already exist?
+2. Should rules be applied accross queues?
+   1. I.E. coud have 1 windows, 1 mac and 1 linux build queue, but any combo of running builds for a team should only == max 5
+```
+SELECT * FROM deployments // global rule that evey group needs to adhere too
+SELECT * FROM deployments WHERE namespace == default AND deployment != prod // eveything other than prod
+```
