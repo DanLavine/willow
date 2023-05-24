@@ -11,14 +11,14 @@ import (
 type Join string
 
 const (
-	WhereAnd Join = "and"
-	WhereOr  Join = "or"
+	WhereAnd Join = "and" // higher precedence over or
+	WhereOr  Join = "or"  // lower precedence over and
 )
 
 type KeyValues map[datatypes.String]datatypes.String
 
 // Query to use for any APIs
-type InclusiveQuery struct {
+type QueryInclusive struct {
 	// required broker name to search
 	BrokerName datatypes.String
 
@@ -50,13 +50,13 @@ type InclusiveWhereClause struct {
 	JoinWhereClause *InclusiveWhereClause
 }
 
-func ParseInclusiveQuery(reader io.ReadCloser) (*InclusiveQuery, *Error) {
+func ParseQueryInclusive(reader io.ReadCloser) (*QueryInclusive, *Error) {
 	body, err := io.ReadAll(reader)
 	if err != nil {
 		return nil, InvalidRequestBody.With("", err.Error())
 	}
 
-	query := &InclusiveQuery{}
+	query := &QueryInclusive{}
 	if err := json.Unmarshal(body, query); err != nil {
 		return nil, ParseRequestBodyError.With("query to be valid json", err.Error())
 	}
@@ -68,7 +68,7 @@ func ParseInclusiveQuery(reader io.ReadCloser) (*InclusiveQuery, *Error) {
 	return query, nil
 }
 
-func (q *InclusiveQuery) validate() *Error {
+func (q *QueryInclusive) validate() *Error {
 	if q.BrokerName == "" {
 		return &Error{Message: "BrokerName cannot be empty", StatusCode: http.StatusBadRequest}
 	}

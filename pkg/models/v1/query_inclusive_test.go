@@ -14,7 +14,7 @@ func TestQuery_ParseQuery(t *testing.T) {
 	t.Run("it returns an error on an invalid json syntax", func(t *testing.T) {
 		buffer := ioutil.NopCloser(bytes.NewBufferString(`{"BrokerName":"test"`))
 
-		query, err := ParseQuery(buffer)
+		query, err := ParseQueryInclusive(buffer)
 		g.Expect(err).To(HaveOccurred())
 		g.Expect(err.Error()).To(ContainSubstring("Failed to parse request body"))
 		g.Expect(query).To(BeNil())
@@ -24,8 +24,8 @@ func TestQuery_ParseQuery(t *testing.T) {
 func TestQuery_validate(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	setup := func() *Query {
-		return &Query{
+	setup := func() *QueryInclusive {
+		return &QueryInclusive{
 			BrokerName: "test",
 		}
 	}
