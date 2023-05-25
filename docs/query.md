@@ -44,4 +44,14 @@ When creating the rules
 ```
 SELECT * FROM deployments // global rule that evey group needs to adhere too
 SELECT * FROM deployments WHERE namespace == default AND deployment != prod // eveything other than prod
+SELECT * FROM deployments WHERE namespace == default AND KEYS name EXIST
 ```
+
+
+So I think thats what I need as a query. A new key word that makes sense for 3 differnt ways of uerying:
+1. Explicit selection (I.E. WHERE namespace == default)
+2. Checking if a key exists (I.E. WHERE KEYS namespace EXIST // this is a generalized Query where it can include items that don't yet exist in a DB
+3. Negating the previous 2 selections (I.E. [WHERE namespace != default | WHERE KEYS namespace DONT EXIST] ) // this is like normal Relational Queries that find all items in a DB
+
+NOTE: haveing 2 + 3 together isn't good (for my readers). Maybe thats the real issue. how do I solve that problem. Since
+2 is really (WHERE namespace != nil) in theory....

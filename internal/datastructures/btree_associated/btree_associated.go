@@ -1,4 +1,4 @@
-package compositetree
+package btreeassociated
 
 import (
 	"github.com/DanLavine/willow/internal/datastructures"
@@ -10,7 +10,7 @@ import (
 // Composite Tree is  way of grouping arbitrary key values into a unique searchable data set.
 //
 // The tree can be broken into 3 node types:
-//  1. compositeColumns - The root level of the Composite Tree is a BTree of Integer Keys and each node is a compositeColumn.
+//  1. groupedKeyValueAssociation - The root level of the Composite Tree is a BTree of Integer Keys and each node is a compositeColumn.
 //     Another BTree which contains an the number of key+value pairs == Integer Keys. Using this info we can gurantee
 //     that each sub tree at the Integer Node is unique.
 //  2. keyValuePairs - The values of the compositeColumn's BTree are then the Keys
@@ -24,14 +24,15 @@ import (
 //	 /  \    /  | \
 //	1    3   5  7  9
 //
-// If we were to investigate the tree of 3 for something like unique project details, we would see at a minimum something like:
-// (compositeColumns) - (for tree 3)
+// If we were to investigate the tree of 3 for something like unique project details, we would see all the 'keys' at this stage
+// and the tree would look at a minimum something like: (because it is 3, there needs to be at least 3 keys value groups per item)
+// (groupedKeyValueAssociation) - (for tree 3)
 //
 //	  organization
 //	   /        \
 //	namespace  project
 //
-// Where finaly the last tree under 'namespace' could look something like:
+// Where finaly the last tree under 'namespace', which are all the possible values for a namespace could look something like:
 // (keyValuePairs) - (index is city)
 //
 //				  default,live
@@ -53,15 +54,18 @@ import (
 // There are some other constraints that need to be accounted for as well. For example, I need a way of specifying 'key+value limit = 3' otherwise
 // we would also need to search the 4-9 trees for any of those values as well since they are an arbitrary collection of tags. But that can come later
 // as query params. For now this structre should give us everything we need
-type CompositeTree interface {
-	CreateOrFind(keyValues map[datatypes.String]datatypes.String, onCreate datastructures.OnCreate, onFind datastructures.OnFind) (any, error)
+type BTreeAssociated interface {
+	// Get value associated with a collection of key value pairs
+	Get(keyValuePairs datatypes.StringMap, onFind datastructures.OnFind) (any, error)
 
-	//Find(keyValues map[datatypes.String]datatypes.String, onFind datastructures.OnFind) any
+	// CreateOrFind a value associated with a collection of key value pairs
+	CreateOrFind(keyValuePairs datatypes.StringMap, onCreate datastructures.OnCreate, onFind datastructures.OnFind) (any, error)
+
+	// Iterate over the tree and for each value found invoke the callback with the node's value
+	Iterate(callback datastructures.Iterate)
 }
 
-type compositeTree struct {
-	//lock *sync.RWMutex
-
+type associatedTree struct {
 	// ID tree stores the created values for this tree
 	// I.E. What was passed to CreateOrFind(... onCreate) func
 	idTree *idtree.IDTree
@@ -71,18 +75,17 @@ type compositeTree struct {
 	// - Value - Another tree that is a collection of all Key + Value pairs
 	//
 	// Using this, we can gurantess that each item in the Value is a unique tree
-	compositeColumns btree.BTree // each value in this tree is of type *compositeValue
+	groupedKeyValueAssociation btree.BTree // each value in this tree is of type *compositeValue
 }
 
-func New() *compositeTree {
+func New() *associatedTree {
 	bTree, err := btree.New(2)
 	if err != nil {
 		panic(err)
 	}
 
-	return &compositeTree{
-		//lock:             new(sync.RWMutex),
-		idTree:           idtree.NewIDTree(),
-		compositeColumns: bTree,
+	return &associatedTree{
+		idTree:                     idtree.NewIDTree(),
+		groupedKeyValueAssociation: bTree,
 	}
 }

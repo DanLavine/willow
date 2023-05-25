@@ -10,7 +10,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func MatchOnce(g *GomegaWithT, group []datatypes.Strings, val datatypes.Strings) {
+func MatchOnce(g *GomegaWithT, group []datatypes.StringMap, val datatypes.StringMap) {
 	count := 0
 	for _, groupVal := range group {
 		if reflect.DeepEqual(groupVal, val) {
@@ -41,26 +41,15 @@ func TestBrokerType_GenerateTagPairs(t *testing.T) {
 		return broker
 	}
 
-	t.Run("it uses the default tag when none are provided", func(t *testing.T) {
-		brokerInfo := &BrokerInfo{
-			Name: "test",
-		}
-		g.Expect(brokerInfo.validate()).ToNot(HaveOccurred())
-
-		generatedTagGroups := brokerInfo.GenerateTagPairs()
-		MatchOnce(g, generatedTagGroups, datatypes.Strings{"default"})
-		g.Expect(len(generatedTagGroups)).To(Equal(1))
-	})
-
 	t.Run("it returns all individual elements", func(t *testing.T) {
 		brokerInfo := setupBrokerInfo(g)
 		generatedTagGroups := brokerInfo.GenerateTagPairs()
 
-		MatchOnce(g, generatedTagGroups, datatypes.Strings{"a", "1"})
-		MatchOnce(g, generatedTagGroups, datatypes.Strings{"b", "2"})
-		MatchOnce(g, generatedTagGroups, datatypes.Strings{"c", "3"})
-		MatchOnce(g, generatedTagGroups, datatypes.Strings{"d", "4"})
-		MatchOnce(g, generatedTagGroups, datatypes.Strings{"e", "5"})
+		MatchOnce(g, generatedTagGroups, datatypes.StringMap{"a": "1"})
+		MatchOnce(g, generatedTagGroups, datatypes.StringMap{"b": "2"})
+		MatchOnce(g, generatedTagGroups, datatypes.StringMap{"c": "3"})
+		MatchOnce(g, generatedTagGroups, datatypes.StringMap{"d": "4"})
+		MatchOnce(g, generatedTagGroups, datatypes.StringMap{"e": "5"})
 	})
 
 	t.Run("it returns all 2 pair elements", func(t *testing.T) {
@@ -68,22 +57,22 @@ func TestBrokerType_GenerateTagPairs(t *testing.T) {
 		generatedTagGroups := brokerInfo.GenerateTagPairs()
 
 		// a group
-		MatchOnce(g, generatedTagGroups, datatypes.Strings{"a", "1", "b", "2"})
-		MatchOnce(g, generatedTagGroups, datatypes.Strings{"a", "1", "c", "3"})
-		MatchOnce(g, generatedTagGroups, datatypes.Strings{"a", "1", "d", "4"})
-		MatchOnce(g, generatedTagGroups, datatypes.Strings{"a", "1", "e", "5"})
+		MatchOnce(g, generatedTagGroups, datatypes.StringMap{"a": "1", "b": "2"})
+		MatchOnce(g, generatedTagGroups, datatypes.StringMap{"a": "1", "c": "3"})
+		MatchOnce(g, generatedTagGroups, datatypes.StringMap{"a": "1", "d": "4"})
+		MatchOnce(g, generatedTagGroups, datatypes.StringMap{"a": "1", "e": "5"})
 
 		// b group
-		MatchOnce(g, generatedTagGroups, datatypes.Strings{"b", "2", "c", "3"})
-		MatchOnce(g, generatedTagGroups, datatypes.Strings{"b", "2", "d", "4"})
-		MatchOnce(g, generatedTagGroups, datatypes.Strings{"b", "2", "e", "5"})
+		MatchOnce(g, generatedTagGroups, datatypes.StringMap{"b": "2", "c": "3"})
+		MatchOnce(g, generatedTagGroups, datatypes.StringMap{"b": "2", "d": "4"})
+		MatchOnce(g, generatedTagGroups, datatypes.StringMap{"b": "2", "e": "5"})
 
 		// c group
-		MatchOnce(g, generatedTagGroups, datatypes.Strings{"c", "3", "d", "4"})
-		MatchOnce(g, generatedTagGroups, datatypes.Strings{"c", "3", "e", "5"})
+		MatchOnce(g, generatedTagGroups, datatypes.StringMap{"c": "3", "d": "4"})
+		MatchOnce(g, generatedTagGroups, datatypes.StringMap{"c": "3", "e": "5"})
 
 		// d group
-		MatchOnce(g, generatedTagGroups, datatypes.Strings{"d", "4", "e", "5"})
+		MatchOnce(g, generatedTagGroups, datatypes.StringMap{"d": "4", "e": "5"})
 	})
 
 	t.Run("it returns all 3 pair elements", func(t *testing.T) {
@@ -91,20 +80,20 @@ func TestBrokerType_GenerateTagPairs(t *testing.T) {
 		generatedTagGroups := brokerInfo.GenerateTagPairs()
 
 		// a group
-		MatchOnce(g, generatedTagGroups, datatypes.Strings{"a", "1", "b", "2", "c", "3"})
-		MatchOnce(g, generatedTagGroups, datatypes.Strings{"a", "1", "b", "2", "d", "4"})
-		MatchOnce(g, generatedTagGroups, datatypes.Strings{"a", "1", "b", "2", "e", "5"})
-		MatchOnce(g, generatedTagGroups, datatypes.Strings{"a", "1", "c", "3", "d", "4"})
-		MatchOnce(g, generatedTagGroups, datatypes.Strings{"a", "1", "c", "3", "e", "5"})
-		MatchOnce(g, generatedTagGroups, datatypes.Strings{"a", "1", "d", "4", "e", "5"})
+		MatchOnce(g, generatedTagGroups, datatypes.StringMap{"a": "1", "b": "2", "c": "3"})
+		MatchOnce(g, generatedTagGroups, datatypes.StringMap{"a": "1", "b": "2", "d": "4"})
+		MatchOnce(g, generatedTagGroups, datatypes.StringMap{"a": "1", "b": "2", "e": "5"})
+		MatchOnce(g, generatedTagGroups, datatypes.StringMap{"a": "1", "c": "3", "d": "4"})
+		MatchOnce(g, generatedTagGroups, datatypes.StringMap{"a": "1", "c": "3", "e": "5"})
+		MatchOnce(g, generatedTagGroups, datatypes.StringMap{"a": "1", "d": "4", "e": "5"})
 
 		// b group
-		MatchOnce(g, generatedTagGroups, datatypes.Strings{"b", "2", "c", "3", "d", "4"})
-		MatchOnce(g, generatedTagGroups, datatypes.Strings{"b", "2", "c", "3", "e", "5"})
-		MatchOnce(g, generatedTagGroups, datatypes.Strings{"b", "2", "d", "4", "e", "5"})
+		MatchOnce(g, generatedTagGroups, datatypes.StringMap{"b": "2", "c": "3", "d": "4"})
+		MatchOnce(g, generatedTagGroups, datatypes.StringMap{"b": "2", "c": "3", "e": "5"})
+		MatchOnce(g, generatedTagGroups, datatypes.StringMap{"b": "2", "d": "4", "e": "5"})
 
 		// c group
-		MatchOnce(g, generatedTagGroups, datatypes.Strings{"c", "3", "d", "4", "e", "5"})
+		MatchOnce(g, generatedTagGroups, datatypes.StringMap{"c": "3", "d": "4", "e": "5"})
 	})
 
 	t.Run("it returns all 4 pair elements", func(t *testing.T) {
@@ -112,13 +101,13 @@ func TestBrokerType_GenerateTagPairs(t *testing.T) {
 		generatedTagGroups := brokerInfo.GenerateTagPairs()
 
 		// a group
-		MatchOnce(g, generatedTagGroups, datatypes.Strings{"a", "1", "b", "2", "c", "3", "d", "4"})
-		MatchOnce(g, generatedTagGroups, datatypes.Strings{"a", "1", "b", "2", "c", "3", "e", "5"})
-		MatchOnce(g, generatedTagGroups, datatypes.Strings{"a", "1", "b", "2", "d", "4", "e", "5"})
-		MatchOnce(g, generatedTagGroups, datatypes.Strings{"a", "1", "c", "3", "d", "4", "e", "5"})
+		MatchOnce(g, generatedTagGroups, datatypes.StringMap{"a": "1", "b": "2", "c": "3", "d": "4"})
+		MatchOnce(g, generatedTagGroups, datatypes.StringMap{"a": "1", "b": "2", "c": "3", "e": "5"})
+		MatchOnce(g, generatedTagGroups, datatypes.StringMap{"a": "1", "b": "2", "d": "4", "e": "5"})
+		MatchOnce(g, generatedTagGroups, datatypes.StringMap{"a": "1", "c": "3", "d": "4", "e": "5"})
 
 		// b group
-		MatchOnce(g, generatedTagGroups, datatypes.Strings{"b", "2", "c", "3", "d", "4", "e", "5"})
+		MatchOnce(g, generatedTagGroups, datatypes.StringMap{"b": "2", "c": "3", "d": "4", "e": "5"})
 	})
 
 	t.Run("it returns all 5 pair elements as the last element", func(t *testing.T) {
@@ -126,7 +115,7 @@ func TestBrokerType_GenerateTagPairs(t *testing.T) {
 		generatedTagGroups := brokerInfo.GenerateTagPairs()
 
 		// a group
-		lastGroup := datatypes.Strings{"a", "1", "b", "2", "c", "3", "d", "4", "e", "5"}
+		lastGroup := datatypes.StringMap{"a": "1", "b": "2", "c": "3", "d": "4", "e": "5"}
 		MatchOnce(g, generatedTagGroups, lastGroup)
 		g.Expect(generatedTagGroups[len(generatedTagGroups)-1]).To(Equal(lastGroup))
 	})

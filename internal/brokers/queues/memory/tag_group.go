@@ -7,8 +7,8 @@ import (
 	"sync/atomic"
 
 	"github.com/DanLavine/gonotify"
+	"github.com/DanLavine/willow/internal/brokers/tags"
 	"github.com/DanLavine/willow/internal/errors"
-	"github.com/DanLavine/willow/internal/v1/tags"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 	v1 "github.com/DanLavine/willow/pkg/models/v1"
 
@@ -34,16 +34,15 @@ type tagGroup struct {
 	items          *idtree.IDTree
 	availableItems []uint64
 
-	notifier      *gonotify.Notify
-	strictChannel chan tags.Tag
-	channels      []chan<- tags.Tag
+	notifier *gonotify.Notify
+	channels []chan tags.Tag
 
-	tags                datatypes.Strings
+	tags                datatypes.StringMap
 	itemReadyCount      *atomic.Uint64
 	itemProcessingCount *atomic.Uint64
 }
 
-func newTagGroup(tags datatypes.Strings, channels []chan<- tags.Tag) *tagGroup {
+func newTagGroup(tags datatypes.StringMap, channels []chan tags.Tag) *tagGroup {
 	return &tagGroup{
 		// shutdown
 		lock:     new(sync.Mutex),
@@ -55,9 +54,8 @@ func newTagGroup(tags datatypes.Strings, channels []chan<- tags.Tag) *tagGroup {
 		availableItems: []uint64{},
 
 		// communication
-		notifier:      gonotify.New(),
-		strictChannel: make(chan Tag),
-		channels:      channels,
+		notifier: gonotify.New(),
+		channels: channels,
 
 		// counters and info
 		tags:                tags,
@@ -116,9 +114,8 @@ func (tg *tagGroup) process() *v1.DequeueItemResponse {
 
 	return &v1.DequeueItemResponse{
 		BrokerInfo: v1.BrokerInfo{
-			Name:       enqueuedItem.BrokerInfo.Name,
-			BrokerType: v1.Queue,
-			Tags:       tg.tags,
+			Name: enqueuedItem.BrokerInfo.Name,
+			Tags: tg.tags,
 		},
 		ID:   index,
 		Data: enqueuedItem.Data,
@@ -165,4 +162,9 @@ func (tg *tagGroup) Stop() {
 	tg.doneOnce.Do(func() {
 		close(tg.done)
 	})
+}
+
+func tagGroupOnFindLock(item any) {
+	tagGroup := item.(*tagGroup)
+	tagGroup.lock.Lock()
 }

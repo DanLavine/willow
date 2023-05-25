@@ -26,7 +26,7 @@ type QueueMetricsResponse struct {
 
 // Metrics for all tags Groups for a given queue
 type TagMetricsResponse struct {
-	Tags       datatypes.Strings
+	Tags       datatypes.StringMap
 	Ready      uint64
 	Processing uint64
 }

@@ -7,7 +7,7 @@ import (
 
 type EnqueueItemRequest struct {
 	// common broker info
-	BrokerInfo BrokerInfo
+	BrokerInfo
 
 	// Message body that will be used by clients receiving this message
 	Data []byte

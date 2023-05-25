@@ -12,5 +12,6 @@ type EnumerableCompareType interface {
 
 // Generic type that can be used for tree keys
 type CompareType interface {
+	// Less will always pass in the compareKey == the original value's type
 	Less(compareKey any) bool
 }

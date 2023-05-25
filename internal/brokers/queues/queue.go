@@ -3,7 +3,7 @@ package queues
 import (
 	"context"
 
-	"github.com/DanLavine/willow/internal/v1/tags"
+	"github.com/DanLavine/willow/internal/brokers/tags"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 	v1 "github.com/DanLavine/willow/pkg/models/v1"
 	"go.uber.org/zap"

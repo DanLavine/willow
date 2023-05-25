@@ -1,4 +1,4 @@
-package compositetree
+package btreeassociated
 
 import (
 	"github.com/DanLavine/willow/internal/datastructures/set"
@@ -46,6 +46,7 @@ func onFindIDHolderKeep(set set.Set) func(item any) {
 	}
 }
 
+// onFindIDHolderRemoveID removes the ID holder
 func onFindIDHolderRemoveID(idToRemove uint64) func(item any) {
 	return func(item any) {
 		idHolder := item.(*idHolder)

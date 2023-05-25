@@ -11,5 +11,5 @@ var (
 
 	ProcessNotSet = &v1.Error{Message: "Process not set?", StatusCode: http.StatusInternalServerError}
 
-	InternalServerError = &v1.Error{Message: "Internal Server Error", StatusCode: http.StatusInternalServerError}
+	InternalServerError = &v1.Error{Message: "Internal Server Error.", StatusCode: http.StatusInternalServerError}
 )

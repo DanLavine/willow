@@ -8,6 +8,7 @@ const (
 )
 
 // TODO: make sure this works for both big + little Endian
+// TODO: add a lock
 
 // ID Generator is used to generate a binary tree with a consistent placement of ints.
 // The main features of this binary tree are:

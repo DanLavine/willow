@@ -1,4 +1,4 @@
-package compositetree
+package btreeassociated
 
 import (
 	"sync"
@@ -6,7 +6,7 @@ import (
 	"github.com/DanLavine/willow/internal/datastructures/btree"
 )
 
-// KeyValues is a common datastructure that can be used with a BTree for storing key value pairs
+// keyValues is a common datastructure that can be used with a BTree for storing key value pairs
 // where any 'key' might have multiple values.
 //
 // I.E. consider all unique key value pairs:
@@ -16,15 +16,16 @@ import (
 //   - map[string]string{"namespace":"production"}
 //
 // each key 'namespace' has a number of values. This common structure provided another BTree for the possible 'values'
-type KeyValues struct {
+type keyValues struct {
+	// lock is needed for a particular group when inserting or deleting
 	lock *sync.RWMutex
 
-	// Tree of all possible values assoicated with the Key
-	Values btree.BTree
+	// bTree of all possible values assoicated with the Key
+	values btree.BTree
 }
 
 // Can be passed as the OnCreate callback to initialize a new KeyValue item
-func NewKeyValues() (any, error) {
+func newKeyValues() (any, error) {
 	tree, err := btree.New(2)
 	if err != nil {
 		return nil, err
@@ -33,37 +34,27 @@ func NewKeyValues() (any, error) {
 	lock := new(sync.RWMutex)
 	lock.Lock()
 
-	return &KeyValues{
+	return &keyValues{
 		lock:   lock,
-		Values: tree,
+		values: tree,
 	}, nil
 }
 
 // Can be passed to OnFind if the associated value might require exclusive locking
-func KeyValuesLock(item any) {
-	keyValues := item.(*KeyValues)
+func keyValuesLock(item any) {
+	keyValues := item.(*keyValues)
 	keyValues.lock.Lock()
 }
 
 // Can be passed to OnFind if the associated value might require a shared read lock
-func KeyValuesReadLock(item any) {
-	keyValues := item.(*KeyValues)
+func keyValuesReadLock(item any) {
+	keyValues := item.(*keyValues)
 	keyValues.lock.RLock()
 }
 
-// CanRemove can be used to check that the KeyValues can be deleted. This will only return true
+// CanRemove can be used to check that the keyValues can be deleted. This will only return true
 // iff there are no Values for the associated key
-func CanRemoveKeyValues(item any) bool {
-	keyValues := item.(*KeyValues)
-	keyValues.lock.Lock()
-	defer keyValues.lock.Unlock()
-
-	return keyValues.Values.Empty()
-}
-
-// CanRemove can be used to check that the KeyValues can be deleted. This will only return true
-// iff there are no Values for the associated key
-func CleanFailedKeyValues(item any) bool {
-	keyValues := item.(*KeyValues)
-	return keyValues.Values.Empty()
+func keyValuesCanRemove(item any) bool {
+	keyValues := item.(*keyValues)
+	return keyValues.values.Empty()
 }
