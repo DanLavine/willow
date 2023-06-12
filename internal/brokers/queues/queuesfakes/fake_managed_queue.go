@@ -5,7 +5,7 @@ import (
 	"context"
 	"sync"
 
-	"github.com/DanLavine/willow/internal/v1/queues"
+	"github.com/DanLavine/willow/internal/brokers/queues"
 	v1 "github.com/DanLavine/willow/pkg/models/v1"
 	"go.uber.org/zap"
 )
@@ -44,16 +44,19 @@ type FakeManagedQueue struct {
 	metricsReturnsOnCall map[int]struct {
 		result1 *v1.QueueMetricsResponse
 	}
-	ReadersStub        func(*v1.MatchQuery) []<-chan func() *v1.DequeueItemResponse
+	ReadersStub        func(*zap.Logger, *v1.ReaderSelect) ([]<-chan func() *v1.DequeueItemResponse, *v1.Error)
 	readersMutex       sync.RWMutex
 	readersArgsForCall []struct {
-		arg1 *v1.MatchQuery
+		arg1 *zap.Logger
+		arg2 *v1.ReaderSelect
 	}
 	readersReturns struct {
 		result1 []<-chan func() *v1.DequeueItemResponse
+		result2 *v1.Error
 	}
 	readersReturnsOnCall map[int]struct {
 		result1 []<-chan func() *v1.DequeueItemResponse
+		result2 *v1.Error
 	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
@@ -235,23 +238,24 @@ func (fake *FakeManagedQueue) MetricsReturnsOnCall(i int, result1 *v1.QueueMetri
 	}{result1}
 }
 
-func (fake *FakeManagedQueue) Readers(arg1 *v1.MatchQuery) []<-chan func() *v1.DequeueItemResponse {
+func (fake *FakeManagedQueue) Readers(arg1 *zap.Logger, arg2 *v1.ReaderSelect) ([]<-chan func() *v1.DequeueItemResponse, *v1.Error) {
 	fake.readersMutex.Lock()
 	ret, specificReturn := fake.readersReturnsOnCall[len(fake.readersArgsForCall)]
 	fake.readersArgsForCall = append(fake.readersArgsForCall, struct {
-		arg1 *v1.MatchQuery
-	}{arg1})
+		arg1 *zap.Logger
+		arg2 *v1.ReaderSelect
+	}{arg1, arg2})
 	stub := fake.ReadersStub
 	fakeReturns := fake.readersReturns
-	fake.recordInvocation("Readers", []interface{}{arg1})
+	fake.recordInvocation("Readers", []interface{}{arg1, arg2})
 	fake.readersMutex.Unlock()
 	if stub != nil {
-		return stub(arg1)
+		return stub(arg1, arg2)
 	}
 	if specificReturn {
-		return ret.result1
+		return ret.result1, ret.result2
 	}
-	return fakeReturns.result1
+	return fakeReturns.result1, fakeReturns.result2
 }
 
 func (fake *FakeManagedQueue) ReadersCallCount() int {
@@ -260,40 +264,43 @@ func (fake *FakeManagedQueue) ReadersCallCount() int {
 	return len(fake.readersArgsForCall)
 }
 
-func (fake *FakeManagedQueue) ReadersCalls(stub func(*v1.MatchQuery) []<-chan func() *v1.DequeueItemResponse) {
+func (fake *FakeManagedQueue) ReadersCalls(stub func(*zap.Logger, *v1.ReaderSelect) ([]<-chan func() *v1.DequeueItemResponse, *v1.Error)) {
 	fake.readersMutex.Lock()
 	defer fake.readersMutex.Unlock()
 	fake.ReadersStub = stub
 }
 
-func (fake *FakeManagedQueue) ReadersArgsForCall(i int) *v1.MatchQuery {
+func (fake *FakeManagedQueue) ReadersArgsForCall(i int) (*zap.Logger, *v1.ReaderSelect) {
 	fake.readersMutex.RLock()
 	defer fake.readersMutex.RUnlock()
 	argsForCall := fake.readersArgsForCall[i]
-	return argsForCall.arg1
+	return argsForCall.arg1, argsForCall.arg2
 }
 
-func (fake *FakeManagedQueue) ReadersReturns(result1 []<-chan func() *v1.DequeueItemResponse) {
+func (fake *FakeManagedQueue) ReadersReturns(result1 []<-chan func() *v1.DequeueItemResponse, result2 *v1.Error) {
 	fake.readersMutex.Lock()
 	defer fake.readersMutex.Unlock()
 	fake.ReadersStub = nil
 	fake.readersReturns = struct {
 		result1 []<-chan func() *v1.DequeueItemResponse
-	}{result1}
+		result2 *v1.Error
+	}{result1, result2}
 }
 
-func (fake *FakeManagedQueue) ReadersReturnsOnCall(i int, result1 []<-chan func() *v1.DequeueItemResponse) {
+func (fake *FakeManagedQueue) ReadersReturnsOnCall(i int, result1 []<-chan func() *v1.DequeueItemResponse, result2 *v1.Error) {
 	fake.readersMutex.Lock()
 	defer fake.readersMutex.Unlock()
 	fake.ReadersStub = nil
 	if fake.readersReturnsOnCall == nil {
 		fake.readersReturnsOnCall = make(map[int]struct {
 			result1 []<-chan func() *v1.DequeueItemResponse
+			result2 *v1.Error
 		})
 	}
 	fake.readersReturnsOnCall[i] = struct {
 		result1 []<-chan func() *v1.DequeueItemResponse
-	}{result1}
+		result2 *v1.Error
+	}{result1, result2}
 }
 
 func (fake *FakeManagedQueue) Invocations() map[string][][]interface{} {

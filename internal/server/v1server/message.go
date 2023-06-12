@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"reflect"
 
+	"github.com/DanLavine/willow/internal/brokers/tags"
 	"github.com/DanLavine/willow/internal/logger"
-	"github.com/DanLavine/willow/internal/v1/tags"
 	v1 "github.com/DanLavine/willow/pkg/models/v1"
 )
 
@@ -45,7 +45,9 @@ func (qh *queueHandler) Enqueue(w http.ResponseWriter, r *http.Request) {
 }
 
 // Dequeue handler removes an item from a message queue. If there are no messages waiting to process,
-// the connection stays open unitil. 1. the client closes the connection 2. a message is processed and sent to the client
+// the connection stays open until:
+// 1. the client closes the connection
+// 2. a message is processed and sent to the client
 func (qh *queueHandler) Dequeue(w http.ResponseWriter, r *http.Request) {
 	logger := logger.AddRequestID(qh.logger.Named("Dequeue"), r)
 	defer logger.Debug("processed dequeue request")
@@ -54,7 +56,7 @@ func (qh *queueHandler) Dequeue(w http.ResponseWriter, r *http.Request) {
 	case "GET":
 		logger.Debug("GET")
 
-		query, err := v1.ParseQuery(r.Body)
+		query, err := v1.ParseReaderSelect(r.Body)
 		if err != nil {
 			w.WriteHeader(err.StatusCode)
 			w.Write(err.ToBytes())
@@ -68,8 +70,12 @@ func (qh *queueHandler) Dequeue(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		readers := queue.Readers(query)
-		if len(readers) == 0 {
+		readers, err := queue.Readers(logger, query)
+		if err != nil {
+			w.WriteHeader(err.StatusCode)
+			w.Write(err.ToBytes())
+			return
+		} else if len(readers) == 0 {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
@@ -89,10 +95,9 @@ func (qh *queueHandler) Dequeue(w http.ResponseWriter, r *http.Request) {
 		// call the dequeue function
 		dequeueResponse := value.Interface().(tags.Tag)()
 
+		// TODO: on an error, we need to mark the message as failed?
 		w.WriteHeader(http.StatusOK)
-
-		// TODO: on an error, we need to mark the message as failed
-		_ = w.Write(dequeueResponse.ToBytes())
+		_, _ = w.Write(dequeueResponse.ToBytes())
 	default:
 		w.WriteHeader(http.StatusNotFound)
 	}

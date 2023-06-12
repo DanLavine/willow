@@ -14,6 +14,7 @@ import (
 func Test_Create(t *testing.T) {
 	g := NewGomegaWithT(t)
 	testConstruct := testhelpers.NewIntrgrationTestConstruct(g)
+	defer testConstruct.Cleanup(g)
 
 	t.Run("can create a queue with proper name", func(t *testing.T) {
 		testConstruct.Start(g)
@@ -22,7 +23,6 @@ func Test_Create(t *testing.T) {
 		createBody := v1.Create{
 			Name:                   "test queue",
 			QueueMaxSize:           5,
-			ItemRetryAttempts:      0,
 			DeadLetterQueueMaxSize: 0,
 		}
 
@@ -45,7 +45,6 @@ func Test_Create(t *testing.T) {
 		createBody := v1.Create{
 			Name:                   "test queue",
 			QueueMaxSize:           5,
-			ItemRetryAttempts:      0,
 			DeadLetterQueueMaxSize: 0,
 		}
 
@@ -55,7 +54,6 @@ func Test_Create(t *testing.T) {
 		createBody = v1.Create{
 			Name:                   "other queue",
 			QueueMaxSize:           5,
-			ItemRetryAttempts:      0,
 			DeadLetterQueueMaxSize: 0,
 		}
 
@@ -75,7 +73,6 @@ func Test_Create(t *testing.T) {
 		createBody := v1.Create{
 			Name:                   "test queue",
 			QueueMaxSize:           5,
-			ItemRetryAttempts:      0,
 			DeadLetterQueueMaxSize: 0,
 		}
 

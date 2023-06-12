@@ -3,8 +3,8 @@ package v1server
 import (
 	"net/http"
 
+	"github.com/DanLavine/willow/internal/brokers/queues"
 	"github.com/DanLavine/willow/internal/logger"
-	"github.com/DanLavine/willow/internal/v1/queues"
 	"go.uber.org/zap"
 )
 

@@ -65,7 +65,7 @@ type Queue interface {
 	Enqueue(logger *zap.Logger, enqueueItem *v1.EnqueueItemRequest) *v1.Error
 
 	// Get readers for a specific queue's tags
-	Readers(matchQuery *v1.MatchQuery) []<-chan tags.Tag
+	Readers(logger *zap.Logger, readerSelect *v1.ReaderSelect) ([]<-chan tags.Tag, *v1.Error)
 
 	// Get Metrics info
 	Metrics() *v1.QueueMetricsResponse

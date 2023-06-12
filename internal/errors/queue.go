@@ -15,7 +15,7 @@ var (
 	NilReader           = &v1.Error{Message: "Null reader received.", StatusCode: http.StatusInternalServerError}
 
 	// queue errors
-	QueueNotFound = &v1.Error{Message: "Queue not found.", StatusCode: http.StatusBadRequest}
+	QueueNotFound = &v1.Error{Message: "Queue not found.", StatusCode: http.StatusNotAcceptable}
 
 	// queue item errors
 	ItemNotfound            = &v1.Error{Message: "Item not found.", StatusCode: http.StatusNotFound}

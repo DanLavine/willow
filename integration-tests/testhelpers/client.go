@@ -41,12 +41,12 @@ func (itc *IntegrationTestConstruct) Enqueue(g *gomega.WithT, enqueueBody v1.Enq
 	return response
 }
 
-func (itc *IntegrationTestConstruct) GetItem(g *gomega.WithT, matchBody v1.MatchQuery) *http.Response {
-	body, err := json.Marshal(matchBody)
+func (itc *IntegrationTestConstruct) Dequeue(g *gomega.WithT, readerQuery v1.ReaderSelect) *http.Response {
+	body, err := json.Marshal(readerQuery)
 	g.Expect(err).ToNot(HaveOccurred())
 
-	enqueueBuffer := bytes.NewBuffer(body)
-	request, err := http.NewRequest("GET", fmt.Sprintf("%s/v1/brokers/item/dequeue", itc.serverAddress), enqueueBuffer)
+	dequeueBuffer := bytes.NewBuffer(body)
+	request, err := http.NewRequest("GET", fmt.Sprintf("%s/v1/brokers/item/dequeue", itc.serverAddress), dequeueBuffer)
 	g.Expect(err).ToNot(HaveOccurred())
 
 	response, err := itc.ServerClient.Do(request)

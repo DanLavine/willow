@@ -9,6 +9,7 @@ import (
 	"os/exec"
 
 	"github.com/onsi/gomega"
+	"github.com/onsi/gomega/gbytes"
 	"github.com/onsi/gomega/gexec"
 	"golang.org/x/net/http2"
 
@@ -19,7 +20,7 @@ type IntegrationTestConstruct struct {
 	dataDir string
 
 	ServerPath   string
-	ServerExe    *exec.Cmd
+	Session      *gexec.Session
 	ServerStdout *bytes.Buffer
 	ServerStderr *bytes.Buffer
 
@@ -57,33 +58,32 @@ func NewIntrgrationTestConstruct(g *gomega.WithT) *IntegrationTestConstruct {
 func (itc *IntegrationTestConstruct) Start(g *gomega.WithT) {
 	tmpDir, err := os.MkdirTemp("", "")
 	g.Expect(err).ToNot(HaveOccurred())
+	itc.dataDir = tmpDir
 
-	willowExe := exec.Command(itc.ServerPath, "-log-level", "debug", "-disk-storage-dir", tmpDir)
+	//willowExe := exec.Command(itc.ServerPath, "-log-level", "debug", "-disk-storage-dir", tmpDir)
+	willowExe := exec.Command(itc.ServerPath, "-log-level", "debug")
+
 	itc.ServerStdout = new(bytes.Buffer)
 	itc.ServerStderr = new(bytes.Buffer)
-	willowExe.Stdout = itc.ServerStdout
-	willowExe.Stderr = itc.ServerStderr
-
-	err = willowExe.Start()
+	session, err := gexec.Start(willowExe, itc.ServerStdout, itc.ServerStderr)
 	g.Expect(err).ToNot(HaveOccurred())
-
-	g.Eventually(func() string {
-		return itc.ServerStdout.String()
-	}).Should(ContainSubstring("TCP server running"))
+	g.Eventually(session.Out).Should(gbytes.Say("TCP server running"))
 
 	// record start configuration
-	itc.dataDir = tmpDir
-	itc.ServerExe = willowExe
+	itc.Session = session
 }
 
 func (itc *IntegrationTestConstruct) Shutdown(g *gomega.WithT) {
+	session := itc.Session.Interrupt()
+	g.Eventually(session).Should(gexec.Exit(0))
+
 	g.Expect(os.RemoveAll(itc.dataDir)).ToNot(HaveOccurred())
+}
 
-	err := itc.ServerExe.Process.Signal(os.Interrupt)
-	g.Expect(err).ToNot(HaveOccurred())
+func (itc *IntegrationTestConstruct) ServerAddress() string {
+	return itc.serverAddress
+}
 
-	g.Eventually(func() int {
-		processState, _ := itc.ServerExe.Process.Wait()
-		return processState.ExitCode()
-	}).Should(Equal(0))
+func (itc *IntegrationTestConstruct) Cleanup(g *gomega.WithT) {
+	gexec.CleanupBuildArtifacts()
 }

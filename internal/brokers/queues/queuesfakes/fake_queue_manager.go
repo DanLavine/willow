@@ -4,7 +4,7 @@ package queuesfakes
 import (
 	"sync"
 
-	"github.com/DanLavine/willow/internal/v1/queues"
+	"github.com/DanLavine/willow/internal/brokers/queues"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 	v1 "github.com/DanLavine/willow/pkg/models/v1"
 	"go.uber.org/zap"

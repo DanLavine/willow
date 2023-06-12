@@ -7,13 +7,13 @@ import (
 	"github.com/DanLavine/willow/integration-tests/testhelpers"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 	v1 "github.com/DanLavine/willow/pkg/models/v1"
-
 	. "github.com/onsi/gomega"
 )
 
 func Test_Enqueue(t *testing.T) {
 	g := NewGomegaWithT(t)
 	testConstruct := testhelpers.NewIntrgrationTestConstruct(g)
+	defer testConstruct.Cleanup(g)
 
 	t.Run("returns an error if the queue does not exist", func(t *testing.T) {
 		testConstruct.Start(g)
@@ -21,16 +21,15 @@ func Test_Enqueue(t *testing.T) {
 
 		enqueueBody := v1.EnqueueItemRequest{
 			BrokerInfo: v1.BrokerInfo{
-				Name:       "test queue",
-				BrokerType: v1.Queue,
-				Tags:       datatypes.Strings{"some tag"},
+				Name: "test queue",
+				Tags: datatypes.StringMap{"some": "tag"},
 			},
 			Data:       []byte(`hello world`),
 			Updateable: false,
 		}
 
 		createResponse := testConstruct.Enqueue(g, enqueueBody)
-		g.Expect(createResponse.StatusCode).To(Equal(http.StatusBadRequest))
+		g.Expect(createResponse.StatusCode).To(Equal(http.StatusNotAcceptable))
 	})
 
 	t.Run("enqueus a message on the matching tags", func(t *testing.T) {
@@ -40,7 +39,6 @@ func Test_Enqueue(t *testing.T) {
 		createBody := v1.Create{
 			Name:                   "test queue",
 			QueueMaxSize:           5,
-			ItemRetryAttempts:      0,
 			DeadLetterQueueMaxSize: 0,
 		}
 		createResponse := testConstruct.Create(g, createBody)
@@ -48,15 +46,14 @@ func Test_Enqueue(t *testing.T) {
 
 		enqueueBody := v1.EnqueueItemRequest{
 			BrokerInfo: v1.BrokerInfo{
-				Name:       "test queue",
-				BrokerType: v1.Queue,
-				Tags:       datatypes.Strings{"some tag"},
+				Name: "test queue",
+				Tags: datatypes.StringMap{"some": "tag"},
 			},
 			Data:       []byte(`hello world`),
 			Updateable: false,
 		}
-		enqueurResponse := testConstruct.Enqueue(g, enqueueBody)
-		g.Expect(enqueurResponse.StatusCode).To(Equal(http.StatusOK))
+		enqueueResponse := testConstruct.Enqueue(g, enqueueBody)
+		g.Expect(enqueueResponse.StatusCode).To(Equal(http.StatusOK))
 
 		metrics := testConstruct.Metrics(g)
 		g.Expect(len(metrics.Queues)).To(Equal(1))
@@ -64,7 +61,7 @@ func Test_Enqueue(t *testing.T) {
 		g.Expect(metrics.Queues[0].Max).To(Equal(uint64(5)))
 		g.Expect(metrics.Queues[0].Total).To(Equal(uint64(1)))
 		g.Expect(len(metrics.Queues[0].Tags)).To(Equal(1))
-		g.Expect(metrics.Queues[0].Tags[0].Tags).To(Equal(datatypes.Strings{"some tag"}))
+		g.Expect(metrics.Queues[0].Tags[0].Tags).To(Equal(datatypes.StringMap{"some": "tag"}))
 		g.Expect(metrics.Queues[0].Tags[0].Ready).To(Equal(uint64(1)))
 		g.Expect(metrics.Queues[0].Tags[0].Processing).To(Equal(uint64(0)))
 	})
@@ -95,7 +92,7 @@ func Test_Enqueue(t *testing.T) {
 		g.Expect(metrics.Queues[0].Max).To(Equal(uint64(5)))
 		g.Expect(metrics.Queues[0].Total).To(Equal(uint64(4)))
 		g.Expect(len(metrics.Queues[0].Tags)).To(Equal(1))
-		g.Expect(metrics.Queues[0].Tags[0].Tags).To(Equal(datatypes.Strings{"some tag"}))
+		g.Expect(metrics.Queues[0].Tags[0].Tags).To(Equal(datatypes.StringMap{"some": "tag"}))
 		g.Expect(metrics.Queues[0].Tags[0].Ready).To(Equal(uint64(4)))
 		g.Expect(metrics.Queues[0].Tags[0].Processing).To(Equal(uint64(0)))
 	})
@@ -112,7 +109,7 @@ func Test_Enqueue(t *testing.T) {
 		enqueurResponse := testConstruct.Enqueue(g, item)
 		g.Expect(enqueurResponse.StatusCode).To(Equal(http.StatusOK))
 
-		item.BrokerInfo.Tags = datatypes.Strings{"new tag", "of course"}
+		item.BrokerInfo.Tags = datatypes.StringMap{"new": "tag", "of": "course"}
 		enqueurResponse = testConstruct.Enqueue(g, item)
 		g.Expect(enqueurResponse.StatusCode).To(Equal(http.StatusOK))
 
@@ -123,8 +120,8 @@ func Test_Enqueue(t *testing.T) {
 		g.Expect(metrics.Queues[0].Max).To(Equal(uint64(5)))
 		g.Expect(metrics.Queues[0].Total).To(Equal(uint64(2)))
 		g.Expect(len(metrics.Queues[0].Tags)).To(Equal(2))
-		g.Expect(metrics.Queues[0].Tags).To(ContainElement(&v1.TagMetricsResponse{Tags: datatypes.Strings{"some tag"}, Ready: 1, Processing: 0}))
-		g.Expect(metrics.Queues[0].Tags).To(ContainElement(&v1.TagMetricsResponse{Tags: datatypes.Strings{"new tag", "of course"}, Ready: 1, Processing: 0}))
+		g.Expect(metrics.Queues[0].Tags).To(ContainElement(&v1.TagMetricsResponse{Tags: datatypes.StringMap{"some": "tag"}, Ready: 1, Processing: 0}))
+		g.Expect(metrics.Queues[0].Tags).To(ContainElement(&v1.TagMetricsResponse{Tags: datatypes.StringMap{"new": "tag", "of": "course"}, Ready: 1, Processing: 0}))
 	})
 
 	t.Run("updateable messages can collapse", func(t *testing.T) {
@@ -153,7 +150,7 @@ func Test_Enqueue(t *testing.T) {
 		g.Expect(metrics.Queues[0].Max).To(Equal(uint64(5)))
 		g.Expect(metrics.Queues[0].Total).To(Equal(uint64(1)))
 		g.Expect(len(metrics.Queues[0].Tags)).To(Equal(1))
-		g.Expect(metrics.Queues[0].Tags[0].Tags).To(Equal(datatypes.Strings{"some tag"}))
+		g.Expect(metrics.Queues[0].Tags[0].Tags).To(Equal(datatypes.StringMap{"some": "tag"}))
 		g.Expect(metrics.Queues[0].Tags[0].Ready).To(Equal(uint64(1)))
 		g.Expect(metrics.Queues[0].Tags[0].Processing).To(Equal(uint64(0)))
 	})

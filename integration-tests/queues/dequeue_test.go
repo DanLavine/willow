@@ -1,86 +1,351 @@
 package queues_integration_tests
 
 import (
+	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
+	"reflect"
 	"testing"
+	"time"
 
 	"github.com/DanLavine/willow/integration-tests/testhelpers"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 	v1 "github.com/DanLavine/willow/pkg/models/v1"
-
 	. "github.com/onsi/gomega"
 )
 
 func Test_Dequeue(t *testing.T) {
 	g := NewGomegaWithT(t)
 	testConstruct := testhelpers.NewIntrgrationTestConstruct(g)
+	defer testConstruct.Cleanup(g)
 
-	t.Run("when match restrictins is STRICT", func(t *testing.T) {
-		t.Run("returns a message from the desired queue", func(t *testing.T) {
+	t.Run("it returns an error if the queue does not exist", func(t *testing.T) {
+		testConstruct.Start(g)
+		defer testConstruct.Shutdown(g)
+
+		// dequeue the item
+		dequeueRequest := v1.ReaderSelect{
+			BrokerName: datatypes.String("queue1"),
+			Queries: []v1.ReaderQuery{
+				{
+					Type: v1.ReaderExactly,
+					Tags: datatypes.StringMap{"some": "tag"},
+				},
+			},
+		}
+		dequeueResponse := testConstruct.Dequeue(g, dequeueRequest)
+		g.Expect(dequeueResponse.StatusCode).To(Equal(http.StatusNotAcceptable))
+	})
+
+	t.Run("when a tag group is requested through a dequeue request", func(t *testing.T) {
+		t.Run("it returns a message that is waiting to be processed if they are available", func(t *testing.T) {
 			testConstruct.Start(g)
 			defer testConstruct.Shutdown(g)
 
-			// create 2 queues
+			// create the queue
 			createResponse := testConstruct.Create(g, testhelpers.Queue1)
 			g.Expect(createResponse.StatusCode).To(Equal(http.StatusCreated))
 
-			createResponse = testConstruct.Create(g, testhelpers.Queue2)
-			g.Expect(createResponse.StatusCode).To(Equal(http.StatusCreated))
+			// enqueue an item
+			enqueurResponse := testConstruct.Enqueue(g, testhelpers.Queue1UpdateableEnqueue)
+			g.Expect(enqueurResponse.StatusCode).To(Equal(http.StatusOK))
 
-			// enqueu an 2 item on each queue with different tags
-			//// queue 1
-			item1 := testhelpers.Queue1UpdateableEnqueue
-			enqueueResponse := testConstruct.Enqueue(g, item1)
-			g.Expect(enqueueResponse.StatusCode).To(Equal(http.StatusOK))
-
-			item1.BrokerInfo.Tags = datatypes.Strings{"a", "b", "c"}
-			item1.Data = []byte(`retrieve me`)
-			enqueueResponse = testConstruct.Enqueue(g, item1)
-			g.Expect(enqueueResponse.StatusCode).To(Equal(http.StatusOK))
-
-			//// queue 2
-			item2 := testhelpers.Queue2UpdateableEnqueue
-			enqueueResponse = testConstruct.Enqueue(g, item2)
-			g.Expect(enqueueResponse.StatusCode).To(Equal(http.StatusOK))
-
-			item2.BrokerInfo.Tags = datatypes.Strings{"a", "b", "c"}
-			item2.Data = []byte(`dont retrieve me`)
-			enqueueResponse = testConstruct.Enqueue(g, item2)
-			g.Expect(enqueueResponse.StatusCode).To(Equal(http.StatusOK))
-
-			// retrieve a message
-			matchBody := v1.MatchQuery{
-				BrokerName:            datatypes.String("queue1"),
-				MatchTagsRestrictions: v1.STRICT,
-				Tags:                  datatypes.Strings{"a", "b", "c"},
+			// dequeue the item
+			dequeueRequest := v1.ReaderSelect{
+				BrokerName: datatypes.String("queue1"),
+				Queries: []v1.ReaderQuery{
+					{
+						Type: v1.ReaderExactly,
+						Tags: datatypes.StringMap{"some": "tag"},
+					},
+				},
 			}
+			dequeueResponse := testConstruct.Dequeue(g, dequeueRequest)
+			g.Expect(dequeueResponse.StatusCode).To(Equal(http.StatusOK))
 
-			messageResponse := testConstruct.GetItem(g, matchBody)
-			g.Expect(messageResponse.StatusCode).To(Equal(http.StatusOK))
-
-			queueItemBody, err := io.ReadAll(messageResponse.Body)
-			defer messageResponse.Body.Close()
+			// parse response
+			body, err := io.ReadAll(dequeueResponse.Body)
 			g.Expect(err).ToNot(HaveOccurred())
 
-			var queueItem v1.DequeueItemResponse
-			g.Expect(json.Unmarshal(queueItemBody, &queueItem)).ToNot(HaveOccurred())
-			g.Expect(queueItem.ID).To(Equal(uint64(1)))
-			g.Expect(queueItem.Data).To(Equal([]byte(`retrieve me`)))
-			g.Expect(queueItem.BrokerInfo.Tags).To(Equal(datatypes.Strings{"a", "b", "c"}))
+			dequeueItem := &v1.DequeueItemResponse{}
+			g.Expect(json.Unmarshal(body, dequeueItem)).ToNot(HaveOccurred())
+
+			// check item returned
+			g.Expect(dequeueItem.BrokerInfo.Name).To(Equal(datatypes.String("queue1")))
+			g.Expect(dequeueItem.BrokerInfo.Tags).To(Equal(datatypes.StringMap{"some": "tag"}))
+			g.Expect(dequeueItem.ID).To(Equal(uint64(1)))
+			g.Expect(dequeueItem.Data).To(Equal([]byte(`hello world`)))
+		})
+
+		t.Run("it can recieve a message enqueued after the dequeue request", func(t *testing.T) {
+			testConstruct.Start(g)
+			defer testConstruct.Shutdown(g)
+
+			// create the queue
+			createResponse := testConstruct.Create(g, testhelpers.Queue1)
+			g.Expect(createResponse.StatusCode).To(Equal(http.StatusCreated))
+
+			// dequeue the item
+			dequeueRequest := v1.ReaderSelect{
+				BrokerName: datatypes.String("queue1"),
+				Queries: []v1.ReaderQuery{
+					{
+						Type: v1.ReaderExactly,
+						Tags: datatypes.StringMap{"some": "tag"},
+					},
+				},
+			}
+
+			requestBody, err := json.Marshal(dequeueRequest)
+			g.Expect(err).ToNot(HaveOccurred())
+
+			dequeueBuffer := bytes.NewBuffer(requestBody)
+			request, err := http.NewRequest("GET", fmt.Sprintf("%s/v1/brokers/item/dequeue", testConstruct.ServerAddress()), dequeueBuffer)
+			g.Expect(err).ToNot(HaveOccurred())
+
+			makingRequest := make(chan struct{})
+			responseChan := make(chan *http.Response)
+			errChan := make(chan error)
+			go func() {
+				close(makingRequest)
+				response, err := testConstruct.ServerClient.Do(request)
+				errChan <- err
+				responseChan <- response
+			}()
+
+			g.Eventually(makingRequest).Should(BeClosed())
+			time.Sleep(1 * time.Second) // make sure the request for a reader goes through first
+
+			// enqueue an item
+			enqueurResponse := testConstruct.Enqueue(g, testhelpers.Queue1UpdateableEnqueue)
+			g.Expect(enqueurResponse.StatusCode).To(Equal(http.StatusOK))
+
+			// check response
+			g.Eventually(errChan).Should(Receive(BeNil()))
+			dequeueResponse := <-responseChan
+
+			// parse response
+			body, err := io.ReadAll(dequeueResponse.Body)
+			g.Expect(err).ToNot(HaveOccurred())
+
+			dequeueItem := &v1.DequeueItemResponse{}
+			g.Expect(json.Unmarshal(body, dequeueItem)).ToNot(HaveOccurred())
+
+			// check item returned
+			g.Expect(dequeueItem.BrokerInfo.Name).To(Equal(datatypes.String("queue1")))
+			g.Expect(dequeueItem.BrokerInfo.Tags).To(Equal(datatypes.StringMap{"some": "tag"}))
+			g.Expect(dequeueItem.ID).To(Equal(uint64(1)))
+			g.Expect(dequeueItem.Data).To(Equal([]byte(`hello world`)))
 		})
 	})
 
-	t.Run("when match restrictins is 'SUBSET'", func(t *testing.T) {
+	t.Run("when the query criteria is 'Exact'", func(t *testing.T) {
+		t.Run("it pulls from the proper queue", func(t *testing.T) {
+			testConstruct.Start(g)
+			defer testConstruct.Shutdown(g)
 
+			// create the queue
+			createResponse := testConstruct.Create(g, testhelpers.Queue1)
+			g.Expect(createResponse.StatusCode).To(Equal(http.StatusCreated))
+
+			// enqueue an item
+			enqueurResponse := testConstruct.Enqueue(g, testhelpers.Queue1UpdateableEnqueue)
+			g.Expect(enqueurResponse.StatusCode).To(Equal(http.StatusOK))
+
+			// dequeue the item
+			dequeueRequest := v1.ReaderSelect{
+				BrokerName: datatypes.String("queue1"),
+				Queries: []v1.ReaderQuery{
+					{
+						Type: v1.ReaderExactly,
+						Tags: datatypes.StringMap{"some": "tag"},
+					},
+				},
+			}
+			dequeueResponse := testConstruct.Dequeue(g, dequeueRequest)
+			g.Expect(dequeueResponse.StatusCode).To(Equal(http.StatusOK))
+
+			// parse response
+			body, err := io.ReadAll(dequeueResponse.Body)
+			g.Expect(err).ToNot(HaveOccurred())
+
+			dequeueItem := &v1.DequeueItemResponse{}
+			g.Expect(json.Unmarshal(body, dequeueItem)).ToNot(HaveOccurred())
+
+			// check item returned
+			g.Expect(dequeueItem.BrokerInfo.Name).To(Equal(datatypes.String("queue1")))
+			g.Expect(dequeueItem.BrokerInfo.Tags).To(Equal(datatypes.StringMap{"some": "tag"}))
+			g.Expect(dequeueItem.ID).To(Equal(uint64(1)))
+			g.Expect(dequeueItem.Data).To(Equal([]byte(`hello world`)))
+		})
 	})
 
-	t.Run("when match restrictins is 'ANY'", func(t *testing.T) {
+	t.Run("when the query criteria is 'Matches'", func(t *testing.T) {
+		t.Run("it pulls from the proper queue", func(t *testing.T) {
+			testConstruct.Start(g)
+			defer testConstruct.Shutdown(g)
 
+			// create the queue
+			createResponse := testConstruct.Create(g, testhelpers.Queue1)
+			g.Expect(createResponse.StatusCode).To(Equal(http.StatusCreated))
+
+			// enqueue a few items
+			enqueueResponse := testConstruct.Enqueue(g, testhelpers.Queue1UpdateableEnqueue)
+			g.Expect(enqueueResponse.StatusCode).To(Equal(http.StatusOK))
+
+			enqueueCopy := testhelpers.Queue1UpdateableEnqueue
+			enqueueCopy.BrokerInfo.Tags = datatypes.StringMap{"some": "tag", "another": "tag"}
+			enqueueCopy.Data = []byte(`some more data to find`)
+			enqueueResponse = testConstruct.Enqueue(g, enqueueCopy)
+			g.Expect(enqueueResponse.StatusCode).To(Equal(http.StatusOK))
+
+			enqueueNotFound := testhelpers.Queue1UpdateableEnqueue
+			enqueueNotFound.BrokerInfo.Tags = datatypes.StringMap{"not found": "tag"}
+			enqueueResponse = testConstruct.Enqueue(g, enqueueNotFound)
+			g.Expect(enqueueResponse.StatusCode).To(Equal(http.StatusOK))
+
+			expectedItem := []v1.DequeueItemResponse{
+				{
+					BrokerInfo: v1.BrokerInfo{
+						Name: "queue1",
+						Tags: datatypes.StringMap{"some": "tag"},
+					},
+					Data: []byte(`hello world`),
+					ID:   1,
+				},
+				{
+					BrokerInfo: v1.BrokerInfo{
+						Name: "queue1",
+						Tags: datatypes.StringMap{"some": "tag", "another": "tag"},
+					},
+					Data: []byte(`some more data to find`),
+					ID:   1,
+				},
+			}
+
+			foundOne, foundTwo := false, false
+			for i := 1; i <= 2; i++ {
+				dequeueRequest := v1.ReaderSelect{
+					BrokerName: datatypes.String("queue1"),
+					Queries: []v1.ReaderQuery{
+						{
+							Type: v1.ReaderMatches,
+							Tags: datatypes.StringMap{"some": "tag"},
+						},
+					},
+				}
+				dequeueResponse := testConstruct.Dequeue(g, dequeueRequest)
+				g.Expect(dequeueResponse.StatusCode).To(Equal(http.StatusOK))
+
+				// parse response
+				body, err := io.ReadAll(dequeueResponse.Body)
+				g.Expect(err).ToNot(HaveOccurred())
+
+				dequeueItem := v1.DequeueItemResponse{}
+				g.Expect(json.Unmarshal(body, &dequeueItem)).ToNot(HaveOccurred())
+
+				if reflect.DeepEqual(dequeueItem.BrokerInfo.Tags, expectedItem[0].BrokerInfo.Tags) {
+					g.Expect(dequeueItem).To(Equal(expectedItem[0]))
+					foundOne = true
+				} else if reflect.DeepEqual(dequeueItem.BrokerInfo.Tags, expectedItem[1].BrokerInfo.Tags) {
+					g.Expect(dequeueItem).To(Equal(expectedItem[1]))
+					foundTwo = true
+				} else {
+					g.Fail(fmt.Sprintf("found unexpected tags: %v", dequeueItem.BrokerInfo.Tags))
+				}
+			}
+
+			// check both items returned
+			g.Expect(foundOne).To(BeTrue())
+			g.Expect(foundTwo).To(BeTrue())
+		})
 	})
 
-	t.Run("when match restrictins is 'ALL'", func(t *testing.T) {
+	t.Run("when the query criteria is multiple lookups", func(t *testing.T) {
+		t.Run("it pulls from any of the proper queue's tag groups", func(t *testing.T) {
+			testConstruct.Start(g)
+			defer testConstruct.Shutdown(g)
 
+			// create the queue
+			createResponse := testConstruct.Create(g, testhelpers.Queue1)
+			g.Expect(createResponse.StatusCode).To(Equal(http.StatusCreated))
+
+			// enqueue a few items
+			enqueueResponse := testConstruct.Enqueue(g, testhelpers.Queue1UpdateableEnqueue)
+			g.Expect(enqueueResponse.StatusCode).To(Equal(http.StatusOK))
+
+			enqueueCopy := testhelpers.Queue1UpdateableEnqueue
+			enqueueCopy.BrokerInfo.Tags = datatypes.StringMap{"some": "tag", "another": "tag"}
+			enqueueCopy.Data = []byte(`some more data to find`)
+			enqueueResponse = testConstruct.Enqueue(g, enqueueCopy)
+			g.Expect(enqueueResponse.StatusCode).To(Equal(http.StatusOK))
+
+			enqueueMatchesFound := testhelpers.Queue1UpdateableEnqueue
+			enqueueMatchesFound.BrokerInfo.Tags = datatypes.StringMap{"the other unique tag": "ok"}
+			enqueueMatchesFound.Data = []byte(`this should be found`)
+			enqueueResponse = testConstruct.Enqueue(g, enqueueMatchesFound)
+			g.Expect(enqueueResponse.StatusCode).To(Equal(http.StatusOK))
+
+			expectedItem := []v1.DequeueItemResponse{
+				{
+					BrokerInfo: v1.BrokerInfo{
+						Name: "queue1",
+						Tags: datatypes.StringMap{"some": "tag", "another": "tag"},
+					},
+					Data: []byte(`some more data to find`),
+					ID:   1,
+				},
+				{
+					BrokerInfo: v1.BrokerInfo{
+						Name: "queue1",
+						Tags: datatypes.StringMap{"the other unique tag": "ok"},
+					},
+					Data: []byte(`this should be found`),
+					ID:   1,
+				},
+			}
+
+			foundOne, foundTwo := false, false
+			for i := 1; i <= 2; i++ {
+				dequeueRequest := v1.ReaderSelect{
+					BrokerName: datatypes.String("queue1"),
+					Queries: []v1.ReaderQuery{
+						{
+							Type: v1.ReaderExactly,
+							Tags: datatypes.StringMap{"some": "tag", "another": "tag"},
+						},
+						{
+							Type: v1.ReaderMatches,
+							Tags: datatypes.StringMap{"the other unique tag": "ok"},
+						},
+					},
+				}
+				dequeueResponse := testConstruct.Dequeue(g, dequeueRequest)
+				g.Expect(dequeueResponse.StatusCode).To(Equal(http.StatusOK))
+
+				// parse response
+				body, err := io.ReadAll(dequeueResponse.Body)
+				g.Expect(err).ToNot(HaveOccurred())
+
+				dequeueItem := v1.DequeueItemResponse{}
+				g.Expect(json.Unmarshal(body, &dequeueItem)).ToNot(HaveOccurred())
+
+				if reflect.DeepEqual(dequeueItem.BrokerInfo.Tags, expectedItem[0].BrokerInfo.Tags) {
+					g.Expect(dequeueItem).To(Equal(expectedItem[0]))
+					foundOne = true
+				} else if reflect.DeepEqual(dequeueItem.BrokerInfo.Tags, expectedItem[1].BrokerInfo.Tags) {
+					g.Expect(dequeueItem).To(Equal(expectedItem[1]))
+					foundTwo = true
+				} else {
+					g.Fail(fmt.Sprintf("found unexpected tags: %v", dequeueItem.BrokerInfo.Tags))
+				}
+			}
+
+			// check both items returned
+			g.Expect(foundOne).To(BeTrue())
+			g.Expect(foundTwo).To(BeTrue())
+		})
 	})
 }

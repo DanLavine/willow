@@ -7,10 +7,11 @@ import (
 	"syscall"
 
 	"github.com/DanLavine/goasync"
+	"github.com/DanLavine/willow/internal/brokers"
+	"github.com/DanLavine/willow/internal/brokers/queues"
 	"github.com/DanLavine/willow/internal/logger"
 	"github.com/DanLavine/willow/internal/server"
 	"github.com/DanLavine/willow/internal/server/v1server"
-	"github.com/DanLavine/willow/internal/v1/queues"
 	"github.com/DanLavine/willow/pkg/config"
 )
 
@@ -24,7 +25,7 @@ func main() {
 	defer logger.Sync()
 
 	queueConstructor := queues.NewQueueConstructor(cfg)
-	queueManager := queues.NewManager(queueConstructor)
+	queueManager := brokers.NewBrokerManager(queueConstructor)
 
 	// setup async handlers
 	//// using strict config ensures that if any process fails, the server will ty and shutdown gracefully
