@@ -29,6 +29,15 @@ var (
 		Updateable: true,
 	}
 
+	Queue1NotUpdateableEnqueue = v1.EnqueueItemRequest{
+		BrokerInfo: v1.BrokerInfo{
+			Name: datatypes.String("queue1"),
+			Tags: datatypes.StringMap{"some": "tag"},
+		},
+		Data:       []byte(`hello world`),
+		Updateable: false,
+	}
+
 	Queue2UpdateableEnqueue = v1.EnqueueItemRequest{
 		BrokerInfo: v1.BrokerInfo{
 			Name: datatypes.String("queue2"),

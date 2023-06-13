@@ -39,106 +39,178 @@ func Test_Dequeue(t *testing.T) {
 		g.Expect(dequeueResponse.StatusCode).To(Equal(http.StatusNotAcceptable))
 	})
 
-	t.Run("when a tag group is requested through a dequeue request", func(t *testing.T) {
-		t.Run("it returns a message that is waiting to be processed if they are available", func(t *testing.T) {
-			testConstruct.Start(g)
-			defer testConstruct.Shutdown(g)
+	t.Run("it returns a message that is waiting to be processed if they are available", func(t *testing.T) {
+		testConstruct.Start(g)
+		defer testConstruct.Shutdown(g)
 
-			// create the queue
-			createResponse := testConstruct.Create(g, testhelpers.Queue1)
-			g.Expect(createResponse.StatusCode).To(Equal(http.StatusCreated))
+		// create the queue
+		createResponse := testConstruct.Create(g, testhelpers.Queue1)
+		g.Expect(createResponse.StatusCode).To(Equal(http.StatusCreated))
 
-			// enqueue an item
-			enqueurResponse := testConstruct.Enqueue(g, testhelpers.Queue1UpdateableEnqueue)
-			g.Expect(enqueurResponse.StatusCode).To(Equal(http.StatusOK))
+		// enqueue an item
+		enqueueResponse := testConstruct.Enqueue(g, testhelpers.Queue1UpdateableEnqueue)
+		g.Expect(enqueueResponse.StatusCode).To(Equal(http.StatusOK))
 
-			// dequeue the item
-			dequeueRequest := v1.ReaderSelect{
-				BrokerName: datatypes.String("queue1"),
-				Queries: []v1.ReaderQuery{
-					{
-						Type: v1.ReaderExactly,
-						Tags: datatypes.StringMap{"some": "tag"},
-					},
+		// dequeue the item
+		dequeueRequest := v1.ReaderSelect{
+			BrokerName: datatypes.String("queue1"),
+			Queries: []v1.ReaderQuery{
+				{
+					Type: v1.ReaderExactly,
+					Tags: datatypes.StringMap{"some": "tag"},
 				},
-			}
-			dequeueResponse := testConstruct.Dequeue(g, dequeueRequest)
-			g.Expect(dequeueResponse.StatusCode).To(Equal(http.StatusOK))
+			},
+		}
+		dequeueResponse := testConstruct.Dequeue(g, dequeueRequest)
+		g.Expect(dequeueResponse.StatusCode).To(Equal(http.StatusOK))
 
-			// parse response
-			body, err := io.ReadAll(dequeueResponse.Body)
-			g.Expect(err).ToNot(HaveOccurred())
+		// parse response
+		body, err := io.ReadAll(dequeueResponse.Body)
+		g.Expect(err).ToNot(HaveOccurred())
 
-			dequeueItem := &v1.DequeueItemResponse{}
-			g.Expect(json.Unmarshal(body, dequeueItem)).ToNot(HaveOccurred())
+		dequeueItem := &v1.DequeueItemResponse{}
+		g.Expect(json.Unmarshal(body, dequeueItem)).ToNot(HaveOccurred())
 
-			// check item returned
-			g.Expect(dequeueItem.BrokerInfo.Name).To(Equal(datatypes.String("queue1")))
-			g.Expect(dequeueItem.BrokerInfo.Tags).To(Equal(datatypes.StringMap{"some": "tag"}))
-			g.Expect(dequeueItem.ID).To(Equal(uint64(1)))
-			g.Expect(dequeueItem.Data).To(Equal([]byte(`hello world`)))
-		})
+		// check item returned
+		g.Expect(dequeueItem.BrokerInfo.Name).To(Equal(datatypes.String("queue1")))
+		g.Expect(dequeueItem.BrokerInfo.Tags).To(Equal(datatypes.StringMap{"some": "tag"}))
+		g.Expect(dequeueItem.ID).To(Equal(uint64(1)))
+		g.Expect(dequeueItem.Data).To(Equal([]byte(`hello world`)))
+	})
 
-		t.Run("it can recieve a message enqueued after the dequeue request", func(t *testing.T) {
-			testConstruct.Start(g)
-			defer testConstruct.Shutdown(g)
+	t.Run("it can recieve a message enqueued after the dequeue request", func(t *testing.T) {
+		testConstruct.Start(g)
+		defer testConstruct.Shutdown(g)
 
-			// create the queue
-			createResponse := testConstruct.Create(g, testhelpers.Queue1)
-			g.Expect(createResponse.StatusCode).To(Equal(http.StatusCreated))
+		// create the queue
+		createResponse := testConstruct.Create(g, testhelpers.Queue1)
+		g.Expect(createResponse.StatusCode).To(Equal(http.StatusCreated))
 
-			// dequeue the item
-			dequeueRequest := v1.ReaderSelect{
-				BrokerName: datatypes.String("queue1"),
-				Queries: []v1.ReaderQuery{
-					{
-						Type: v1.ReaderExactly,
-						Tags: datatypes.StringMap{"some": "tag"},
-					},
+		// dequeue the item
+		dequeueRequest := v1.ReaderSelect{
+			BrokerName: datatypes.String("queue1"),
+			Queries: []v1.ReaderQuery{
+				{
+					Type: v1.ReaderExactly,
+					Tags: datatypes.StringMap{"some": "tag"},
 				},
-			}
+			},
+		}
 
-			requestBody, err := json.Marshal(dequeueRequest)
-			g.Expect(err).ToNot(HaveOccurred())
+		requestBody, err := json.Marshal(dequeueRequest)
+		g.Expect(err).ToNot(HaveOccurred())
 
-			dequeueBuffer := bytes.NewBuffer(requestBody)
-			request, err := http.NewRequest("GET", fmt.Sprintf("%s/v1/brokers/item/dequeue", testConstruct.ServerAddress()), dequeueBuffer)
-			g.Expect(err).ToNot(HaveOccurred())
+		dequeueBuffer := bytes.NewBuffer(requestBody)
+		request, err := http.NewRequest("GET", fmt.Sprintf("%s/v1/brokers/item/dequeue", testConstruct.ServerAddress()), dequeueBuffer)
+		g.Expect(err).ToNot(HaveOccurred())
 
-			makingRequest := make(chan struct{})
-			responseChan := make(chan *http.Response)
-			errChan := make(chan error)
-			go func() {
-				close(makingRequest)
-				response, err := testConstruct.ServerClient.Do(request)
-				errChan <- err
-				responseChan <- response
-			}()
+		makingRequest := make(chan struct{})
+		responseChan := make(chan *http.Response)
+		errChan := make(chan error)
+		go func() {
+			close(makingRequest)
+			response, err := testConstruct.ServerClient.Do(request)
+			errChan <- err
+			responseChan <- response
+		}()
 
-			g.Eventually(makingRequest).Should(BeClosed())
-			time.Sleep(1 * time.Second) // make sure the request for a reader goes through first
+		g.Eventually(makingRequest).Should(BeClosed())
+		time.Sleep(1 * time.Second) // make sure the request for a reader goes through first
 
-			// enqueue an item
-			enqueurResponse := testConstruct.Enqueue(g, testhelpers.Queue1UpdateableEnqueue)
-			g.Expect(enqueurResponse.StatusCode).To(Equal(http.StatusOK))
+		// enqueue an item
+		enqueueResponse := testConstruct.Enqueue(g, testhelpers.Queue1UpdateableEnqueue)
+		g.Expect(enqueueResponse.StatusCode).To(Equal(http.StatusOK))
 
-			// check response
-			g.Eventually(errChan).Should(Receive(BeNil()))
-			dequeueResponse := <-responseChan
+		// check response
+		g.Eventually(errChan).Should(Receive(BeNil()))
+		dequeueResponse := <-responseChan
 
-			// parse response
-			body, err := io.ReadAll(dequeueResponse.Body)
-			g.Expect(err).ToNot(HaveOccurred())
+		// parse response
+		body, err := io.ReadAll(dequeueResponse.Body)
+		g.Expect(err).ToNot(HaveOccurred())
 
-			dequeueItem := &v1.DequeueItemResponse{}
-			g.Expect(json.Unmarshal(body, dequeueItem)).ToNot(HaveOccurred())
+		dequeueItem := &v1.DequeueItemResponse{}
+		g.Expect(json.Unmarshal(body, dequeueItem)).ToNot(HaveOccurred())
 
-			// check item returned
-			g.Expect(dequeueItem.BrokerInfo.Name).To(Equal(datatypes.String("queue1")))
-			g.Expect(dequeueItem.BrokerInfo.Tags).To(Equal(datatypes.StringMap{"some": "tag"}))
-			g.Expect(dequeueItem.ID).To(Equal(uint64(1)))
-			g.Expect(dequeueItem.Data).To(Equal([]byte(`hello world`)))
-		})
+		// check item returned
+		g.Expect(dequeueItem.BrokerInfo.Name).To(Equal(datatypes.String("queue1")))
+		g.Expect(dequeueItem.BrokerInfo.Tags).To(Equal(datatypes.StringMap{"some": "tag"}))
+		g.Expect(dequeueItem.ID).To(Equal(uint64(1)))
+		g.Expect(dequeueItem.Data).To(Equal([]byte(`hello world`)))
+	})
+
+	t.Run("it dequeues TagGroup messages in the proper order", func(t *testing.T) {
+		testConstruct.Start(g)
+		defer testConstruct.Shutdown(g)
+
+		// create the queue
+		createResponse := testConstruct.Create(g, testhelpers.Queue1)
+		g.Expect(createResponse.StatusCode).To(Equal(http.StatusCreated))
+
+		// enqueue multiple items
+		message1 := testhelpers.Queue1NotUpdateableEnqueue
+		message1.Data = []byte(`first`)
+		message2 := testhelpers.Queue1NotUpdateableEnqueue
+		message2.Data = []byte(`second`)
+		message3 := testhelpers.Queue1NotUpdateableEnqueue
+		message3.Data = []byte(`third`)
+
+		g.Expect(testConstruct.Enqueue(g, message1).StatusCode).To(Equal(http.StatusOK))
+		g.Expect(testConstruct.Enqueue(g, message2).StatusCode).To(Equal(http.StatusOK))
+		g.Expect(testConstruct.Enqueue(g, message3).StatusCode).To(Equal(http.StatusOK))
+
+		// dequeue the item
+		dequeueRequest := v1.ReaderSelect{
+			BrokerName: datatypes.String("queue1"),
+			Queries: []v1.ReaderQuery{
+				{
+					Type: v1.ReaderExactly,
+					Tags: datatypes.StringMap{"some": "tag"},
+				},
+			},
+		}
+
+		// 1st response check
+		response1 := testConstruct.Dequeue(g, dequeueRequest)
+		g.Expect(response1.StatusCode).To(Equal(http.StatusOK))
+
+		body, err := io.ReadAll(response1.Body)
+		g.Expect(err).ToNot(HaveOccurred())
+
+		dequeueItem1 := v1.DequeueItemResponse{}
+		g.Expect(json.Unmarshal(body, &dequeueItem1)).ToNot(HaveOccurred())
+		g.Expect(dequeueItem1.BrokerInfo.Name).To(Equal(datatypes.String("queue1")))
+		g.Expect(dequeueItem1.BrokerInfo.Tags).To(Equal(datatypes.StringMap{"some": "tag"}))
+		g.Expect(dequeueItem1.Data).To(Equal([]byte(`first`)))
+		g.Expect(dequeueItem1.ID).To(Equal(uint64(1)))
+
+		// 2nd response check
+		response2 := testConstruct.Dequeue(g, dequeueRequest)
+		g.Expect(response2.StatusCode).To(Equal(http.StatusOK))
+
+		body, err = io.ReadAll(response2.Body)
+		g.Expect(err).ToNot(HaveOccurred())
+
+		dequeueItem2 := v1.DequeueItemResponse{}
+		g.Expect(json.Unmarshal(body, &dequeueItem2)).ToNot(HaveOccurred())
+		g.Expect(dequeueItem2.BrokerInfo.Name).To(Equal(datatypes.String("queue1")))
+		g.Expect(dequeueItem2.BrokerInfo.Tags).To(Equal(datatypes.StringMap{"some": "tag"}))
+		g.Expect(dequeueItem2.Data).To(Equal([]byte(`second`)))
+		g.Expect(dequeueItem2.ID).To(Equal(uint64(2)))
+
+		// 3rd response check
+		response3 := testConstruct.Dequeue(g, dequeueRequest)
+		g.Expect(response3.StatusCode).To(Equal(http.StatusOK))
+
+		body, err = io.ReadAll(response3.Body)
+		g.Expect(err).ToNot(HaveOccurred())
+
+		dequeueItem3 := v1.DequeueItemResponse{}
+		g.Expect(json.Unmarshal(body, &dequeueItem3)).ToNot(HaveOccurred())
+		g.Expect(dequeueItem3.BrokerInfo.Name).To(Equal(datatypes.String("queue1")))
+		g.Expect(dequeueItem3.BrokerInfo.Tags).To(Equal(datatypes.StringMap{"some": "tag"}))
+		g.Expect(dequeueItem3.Data).To(Equal([]byte(`third`)))
+		g.Expect(dequeueItem3.ID).To(Equal(uint64(3)))
 	})
 
 	t.Run("when the query criteria is 'Exact'", func(t *testing.T) {
@@ -151,8 +223,8 @@ func Test_Dequeue(t *testing.T) {
 			g.Expect(createResponse.StatusCode).To(Equal(http.StatusCreated))
 
 			// enqueue an item
-			enqueurResponse := testConstruct.Enqueue(g, testhelpers.Queue1UpdateableEnqueue)
-			g.Expect(enqueurResponse.StatusCode).To(Equal(http.StatusOK))
+			enqueueResponse := testConstruct.Enqueue(g, testhelpers.Queue1UpdateableEnqueue)
+			g.Expect(enqueueResponse.StatusCode).To(Equal(http.StatusOK))
 
 			// dequeue the item
 			dequeueRequest := v1.ReaderSelect{

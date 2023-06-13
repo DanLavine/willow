@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 
 	v1 "github.com/DanLavine/willow/pkg/models/v1"
 	"github.com/onsi/gomega"
@@ -49,10 +50,23 @@ func (itc *IntegrationTestConstruct) Dequeue(g *gomega.WithT, readerQuery v1.Rea
 	request, err := http.NewRequest("GET", fmt.Sprintf("%s/v1/brokers/item/dequeue", itc.serverAddress), dequeueBuffer)
 	g.Expect(err).ToNot(HaveOccurred())
 
-	response, err := itc.ServerClient.Do(request)
-	g.Expect(err).ToNot(HaveOccurred())
+	responseChan := make(chan *http.Response)
+	errChan := make(chan error)
+	go func() {
+		response, err := itc.ServerClient.Do(request)
+		errChan <- err
+		responseChan <- response
+	}()
 
-	return response
+	g.Eventually(errChan).Should(Receive(BeNil()))
+
+	select {
+	case <-time.After(time.Second):
+		g.Fail("didn't recieve a dequeue message")
+		return nil
+	case response := <-responseChan:
+		return response
+	}
 }
 
 func (itc *IntegrationTestConstruct) ACKMessage(g *gomega.WithT, ackBody v1.ACK) *http.Response {
