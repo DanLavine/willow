@@ -69,12 +69,12 @@ func (itc *IntegrationTestConstruct) Dequeue(g *gomega.WithT, readerQuery v1.Rea
 	}
 }
 
-func (itc *IntegrationTestConstruct) ACKMessage(g *gomega.WithT, ackBody v1.ACK) *http.Response {
+func (itc *IntegrationTestConstruct) ACK(g *gomega.WithT, ackBody v1.ACK) *http.Response {
 	body, err := json.Marshal(ackBody)
 	g.Expect(err).ToNot(HaveOccurred())
 
-	enqueueBuffer := bytes.NewBuffer(body)
-	request, err := http.NewRequest("POST", fmt.Sprintf("%s/v1/message/ack", itc.serverAddress), enqueueBuffer)
+	requestBuffer := bytes.NewBuffer(body)
+	request, err := http.NewRequest("POST", fmt.Sprintf("%s/v1/brokers/item/ack", itc.serverAddress), requestBuffer)
 	g.Expect(err).ToNot(HaveOccurred())
 
 	response, err := itc.ServerClient.Do(request)

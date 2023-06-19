@@ -30,6 +30,16 @@ func (idHolder *idHolder) add(id uint64) {
 	idHolder.IDs = append(idHolder.IDs, id)
 }
 
+func (idHolder *idHolder) remove(idToRemove uint64) {
+	for index, id := range idHolder.IDs {
+		if id == idToRemove {
+			idHolder.IDs[index] = idHolder.IDs[len(idHolder.IDs)-1]
+			idHolder.IDs = idHolder.IDs[:len(idHolder.IDs)-1]
+			return
+		}
+	}
+}
+
 // onFindAdd adds any number of values to a passed in set
 func onFindIDHolderAdd(set set.Set) func(item any) {
 	return func(item any) {

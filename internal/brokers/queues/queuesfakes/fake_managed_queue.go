@@ -11,6 +11,18 @@ import (
 )
 
 type FakeManagedQueue struct {
+	ACKStub        func(*zap.Logger, *v1.ACK) *v1.Error
+	aCKMutex       sync.RWMutex
+	aCKArgsForCall []struct {
+		arg1 *zap.Logger
+		arg2 *v1.ACK
+	}
+	aCKReturns struct {
+		result1 *v1.Error
+	}
+	aCKReturnsOnCall map[int]struct {
+		result1 *v1.Error
+	}
 	EnqueueStub        func(*zap.Logger, *v1.EnqueueItemRequest) *v1.Error
 	enqueueMutex       sync.RWMutex
 	enqueueArgsForCall []struct {
@@ -60,6 +72,68 @@ type FakeManagedQueue struct {
 	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
+}
+
+func (fake *FakeManagedQueue) ACK(arg1 *zap.Logger, arg2 *v1.ACK) *v1.Error {
+	fake.aCKMutex.Lock()
+	ret, specificReturn := fake.aCKReturnsOnCall[len(fake.aCKArgsForCall)]
+	fake.aCKArgsForCall = append(fake.aCKArgsForCall, struct {
+		arg1 *zap.Logger
+		arg2 *v1.ACK
+	}{arg1, arg2})
+	stub := fake.ACKStub
+	fakeReturns := fake.aCKReturns
+	fake.recordInvocation("ACK", []interface{}{arg1, arg2})
+	fake.aCKMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *FakeManagedQueue) ACKCallCount() int {
+	fake.aCKMutex.RLock()
+	defer fake.aCKMutex.RUnlock()
+	return len(fake.aCKArgsForCall)
+}
+
+func (fake *FakeManagedQueue) ACKCalls(stub func(*zap.Logger, *v1.ACK) *v1.Error) {
+	fake.aCKMutex.Lock()
+	defer fake.aCKMutex.Unlock()
+	fake.ACKStub = stub
+}
+
+func (fake *FakeManagedQueue) ACKArgsForCall(i int) (*zap.Logger, *v1.ACK) {
+	fake.aCKMutex.RLock()
+	defer fake.aCKMutex.RUnlock()
+	argsForCall := fake.aCKArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2
+}
+
+func (fake *FakeManagedQueue) ACKReturns(result1 *v1.Error) {
+	fake.aCKMutex.Lock()
+	defer fake.aCKMutex.Unlock()
+	fake.ACKStub = nil
+	fake.aCKReturns = struct {
+		result1 *v1.Error
+	}{result1}
+}
+
+func (fake *FakeManagedQueue) ACKReturnsOnCall(i int, result1 *v1.Error) {
+	fake.aCKMutex.Lock()
+	defer fake.aCKMutex.Unlock()
+	fake.ACKStub = nil
+	if fake.aCKReturnsOnCall == nil {
+		fake.aCKReturnsOnCall = make(map[int]struct {
+			result1 *v1.Error
+		})
+	}
+	fake.aCKReturnsOnCall[i] = struct {
+		result1 *v1.Error
+	}{result1}
 }
 
 func (fake *FakeManagedQueue) Enqueue(arg1 *zap.Logger, arg2 *v1.EnqueueItemRequest) *v1.Error {
@@ -306,6 +380,8 @@ func (fake *FakeManagedQueue) ReadersReturnsOnCall(i int, result1 []<-chan func(
 func (fake *FakeManagedQueue) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
+	fake.aCKMutex.RLock()
+	defer fake.aCKMutex.RUnlock()
 	fake.enqueueMutex.RLock()
 	defer fake.enqueueMutex.RUnlock()
 	fake.executeMutex.RLock()

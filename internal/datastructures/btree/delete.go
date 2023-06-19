@@ -32,6 +32,7 @@ func (btree *bTree) Delete(key datatypes.CompareType, canDelete datastructures.C
 		btree.root.remove(key, canDelete)
 
 		if btree.root.numberOfValues == 0 {
+			// set root to nil
 			btree.root = btree.root.children[0]
 		}
 	}

@@ -1,6 +1,8 @@
 package btreeassociated
 
 import (
+	"sync"
+
 	"github.com/DanLavine/willow/internal/datastructures"
 	"github.com/DanLavine/willow/internal/datastructures/btree"
 	idtree "github.com/DanLavine/willow/internal/datastructures/id_tree"
@@ -35,7 +37,7 @@ import (
 // Where finaly the last tree under 'namespace', which are all the possible values for a namespace could look something like:
 // (keyValuePairs) - (index is city)
 //
-//				  default,live
+//				  default,staging
 //	    /         |        \
 //	  active	 pending    test
 //
@@ -63,9 +65,14 @@ type BTreeAssociated interface {
 
 	// Iterate over the tree and for each value found invoke the callback with the node's value
 	Iterate(callback datastructures.Iterate)
+
+	// Remove a item from the tree
+	Delete(keyValuePairs datatypes.StringMap, canDelete datastructures.CanDelete)
 }
 
 type associatedTree struct {
+	lock *sync.RWMutex
+
 	// ID tree stores the created values for this tree
 	// I.E. What was passed to CreateOrFind(... onCreate) func
 	idTree *idtree.IDTree
@@ -85,6 +92,7 @@ func New() *associatedTree {
 	}
 
 	return &associatedTree{
+		lock:                       new(sync.RWMutex),
 		idTree:                     idtree.NewIDTree(),
 		groupedKeyValueAssociation: bTree,
 	}

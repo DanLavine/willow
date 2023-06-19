@@ -31,6 +31,9 @@ type Iterate func(key datatypes.CompareType, item any)
 type OnCreate func() (any, error)
 
 // Callback for calling a function when a value is found in a tree
+//
+// TODO: Think about returning a different type of value. One where its a reference to the item in the tree and can call A Delete() function.
+// would make the associated tree much easier to work with.
 type OnFind func(item any)
 
 // Callback to check that an item can actually be removed from a tree

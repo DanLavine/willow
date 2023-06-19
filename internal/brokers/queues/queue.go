@@ -20,27 +20,28 @@ type QueueManager interface {
 	// Create a new queue. performs a no-op if the queue already exists
 	//
 	// ARGS:
-	// * logger - standard zap logger
-	// * create - parameters to create a queue
+	// - logger - standard zap logger
+	// - create - parameters to create a queue
 	//
 	// RETURNs:
-	// * v1.Error - any errors encountered when creating the queue
+	// - v1.Error - any errors encountered when creating the queue
 	Create(logger *zap.Logger, create *v1.Create) *v1.Error
 
 	// Find a particular queue
 	//
 	// ARGS:
-	// * logger - standard zap logger
-	// * queue - name of the queue to find
+	// - logger - standard zap logger
+	// - queue - name of the queue to find
 	//
 	// RETURNS:
-	// * Queue - queue if the queue is defined
-	// * v1.Error - any errors encountered when finding the queue, or an error that it does not exist
+	// - Queue - queue if the queue is defined
+	// - v1.Error - any errors encountered when finding the queue, or an error that it does not exist
 	Find(logger *zap.Logger, queue datatypes.String) (Queue, *v1.Error)
 
-	// GetItem retrieves the next item in the queue
-	//GetItem(logger *zap.Logger, ctx context.Context, ready *v1.Ready) (*v1.DequeueItemResponse, *v1.Error)
-
+	// Get Metrics for all Queues
+	//
+	// RETURNS:
+	// - v1.MettricsResponse - data for all queues and their tag groups
 	Metrics() *v1.MetricsResponse
 }
 
@@ -66,6 +67,9 @@ type Queue interface {
 
 	// Get readers for a specific queue's tags
 	Readers(logger *zap.Logger, readerSelect *v1.ReaderSelect) ([]<-chan tags.Tag, *v1.Error)
+
+	// ACK a message
+	ACK(logger *zap.Logger, ackItem *v1.ACK) *v1.Error
 
 	// Get Metrics info
 	Metrics() *v1.QueueMetricsResponse

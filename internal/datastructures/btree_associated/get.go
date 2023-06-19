@@ -13,6 +13,9 @@ func (at *associatedTree) Get(keyValuePairs datatypes.StringMap, onFind datastru
 		return nil, fmt.Errorf("keyValuePairs requires a length of at least 1")
 	}
 
+	at.lock.RLock()
+	defer at.lock.RUnlock()
+
 	// NOTE: The read lock for the entire association. Since maps are unordered we need the entire grouped to be locked
 	castableAssociatedKeyValues := at.groupedKeyValueAssociation.Find(datatypes.Int(len(keyValuePairs)), keyValuesReadLock)
 	if castableAssociatedKeyValues == nil {

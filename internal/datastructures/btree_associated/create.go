@@ -26,6 +26,9 @@ func (at *associatedTree) CreateOrFind(keyValuePairs datatypes.StringMap, onCrea
 		return item, nil
 	}
 
+	at.lock.Lock()
+	defer at.lock.Unlock()
+
 	// first find the "compositKeyValue" gropuings where our tags might reside.
 	// note this won't return an error since its all internal known good values
 	castableAssociatedKeyValues, _ := at.groupedKeyValueAssociation.CreateOrFind(datatypes.Int(len(keyValuePairs)), keyValuesLock, newKeyValues)

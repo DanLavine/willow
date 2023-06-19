@@ -46,4 +46,15 @@ var (
 		Data:       []byte(`hello world`),
 		Updateable: true,
 	}
+
+	// some general dequeue messages
+	Queue1Dequeue = v1.ReaderSelect{
+		BrokerName: datatypes.String("queue1"),
+		Queries: []v1.ReaderQuery{
+			{
+				Type: v1.ReaderExactly,
+				Tags: datatypes.StringMap{"some": "tag"},
+			},
+		},
+	}
 )

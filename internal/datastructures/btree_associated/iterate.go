@@ -13,6 +13,11 @@ func (at *associatedTree) Iterate(callback datastructures.Iterate) {
 		panic("callback is nil")
 	}
 
+	at.lock.RLock()
+	defer at.lock.RUnlock()
+
 	// NOTE: this actually means we just need to iterate over the ID tree since that stores the actual values
-	at.idTree.Iterate(callback)
+	if at.idTree != nil {
+		at.idTree.Iterate(callback)
+	}
 }

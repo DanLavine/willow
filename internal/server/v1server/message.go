@@ -111,7 +111,25 @@ func (qh *queueHandler) ACK(w http.ResponseWriter, r *http.Request) {
 	case "POST":
 		logger.Debug("POST ACK")
 
-		// TODO
+		ack, err := v1.ParseACKRequest(r.Body)
+		if err != nil {
+			w.WriteHeader(err.StatusCode)
+			w.Write(err.ToBytes())
+			return
+		}
+
+		queue, err := qh.queueManager.Find(logger, ack.BrokerInfo.Name)
+		if err != nil {
+			w.WriteHeader(err.StatusCode)
+			w.Write(err.ToBytes())
+			return
+		}
+
+		if err = queue.ACK(logger, ack); err != nil {
+			w.WriteHeader(err.StatusCode)
+			w.Write(err.ToBytes())
+			return
+		}
 
 		w.WriteHeader(http.StatusOK)
 	default:

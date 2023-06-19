@@ -2,6 +2,8 @@ package memory
 
 import (
 	"context"
+	"fmt"
+	"net/http"
 	"reflect"
 	"sync"
 	"sync/atomic"
@@ -14,6 +16,11 @@ import (
 
 	idtree "github.com/DanLavine/willow/internal/datastructures/id_tree"
 )
+
+type queuedItem struct {
+	processing  bool
+	enqueueItem *v1.EnqueueItemRequest
+}
 
 type TagGroup interface {
 	// Call for processing messages from GoAsync
@@ -106,7 +113,8 @@ func (tg *tagGroup) process() *v1.DequeueItemResponse {
 
 	index := tg.availableItems[0]
 	tg.availableItems = tg.availableItems[1:]
-	enqueuedItem := tg.items.Get(index).(*v1.EnqueueItemRequest)
+	enqueuedItem := tg.items.Get(index).(*queuedItem)
+	enqueuedItem.processing = true
 
 	// update counters
 	tg.itemProcessingCount.Add(1)
@@ -114,11 +122,11 @@ func (tg *tagGroup) process() *v1.DequeueItemResponse {
 
 	return &v1.DequeueItemResponse{
 		BrokerInfo: v1.BrokerInfo{
-			Name: enqueuedItem.BrokerInfo.Name,
+			Name: enqueuedItem.enqueueItem.BrokerInfo.Name,
 			Tags: tg.tags,
 		},
 		ID:   index,
-		Data: enqueuedItem.Data,
+		Data: enqueuedItem.enqueueItem.Data,
 	}
 }
 
@@ -130,24 +138,66 @@ func (tg *tagGroup) Enqueue(totalQueueCounter *Counter, queueItem *v1.EnqueueIte
 	if len(tg.availableItems) >= 1 {
 		lastItemId := tg.availableItems[len(tg.availableItems)-1]
 		lastItem := tg.items.Get(lastItemId)
-		lastQueueItem := lastItem.(*v1.EnqueueItemRequest)
+		lastQueueItem := lastItem.(*queuedItem)
 
 		// update the last item if we can. In this case, just return
-		if lastQueueItem.Updateable == true {
-			lastQueueItem.Data = queueItem.Data
+		if lastQueueItem.enqueueItem.Updateable == true {
+			lastQueueItem.enqueueItem.Data = queueItem.Data
 			return nil
 		}
 	}
 
 	if totalQueueCounter.Add() {
 		tg.itemReadyCount.Add(1)
-		tg.availableItems = append(tg.availableItems, tg.items.Add(queueItem))
+		tg.availableItems = append(tg.availableItems, tg.items.Add(&queuedItem{processing: false, enqueueItem: queueItem}))
 		_ = tg.notifier.Add() // don't care about the error. on a shutdown message will be dropped anyways
 
 		return nil
 	}
 
 	return errors.MaxEnqueuedItems
+}
+
+// ACK is the response to a processing item.
+//
+// PARAMS:
+// - totalQueueCounter - counter to keep track of the toatl processing items in the queue
+// - ackItem - item to ack and all the details from the client
+//
+// RESPONSE:
+// - bool - bool to indicate if the tag group should be removed (True if there are no more items processing)
+// - *v1.Error - internal error encountered
+func (tg *tagGroup) ACK(totalQueueCounter *Counter, ackItem *v1.ACK) (bool, *v1.Error) {
+	tg.lock.Lock()
+	defer tg.lock.Unlock()
+
+	if item := tg.items.Get(ackItem.ID); item != nil {
+		enqueuedItem := item.(*queuedItem)
+
+		if enqueuedItem.processing {
+			if ackItem.Passed {
+				if item := tg.items.Remove(ackItem.ID); item != nil {
+					// item was processed successfully
+					totalQueueCounter.Decrement()
+				}
+			} else {
+				//TODO
+				// item failed, need to re-queue it at the begining
+				if item := tg.items.Get(ackItem.ID); item != nil {
+					tg.availableItems = append([]uint64{ackItem.ID}, tg.availableItems...)
+					tg.itemReadyCount.Add(1)
+				}
+			}
+		} else {
+			return false, &v1.Error{Message: fmt.Sprintf("ID %d is not processing", ackItem.ID), StatusCode: http.StatusBadRequest}
+		}
+	} else {
+		return false, &v1.Error{Message: fmt.Sprintf("ID %d does not exist for tag group: %v", ackItem.ID, ackItem.BrokerInfo.Tags), StatusCode: http.StatusBadRequest}
+	}
+
+	// both cases we remove the item from the processing count
+	tg.itemProcessingCount.Add(^uint64(0))
+	return (tg.itemReadyCount.Load() + tg.itemProcessingCount.Load()) == 0, nil
 }
 
 func (tg *tagGroup) Metrics() *v1.TagMetricsResponse {

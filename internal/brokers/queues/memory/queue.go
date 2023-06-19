@@ -2,6 +2,8 @@ package memory
 
 import (
 	"context"
+	"fmt"
+	"net/http"
 	"sync"
 
 	"github.com/DanLavine/goasync"
@@ -63,7 +65,7 @@ func (q *Queue) Enqueue(logger *zap.Logger, enqueueItemRequest *v1.EnqueueItemRe
 	logger = logger.Named("Enqueue")
 
 	// try to be fast and find the tag group if it already exists
-	item, err := q.tagGroups.Get(enqueueItemRequest.BrokerInfo.Tags, tagNodeLock)
+	item, err := q.tagGroups.Get(enqueueItemRequest.BrokerInfo.Tags, q.tagNodeLock)
 	if err != nil {
 		logger.Error("", zap.Error(err))
 		return errors.InternalServerError.With("", err.Error())
@@ -130,6 +132,43 @@ func (q *Queue) Readers(logger *zap.Logger, readerSelect *v1.ReaderSelect) ([]<-
 	return channels, nil
 }
 
+func (q *Queue) ACK(logger *zap.Logger, ackItem *v1.ACK) *v1.Error {
+	logger = logger.Named("ACK")
+
+	called, deleteTagGroup := false, false
+	var ackError *v1.Error
+	ack := func(item any) {
+		tagNode := item.(*tagNode)
+		//tagNode.lock.RLock()
+		//defer tagNode.lock.RUnlock()
+
+		if tagNode.tagGroup != nil {
+			deleteTagGroup, ackError = tagNode.tagGroup.ACK(q.counter, ackItem)
+		} else {
+			ackError = &v1.Error{Message: "tag group not found", StatusCode: http.StatusBadRequest}
+		}
+
+		called = true
+	}
+
+	_, err := q.tagGroups.Get(ackItem.Tags, ack)
+	if err != nil {
+		return errors.InternalServerError.With("", err.Error())
+	} else if called == false {
+		return &v1.Error{Message: "tag group not found", StatusCode: http.StatusBadRequest}
+	}
+
+	if deleteTagGroup {
+		// need to also // delete all the combinations
+		for _, tagPair := range ackItem.BrokerInfo.GenerateTagPairs() {
+			fmt.Println("DSL deleteing tagPair:", tagPair)
+			q.tagGroups.Delete(tagPair, q.canDeleteTagNode)
+		}
+	}
+
+	return ackError
+}
+
 func (q *Queue) Metrics() *v1.QueueMetricsResponse {
 	metrics := &v1.QueueMetricsResponse{
 		Name:                   q.name,
@@ -140,6 +179,9 @@ func (q *Queue) Metrics() *v1.QueueMetricsResponse {
 
 	metricsFunc := func(_ datatypes.CompareType, value any) {
 		tagNode := value.(*tagNode)
+		tagNode.lock.RLock()
+		defer tagNode.lock.RUnlock()
+
 		if tagNode.tagGroup != nil {
 			metrics.Tags = append(metrics.Tags, tagNode.tagGroup.Metrics())
 		}

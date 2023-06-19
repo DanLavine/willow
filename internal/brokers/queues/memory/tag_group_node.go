@@ -11,7 +11,7 @@ import (
 type tag = func() *v1.DequeueItemResponse
 
 type tagNode struct {
-	lock *sync.Mutex
+	lock *sync.RWMutex
 
 	strictChannel  chan tags.Tag // only used by the tag group if there is one
 	generalChannel chan tags.Tag // used for any tag groups that have the provided tags
@@ -22,7 +22,7 @@ type tagNode struct {
 	tagGroup *tagGroup
 }
 
-func tagNodeLock(item any) {
+func (q *Queue) tagNodeLock(item any) {
 	tagNode := item.(*tagNode)
 	tagNode.lock.Lock()
 }
@@ -34,7 +34,7 @@ func (q *Queue) tagNodeNewGeneralChannel(channels *[]chan tags.Tag) func() (any,
 		*channels = append(*channels, generalChannel)
 
 		return &tagNode{
-			lock:           new(sync.Mutex),
+			lock:           new(sync.RWMutex),
 			strictChannel:  nil,
 			generalChannel: generalChannel,
 			counter:        0,
@@ -50,7 +50,7 @@ func (q *Queue) tagNodeNewGeneralChannelRead(channels *[]<-chan tags.Tag) func()
 		*channels = append(*channels, generalChannel)
 
 		return &tagNode{
-			lock:           new(sync.Mutex),
+			lock:           new(sync.RWMutex),
 			strictChannel:  nil,
 			generalChannel: generalChannel,
 			counter:        0,
@@ -66,7 +66,7 @@ func (q *Queue) tagNodeNewStrictChannel(channels *[]<-chan tags.Tag) func() (any
 		*channels = append(*channels, strictChannel)
 
 		return &tagNode{
-			lock:           new(sync.Mutex),
+			lock:           new(sync.RWMutex),
 			strictChannel:  strictChannel,
 			generalChannel: make(chan tags.Tag),
 			counter:        0,
@@ -82,7 +82,7 @@ func (q *Queue) newTagNode(tagPairs datatypes.StringMap, channels *[]chan tags.T
 		*channels = append(*channels, strictChannel)
 		*channels = append(*channels, generalChannel)
 
-		lock := new(sync.Mutex)
+		lock := new(sync.RWMutex)
 		lock.Lock()
 
 		tagNode := &tagNode{
@@ -161,4 +161,32 @@ func (q *Queue) tagNodeGetStrictChannel(channels *[]<-chan tags.Tag) func(item a
 
 		*channels = append(*channels, node.strictChannel)
 	}
+}
+
+func (q *Queue) canDeleteTagNode(item any) bool {
+	tagNode := item.(*tagNode)
+
+	if tagNode.tagGroup == nil {
+		close(tagNode.generalChannel)
+		if tagNode.strictChannel != nil {
+			close(tagNode.strictChannel)
+		}
+		return true
+	}
+
+	tagNode.tagGroup.lock.Lock()
+	defer tagNode.tagGroup.lock.Unlock()
+	if tagNode.tagGroup.itemReadyCount.Load()+tagNode.tagGroup.itemProcessingCount.Load() == 0 {
+		// no items in the tag node, so delete these
+		tagNode.tagGroup.Stop()
+		close(tagNode.generalChannel)
+
+		if tagNode.strictChannel != nil {
+			close(tagNode.strictChannel)
+		}
+
+		return true
+	}
+
+	return false
 }

@@ -6,7 +6,9 @@ import (
 )
 
 func (idt *IDTree) Iterate(callback datastructures.Iterate) {
-	idt.root.iterate(callback)
+	if idt.root != nil {
+		idt.root.iterate(callback)
+	}
 }
 
 func (n *node) iterate(callback datastructures.Iterate) {

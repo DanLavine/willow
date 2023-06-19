@@ -1,6 +1,8 @@
 package btree
 
-import "github.com/DanLavine/willow/internal/datastructures"
+import (
+	"github.com/DanLavine/willow/internal/datastructures"
+)
 
 // Iterate over each node with a thread safe read lock and call the iterate function when the value != nil
 //
