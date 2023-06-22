@@ -2,12 +2,10 @@ package memory
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"sync"
 
 	"github.com/DanLavine/goasync"
-	"github.com/DanLavine/willow/pkg/models/datatypes"
 	v1 "github.com/DanLavine/willow/pkg/models/v1"
 	"go.uber.org/zap"
 
@@ -21,7 +19,7 @@ type Queue struct {
 	done     chan struct{}
 
 	// queue information and limits
-	name datatypes.String
+	name string
 
 	// reader for all tag groups in this queue
 	globalChannel chan tags.Tag
@@ -46,7 +44,7 @@ func NewQueue(create *v1.Create) *Queue {
 
 		globalChannel: make(chan tags.Tag),
 
-		tagGroups: btreeassociated.New(),
+		tagGroups: btreeassociated.NewThreadSafe(),
 
 		taskManager: goasync.NewTaskManager(goasync.RelaxedConfig()),
 
@@ -64,47 +62,43 @@ func (q *Queue) Execute(ctx context.Context) error {
 func (q *Queue) Enqueue(logger *zap.Logger, enqueueItemRequest *v1.EnqueueItemRequest) *v1.Error {
 	logger = logger.Named("Enqueue")
 
-	// try to be fast and find the tag group if it already exists
-	item, err := q.tagGroups.Get(enqueueItemRequest.BrokerInfo.Tags, q.tagNodeLock)
-	if err != nil {
-		logger.Error("", zap.Error(err))
+	// callback to save off the tag group when found
+	var foundTagGroup *tagGroup
+	setTagGroup := func(item any) {
+		tagNode := item.(*tagNode)
+		if tagNode.tagGroup != nil {
+			foundTagGroup = tagNode.tagGroup
+		}
+	}
+
+	if err := q.tagGroups.Find(enqueueItemRequest.Tags, setTagGroup); err != nil {
+		// always check find first to be fast
+		logger.Error("fast finding queue failed", zap.Error(err))
 		return errors.InternalServerError.With("", err.Error())
-	}
+	} else if foundTagGroup == nil {
+		// will need to either create, or update the tag group
+		channels := []chan tags.Tag{q.globalChannel}
+		tagPairs := enqueueItemRequest.BrokerInfo.Tags.GenerateTagPairs()
 
-	// item might already exist
-	if item != nil {
-		node := item.(*tagNode)
-
-		// item already exists, so just process that
-		if node.tagGroup != nil {
-			defer node.lock.Unlock()
-			return node.tagGroup.Enqueue(q.counter, enqueueItemRequest)
-		}
-
-		// need to unlock here since create will lock again
-		node.lock.Unlock()
-	}
-
-	// tag group not found, need to create all the readers and tag group
-	channels := []chan tags.Tag{q.globalChannel}
-	tagPairs := enqueueItemRequest.BrokerInfo.GenerateTagPairs()
-
-	// create all readers and new tag group
-	for index, tagPair := range tagPairs {
-		if index == len(tagPairs)-1 {
-			// we are on the last index, so create the actual queue
-			// NOTE: this never returns an error we would care about
-			item, _ = q.tagGroups.CreateOrFind(tagPair, q.newTagNode(tagPair, &channels), q.tagNodeUpdateTagGroup(tagPair, &channels))
-		} else {
-			// we only need to create/add the channel to all possible channels for the tag group
-			_, _ = q.tagGroups.CreateOrFind(tagPair, q.tagNodeNewGeneralChannel(&channels), q.tagNodeGetGeneralChannel(&channels))
+		for index, tagPair := range tagPairs {
+			if index == len(tagPairs)-1 {
+				// we are on the last index, so create the actual queue
+				// NOTE: this never returns an error we would care about
+				if err := q.tagGroups.CreateOrFind(tagPair, q.newTagNode(tagPair, &channels, setTagGroup), q.tagNodeUpdateTagGroup(tagPair, &channels, setTagGroup)); err != nil {
+					logger.Error("CreateOrFind of tag group failed", zap.Error(err))
+					return errors.InternalServerError.With("", err.Error())
+				}
+			} else {
+				// we only need to create/add the channel to all possible channels for the tag group
+				if err := q.tagGroups.CreateOrFind(tagPair, q.tagNodeNewGeneralChannel(&channels), q.tagNodeGetGeneralChannel(&channels)); err != nil {
+					logger.Error("CreateOrFind of tag group subset failed", zap.Error(err))
+					return errors.InternalServerError.With("", err.Error())
+				}
+			}
 		}
 	}
 
-	node := item.(*tagNode)
-	defer node.lock.Unlock()
-
-	return node.tagGroup.Enqueue(q.counter, enqueueItemRequest)
+	return foundTagGroup.Enqueue(q.counter, enqueueItemRequest)
 }
 
 // Readers is used by any clients to obtain possible readers for tag groups
@@ -120,11 +114,16 @@ func (q *Queue) Readers(logger *zap.Logger, readerSelect *v1.ReaderSelect) ([]<-
 		for _, readerSelection := range readerSelect.Queries {
 			switch readerSelection.Type {
 			case v1.ReaderExactly:
-				// won't return an error
-				_, _ = q.tagGroups.CreateOrFind(readerSelection.Tags, q.tagNodeNewStrictChannel(&channels), q.tagNodeGetStrictChannel(&channels))
+				if err := q.tagGroups.CreateOrFind(readerSelection.Tags, q.tagNodeNewStrictChannel(&channels), q.tagNodeGetStrictChannel(&channels)); err != nil {
+					logger.Error("Failed to find exact readers", zap.Error(err))
+					return nil, errors.InternalServerError.With("", err.Error())
+				}
 			case v1.ReaderMatches:
 				// won't return an error
-				_, _ = q.tagGroups.CreateOrFind(readerSelection.Tags, q.tagNodeNewGeneralChannelRead(&channels), q.tagNodeGetGeneralChannelRead(&channels))
+				if err := q.tagGroups.CreateOrFind(readerSelection.Tags, q.tagNodeNewGeneralChannelRead(&channels), q.tagNodeGetGeneralChannelRead(&channels)); err != nil {
+					logger.Error("Failed to find  matches readers", zap.Error(err))
+					return nil, errors.InternalServerError.With("", err.Error())
+				}
 			}
 		}
 	}
@@ -139,8 +138,6 @@ func (q *Queue) ACK(logger *zap.Logger, ackItem *v1.ACK) *v1.Error {
 	var ackError *v1.Error
 	ack := func(item any) {
 		tagNode := item.(*tagNode)
-		//tagNode.lock.RLock()
-		//defer tagNode.lock.RUnlock()
 
 		if tagNode.tagGroup != nil {
 			deleteTagGroup, ackError = tagNode.tagGroup.ACK(q.counter, ackItem)
@@ -151,22 +148,22 @@ func (q *Queue) ACK(logger *zap.Logger, ackItem *v1.ACK) *v1.Error {
 		called = true
 	}
 
-	_, err := q.tagGroups.Get(ackItem.Tags, ack)
-	if err != nil {
+	if err := q.tagGroups.Find(ackItem.Tags, ack); err != nil {
 		return errors.InternalServerError.With("", err.Error())
 	} else if called == false {
 		return &v1.Error{Message: "tag group not found", StatusCode: http.StatusBadRequest}
+	} else if ackError != nil {
+		return ackError
 	}
 
 	if deleteTagGroup {
-		// need to also // delete all the combinations
-		for _, tagPair := range ackItem.BrokerInfo.GenerateTagPairs() {
-			fmt.Println("DSL deleteing tagPair:", tagPair)
+		// need to also delete all tag pair combinations
+		for _, tagPair := range ackItem.BrokerInfo.Tags.GenerateTagPairs() {
 			q.tagGroups.Delete(tagPair, q.canDeleteTagNode)
 		}
 	}
 
-	return ackError
+	return nil
 }
 
 func (q *Queue) Metrics() *v1.QueueMetricsResponse {
@@ -177,7 +174,7 @@ func (q *Queue) Metrics() *v1.QueueMetricsResponse {
 		DeadLetterQueueMetrics: nil,
 	}
 
-	metricsFunc := func(_ datatypes.CompareType, value any) {
+	metricsFunc := func(value any) {
 		tagNode := value.(*tagNode)
 		tagNode.lock.RLock()
 		defer tagNode.lock.RUnlock()

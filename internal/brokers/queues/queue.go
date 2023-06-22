@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/DanLavine/willow/internal/brokers/tags"
-	"github.com/DanLavine/willow/pkg/models/datatypes"
 	v1 "github.com/DanLavine/willow/pkg/models/v1"
 	"go.uber.org/zap"
 )
@@ -36,7 +35,7 @@ type QueueManager interface {
 	// RETURNS:
 	// - Queue - queue if the queue is defined
 	// - v1.Error - any errors encountered when finding the queue, or an error that it does not exist
-	Find(logger *zap.Logger, queue datatypes.String) (Queue, *v1.Error)
+	Find(logger *zap.Logger, queue string) (Queue, *v1.Error)
 
 	// Get Metrics for all Queues
 	//

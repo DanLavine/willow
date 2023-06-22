@@ -18,7 +18,7 @@ import (
 
 type ReaderSelect struct {
 	// required broker name to search
-	BrokerName datatypes.String
+	BrokerName string
 
 	// Find all values from any of the provided queries
 	// NOTE: setting this to nil, means to use the global reader

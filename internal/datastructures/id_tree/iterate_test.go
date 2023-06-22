@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/DanLavine/willow/pkg/models/datatypes"
 	. "github.com/onsi/gomega"
 )
 
@@ -15,7 +14,7 @@ func TestIDGenerator_Iterate(t *testing.T) {
 		itemTracker := NewIDTree()
 
 		called := false
-		callback := func(key datatypes.CompareType, item any) {
+		callback := func(item any) {
 			called = true
 		}
 
@@ -36,30 +35,30 @@ func TestIDGenerator_Iterate(t *testing.T) {
 			g.Expect(itemTracker.Add(fmt.Sprintf("%d", i))).To(Equal(uint64(i)))
 		}
 
-		expectedKeyValuePairs := map[datatypes.Uint64]string{
-			1:  "1",
-			2:  "2",
-			3:  "3",
-			4:  "4",
-			5:  "5",
-			6:  "6",
-			7:  "7",
-			8:  "8",
-			9:  "9",
-			10: "10",
-			11: "11",
-			12: "12",
-			13: "13",
-			14: "14",
-			15: "15",
+		expectedValues := []string{
+			"1",
+			"2",
+			"3",
+			"4",
+			"5",
+			"6",
+			"7",
+			"8",
+			"9",
+			"10",
+			"11",
+			"12",
+			"13",
+			"14",
+			"15",
 		}
 
-		keyValuePairs := map[datatypes.Uint64]string{}
-		callback := func(key datatypes.CompareType, item any) {
-			keyValuePairs[key.(datatypes.Uint64)] = item.(string)
+		values := []string{}
+		callback := func(item any) {
+			values = append(values, item.(string))
 		}
 
 		itemTracker.Iterate(callback)
-		g.Expect(keyValuePairs).To(Equal(expectedKeyValuePairs))
+		g.Expect(values).To(ContainElements(expectedValues))
 	})
 }

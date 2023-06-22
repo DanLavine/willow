@@ -24,7 +24,7 @@ type brokerManager struct {
 }
 
 func NewBrokerManager(queueConstructor queues.QueueConstructor) *brokerManager {
-	btree, err := btree.New(2)
+	btree, err := btree.NewThreadSafe(2)
 	if err != nil {
 		panic(err)
 	}
@@ -49,47 +49,56 @@ func (bm *brokerManager) Execute(ctx context.Context) error {
 
 func (bm *brokerManager) Create(logger *zap.Logger, createRequest *v1.Create) *v1.Error {
 	logger = logger.Named("Create")
-	_, err := bm.queues.CreateOrFind(createRequest.Name, nil, bm.create(logger, createRequest))
-	if err != nil {
-		return err.(*v1.Error)
-	}
 
-	return nil
-}
-
-func (bm *brokerManager) create(logger *zap.Logger, create *v1.Create) func() (any, error) {
-	return func() (any, error) {
-		queue, err := bm.queueConstructor.NewQueue(create)
+	var createFailure *v1.Error
+	create := func() any {
+		queue, err := bm.queueConstructor.NewQueue(createRequest)
 		if err != nil {
 			logger.Error("failed creating queue", zap.Error(err))
-			return nil, err
+			createFailure = err
+			return nil
 		}
 
 		// if there is an error, we are shutting down so thats fine
-		_ = bm.taskManager.AddExecuteTask(create.Name.ToString(), queue)
+		_ = bm.taskManager.AddExecuteTask(createRequest.Name, queue)
 
 		// return the new queue
-		return queue, nil
+		return queue
 	}
+
+	if err := bm.queues.CreateOrFind(datatypes.String(createRequest.Name), create, func(item any) {}); err != nil {
+		logger.Error("failed to create queue", zap.String("name", createRequest.Name))
+		return errors.InternalServerError
+	}
+
+	return createFailure
 }
 
-func (bm *brokerManager) Find(logger *zap.Logger, queueName datatypes.String) (queues.Queue, *v1.Error) {
+func (bm *brokerManager) Find(logger *zap.Logger, queueName string) (queues.Queue, *v1.Error) {
 	logger = logger.Named("Find")
 
-	queue := bm.queues.Find(queueName, nil)
+	var queue queues.Queue
+	findQueue := func(item any) {
+		queue = item.(queues.Queue)
+	}
+
+	if err := bm.queues.Find(datatypes.String(queueName), findQueue); err != nil {
+		logger.Error("failed to find queue", zap.String("name", queueName))
+		return nil, errors.InternalServerError
+	}
+
 	if queue == nil {
-		logger.Error("failed to find queue", zap.String("name", queueName.ToString()))
 		return nil, errors.QueueNotFound
 	}
 
-	return queue.(queues.Queue), nil
+	return queue, nil
 }
 
 // Metrics is currently a simple call that will report all metrics for all queues
 func (m *brokerManager) Metrics() *v1.MetricsResponse {
 	metrics := &v1.MetricsResponse{}
 
-	iterator := func(key datatypes.CompareType, value any) {
+	iterator := func(value any) {
 		managedQueue := value.(queues.ManagedQueue)
 		metrics.Queues = append(metrics.Queues, managedQueue.Metrics())
 	}

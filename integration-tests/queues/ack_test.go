@@ -24,8 +24,8 @@ func Test_ACK(t *testing.T) {
 
 		ackRequest := v1.ACK{
 			BrokerInfo: v1.BrokerInfo{
-				Name: datatypes.String("queue1"),
-				Tags: datatypes.StringMap{"not": "found"},
+				Name: "queue1",
+				Tags: datatypes.StringMap{"not": datatypes.String("found")},
 			},
 			ID:     1,
 			Passed: true,
@@ -45,8 +45,8 @@ func Test_ACK(t *testing.T) {
 
 		ackRequest := v1.ACK{
 			BrokerInfo: v1.BrokerInfo{
-				Name: datatypes.String("queue1"),
-				Tags: datatypes.StringMap{"not": "found"},
+				Name: "queue1",
+				Tags: datatypes.StringMap{"not": datatypes.String("found")},
 			},
 			ID:     1,
 			Passed: true,
@@ -74,8 +74,8 @@ func Test_ACK(t *testing.T) {
 
 		ackRequest := v1.ACK{
 			BrokerInfo: v1.BrokerInfo{
-				Name: datatypes.String("queue1"),
-				Tags: datatypes.StringMap{"some": "tag"},
+				Name: "queue1",
+				Tags: datatypes.StringMap{"some": datatypes.String("tag")},
 			},
 			ID:     1,
 			Passed: true,
@@ -114,19 +114,19 @@ func Test_ACK(t *testing.T) {
 			// check metrics
 			metrics := testConstruct.Metrics(g)
 			g.Expect(len(metrics.Queues)).To(Equal(1))
-			g.Expect(metrics.Queues[0].Name).To(Equal(datatypes.String("queue1")))
+			g.Expect(metrics.Queues[0].Name).To(Equal("queue1"))
 			g.Expect(metrics.Queues[0].Max).To(Equal(uint64(5)))
 			g.Expect(metrics.Queues[0].Total).To(Equal(uint64(1)))
 			g.Expect(len(metrics.Queues[0].Tags)).To(Equal(1))
-			g.Expect(metrics.Queues[0].Tags[0].Tags).To(Equal(datatypes.StringMap{"some": "tag"}))
+			g.Expect(metrics.Queues[0].Tags[0].Tags).To(Equal(datatypes.StringMap{"some": datatypes.String("tag")}))
 			g.Expect(metrics.Queues[0].Tags[0].Ready).To(Equal(uint64(0)))
 			g.Expect(metrics.Queues[0].Tags[0].Processing).To(Equal(uint64(1)))
 
 			// ack the dequeued message
 			ackRequest := v1.ACK{
 				BrokerInfo: v1.BrokerInfo{
-					Name: datatypes.String("queue1"),
-					Tags: datatypes.StringMap{"some": "tag"},
+					Name: "queue1",
+					Tags: datatypes.StringMap{"some": datatypes.String("tag")},
 				},
 				ID:     1,
 				Passed: true,
@@ -138,7 +138,7 @@ func Test_ACK(t *testing.T) {
 			// ensure the item has been removed
 			metrics = testConstruct.Metrics(g)
 			g.Expect(len(metrics.Queues)).To(Equal(1))
-			g.Expect(metrics.Queues[0].Name).To(Equal(datatypes.String("queue1")))
+			g.Expect(metrics.Queues[0].Name).To(Equal("queue1"))
 			g.Expect(metrics.Queues[0].Max).To(Equal(uint64(5)))
 			g.Expect(metrics.Queues[0].Total).To(Equal(uint64(0)))
 			g.Expect(len(metrics.Queues[0].Tags)).To(Equal(0))

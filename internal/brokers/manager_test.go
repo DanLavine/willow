@@ -127,21 +127,21 @@ func TestQueueManager_Metrics(t *testing.T) {
 		test3, err := queueManager.Find(logger, "test3")
 		g.Expect(err).ToNot(HaveOccurred())
 
-		test1.Enqueue(logger, &v1.EnqueueItemRequest{BrokerInfo: v1.BrokerInfo{Name: "test1", Tags: datatypes.StringMap{"": ""}}, Data: []byte(`hello`), Updateable: false})
-		test1.Enqueue(logger, &v1.EnqueueItemRequest{BrokerInfo: v1.BrokerInfo{Name: "test1", Tags: datatypes.StringMap{"other": "other"}}, Data: []byte(`hello`), Updateable: false})
+		test1.Enqueue(logger, &v1.EnqueueItemRequest{BrokerInfo: v1.BrokerInfo{Name: "test1", Tags: datatypes.StringMap{"": datatypes.String("")}}, Data: []byte(`hello`), Updateable: false})
+		test1.Enqueue(logger, &v1.EnqueueItemRequest{BrokerInfo: v1.BrokerInfo{Name: "test1", Tags: datatypes.StringMap{"other": datatypes.String("other")}}, Data: []byte(`hello`), Updateable: false})
 
-		test2.Enqueue(logger, &v1.EnqueueItemRequest{BrokerInfo: v1.BrokerInfo{Name: "test2", Tags: datatypes.StringMap{"": ""}}, Data: []byte(`hello`), Updateable: false})
+		test2.Enqueue(logger, &v1.EnqueueItemRequest{BrokerInfo: v1.BrokerInfo{Name: "test2", Tags: datatypes.StringMap{"": datatypes.String("")}}, Data: []byte(`hello`), Updateable: false})
 
-		test3.Enqueue(logger, &v1.EnqueueItemRequest{BrokerInfo: v1.BrokerInfo{Name: "test3", Tags: datatypes.StringMap{"one": "one"}}, Data: []byte(`hello1`), Updateable: false})
-		test3.Enqueue(logger, &v1.EnqueueItemRequest{BrokerInfo: v1.BrokerInfo{Name: "test3", Tags: datatypes.StringMap{"one": "one"}}, Data: []byte(`hello2`), Updateable: false})
-		test3.Enqueue(logger, &v1.EnqueueItemRequest{BrokerInfo: v1.BrokerInfo{Name: "test3", Tags: datatypes.StringMap{"one": "one", "two": "two"}}, Data: []byte(`hello3`), Updateable: false})
+		test3.Enqueue(logger, &v1.EnqueueItemRequest{BrokerInfo: v1.BrokerInfo{Name: "test3", Tags: datatypes.StringMap{"one": datatypes.String("one")}}, Data: []byte(`hello1`), Updateable: false})
+		test3.Enqueue(logger, &v1.EnqueueItemRequest{BrokerInfo: v1.BrokerInfo{Name: "test3", Tags: datatypes.StringMap{"one": datatypes.String("one")}}, Data: []byte(`hello2`), Updateable: false})
+		test3.Enqueue(logger, &v1.EnqueueItemRequest{BrokerInfo: v1.BrokerInfo{Name: "test3", Tags: datatypes.StringMap{"one": datatypes.String("one"), "two": datatypes.String("two")}}, Data: []byte(`hello3`), Updateable: false})
 
 		// check the new ready counts
 		metrics = queueManager.Metrics()
 		g.Expect(metrics).ToNot(BeNil())
 		g.Expect(len(metrics.Queues)).To(Equal(3))
-		g.Expect(metrics.Queues).To(ContainElement(&v1.QueueMetricsResponse{Name: "test1", Total: 2, Max: 5, Tags: []*v1.TagMetricsResponse{{Tags: datatypes.StringMap{"": ""}, Ready: 1, Processing: 0}, {Tags: datatypes.StringMap{"other": "other"}, Ready: 1, Processing: 0}}, DeadLetterQueueMetrics: nil}))
-		g.Expect(metrics.Queues).To(ContainElement(&v1.QueueMetricsResponse{Name: "test2", Total: 1, Max: 5, Tags: []*v1.TagMetricsResponse{{Tags: datatypes.StringMap{"": ""}, Ready: 1, Processing: 0}}, DeadLetterQueueMetrics: nil}))
-		g.Expect(metrics.Queues).To(ContainElement(&v1.QueueMetricsResponse{Name: "test3", Total: 3, Max: 5, Tags: []*v1.TagMetricsResponse{{Tags: datatypes.StringMap{"one": "one"}, Ready: 2, Processing: 0}, {Tags: datatypes.StringMap{"one": "one", "two": "two"}, Ready: 1, Processing: 0}}, DeadLetterQueueMetrics: nil}))
+		g.Expect(metrics.Queues).To(ContainElement(&v1.QueueMetricsResponse{Name: "test1", Total: 2, Max: 5, Tags: []*v1.TagMetricsResponse{{Tags: datatypes.StringMap{"": datatypes.String("")}, Ready: 1, Processing: 0}, {Tags: datatypes.StringMap{"other": datatypes.String("other")}, Ready: 1, Processing: 0}}, DeadLetterQueueMetrics: nil}))
+		g.Expect(metrics.Queues).To(ContainElement(&v1.QueueMetricsResponse{Name: "test2", Total: 1, Max: 5, Tags: []*v1.TagMetricsResponse{{Tags: datatypes.StringMap{"": datatypes.String("")}, Ready: 1, Processing: 0}}, DeadLetterQueueMetrics: nil}))
+		g.Expect(metrics.Queues).To(ContainElement(&v1.QueueMetricsResponse{Name: "test3", Total: 3, Max: 5, Tags: []*v1.TagMetricsResponse{{Tags: datatypes.StringMap{"one": datatypes.String("one")}, Ready: 2, Processing: 0}, {Tags: datatypes.StringMap{"one": datatypes.String("one"), "two": datatypes.String("two")}, Ready: 1, Processing: 0}}, DeadLetterQueueMetrics: nil}))
 	})
 }

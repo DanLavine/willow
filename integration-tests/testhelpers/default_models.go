@@ -8,13 +8,13 @@ import (
 var (
 	// some general queues
 	Queue1 = v1.Create{
-		Name:                   datatypes.String("queue1"),
+		Name:                   "queue1",
 		QueueMaxSize:           5,
 		DeadLetterQueueMaxSize: 1,
 	}
 
 	Queue2 = v1.Create{
-		Name:                   datatypes.String("queue2"),
+		Name:                   "queue2",
 		QueueMaxSize:           5,
 		DeadLetterQueueMaxSize: 1,
 	}
@@ -22,8 +22,8 @@ var (
 	// some general enqueu message
 	Queue1UpdateableEnqueue = v1.EnqueueItemRequest{
 		BrokerInfo: v1.BrokerInfo{
-			Name: datatypes.String("queue1"),
-			Tags: datatypes.StringMap{"some": "tag"},
+			Name: "queue1",
+			Tags: datatypes.StringMap{"some": datatypes.String("tag")},
 		},
 		Data:       []byte(`hello world`),
 		Updateable: true,
@@ -31,8 +31,8 @@ var (
 
 	Queue1NotUpdateableEnqueue = v1.EnqueueItemRequest{
 		BrokerInfo: v1.BrokerInfo{
-			Name: datatypes.String("queue1"),
-			Tags: datatypes.StringMap{"some": "tag"},
+			Name: "queue1",
+			Tags: datatypes.StringMap{"some": datatypes.String("tag")},
 		},
 		Data:       []byte(`hello world`),
 		Updateable: false,
@@ -40,8 +40,8 @@ var (
 
 	Queue2UpdateableEnqueue = v1.EnqueueItemRequest{
 		BrokerInfo: v1.BrokerInfo{
-			Name: datatypes.String("queue2"),
-			Tags: datatypes.StringMap{"some": "tag"},
+			Name: "queue2",
+			Tags: datatypes.StringMap{"some": datatypes.String("tag")},
 		},
 		Data:       []byte(`hello world`),
 		Updateable: true,
@@ -49,11 +49,11 @@ var (
 
 	// some general dequeue messages
 	Queue1Dequeue = v1.ReaderSelect{
-		BrokerName: datatypes.String("queue1"),
+		BrokerName: "queue1",
 		Queries: []v1.ReaderQuery{
 			{
 				Type: v1.ReaderExactly,
-				Tags: datatypes.StringMap{"some": "tag"},
+				Tags: datatypes.StringMap{"some": datatypes.String("tag")},
 			},
 		},
 	}

@@ -1,59 +1,64 @@
 package set
 
-type Set interface {
+type Set[T comparable] interface {
+	// Clear out the entire set by removing all elements
 	Clear()
 
-	Add(values []uint64)
+	// Add a value to the set
+	Add(values T)
 
-	Keep(values []uint64)
+	// Remove a value from the set
+	Remove(value T)
 
-	Remove(values []uint64)
+	// Perform an intersection on the provided values
+	Intersection(values []T)
 
-	Values() []uint64
+	// Get all the values in the Set
+	Values() []T
 
-	Len() int
+	// Get the number of values in the Set
+	Size() int
 }
 
-type set struct {
-	values map[uint64]struct{}
+type set[T comparable] struct {
+	values map[T]struct{}
 }
 
-func New() *set {
-	return &set{
-		values: map[uint64]struct{}{},
+func New[T comparable](initValues ...T) *set[T] {
+	initMap := map[T]struct{}{}
+	for _, value := range initValues {
+		initMap[value] = struct{}{}
 	}
+
+	return &set[T]{values: initMap}
 }
 
-func (s *set) Add(values []uint64) {
+func (s *set[T]) Add(value T) {
+	s.values[value] = struct{}{}
+}
+
+func (s *set[T]) Clear() {
+	s.values = map[T]struct{}{}
+}
+
+func (s *set[T]) Intersection(values []T) {
+	newValues := map[T]struct{}{}
+
 	for _, value := range values {
-		s.values[value] = struct{}{}
-	}
-}
-
-func (s *set) Clear() {
-	s.values = map[uint64]struct{}{}
-}
-
-func (s *set) Keep(valuesToKeep []uint64) {
-	newValues := map[uint64]struct{}{}
-
-	for _, valueToKeep := range valuesToKeep {
-		if _, ok := s.values[valueToKeep]; ok {
-			newValues[valueToKeep] = struct{}{}
+		if _, ok := s.values[value]; ok {
+			newValues[value] = struct{}{}
 		}
 	}
 
 	s.values = newValues
 }
 
-func (s *set) Remove(valuesToRemove []uint64) {
-	for _, valueToRemove := range valuesToRemove {
-		delete(s.values, valueToRemove)
-	}
+func (s *set[T]) Remove(value T) {
+	delete(s.values, value)
 }
 
-func (s *set) Values() []uint64 {
-	values := []uint64{}
+func (s *set[T]) Values() []T {
+	values := []T{}
 	for key, _ := range s.values {
 		values = append(values, key)
 	}
@@ -61,6 +66,6 @@ func (s *set) Values() []uint64 {
 	return values
 }
 
-func (s *set) Len() int {
+func (s *set[T]) Size() int {
 	return len(s.values)
 }

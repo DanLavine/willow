@@ -1,15 +1,11 @@
 package btreeassociated
 
 import (
-	"sync"
-
 	"github.com/DanLavine/willow/internal/datastructures"
-	"github.com/DanLavine/willow/internal/datastructures/btree"
-	idtree "github.com/DanLavine/willow/internal/datastructures/id_tree"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 )
 
-// Composite Tree is  way of grouping arbitrary key values into a unique searchable data set.
+// BTreeAssociated is  way of grouping arbitrary key values into a unique searchable data set.
 //
 // The tree can be broken into 3 node types:
 //  1. groupedKeyValueAssociation - The root level of the Composite Tree is a BTree of Integer Keys and each node is a compositeColumn.
@@ -42,7 +38,7 @@ import (
 //	  active	 pending    test
 //
 // At this point the Value's under any 'namespace' is a list of unique ID's. Using a set, we can search for any arbitray tags + values
-// and do a number of filters to find a paricualr subset of data.
+// and do a number of filters to find a particualr subset of data.
 //
 // For example, getting all three values for map[string]string{organization:123, namespace:default, project:willow} will generate
 // 1 unique ID that points for all those search criteria (can be done by using a union for all data between the values returned from each tree).
@@ -58,42 +54,14 @@ import (
 // as query params. For now this structre should give us everything we need
 type BTreeAssociated interface {
 	// Get value associated with a collection of key value pairs
-	Get(keyValuePairs datatypes.StringMap, onFind datastructures.OnFind) (any, error)
+	Find(keyValuePairs datatypes.StringMap, onFind datastructures.OnFind) error
 
 	// CreateOrFind a value associated with a collection of key value pairs
-	CreateOrFind(keyValuePairs datatypes.StringMap, onCreate datastructures.OnCreate, onFind datastructures.OnFind) (any, error)
+	CreateOrFind(keyValuePairs datatypes.StringMap, onCreate datastructures.OnCreate, onFind datastructures.OnFind) error
 
 	// Iterate over the tree and for each value found invoke the callback with the node's value
-	Iterate(callback datastructures.Iterate)
+	Iterate(callback datastructures.OnFind) error
 
 	// Remove a item from the tree
-	Delete(keyValuePairs datatypes.StringMap, canDelete datastructures.CanDelete)
-}
-
-type associatedTree struct {
-	lock *sync.RWMutex
-
-	// ID tree stores the created values for this tree
-	// I.E. What was passed to CreateOrFind(... onCreate) func
-	idTree *idtree.IDTree
-
-	// This tree comprised of a:
-	// - Key - Int that represents how many columns make up the total Key + Value pairs
-	// - Value - Another tree that is a collection of all Key + Value pairs
-	//
-	// Using this, we can gurantess that each item in the Value is a unique tree
-	groupedKeyValueAssociation btree.BTree // each value in this tree is of type *compositeValue
-}
-
-func New() *associatedTree {
-	bTree, err := btree.New(2)
-	if err != nil {
-		panic(err)
-	}
-
-	return &associatedTree{
-		lock:                       new(sync.RWMutex),
-		idTree:                     idtree.NewIDTree(),
-		groupedKeyValueAssociation: bTree,
-	}
+	Delete(keyValuePairs datatypes.StringMap, canDelete datastructures.CanDelete) error
 }

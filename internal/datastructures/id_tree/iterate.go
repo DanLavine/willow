@@ -2,19 +2,17 @@ package idtree
 
 import (
 	"github.com/DanLavine/willow/internal/datastructures"
-	"github.com/DanLavine/willow/pkg/models/datatypes"
 )
 
-func (idt *IDTree) Iterate(callback datastructures.Iterate) {
+func (idt *IDTree) Iterate(callback datastructures.OnFind) {
 	if idt.root != nil {
 		idt.root.iterate(callback)
 	}
 }
 
-func (n *node) iterate(callback datastructures.Iterate) {
-	// no value here
+func (n *node) iterate(callback datastructures.OnFind) {
 	if n.value != nil {
-		callback(datatypes.Uint64(n.id), n.value)
+		callback(n.value)
 	}
 
 	if n.left != nil {

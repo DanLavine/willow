@@ -22,7 +22,7 @@ func Test_Enqueue(t *testing.T) {
 		enqueueBody := v1.EnqueueItemRequest{
 			BrokerInfo: v1.BrokerInfo{
 				Name: "test queue",
-				Tags: datatypes.StringMap{"some": "tag"},
+				Tags: datatypes.StringMap{"some": datatypes.String("tag")},
 			},
 			Data:       []byte(`hello world`),
 			Updateable: false,
@@ -47,7 +47,7 @@ func Test_Enqueue(t *testing.T) {
 		enqueueBody := v1.EnqueueItemRequest{
 			BrokerInfo: v1.BrokerInfo{
 				Name: "test queue",
-				Tags: datatypes.StringMap{"some": "tag"},
+				Tags: datatypes.StringMap{"some": datatypes.String("tag")},
 			},
 			Data:       []byte(`hello world`),
 			Updateable: false,
@@ -57,11 +57,11 @@ func Test_Enqueue(t *testing.T) {
 
 		metrics := testConstruct.Metrics(g)
 		g.Expect(len(metrics.Queues)).To(Equal(1))
-		g.Expect(metrics.Queues[0].Name).To(Equal(datatypes.String("test queue")))
+		g.Expect(metrics.Queues[0].Name).To(Equal("test queue"))
 		g.Expect(metrics.Queues[0].Max).To(Equal(uint64(5)))
 		g.Expect(metrics.Queues[0].Total).To(Equal(uint64(1)))
 		g.Expect(len(metrics.Queues[0].Tags)).To(Equal(1))
-		g.Expect(metrics.Queues[0].Tags[0].Tags).To(Equal(datatypes.StringMap{"some": "tag"}))
+		g.Expect(metrics.Queues[0].Tags[0].Tags).To(Equal(datatypes.StringMap{"some": datatypes.String("tag")}))
 		g.Expect(metrics.Queues[0].Tags[0].Ready).To(Equal(uint64(1)))
 		g.Expect(metrics.Queues[0].Tags[0].Processing).To(Equal(uint64(0)))
 	})
@@ -76,23 +76,23 @@ func Test_Enqueue(t *testing.T) {
 		// enqueue 4 times
 		item := testhelpers.Queue1UpdateableEnqueue
 		item.Updateable = false
-		enqueurResponse := testConstruct.Enqueue(g, item)
-		g.Expect(enqueurResponse.StatusCode).To(Equal(http.StatusOK))
-		enqueurResponse = testConstruct.Enqueue(g, item)
-		g.Expect(enqueurResponse.StatusCode).To(Equal(http.StatusOK))
-		enqueurResponse = testConstruct.Enqueue(g, item)
-		g.Expect(enqueurResponse.StatusCode).To(Equal(http.StatusOK))
-		enqueurResponse = testConstruct.Enqueue(g, item)
-		g.Expect(enqueurResponse.StatusCode).To(Equal(http.StatusOK))
+		enqueueResponse := testConstruct.Enqueue(g, item)
+		g.Expect(enqueueResponse.StatusCode).To(Equal(http.StatusOK))
+		enqueueResponse = testConstruct.Enqueue(g, item)
+		g.Expect(enqueueResponse.StatusCode).To(Equal(http.StatusOK))
+		enqueueResponse = testConstruct.Enqueue(g, item)
+		g.Expect(enqueueResponse.StatusCode).To(Equal(http.StatusOK))
+		enqueueResponse = testConstruct.Enqueue(g, item)
+		g.Expect(enqueueResponse.StatusCode).To(Equal(http.StatusOK))
 
 		// check the metrics
 		metrics := testConstruct.Metrics(g)
 		g.Expect(len(metrics.Queues)).To(Equal(1))
-		g.Expect(metrics.Queues[0].Name).To(Equal(datatypes.String("queue1")))
+		g.Expect(metrics.Queues[0].Name).To(Equal("queue1"))
 		g.Expect(metrics.Queues[0].Max).To(Equal(uint64(5)))
 		g.Expect(metrics.Queues[0].Total).To(Equal(uint64(4)))
 		g.Expect(len(metrics.Queues[0].Tags)).To(Equal(1))
-		g.Expect(metrics.Queues[0].Tags[0].Tags).To(Equal(datatypes.StringMap{"some": "tag"}))
+		g.Expect(metrics.Queues[0].Tags[0].Tags).To(Equal(datatypes.StringMap{"some": datatypes.String("tag")}))
 		g.Expect(metrics.Queues[0].Tags[0].Ready).To(Equal(uint64(4)))
 		g.Expect(metrics.Queues[0].Tags[0].Processing).To(Equal(uint64(0)))
 	})
@@ -106,22 +106,22 @@ func Test_Enqueue(t *testing.T) {
 
 		// enqueue multiple tags
 		item := testhelpers.Queue1UpdateableEnqueue
-		enqueurResponse := testConstruct.Enqueue(g, item)
-		g.Expect(enqueurResponse.StatusCode).To(Equal(http.StatusOK))
+		enqueueResponse := testConstruct.Enqueue(g, item)
+		g.Expect(enqueueResponse.StatusCode).To(Equal(http.StatusOK))
 
-		item.BrokerInfo.Tags = datatypes.StringMap{"new": "tag", "of": "course"}
-		enqueurResponse = testConstruct.Enqueue(g, item)
-		g.Expect(enqueurResponse.StatusCode).To(Equal(http.StatusOK))
+		item.BrokerInfo.Tags = datatypes.StringMap{"new": datatypes.String("tag"), "of": datatypes.String("course")}
+		enqueueResponse = testConstruct.Enqueue(g, item)
+		g.Expect(enqueueResponse.StatusCode).To(Equal(http.StatusOK))
 
 		// check the metrics
 		metrics := testConstruct.Metrics(g)
 		g.Expect(len(metrics.Queues)).To(Equal(1))
-		g.Expect(metrics.Queues[0].Name).To(Equal(datatypes.String("queue1")))
+		g.Expect(metrics.Queues[0].Name).To(Equal("queue1"))
 		g.Expect(metrics.Queues[0].Max).To(Equal(uint64(5)))
 		g.Expect(metrics.Queues[0].Total).To(Equal(uint64(2)))
 		g.Expect(len(metrics.Queues[0].Tags)).To(Equal(2))
-		g.Expect(metrics.Queues[0].Tags).To(ContainElement(&v1.TagMetricsResponse{Tags: datatypes.StringMap{"some": "tag"}, Ready: 1, Processing: 0}))
-		g.Expect(metrics.Queues[0].Tags).To(ContainElement(&v1.TagMetricsResponse{Tags: datatypes.StringMap{"new": "tag", "of": "course"}, Ready: 1, Processing: 0}))
+		g.Expect(metrics.Queues[0].Tags).To(ContainElement(&v1.TagMetricsResponse{Tags: datatypes.StringMap{"some": datatypes.String("tag")}, Ready: 1, Processing: 0}))
+		g.Expect(metrics.Queues[0].Tags).To(ContainElement(&v1.TagMetricsResponse{Tags: datatypes.StringMap{"new": datatypes.String("tag"), "of": datatypes.String("course")}, Ready: 1, Processing: 0}))
 	})
 
 	t.Run("updateable messages can collapse", func(t *testing.T) {
@@ -134,23 +134,23 @@ func Test_Enqueue(t *testing.T) {
 		// enqueue 4 times
 		item := testhelpers.Queue1UpdateableEnqueue
 		item.Updateable = true
-		enqueurResponse := testConstruct.Enqueue(g, item)
-		g.Expect(enqueurResponse.StatusCode).To(Equal(http.StatusOK))
-		enqueurResponse = testConstruct.Enqueue(g, item)
-		g.Expect(enqueurResponse.StatusCode).To(Equal(http.StatusOK))
-		enqueurResponse = testConstruct.Enqueue(g, item)
-		g.Expect(enqueurResponse.StatusCode).To(Equal(http.StatusOK))
-		enqueurResponse = testConstruct.Enqueue(g, item)
-		g.Expect(enqueurResponse.StatusCode).To(Equal(http.StatusOK))
+		enqueueResponse := testConstruct.Enqueue(g, item)
+		g.Expect(enqueueResponse.StatusCode).To(Equal(http.StatusOK))
+		enqueueResponse = testConstruct.Enqueue(g, item)
+		g.Expect(enqueueResponse.StatusCode).To(Equal(http.StatusOK))
+		enqueueResponse = testConstruct.Enqueue(g, item)
+		g.Expect(enqueueResponse.StatusCode).To(Equal(http.StatusOK))
+		enqueueResponse = testConstruct.Enqueue(g, item)
+		g.Expect(enqueueResponse.StatusCode).To(Equal(http.StatusOK))
 
 		// check the metrics
 		metrics := testConstruct.Metrics(g)
 		g.Expect(len(metrics.Queues)).To(Equal(1))
-		g.Expect(metrics.Queues[0].Name).To(Equal(datatypes.String("queue1")))
+		g.Expect(metrics.Queues[0].Name).To(Equal("queue1"))
 		g.Expect(metrics.Queues[0].Max).To(Equal(uint64(5)))
 		g.Expect(metrics.Queues[0].Total).To(Equal(uint64(1)))
 		g.Expect(len(metrics.Queues[0].Tags)).To(Equal(1))
-		g.Expect(metrics.Queues[0].Tags[0].Tags).To(Equal(datatypes.StringMap{"some": "tag"}))
+		g.Expect(metrics.Queues[0].Tags[0].Tags).To(Equal(datatypes.StringMap{"some": datatypes.String("tag")}))
 		g.Expect(metrics.Queues[0].Tags[0].Ready).To(Equal(uint64(1)))
 		g.Expect(metrics.Queues[0].Tags[0].Processing).To(Equal(uint64(0)))
 	})
@@ -168,12 +168,12 @@ func Test_Enqueue(t *testing.T) {
 			// enqueue
 			item := testhelpers.Queue1UpdateableEnqueue
 			item.Updateable = false
-			enqueurResponse := testConstruct.Enqueue(g, item)
-			g.Expect(enqueurResponse.StatusCode).To(Equal(http.StatusOK))
+			enqueueResponse := testConstruct.Enqueue(g, item)
+			g.Expect(enqueueResponse.StatusCode).To(Equal(http.StatusOK))
 
 			//should case an error when enquing 2nd item
-			enqueurResponse = testConstruct.Enqueue(g, item)
-			g.Expect(enqueurResponse.StatusCode).To(Equal(http.StatusTooManyRequests))
+			enqueueResponse = testConstruct.Enqueue(g, item)
+			g.Expect(enqueueResponse.StatusCode).To(Equal(http.StatusTooManyRequests))
 		})
 	})
 }

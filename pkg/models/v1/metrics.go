@@ -15,7 +15,7 @@ type MetricsResponse struct {
 // Metrics for each individual queue
 // TODO put response on this
 type QueueMetricsResponse struct {
-	Name  datatypes.String
+	Name  string
 	Total uint64
 	Max   uint64
 

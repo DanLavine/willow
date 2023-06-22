@@ -15,9 +15,9 @@ import (
 )
 
 var (
-	createParams             = &v1.Create{Name: datatypes.String("test"), QueueMaxSize: 5, DeadLetterQueueMaxSize: 0}
-	enqueueItemUpdateable    = &v1.EnqueueItemRequest{BrokerInfo: v1.BrokerInfo{Name: datatypes.String("test"), Tags: datatypes.StringMap{"updateable": "true"}}, Data: []byte(`squash me!`), Updateable: true}
-	enqueueItemNotUpdateable = &v1.EnqueueItemRequest{BrokerInfo: v1.BrokerInfo{Name: datatypes.String("test"), Tags: datatypes.StringMap{"updateable": "false"}}, Data: []byte(`hello world`), Updateable: false}
+	createParams             = &v1.Create{Name: "test", QueueMaxSize: 5, DeadLetterQueueMaxSize: 0}
+	enqueueItemUpdateable    = &v1.EnqueueItemRequest{BrokerInfo: v1.BrokerInfo{Name: "test", Tags: datatypes.StringMap{"updateable": datatypes.String("true")}}, Data: []byte(`squash me!`), Updateable: true}
+	enqueueItemNotUpdateable = &v1.EnqueueItemRequest{BrokerInfo: v1.BrokerInfo{Name: "test", Tags: datatypes.StringMap{"updateable": datatypes.String("false")}}, Data: []byte(`hello world`), Updateable: false}
 )
 
 func TestMemoryQueue_Metrics(t *testing.T) {
@@ -29,7 +29,7 @@ func TestMemoryQueue_Metrics(t *testing.T) {
 
 		metrics := queue.Metrics()
 		g.Expect(metrics).ToNot(BeNil())
-		g.Expect(metrics.Name).To(Equal(datatypes.String("test")))
+		g.Expect(metrics.Name).To(Equal("test"))
 		g.Expect(metrics.Total).To(Equal(uint64(0)))
 		g.Expect(metrics.Max).To(Equal(uint64(5)))
 		g.Expect(metrics.Tags).To(BeNil())
@@ -44,7 +44,7 @@ func TestMemoryQueue_Enqueue(t *testing.T) {
 		queue := NewQueue(createParams)
 		defer queue.Stop()
 
-		err := queue.Enqueue(zap.NewNop(), &v1.EnqueueItemRequest{BrokerInfo: v1.BrokerInfo{Name: datatypes.String("test")}, Data: []byte(``)})
+		err := queue.Enqueue(zap.NewNop(), &v1.EnqueueItemRequest{BrokerInfo: v1.BrokerInfo{Name: "test"}, Data: []byte(``)})
 		g.Expect(err).ToNot(BeNil())
 		g.Expect(err.Error()).To(ContainSubstring("Internal Server Error. Actual: keyValuePairs requires a length of at least 1."))
 	})
@@ -57,7 +57,7 @@ func TestMemoryQueue_Enqueue(t *testing.T) {
 
 		metrics := queue.Metrics()
 		g.Expect(metrics).ToNot(BeNil())
-		g.Expect(metrics.Name).To(Equal(datatypes.String("test")))
+		g.Expect(metrics.Name).To(Equal("test"))
 		g.Expect(metrics.Total).To(Equal(uint64(1)))
 		g.Expect(metrics.Max).To(Equal(uint64(5)))
 		g.Expect(metrics.DeadLetterQueueMetrics).To(BeNil())
@@ -65,7 +65,7 @@ func TestMemoryQueue_Enqueue(t *testing.T) {
 		g.Expect(len(metrics.Tags)).To(Equal(1))
 		g.Expect(metrics.Tags[0].Processing).To(Equal(uint64(0)))
 		g.Expect(metrics.Tags[0].Ready).To(Equal(uint64(1)))
-		g.Expect(metrics.Tags[0].Tags).To(Equal(datatypes.StringMap{"updateable": "true"}))
+		g.Expect(metrics.Tags[0].Tags).To(Equal(datatypes.StringMap{"updateable": datatypes.String("true")}))
 	})
 
 	t.Run("it can enqueu multiple messages", func(t *testing.T) {
@@ -79,7 +79,7 @@ func TestMemoryQueue_Enqueue(t *testing.T) {
 
 		metrics := queue.Metrics()
 		g.Expect(metrics).ToNot(BeNil())
-		g.Expect(metrics.Name).To(Equal(datatypes.String("test")))
+		g.Expect(metrics.Name).To(Equal("test"))
 		g.Expect(metrics.Total).To(Equal(uint64(4)))
 		g.Expect(metrics.Max).To(Equal(uint64(5)))
 		g.Expect(metrics.DeadLetterQueueMetrics).To(BeNil())
@@ -87,7 +87,7 @@ func TestMemoryQueue_Enqueue(t *testing.T) {
 		g.Expect(len(metrics.Tags)).To(Equal(1))
 		g.Expect(metrics.Tags[0].Processing).To(Equal(uint64(0)))
 		g.Expect(metrics.Tags[0].Ready).To(Equal(uint64(4)))
-		g.Expect(metrics.Tags[0].Tags).To(Equal(datatypes.StringMap{"updateable": "false"}))
+		g.Expect(metrics.Tags[0].Tags).To(Equal(datatypes.StringMap{"updateable": datatypes.String("false")}))
 	})
 
 	t.Run("it can squash multiple messages", func(t *testing.T) {
@@ -101,7 +101,7 @@ func TestMemoryQueue_Enqueue(t *testing.T) {
 
 		metrics := queue.Metrics()
 		g.Expect(metrics).ToNot(BeNil())
-		g.Expect(metrics.Name).To(Equal(datatypes.String("test")))
+		g.Expect(metrics.Name).To(Equal("test"))
 		g.Expect(metrics.Max).To(Equal(uint64(5)))
 		g.Expect(metrics.Total).To(Equal(uint64(1)))
 		g.Expect(metrics.DeadLetterQueueMetrics).To(BeNil())
@@ -109,27 +109,27 @@ func TestMemoryQueue_Enqueue(t *testing.T) {
 		g.Expect(len(metrics.Tags)).To(Equal(1))
 		g.Expect(metrics.Tags[0].Processing).To(Equal(uint64(0)))
 		g.Expect(metrics.Tags[0].Ready).To(Equal(uint64(1)))
-		g.Expect(metrics.Tags[0].Tags).To(Equal(datatypes.StringMap{"updateable": "true"}))
+		g.Expect(metrics.Tags[0].Tags).To(Equal(datatypes.StringMap{"updateable": datatypes.String("true")}))
 	})
 
 	t.Run("it can create a queue if child tags already exist", func(t *testing.T) {
 		queue := NewQueue(createParams)
 		defer queue.Stop()
 
-		enqueue1 := &v1.EnqueueItemRequest{BrokerInfo: v1.BrokerInfo{Name: datatypes.String("test"), Tags: datatypes.StringMap{"a": "a", "b": "b"}}, Data: []byte(`squash me!`), Updateable: true}
-		enqueue2 := &v1.EnqueueItemRequest{BrokerInfo: v1.BrokerInfo{Name: datatypes.String("test"), Tags: datatypes.StringMap{"a": "a"}}, Data: []byte(`squash me!`), Updateable: true}
+		enqueue1 := &v1.EnqueueItemRequest{BrokerInfo: v1.BrokerInfo{Name: "test", Tags: datatypes.StringMap{"a": datatypes.String("a"), "b": datatypes.String("b")}}, Data: []byte(`squash me!`), Updateable: true}
+		enqueue2 := &v1.EnqueueItemRequest{BrokerInfo: v1.BrokerInfo{Name: "test", Tags: datatypes.StringMap{"a": datatypes.String("a")}}, Data: []byte(`squash me!`), Updateable: true}
 
 		g.Expect(queue.Enqueue(zap.NewNop(), enqueue1)).ToNot(HaveOccurred())
 
 		metrics := queue.Metrics()
 		g.Expect(len(metrics.Tags)).To(Equal(1))
-		g.Expect(metrics.Tags[0].Tags).To(Equal(datatypes.StringMap{"a": "a", "b": "b"}))
+		g.Expect(metrics.Tags[0].Tags).To(Equal(datatypes.StringMap{"a": datatypes.String("a"), "b": datatypes.String("b")}))
 
 		g.Expect(queue.Enqueue(zap.NewNop(), enqueue2)).ToNot(HaveOccurred())
 		metrics = queue.Metrics()
 		g.Expect(len(metrics.Tags)).To(Equal(2))
-		g.Expect(metrics.Tags[0].Tags).To(Equal(datatypes.StringMap{"a": "a"}))
-		g.Expect(metrics.Tags[1].Tags).To(Equal(datatypes.StringMap{"a": "a", "b": "b"}))
+		g.Expect(metrics.Tags[0].Tags).To(Equal(datatypes.StringMap{"a": datatypes.String("a")}))
+		g.Expect(metrics.Tags[1].Tags).To(Equal(datatypes.StringMap{"a": datatypes.String("a"), "b": datatypes.String("b")}))
 	})
 
 	t.Run("it returns an error if the item cannot be enqueued because there are to many messages waiting to process", func(t *testing.T) {
@@ -150,7 +150,7 @@ func TestMemoryQueue_Readers(t *testing.T) {
 	enqueueItem1 := v1.EnqueueItemRequest{
 		BrokerInfo: v1.BrokerInfo{
 			Name: "test",
-			Tags: datatypes.StringMap{"a": "a", "b": "b", "c": "c"},
+			Tags: datatypes.StringMap{"a": datatypes.String("a"), "b": datatypes.String("b"), "c": datatypes.String("c")},
 		},
 		Data:       []byte(`first`),
 		Updateable: false,
@@ -158,7 +158,7 @@ func TestMemoryQueue_Readers(t *testing.T) {
 	enqueueItem2 := v1.EnqueueItemRequest{
 		BrokerInfo: v1.BrokerInfo{
 			Name: "test",
-			Tags: datatypes.StringMap{"b": "b", "c": "c", "d": "d"},
+			Tags: datatypes.StringMap{"b": datatypes.String("b"), "c": datatypes.String("c"), "d": datatypes.String("d")},
 		},
 		Data:       []byte(`second`),
 		Updateable: false,
@@ -166,7 +166,7 @@ func TestMemoryQueue_Readers(t *testing.T) {
 	enqueueItem3 := v1.EnqueueItemRequest{
 		BrokerInfo: v1.BrokerInfo{
 			Name: "test",
-			Tags: datatypes.StringMap{"c": "c", "d": "d", "e": "e"},
+			Tags: datatypes.StringMap{"c": datatypes.String("c"), "d": datatypes.String("d"), "e": datatypes.String("e")},
 		},
 		Data:       []byte(`third`),
 		Updateable: false,
@@ -174,7 +174,7 @@ func TestMemoryQueue_Readers(t *testing.T) {
 	enqueueItem4 := v1.EnqueueItemRequest{
 		BrokerInfo: v1.BrokerInfo{
 			Name: "test",
-			Tags: datatypes.StringMap{"a": "a", "b": "b", "c": "c", "d": "d"},
+			Tags: datatypes.StringMap{"a": datatypes.String("a"), "b": datatypes.String("b"), "c": datatypes.String("c"), "d": datatypes.String("d")},
 		},
 		Data:       []byte(`fourth`),
 		Updateable: false,
@@ -204,8 +204,8 @@ func TestMemoryQueue_Readers(t *testing.T) {
 		readerSelect := &v1.ReaderSelect{
 			BrokerName: "test",
 			Queries: []v1.ReaderQuery{
-				{Type: v1.ReaderExactly, Tags: datatypes.StringMap{"shouldn't be there yet": "ok"}},
-				{Type: v1.ReaderMatches, Tags: datatypes.StringMap{"shouldn't be there yet": "ok"}},
+				{Type: v1.ReaderExactly, Tags: datatypes.StringMap{"shouldn't be there yet": datatypes.String("ok")}},
+				{Type: v1.ReaderMatches, Tags: datatypes.StringMap{"shouldn't be there yet": datatypes.String("ok")}},
 			},
 		}
 		g.Expect(readerSelect.Validate()).ToNot(HaveOccurred())
@@ -224,12 +224,12 @@ func TestMemoryQueue_Readers(t *testing.T) {
 
 		metrics := queue.Metrics()
 		g.Expect(metrics).ToNot(BeNil())
-		g.Expect(metrics).To(Equal(&v1.QueueMetricsResponse{Name: "test", Total: 1, Max: 5, Tags: []*v1.TagMetricsResponse{{Processing: 0, Ready: 1, Tags: datatypes.StringMap{"updateable": "false"}}}}))
+		g.Expect(metrics).To(Equal(&v1.QueueMetricsResponse{Name: "test", Total: 1, Max: 5, Tags: []*v1.TagMetricsResponse{{Processing: 0, Ready: 1, Tags: datatypes.StringMap{"updateable": datatypes.String("false")}}}}))
 
 		readerSelect := &v1.ReaderSelect{
 			BrokerName: "test",
 			Queries: []v1.ReaderQuery{
-				{Type: v1.ReaderExactly, Tags: datatypes.StringMap{"updateable": "false"}},
+				{Type: v1.ReaderExactly, Tags: datatypes.StringMap{"updateable": datatypes.String("false")}},
 			},
 		}
 		g.Expect(readerSelect.Validate()).ToNot(HaveOccurred())
@@ -247,7 +247,7 @@ func TestMemoryQueue_Readers(t *testing.T) {
 
 		metrics = queue.Metrics()
 		g.Expect(metrics).ToNot(BeNil())
-		g.Expect(metrics).To(Equal(&v1.QueueMetricsResponse{Name: "test", Total: 1, Max: 5, Tags: []*v1.TagMetricsResponse{{Processing: 1, Ready: 0, Tags: datatypes.StringMap{"updateable": "false"}}}}))
+		g.Expect(metrics).To(Equal(&v1.QueueMetricsResponse{Name: "test", Total: 1, Max: 5, Tags: []*v1.TagMetricsResponse{{Processing: 1, Ready: 0, Tags: datatypes.StringMap{"updateable": datatypes.String("false")}}}}))
 	})
 
 	t.Run("'nil' query selection", func(t *testing.T) {
@@ -287,7 +287,7 @@ func TestMemoryQueue_Readers(t *testing.T) {
 			readerSelect := &v1.ReaderSelect{
 				BrokerName: "test",
 				Queries: []v1.ReaderQuery{
-					{Type: v1.ReaderMatches, Tags: datatypes.StringMap{"a": "a"}},
+					{Type: v1.ReaderMatches, Tags: datatypes.StringMap{"a": datatypes.String("a")}},
 				},
 			}
 			g.Expect(readerSelect.Validate()).ToNot(HaveOccurred())
@@ -336,7 +336,7 @@ func TestMemoryQueue_Readers(t *testing.T) {
 			readerSelect := &v1.ReaderSelect{
 				BrokerName: "test",
 				Queries: []v1.ReaderQuery{
-					{Type: v1.ReaderExactly, Tags: datatypes.StringMap{"a": "a", "b": "b", "c": "c"}},
+					{Type: v1.ReaderExactly, Tags: datatypes.StringMap{"a": datatypes.String("a"), "b": datatypes.String("b"), "c": datatypes.String("c")}},
 				},
 			}
 			g.Expect(readerSelect.Validate()).ToNot(HaveOccurred())
@@ -362,7 +362,7 @@ func TestMemoryQueue_ACK(t *testing.T) {
 	enqueueItem1 := v1.EnqueueItemRequest{
 		BrokerInfo: v1.BrokerInfo{
 			Name: "test",
-			Tags: datatypes.StringMap{"a": "a", "b": "b", "c": "c"},
+			Tags: datatypes.StringMap{"a": datatypes.String("a"), "b": datatypes.String("b"), "c": datatypes.String("c")},
 		},
 		Data:       []byte(`first`),
 		Updateable: false,
@@ -390,8 +390,8 @@ func TestMemoryQueue_ACK(t *testing.T) {
 
 		ack := &v1.ACK{
 			BrokerInfo: v1.BrokerInfo{
-				Name: datatypes.String("test"),
-				Tags: datatypes.StringMap{"not": "found"},
+				Name: "test",
+				Tags: datatypes.StringMap{"not": datatypes.String("found")},
 			},
 			ID:     1,
 			Passed: true,
@@ -409,8 +409,8 @@ func TestMemoryQueue_ACK(t *testing.T) {
 
 		ack := &v1.ACK{
 			BrokerInfo: v1.BrokerInfo{
-				Name: datatypes.String("test"),
-				Tags: datatypes.StringMap{"a": "a", "b": "b", "not": "found"},
+				Name: "test",
+				Tags: datatypes.StringMap{"a": datatypes.String("a"), "b": datatypes.String("b"), "not": datatypes.String("found")},
 			},
 			ID:     1,
 			Passed: true,
@@ -430,7 +430,7 @@ func TestMemoryQueue_ACK(t *testing.T) {
 			readerSelect := &v1.ReaderSelect{
 				BrokerName: "test",
 				Queries: []v1.ReaderQuery{
-					{Type: v1.ReaderMatches, Tags: datatypes.StringMap{"a": "a"}},
+					{Type: v1.ReaderMatches, Tags: datatypes.StringMap{"a": datatypes.String("a")}},
 				},
 			}
 			g.Expect(readerSelect.Validate()).ToNot(HaveOccurred())
@@ -453,7 +453,7 @@ func TestMemoryQueue_ACK(t *testing.T) {
 
 			metrics := queue.Metrics()
 			g.Expect(metrics).ToNot(BeNil())
-			g.Expect(metrics).To(Equal(&v1.QueueMetricsResponse{Name: "test", Total: 1, Max: 5, Tags: []*v1.TagMetricsResponse{{Processing: 1, Ready: 0, Tags: datatypes.StringMap{"a": "a", "b": "b", "c": "c"}}}}))
+			g.Expect(metrics).To(Equal(&v1.QueueMetricsResponse{Name: "test", Total: 1, Max: 5, Tags: []*v1.TagMetricsResponse{{Processing: 1, Ready: 0, Tags: datatypes.StringMap{"a": datatypes.String("a"), "b": datatypes.String("b"), "c": datatypes.String("c")}}}}))
 
 			return queue, dequeueItemResponse, cancel
 		}
@@ -467,8 +467,8 @@ func TestMemoryQueue_ACK(t *testing.T) {
 
 			ack := &v1.ACK{
 				BrokerInfo: v1.BrokerInfo{
-					Name: datatypes.String("test"),
-					Tags: datatypes.StringMap{"a": "a", "b": "b", "c": "c"},
+					Name: "test",
+					Tags: datatypes.StringMap{"a": datatypes.String("a"), "b": datatypes.String("b"), "c": datatypes.String("c")},
 				},
 				ID:     2,
 				Passed: true,
@@ -487,8 +487,8 @@ func TestMemoryQueue_ACK(t *testing.T) {
 
 			ack := &v1.ACK{
 				BrokerInfo: v1.BrokerInfo{
-					Name: datatypes.String("test"),
-					Tags: datatypes.StringMap{"a": "a", "b": "b", "c": "c"},
+					Name: "test",
+					Tags: datatypes.StringMap{"a": datatypes.String("a"), "b": datatypes.String("b"), "c": datatypes.String("c")},
 				},
 				ID:     9_123_098,
 				Passed: true,
@@ -501,7 +501,7 @@ func TestMemoryQueue_ACK(t *testing.T) {
 
 			metrics := queue.Metrics()
 			g.Expect(metrics).ToNot(BeNil())
-			g.Expect(metrics).To(Equal(&v1.QueueMetricsResponse{Name: "test", Total: 1, Max: 5, Tags: []*v1.TagMetricsResponse{{Processing: 1, Ready: 0, Tags: datatypes.StringMap{"a": "a", "b": "b", "c": "c"}}}}))
+			g.Expect(metrics).To(Equal(&v1.QueueMetricsResponse{Name: "test", Total: 1, Max: 5, Tags: []*v1.TagMetricsResponse{{Processing: 1, Ready: 0, Tags: datatypes.StringMap{"a": datatypes.String("a"), "b": datatypes.String("b"), "c": datatypes.String("c")}}}}))
 		})
 
 		t.Run("it removes the item from processing with a proper ID and removes the tag group if there are no more enqueued items", func(t *testing.T) {
@@ -510,8 +510,8 @@ func TestMemoryQueue_ACK(t *testing.T) {
 
 			ack := &v1.ACK{
 				BrokerInfo: v1.BrokerInfo{
-					Name: datatypes.String("test"),
-					Tags: datatypes.StringMap{"a": "a", "b": "b", "c": "c"},
+					Name: "test",
+					Tags: datatypes.StringMap{"a": datatypes.String("a"), "b": datatypes.String("b"), "c": datatypes.String("c")},
 				},
 				ID:     1,
 				Passed: true,
@@ -535,8 +535,8 @@ func TestMemoryQueue_ACK(t *testing.T) {
 
 			ack := &v1.ACK{
 				BrokerInfo: v1.BrokerInfo{
-					Name: datatypes.String("test"),
-					Tags: datatypes.StringMap{"a": "a", "b": "b", "c": "c"},
+					Name: "test",
+					Tags: datatypes.StringMap{"a": datatypes.String("a"), "b": datatypes.String("b"), "c": datatypes.String("c")},
 				},
 				ID:     1,
 				Passed: true,
@@ -548,7 +548,7 @@ func TestMemoryQueue_ACK(t *testing.T) {
 
 			metrics := queue.Metrics()
 			g.Expect(metrics).ToNot(BeNil())
-			g.Expect(metrics).To(Equal(&v1.QueueMetricsResponse{Name: "test", Total: 1, Max: 5, Tags: []*v1.TagMetricsResponse{{Processing: 0, Ready: 1, Tags: datatypes.StringMap{"a": "a", "b": "b", "c": "c"}}}}))
+			g.Expect(metrics).To(Equal(&v1.QueueMetricsResponse{Name: "test", Total: 1, Max: 5, Tags: []*v1.TagMetricsResponse{{Processing: 0, Ready: 1, Tags: datatypes.StringMap{"a": datatypes.String("a"), "b": datatypes.String("b"), "c": datatypes.String("c")}}}}))
 		})
 	})
 

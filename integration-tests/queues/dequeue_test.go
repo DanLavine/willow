@@ -27,11 +27,11 @@ func Test_Dequeue(t *testing.T) {
 
 		// dequeue the item
 		dequeueRequest := v1.ReaderSelect{
-			BrokerName: datatypes.String("queue1"),
+			BrokerName: "queue1",
 			Queries: []v1.ReaderQuery{
 				{
 					Type: v1.ReaderExactly,
-					Tags: datatypes.StringMap{"some": "tag"},
+					Tags: datatypes.StringMap{"some": datatypes.String("tag")},
 				},
 			},
 		}
@@ -53,11 +53,11 @@ func Test_Dequeue(t *testing.T) {
 
 		// dequeue the item
 		dequeueRequest := v1.ReaderSelect{
-			BrokerName: datatypes.String("queue1"),
+			BrokerName: "queue1",
 			Queries: []v1.ReaderQuery{
 				{
 					Type: v1.ReaderExactly,
-					Tags: datatypes.StringMap{"some": "tag"},
+					Tags: datatypes.StringMap{"some": datatypes.String("tag")},
 				},
 			},
 		}
@@ -72,8 +72,8 @@ func Test_Dequeue(t *testing.T) {
 		g.Expect(json.Unmarshal(body, dequeueItem)).ToNot(HaveOccurred())
 
 		// check item returned
-		g.Expect(dequeueItem.BrokerInfo.Name).To(Equal(datatypes.String("queue1")))
-		g.Expect(dequeueItem.BrokerInfo.Tags).To(Equal(datatypes.StringMap{"some": "tag"}))
+		g.Expect(dequeueItem.BrokerInfo.Name).To(Equal("queue1"))
+		g.Expect(dequeueItem.BrokerInfo.Tags).To(Equal(datatypes.StringMap{"some": datatypes.String("tag")}))
 		g.Expect(dequeueItem.ID).To(Equal(uint64(1)))
 		g.Expect(dequeueItem.Data).To(Equal([]byte(`hello world`)))
 	})
@@ -88,11 +88,11 @@ func Test_Dequeue(t *testing.T) {
 
 		// dequeue the item
 		dequeueRequest := v1.ReaderSelect{
-			BrokerName: datatypes.String("queue1"),
+			BrokerName: "queue1",
 			Queries: []v1.ReaderQuery{
 				{
 					Type: v1.ReaderExactly,
-					Tags: datatypes.StringMap{"some": "tag"},
+					Tags: datatypes.StringMap{"some": datatypes.String("tag")},
 				},
 			},
 		}
@@ -133,8 +133,8 @@ func Test_Dequeue(t *testing.T) {
 		g.Expect(json.Unmarshal(body, dequeueItem)).ToNot(HaveOccurred())
 
 		// check item returned
-		g.Expect(dequeueItem.BrokerInfo.Name).To(Equal(datatypes.String("queue1")))
-		g.Expect(dequeueItem.BrokerInfo.Tags).To(Equal(datatypes.StringMap{"some": "tag"}))
+		g.Expect(dequeueItem.BrokerInfo.Name).To(Equal("queue1"))
+		g.Expect(dequeueItem.BrokerInfo.Tags).To(Equal(datatypes.StringMap{"some": datatypes.String("tag")}))
 		g.Expect(dequeueItem.ID).To(Equal(uint64(1)))
 		g.Expect(dequeueItem.Data).To(Equal([]byte(`hello world`)))
 	})
@@ -161,11 +161,11 @@ func Test_Dequeue(t *testing.T) {
 
 		// dequeue the item
 		dequeueRequest := v1.ReaderSelect{
-			BrokerName: datatypes.String("queue1"),
+			BrokerName: "queue1",
 			Queries: []v1.ReaderQuery{
 				{
 					Type: v1.ReaderExactly,
-					Tags: datatypes.StringMap{"some": "tag"},
+					Tags: datatypes.StringMap{"some": datatypes.String("tag")},
 				},
 			},
 		}
@@ -179,8 +179,8 @@ func Test_Dequeue(t *testing.T) {
 
 		dequeueItem1 := v1.DequeueItemResponse{}
 		g.Expect(json.Unmarshal(body, &dequeueItem1)).ToNot(HaveOccurred())
-		g.Expect(dequeueItem1.BrokerInfo.Name).To(Equal(datatypes.String("queue1")))
-		g.Expect(dequeueItem1.BrokerInfo.Tags).To(Equal(datatypes.StringMap{"some": "tag"}))
+		g.Expect(dequeueItem1.BrokerInfo.Name).To(Equal("queue1"))
+		g.Expect(dequeueItem1.BrokerInfo.Tags).To(Equal(datatypes.StringMap{"some": datatypes.String("tag")}))
 		g.Expect(dequeueItem1.Data).To(Equal([]byte(`first`)))
 		g.Expect(dequeueItem1.ID).To(Equal(uint64(1)))
 
@@ -193,8 +193,8 @@ func Test_Dequeue(t *testing.T) {
 
 		dequeueItem2 := v1.DequeueItemResponse{}
 		g.Expect(json.Unmarshal(body, &dequeueItem2)).ToNot(HaveOccurred())
-		g.Expect(dequeueItem2.BrokerInfo.Name).To(Equal(datatypes.String("queue1")))
-		g.Expect(dequeueItem2.BrokerInfo.Tags).To(Equal(datatypes.StringMap{"some": "tag"}))
+		g.Expect(dequeueItem2.BrokerInfo.Name).To(Equal("queue1"))
+		g.Expect(dequeueItem2.BrokerInfo.Tags).To(Equal(datatypes.StringMap{"some": datatypes.String("tag")}))
 		g.Expect(dequeueItem2.Data).To(Equal([]byte(`second`)))
 		g.Expect(dequeueItem2.ID).To(Equal(uint64(2)))
 
@@ -207,8 +207,8 @@ func Test_Dequeue(t *testing.T) {
 
 		dequeueItem3 := v1.DequeueItemResponse{}
 		g.Expect(json.Unmarshal(body, &dequeueItem3)).ToNot(HaveOccurred())
-		g.Expect(dequeueItem3.BrokerInfo.Name).To(Equal(datatypes.String("queue1")))
-		g.Expect(dequeueItem3.BrokerInfo.Tags).To(Equal(datatypes.StringMap{"some": "tag"}))
+		g.Expect(dequeueItem3.BrokerInfo.Name).To(Equal("queue1"))
+		g.Expect(dequeueItem3.BrokerInfo.Tags).To(Equal(datatypes.StringMap{"some": datatypes.String("tag")}))
 		g.Expect(dequeueItem3.Data).To(Equal([]byte(`third`)))
 		g.Expect(dequeueItem3.ID).To(Equal(uint64(3)))
 	})
@@ -228,11 +228,11 @@ func Test_Dequeue(t *testing.T) {
 
 			// dequeue the item
 			dequeueRequest := v1.ReaderSelect{
-				BrokerName: datatypes.String("queue1"),
+				BrokerName: "queue1",
 				Queries: []v1.ReaderQuery{
 					{
 						Type: v1.ReaderExactly,
-						Tags: datatypes.StringMap{"some": "tag"},
+						Tags: datatypes.StringMap{"some": datatypes.String("tag")},
 					},
 				},
 			}
@@ -247,8 +247,8 @@ func Test_Dequeue(t *testing.T) {
 			g.Expect(json.Unmarshal(body, dequeueItem)).ToNot(HaveOccurred())
 
 			// check item returned
-			g.Expect(dequeueItem.BrokerInfo.Name).To(Equal(datatypes.String("queue1")))
-			g.Expect(dequeueItem.BrokerInfo.Tags).To(Equal(datatypes.StringMap{"some": "tag"}))
+			g.Expect(dequeueItem.BrokerInfo.Name).To(Equal("queue1"))
+			g.Expect(dequeueItem.BrokerInfo.Tags).To(Equal(datatypes.StringMap{"some": datatypes.String("tag")}))
 			g.Expect(dequeueItem.ID).To(Equal(uint64(1)))
 			g.Expect(dequeueItem.Data).To(Equal([]byte(`hello world`)))
 		})
@@ -268,13 +268,13 @@ func Test_Dequeue(t *testing.T) {
 			g.Expect(enqueueResponse.StatusCode).To(Equal(http.StatusOK))
 
 			enqueueCopy := testhelpers.Queue1UpdateableEnqueue
-			enqueueCopy.BrokerInfo.Tags = datatypes.StringMap{"some": "tag", "another": "tag"}
+			enqueueCopy.BrokerInfo.Tags = datatypes.StringMap{"some": datatypes.String("tag"), "another": datatypes.String("tag")}
 			enqueueCopy.Data = []byte(`some more data to find`)
 			enqueueResponse = testConstruct.Enqueue(g, enqueueCopy)
 			g.Expect(enqueueResponse.StatusCode).To(Equal(http.StatusOK))
 
 			enqueueNotFound := testhelpers.Queue1UpdateableEnqueue
-			enqueueNotFound.BrokerInfo.Tags = datatypes.StringMap{"not found": "tag"}
+			enqueueNotFound.BrokerInfo.Tags = datatypes.StringMap{"not found": datatypes.String("tag")}
 			enqueueResponse = testConstruct.Enqueue(g, enqueueNotFound)
 			g.Expect(enqueueResponse.StatusCode).To(Equal(http.StatusOK))
 
@@ -282,7 +282,7 @@ func Test_Dequeue(t *testing.T) {
 				{
 					BrokerInfo: v1.BrokerInfo{
 						Name: "queue1",
-						Tags: datatypes.StringMap{"some": "tag"},
+						Tags: datatypes.StringMap{"some": datatypes.String("tag")},
 					},
 					Data: []byte(`hello world`),
 					ID:   1,
@@ -290,7 +290,7 @@ func Test_Dequeue(t *testing.T) {
 				{
 					BrokerInfo: v1.BrokerInfo{
 						Name: "queue1",
-						Tags: datatypes.StringMap{"some": "tag", "another": "tag"},
+						Tags: datatypes.StringMap{"some": datatypes.String("tag"), "another": datatypes.String("tag")},
 					},
 					Data: []byte(`some more data to find`),
 					ID:   1,
@@ -300,11 +300,11 @@ func Test_Dequeue(t *testing.T) {
 			foundOne, foundTwo := false, false
 			for i := 1; i <= 2; i++ {
 				dequeueRequest := v1.ReaderSelect{
-					BrokerName: datatypes.String("queue1"),
+					BrokerName: "queue1",
 					Queries: []v1.ReaderQuery{
 						{
 							Type: v1.ReaderMatches,
-							Tags: datatypes.StringMap{"some": "tag"},
+							Tags: datatypes.StringMap{"some": datatypes.String("tag")},
 						},
 					},
 				}
@@ -349,13 +349,13 @@ func Test_Dequeue(t *testing.T) {
 			g.Expect(enqueueResponse.StatusCode).To(Equal(http.StatusOK))
 
 			enqueueCopy := testhelpers.Queue1UpdateableEnqueue
-			enqueueCopy.BrokerInfo.Tags = datatypes.StringMap{"some": "tag", "another": "tag"}
+			enqueueCopy.BrokerInfo.Tags = datatypes.StringMap{"some": datatypes.String("tag"), "another": datatypes.String("tag")}
 			enqueueCopy.Data = []byte(`some more data to find`)
 			enqueueResponse = testConstruct.Enqueue(g, enqueueCopy)
 			g.Expect(enqueueResponse.StatusCode).To(Equal(http.StatusOK))
 
 			enqueueMatchesFound := testhelpers.Queue1UpdateableEnqueue
-			enqueueMatchesFound.BrokerInfo.Tags = datatypes.StringMap{"the other unique tag": "ok"}
+			enqueueMatchesFound.BrokerInfo.Tags = datatypes.StringMap{"the other unique tag": datatypes.String("ok")}
 			enqueueMatchesFound.Data = []byte(`this should be found`)
 			enqueueResponse = testConstruct.Enqueue(g, enqueueMatchesFound)
 			g.Expect(enqueueResponse.StatusCode).To(Equal(http.StatusOK))
@@ -364,7 +364,7 @@ func Test_Dequeue(t *testing.T) {
 				{
 					BrokerInfo: v1.BrokerInfo{
 						Name: "queue1",
-						Tags: datatypes.StringMap{"some": "tag", "another": "tag"},
+						Tags: datatypes.StringMap{"some": datatypes.String("tag"), "another": datatypes.String("tag")},
 					},
 					Data: []byte(`some more data to find`),
 					ID:   1,
@@ -372,7 +372,7 @@ func Test_Dequeue(t *testing.T) {
 				{
 					BrokerInfo: v1.BrokerInfo{
 						Name: "queue1",
-						Tags: datatypes.StringMap{"the other unique tag": "ok"},
+						Tags: datatypes.StringMap{"the other unique tag": datatypes.String("ok")},
 					},
 					Data: []byte(`this should be found`),
 					ID:   1,
@@ -382,15 +382,15 @@ func Test_Dequeue(t *testing.T) {
 			foundOne, foundTwo := false, false
 			for i := 1; i <= 2; i++ {
 				dequeueRequest := v1.ReaderSelect{
-					BrokerName: datatypes.String("queue1"),
+					BrokerName: "queue1",
 					Queries: []v1.ReaderQuery{
 						{
 							Type: v1.ReaderExactly,
-							Tags: datatypes.StringMap{"some": "tag", "another": "tag"},
+							Tags: datatypes.StringMap{"some": datatypes.String("tag"), "another": datatypes.String("tag")},
 						},
 						{
 							Type: v1.ReaderMatches,
-							Tags: datatypes.StringMap{"the other unique tag": "ok"},
+							Tags: datatypes.StringMap{"the other unique tag": datatypes.String("ok")},
 						},
 					},
 				}

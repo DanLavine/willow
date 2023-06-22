@@ -1,7 +1,5 @@
 package datastructures
 
-import "github.com/DanLavine/willow/pkg/models/datatypes"
-
 // Common way of interacting with any of the data structures
 
 // When using any of the tree's we have these special callbacks that can be used
@@ -25,15 +23,12 @@ import "github.com/DanLavine/willow/pkg/models/datatypes"
 // are all expecting
 
 // Iterate is called for each value in a tree
-type Iterate func(key datatypes.CompareType, item any)
+//type Iterate func(item any)
 
 // Callback for creating a value and inserting them into trees
-type OnCreate func() (any, error)
+type OnCreate func() any
 
 // Callback for calling a function when a value is found in a tree
-//
-// TODO: Think about returning a different type of value. One where its a reference to the item in the tree and can call A Delete() function.
-// would make the associated tree much easier to work with.
 type OnFind func(item any)
 
 // Callback to check that an item can actually be removed from a tree

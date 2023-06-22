@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/DanLavine/willow/integration-tests/testhelpers"
-	"github.com/DanLavine/willow/pkg/models/datatypes"
 	v1 "github.com/DanLavine/willow/pkg/models/v1"
 
 	. "github.com/onsi/gomega"
@@ -31,7 +30,7 @@ func Test_Create(t *testing.T) {
 
 		metrics := testConstruct.Metrics(g)
 		g.Expect(len(metrics.Queues)).To(Equal(1))
-		g.Expect(metrics.Queues[0].Name).To(Equal(datatypes.String("test queue")))
+		g.Expect(metrics.Queues[0].Name).To(Equal("test queue"))
 		g.Expect(metrics.Queues[0].Total).To(Equal(uint64(0)))
 		g.Expect(metrics.Queues[0].Max).To(Equal(uint64(5)))
 		g.Expect(metrics.Queues[0].Tags).To(BeNil())

@@ -4,6 +4,7 @@ import (
 	"sync"
 
 	"github.com/DanLavine/willow/internal/brokers/tags"
+	"github.com/DanLavine/willow/internal/datastructures"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 	v1 "github.com/DanLavine/willow/pkg/models/v1"
 )
@@ -22,14 +23,9 @@ type tagNode struct {
 	tagGroup *tagGroup
 }
 
-func (q *Queue) tagNodeLock(item any) {
-	tagNode := item.(*tagNode)
-	tagNode.lock.Lock()
-}
-
 // create new generalChannels for all possible tag combinations
-func (q *Queue) tagNodeNewGeneralChannel(channels *[]chan tags.Tag) func() (any, error) {
-	return func() (any, error) {
+func (q *Queue) tagNodeNewGeneralChannel(channels *[]chan tags.Tag) func() any {
+	return func() any {
 		generalChannel := make(chan tags.Tag)
 		*channels = append(*channels, generalChannel)
 
@@ -39,13 +35,13 @@ func (q *Queue) tagNodeNewGeneralChannel(channels *[]chan tags.Tag) func() (any,
 			generalChannel: generalChannel,
 			counter:        0,
 			tagGroup:       nil,
-		}, nil
+		}
 	}
 }
 
 // create new generalChannels for all possible tag combinations
-func (q *Queue) tagNodeNewGeneralChannelRead(channels *[]<-chan tags.Tag) func() (any, error) {
-	return func() (any, error) {
+func (q *Queue) tagNodeNewGeneralChannelRead(channels *[]<-chan tags.Tag) func() any {
+	return func() any {
 		generalChannel := make(chan tags.Tag)
 		*channels = append(*channels, generalChannel)
 
@@ -55,13 +51,13 @@ func (q *Queue) tagNodeNewGeneralChannelRead(channels *[]<-chan tags.Tag) func()
 			generalChannel: generalChannel,
 			counter:        0,
 			tagGroup:       nil,
-		}, nil
+		}
 	}
 }
 
 // create new generalChannels for all possible tag combinations
-func (q *Queue) tagNodeNewStrictChannel(channels *[]<-chan tags.Tag) func() (any, error) {
-	return func() (any, error) {
+func (q *Queue) tagNodeNewStrictChannel(channels *[]<-chan tags.Tag) func() any {
+	return func() any {
 		strictChannel := make(chan tags.Tag)
 		*channels = append(*channels, strictChannel)
 
@@ -71,22 +67,19 @@ func (q *Queue) tagNodeNewStrictChannel(channels *[]<-chan tags.Tag) func() (any
 			generalChannel: make(chan tags.Tag),
 			counter:        0,
 			tagGroup:       nil,
-		}, nil
+		}
 	}
 }
 
-func (q *Queue) newTagNode(tagPairs datatypes.StringMap, channels *[]chan tags.Tag) func() (any, error) {
-	return func() (any, error) {
+func (q *Queue) newTagNode(tagPairs datatypes.StringMap, channels *[]chan tags.Tag, callback datastructures.OnFind) func() any {
+	return func() any {
 		strictChannel := make(chan tags.Tag)
 		generalChannel := make(chan tags.Tag)
 		*channels = append(*channels, strictChannel)
 		*channels = append(*channels, generalChannel)
 
-		lock := new(sync.RWMutex)
-		lock.Lock()
-
 		tagNode := &tagNode{
-			lock:           lock,
+			lock:           new(sync.RWMutex),
 			strictChannel:  strictChannel,
 			generalChannel: generalChannel,
 			counter:        0,
@@ -94,30 +87,20 @@ func (q *Queue) newTagNode(tagPairs datatypes.StringMap, channels *[]chan tags.T
 		}
 
 		// start running the tag group in the background to process messages
-		return tagNode, q.taskManager.AddExecuteTask("", tagNode.tagGroup)
-	}
-}
+		_ = q.taskManager.AddExecuteTask("", tagNode.tagGroup)
 
-// add a strict channel to a node that already exists
-func (q *Queue) tagNodeUpdateStrictChannel(channels *[]chan tags.Tag) func(item any) {
-	return func(item any) {
-		node := item.(*tagNode)
-		node.lock.Lock()
-		defer node.lock.Unlock()
+		callback(tagNode)
 
-		if node.strictChannel == nil {
-			node.strictChannel = make(chan tags.Tag)
-		}
-
-		*channels = append(*channels, node.strictChannel)
+		return tagNode
 	}
 }
 
 // create a tag group for a node that already exists
-func (q *Queue) tagNodeUpdateTagGroup(tagPairs datatypes.StringMap, channels *[]chan tags.Tag) func(item any) {
+func (q *Queue) tagNodeUpdateTagGroup(tagPairs datatypes.StringMap, channels *[]chan tags.Tag, callback datastructures.OnFind) func(item any) {
 	return func(item any) {
 		node := item.(*tagNode)
 		node.lock.Lock()
+		defer node.lock.Unlock()
 
 		if node.strictChannel == nil {
 			node.strictChannel = make(chan tags.Tag)
@@ -129,8 +112,10 @@ func (q *Queue) tagNodeUpdateTagGroup(tagPairs datatypes.StringMap, channels *[]
 			// create a new tagGroup
 			node.tagGroup = newTagGroup(tagPairs, *channels)
 			// start running the tag group in the background to process messages
-			q.taskManager.AddExecuteTask("", node.tagGroup)
+			_ = q.taskManager.AddExecuteTask("", node.tagGroup)
 		}
+
+		callback(node)
 	}
 }
 
