@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"sync"
 
+	"github.com/DanLavine/willow/internal/brokers/queues"
+	"github.com/DanLavine/willow/internal/server/client"
 	"github.com/DanLavine/willow/internal/server/v1server"
 	"github.com/DanLavine/willow/pkg/config"
 	"go.uber.org/zap"
@@ -20,15 +22,17 @@ type tcp struct {
 	logger *zap.Logger
 	config *config.Config
 
+	queueManager queues.QueueManager
 	queueHandler v1server.QueueHandler
 }
 
-func NewTCP(logger *zap.Logger, config *config.Config, queueHandler v1server.QueueHandler) *tcp {
+func NewTCP(logger *zap.Logger, config *config.Config, queueManager queues.QueueManager, queueHandler v1server.QueueHandler) *tcp {
 	return &tcp{
 		lock:         &sync.Mutex{},
 		closed:       false,
 		logger:       logger.Named("tcp_server"),
 		config:       config,
+		queueManager: queueManager,
 		queueHandler: queueHandler,
 	}
 }
@@ -70,8 +74,11 @@ func (t *tcp) Execute(ctx context.Context) error {
 			}
 
 			go func(conn net.Conn) {
+				clientTracker := client.NewTracker()
+				defer clientTracker.Disconnect(logger, conn, t.queueManager)
+
 				server.ServeConn(conn, &http2.ServeConnOpts{
-					Context: ctx,
+					Context: context.WithValue(ctx, "clientTracker", clientTracker),
 					Handler: mux,
 				})
 

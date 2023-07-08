@@ -176,16 +176,15 @@ func (tg *tagGroup) ACK(totalQueueCounter *Counter, ackItem *v1.ACK) (bool, *v1.
 
 		if enqueuedItem.processing {
 			if ackItem.Passed {
+				// item was processed successfully
 				if item := tg.items.Remove(ackItem.ID); item != nil {
-					// item was processed successfully
 					totalQueueCounter.Decrement()
 				}
 			} else {
-				//TODO
+				//TODO - attempt a re-queue of the item
 				// item failed, need to re-queue it at the begining
-				if item := tg.items.Get(ackItem.ID); item != nil {
-					tg.availableItems = append([]uint64{ackItem.ID}, tg.availableItems...)
-					tg.itemReadyCount.Add(1)
+				if item := tg.items.Remove(ackItem.ID); item != nil {
+					totalQueueCounter.Decrement()
 				}
 			}
 		} else {

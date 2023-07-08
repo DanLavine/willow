@@ -6,6 +6,7 @@ import (
 
 	"github.com/DanLavine/willow/internal/brokers/tags"
 	"github.com/DanLavine/willow/internal/logger"
+	"github.com/DanLavine/willow/internal/server/client"
 	v1 "github.com/DanLavine/willow/pkg/models/v1"
 )
 
@@ -94,6 +95,10 @@ func (qh *queueHandler) Dequeue(w http.ResponseWriter, r *http.Request) {
 
 		// call the dequeue function
 		dequeueResponse := value.Interface().(tags.Tag)()
+
+		// record which client is processing which item
+		clientTracker := r.Context().Value("clientTracker").(client.Tracker)
+		clientTracker.Add(dequeueResponse.ID, dequeueResponse.BrokerInfo)
 
 		// TODO: on an error, we need to mark the message as failed?
 		w.WriteHeader(http.StatusOK)

@@ -144,4 +144,53 @@ func Test_ACK(t *testing.T) {
 			g.Expect(len(metrics.Queues[0].Tags)).To(Equal(0))
 		})
 	})
+
+	t.Run("when the client disconnects", func(t *testing.T) {
+		t.Run("it fails a pending item", func(t *testing.T) {
+			testConstruct.Start(g)
+			defer testConstruct.Shutdown(g)
+
+			defer func() {
+				fmt.Println(string(testConstruct.Session.Out.Contents()))
+				fmt.Println(string(testConstruct.Session.Err.Contents()))
+			}()
+
+			// create the queue
+			createResponse := testConstruct.Create(g, testhelpers.Queue1)
+			g.Expect(createResponse.StatusCode).To(Equal(http.StatusCreated))
+
+			// enqueue an item
+			enqueueResponse := testConstruct.Enqueue(g, testhelpers.Queue1UpdateableEnqueue)
+			g.Expect(enqueueResponse.StatusCode).To(Equal(http.StatusOK))
+
+			// dequeue an item
+			dequeueResponse := testConstruct.Dequeue(g, testhelpers.Queue1Dequeue)
+			g.Expect(dequeueResponse.StatusCode).To(Equal(http.StatusOK))
+
+			// check metrics
+			metrics := testConstruct.Metrics(g)
+			g.Expect(len(metrics.Queues)).To(Equal(1))
+			g.Expect(metrics.Queues[0].Name).To(Equal("queue1"))
+			g.Expect(metrics.Queues[0].Max).To(Equal(uint64(5)))
+			g.Expect(metrics.Queues[0].Total).To(Equal(uint64(1)))
+			g.Expect(len(metrics.Queues[0].Tags)).To(Equal(1))
+			g.Expect(metrics.Queues[0].Tags[0].Tags).To(Equal(datatypes.StringMap{"some": datatypes.String("tag")}))
+			g.Expect(metrics.Queues[0].Tags[0].Ready).To(Equal(uint64(0)))
+			g.Expect(metrics.Queues[0].Tags[0].Processing).To(Equal(uint64(1)))
+
+			// have the client disconnect
+			testConstruct.CloseClient()
+			g.Eventually(func() string {
+				return testConstruct.ServerStdout.String()
+			}).Should(ContainSubstring("Client disconnect"))
+
+			// ensure that the item was properly processed server side
+			metrics = testConstruct.Metrics(g)
+			g.Expect(len(metrics.Queues)).To(Equal(1))
+			g.Expect(metrics.Queues[0].Name).To(Equal("queue1"))
+			g.Expect(metrics.Queues[0].Max).To(Equal(uint64(5)))
+			g.Expect(metrics.Queues[0].Total).To(Equal(uint64(0)))
+			g.Expect(len(metrics.Queues[0].Tags)).To(Equal(0))
+		})
+	})
 }

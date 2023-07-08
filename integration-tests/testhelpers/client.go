@@ -102,3 +102,7 @@ func (itc *IntegrationTestConstruct) Metrics(g *gomega.WithT) v1.MetricsResponse
 
 	return metrics
 }
+
+func (itc *IntegrationTestConstruct) CloseClient() {
+	itc.ServerClient.CloseIdleConnections()
+}
