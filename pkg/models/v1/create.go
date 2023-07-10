@@ -38,7 +38,7 @@ func ParseCreateRequest(reader io.ReadCloser) (*Create, *Error) {
 
 func (c *Create) SetDefaults(queueConfig *config.QueueConfig) *Error {
 	// check max size
-	if c.QueueMaxSize > queueConfig.MaxSize {
+	if c.QueueMaxSize > *queueConfig.MaxSize {
 		return (&Error{Message: "Error: QueueMaxSize is larger than allowed max", StatusCode: http.StatusBadRequest}).With(fmt.Sprintf("requested %d", c.QueueMaxSize), fmt.Sprintf("to be less than max allowed %d", queueConfig.MaxSize))
 	}
 
@@ -47,7 +47,7 @@ func (c *Create) SetDefaults(queueConfig *config.QueueConfig) *Error {
 		return (&Error{Message: "Error: QueueMaxSize is set to 0. The queue won't allow any items", StatusCode: http.StatusBadRequest})
 	}
 
-	if c.DeadLetterQueueMaxSize > queueConfig.DeadLetterMaxSize {
+	if c.DeadLetterQueueMaxSize > *queueConfig.DeadLetterMaxSize {
 		return (&Error{Message: "Error: QueueParams.DeadLetterQueueMaxSize is larger than allowed max", StatusCode: http.StatusBadRequest}).With(fmt.Sprintf("requested %d", c.DeadLetterQueueMaxSize), fmt.Sprintf("to be less than max allowed %d", queueConfig.DeadLetterMaxSize))
 	}
 

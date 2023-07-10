@@ -16,8 +16,8 @@ import (
 )
 
 func main() {
-	cfg := config.Default()
-	if err := cfg.Parse(); err != nil {
+	cfg, err := config.Willow()
+	if err != nil {
 		log.Fatal(err)
 	}
 
@@ -35,7 +35,7 @@ func main() {
 
 	// v1 api handlers
 	//// http2 server to handle all client requests
-	taskManager.AddTask("tcp_server", server.NewTCP(logger, cfg, queueManager, v1server.NewQueueHandler(logger, queueManager)))
+	taskManager.AddTask("tcp_server", server.NewWillowTCP(logger, cfg, queueManager, v1server.NewQueueHandler(logger, queueManager)))
 	//// http server to handle a dashboard's metrics requests
 	taskManager.AddTask("metrics_server", server.NewMetrics(logger, cfg, v1server.NewMetricsHandler(logger, queueManager)))
 

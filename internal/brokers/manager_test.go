@@ -100,7 +100,7 @@ func TestQueueManager_Metrics(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	t.Run("it returns metrics for all queues", func(t *testing.T) {
-		queueConstructor := queues.NewQueueConstructor(&config.Config{StorageConfig: &config.StorageConfig{Type: config.MemoryStorage}})
+		queueConstructor := queues.NewQueueConstructor(&config.WillowConfig{StorageConfig: &config.StorageConfig{Type: &config.MemoryStorage}})
 		queueManager := NewBrokerManager(queueConstructor)
 		g.Expect(queueManager).ToNot(BeNil())
 

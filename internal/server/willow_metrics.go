@@ -13,12 +13,12 @@ import (
 
 type metrics struct {
 	logger *zap.Logger
-	config *config.Config
+	config *config.WillowConfig
 
 	metricsHandler v1server.MetricsHandler
 }
 
-func NewMetrics(logger *zap.Logger, config *config.Config, metricsHandler v1server.MetricsHandler) *metrics {
+func NewMetrics(logger *zap.Logger, config *config.WillowConfig, metricsHandler v1server.MetricsHandler) *metrics {
 	return &metrics{
 		logger:         logger.Named("tcp_server"),
 		config:         config,
@@ -35,7 +35,7 @@ func (m *metrics) Execute(ctx context.Context) error {
 	mux.HandleFunc("/v1/metrics", m.metricsHandler.Metrics)
 
 	server := &http.Server{
-		Addr:    fmt.Sprintf(":%s", m.config.MetricsPort),
+		Addr:    fmt.Sprintf(":%s", *m.config.MetricsPort),
 		Handler: mux,
 	}
 

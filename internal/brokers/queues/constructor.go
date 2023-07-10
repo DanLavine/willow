@@ -14,17 +14,17 @@ type QueueConstructor interface {
 }
 
 type queueConstructor struct {
-	config *config.Config
+	config *config.WillowConfig
 }
 
-func NewQueueConstructor(cfg *config.Config) *queueConstructor {
+func NewQueueConstructor(cfg *config.WillowConfig) *queueConstructor {
 	return &queueConstructor{
 		config: cfg,
 	}
 }
 
 func (qc *queueConstructor) NewQueue(create *v1.Create) (ManagedQueue, *v1.Error) {
-	switch qc.config.StorageConfig.Type {
+	switch *qc.config.StorageConfig.Type {
 	//case config.DiskStorage:
 	//	return disk.NewQueue(qc.config.StorageConfig.Disk.StorageDir, create)
 	case config.MemoryStorage:

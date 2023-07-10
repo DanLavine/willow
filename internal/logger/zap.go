@@ -9,13 +9,13 @@ import (
 	"go.uber.org/zap"
 )
 
-func NewZapLogger(config *config.Config) *zap.Logger {
+func NewZapLogger(config config.Config) *zap.Logger {
 	zapCfg := zap.NewProductionConfig()
 	zapCfg.OutputPaths = []string{"stdout"}
 	zapCfg.DisableCaller = true
 	zapCfg.DisableStacktrace = true
 
-	switch config.LogLevel {
+	switch config.LogLevel() {
 	case "debug":
 		zapCfg.Level = zap.NewAtomicLevelAt(zap.DebugLevel)
 	case "info":

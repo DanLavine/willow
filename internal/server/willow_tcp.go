@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"sync"
 
 	"github.com/DanLavine/willow/internal/brokers/queues"
 	"github.com/DanLavine/willow/internal/server/client"
@@ -15,32 +14,30 @@ import (
 	"golang.org/x/net/http2"
 )
 
-type tcp struct {
-	lock   *sync.Mutex
+type willowTCP struct {
 	closed bool
 
 	logger *zap.Logger
-	config *config.Config
+	config *config.WillowConfig
 
 	queueManager queues.QueueManager
 	queueHandler v1server.QueueHandler
 }
 
-func NewTCP(logger *zap.Logger, config *config.Config, queueManager queues.QueueManager, queueHandler v1server.QueueHandler) *tcp {
-	return &tcp{
-		lock:         &sync.Mutex{},
+func NewWillowTCP(logger *zap.Logger, config *config.WillowConfig, queueManager queues.QueueManager, queueHandler v1server.QueueHandler) *willowTCP {
+	return &willowTCP{
 		closed:       false,
-		logger:       logger.Named("tcp_server"),
+		logger:       logger.Named("willowTCP_server"),
 		config:       config,
 		queueManager: queueManager,
 		queueHandler: queueHandler,
 	}
 }
 
-func (t *tcp) Initialize() error { return nil }
-func (t *tcp) Cleanup() error    { return nil }
-func (t *tcp) Execute(ctx context.Context) error {
-	logger := t.logger.Named("tcp_server")
+func (t *willowTCP) Initialize() error { return nil }
+func (t *willowTCP) Cleanup() error    { return nil }
+func (t *willowTCP) Execute(ctx context.Context) error {
+	logger := t.logger
 
 	// capture any errors from the server
 	errChan := make(chan error, 1)
@@ -58,7 +55,7 @@ func (t *tcp) Execute(ctx context.Context) error {
 
 	server := http2.Server{}
 
-	listener, err := net.Listen("tcp", fmt.Sprintf(":%s", t.config.WillowPort))
+	listener, err := net.Listen("tcp", fmt.Sprintf(":%s", *t.config.WillowPort))
 	if err != nil {
 		return err
 	}
