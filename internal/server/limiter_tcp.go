@@ -47,6 +47,7 @@ func NewLimiterTCP(logger *zap.Logger, config *config.LimiterConfig, limiterHand
 	}
 }
 
+func (limiter *limiterTCP) Cleanup() error { return nil }
 func (limiter *limiterTCP) Initialize() error {
 	server := &http.Server{
 		Addr: fmt.Sprintf(":%s", *limiter.config.LimiterPort),
@@ -83,7 +84,7 @@ func (limiter *limiterTCP) Initialize() error {
 	// certs loaded successfully
 	return nil
 }
-func (limiter *limiterTCP) Cleanup() error { return nil }
+
 func (limiter *limiterTCP) Execute(ctx context.Context) error {
 	logger := limiter.logger
 

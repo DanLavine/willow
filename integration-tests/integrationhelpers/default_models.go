@@ -1,4 +1,4 @@
-package testhelpers
+package integrationhelpers
 
 import (
 	"github.com/DanLavine/willow/pkg/models/datatypes"

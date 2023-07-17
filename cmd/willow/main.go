@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"log"
+	"os"
 	"os/signal"
 	"syscall"
 
@@ -16,7 +17,7 @@ import (
 )
 
 func main() {
-	cfg, err := config.Willow()
+	cfg, err := config.Willow(os.Args[1:])
 	if err != nil {
 		log.Fatal(err)
 	}

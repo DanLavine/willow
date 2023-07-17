@@ -4,15 +4,16 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/DanLavine/willow/integration-tests/testhelpers"
 	v1 "github.com/DanLavine/willow/pkg/models/v1"
 
+	. "github.com/DanLavine/willow/integration-tests/integrationhelpers"
 	. "github.com/onsi/gomega"
 )
 
 func Test_Create(t *testing.T) {
 	g := NewGomegaWithT(t)
-	testConstruct := testhelpers.NewIntrgrationTestConstruct(g)
+
+	testConstruct := NewIntrgrationTestConstruct(g)
 	defer testConstruct.Cleanup(g)
 
 	t.Run("can create a queue with proper name", func(t *testing.T) {
@@ -25,10 +26,10 @@ func Test_Create(t *testing.T) {
 			DeadLetterQueueMaxSize: 0,
 		}
 
-		createResponse := testConstruct.Create(g, createBody)
+		createResponse := testConstruct.ServerClient.WillowCreate(g, createBody)
 		g.Expect(createResponse.StatusCode).To(Equal(http.StatusCreated))
 
-		metrics := testConstruct.Metrics(g)
+		metrics := testConstruct.ServerClient.WillowMetrics(g)
 		g.Expect(len(metrics.Queues)).To(Equal(1))
 		g.Expect(metrics.Queues[0].Name).To(Equal("test queue"))
 		g.Expect(metrics.Queues[0].Total).To(Equal(uint64(0)))
@@ -47,7 +48,7 @@ func Test_Create(t *testing.T) {
 			DeadLetterQueueMaxSize: 0,
 		}
 
-		createResponse := testConstruct.Create(g, createBody)
+		createResponse := testConstruct.ServerClient.WillowCreate(g, createBody)
 		g.Expect(createResponse.StatusCode).To(Equal(http.StatusCreated))
 
 		createBody = v1.Create{
@@ -56,10 +57,10 @@ func Test_Create(t *testing.T) {
 			DeadLetterQueueMaxSize: 0,
 		}
 
-		createResponse = testConstruct.Create(g, createBody)
+		createResponse = testConstruct.ServerClient.WillowCreate(g, createBody)
 		g.Expect(createResponse.StatusCode).To(Equal(http.StatusCreated))
 
-		metrics := testConstruct.Metrics(g)
+		metrics := testConstruct.ServerClient.WillowMetrics(g)
 		g.Expect(len(metrics.Queues)).To(Equal(2))
 		g.Expect(metrics.Queues).To(ContainElement(&v1.QueueMetricsResponse{Name: "test queue", Total: 0, Max: 5, Tags: nil, DeadLetterQueueMetrics: nil}))
 		g.Expect(metrics.Queues).To(ContainElement(&v1.QueueMetricsResponse{Name: "other queue", Total: 0, Max: 5, Tags: nil, DeadLetterQueueMetrics: nil}))
@@ -76,14 +77,14 @@ func Test_Create(t *testing.T) {
 		}
 
 		// first create
-		createResponse := testConstruct.Create(g, createBody)
+		createResponse := testConstruct.ServerClient.WillowCreate(g, createBody)
 		g.Expect(createResponse.StatusCode).To(Equal(http.StatusCreated))
 
 		// second create
-		createResponse = testConstruct.Create(g, createBody)
+		createResponse = testConstruct.ServerClient.WillowCreate(g, createBody)
 		g.Expect(createResponse.StatusCode).To(Equal(http.StatusCreated))
 
-		metrics := testConstruct.Metrics(g)
+		metrics := testConstruct.ServerClient.WillowMetrics(g)
 		g.Expect(len(metrics.Queues)).To(Equal(1))
 		g.Expect(metrics.Queues).To(ContainElement(&v1.QueueMetricsResponse{Name: "test queue", Total: 0, Max: 5, Tags: nil, DeadLetterQueueMetrics: nil}))
 	})

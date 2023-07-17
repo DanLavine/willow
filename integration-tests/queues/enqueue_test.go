@@ -4,15 +4,17 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/DanLavine/willow/integration-tests/testhelpers"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 	v1 "github.com/DanLavine/willow/pkg/models/v1"
+
+	. "github.com/DanLavine/willow/integration-tests/integrationhelpers"
 	. "github.com/onsi/gomega"
 )
 
 func Test_Enqueue(t *testing.T) {
 	g := NewGomegaWithT(t)
-	testConstruct := testhelpers.NewIntrgrationTestConstruct(g)
+
+	testConstruct := NewIntrgrationTestConstruct(g)
 	defer testConstruct.Cleanup(g)
 
 	t.Run("returns an error if the queue does not exist", func(t *testing.T) {
@@ -28,7 +30,7 @@ func Test_Enqueue(t *testing.T) {
 			Updateable: false,
 		}
 
-		createResponse := testConstruct.Enqueue(g, enqueueBody)
+		createResponse := testConstruct.ServerClient.WillowEnqueue(g, enqueueBody)
 		g.Expect(createResponse.StatusCode).To(Equal(http.StatusNotAcceptable))
 	})
 
@@ -41,7 +43,7 @@ func Test_Enqueue(t *testing.T) {
 			QueueMaxSize:           5,
 			DeadLetterQueueMaxSize: 0,
 		}
-		createResponse := testConstruct.Create(g, createBody)
+		createResponse := testConstruct.ServerClient.WillowCreate(g, createBody)
 		g.Expect(createResponse.StatusCode).To(Equal(http.StatusCreated))
 
 		enqueueBody := v1.EnqueueItemRequest{
@@ -52,10 +54,10 @@ func Test_Enqueue(t *testing.T) {
 			Data:       []byte(`hello world`),
 			Updateable: false,
 		}
-		enqueueResponse := testConstruct.Enqueue(g, enqueueBody)
+		enqueueResponse := testConstruct.ServerClient.WillowEnqueue(g, enqueueBody)
 		g.Expect(enqueueResponse.StatusCode).To(Equal(http.StatusOK))
 
-		metrics := testConstruct.Metrics(g)
+		metrics := testConstruct.ServerClient.WillowMetrics(g)
 		g.Expect(len(metrics.Queues)).To(Equal(1))
 		g.Expect(metrics.Queues[0].Name).To(Equal("test queue"))
 		g.Expect(metrics.Queues[0].Max).To(Equal(uint64(5)))
@@ -70,23 +72,23 @@ func Test_Enqueue(t *testing.T) {
 		testConstruct.Start(g)
 		defer testConstruct.Shutdown(g)
 
-		createResponse := testConstruct.Create(g, testhelpers.Queue1)
+		createResponse := testConstruct.ServerClient.WillowCreate(g, Queue1)
 		g.Expect(createResponse.StatusCode).To(Equal(http.StatusCreated))
 
 		// enqueue 4 times
-		item := testhelpers.Queue1UpdateableEnqueue
+		item := Queue1UpdateableEnqueue
 		item.Updateable = false
-		enqueueResponse := testConstruct.Enqueue(g, item)
+		enqueueResponse := testConstruct.ServerClient.WillowEnqueue(g, item)
 		g.Expect(enqueueResponse.StatusCode).To(Equal(http.StatusOK))
-		enqueueResponse = testConstruct.Enqueue(g, item)
+		enqueueResponse = testConstruct.ServerClient.WillowEnqueue(g, item)
 		g.Expect(enqueueResponse.StatusCode).To(Equal(http.StatusOK))
-		enqueueResponse = testConstruct.Enqueue(g, item)
+		enqueueResponse = testConstruct.ServerClient.WillowEnqueue(g, item)
 		g.Expect(enqueueResponse.StatusCode).To(Equal(http.StatusOK))
-		enqueueResponse = testConstruct.Enqueue(g, item)
+		enqueueResponse = testConstruct.ServerClient.WillowEnqueue(g, item)
 		g.Expect(enqueueResponse.StatusCode).To(Equal(http.StatusOK))
 
 		// check the metrics
-		metrics := testConstruct.Metrics(g)
+		metrics := testConstruct.ServerClient.WillowMetrics(g)
 		g.Expect(len(metrics.Queues)).To(Equal(1))
 		g.Expect(metrics.Queues[0].Name).To(Equal("queue1"))
 		g.Expect(metrics.Queues[0].Max).To(Equal(uint64(5)))
@@ -101,20 +103,20 @@ func Test_Enqueue(t *testing.T) {
 		testConstruct.Start(g)
 		defer testConstruct.Shutdown(g)
 
-		createResponse := testConstruct.Create(g, testhelpers.Queue1)
+		createResponse := testConstruct.ServerClient.WillowCreate(g, Queue1)
 		g.Expect(createResponse.StatusCode).To(Equal(http.StatusCreated))
 
 		// enqueue multiple tags
-		item := testhelpers.Queue1UpdateableEnqueue
-		enqueueResponse := testConstruct.Enqueue(g, item)
+		item := Queue1UpdateableEnqueue
+		enqueueResponse := testConstruct.ServerClient.WillowEnqueue(g, item)
 		g.Expect(enqueueResponse.StatusCode).To(Equal(http.StatusOK))
 
 		item.BrokerInfo.Tags = datatypes.StringMap{"new": datatypes.String("tag"), "of": datatypes.String("course")}
-		enqueueResponse = testConstruct.Enqueue(g, item)
+		enqueueResponse = testConstruct.ServerClient.WillowEnqueue(g, item)
 		g.Expect(enqueueResponse.StatusCode).To(Equal(http.StatusOK))
 
 		// check the metrics
-		metrics := testConstruct.Metrics(g)
+		metrics := testConstruct.ServerClient.WillowMetrics(g)
 		g.Expect(len(metrics.Queues)).To(Equal(1))
 		g.Expect(metrics.Queues[0].Name).To(Equal("queue1"))
 		g.Expect(metrics.Queues[0].Max).To(Equal(uint64(5)))
@@ -128,23 +130,23 @@ func Test_Enqueue(t *testing.T) {
 		testConstruct.Start(g)
 		defer testConstruct.Shutdown(g)
 
-		createResponse := testConstruct.Create(g, testhelpers.Queue1)
+		createResponse := testConstruct.ServerClient.WillowCreate(g, Queue1)
 		g.Expect(createResponse.StatusCode).To(Equal(http.StatusCreated))
 
 		// enqueue 4 times
-		item := testhelpers.Queue1UpdateableEnqueue
+		item := Queue1UpdateableEnqueue
 		item.Updateable = true
-		enqueueResponse := testConstruct.Enqueue(g, item)
+		enqueueResponse := testConstruct.ServerClient.WillowEnqueue(g, item)
 		g.Expect(enqueueResponse.StatusCode).To(Equal(http.StatusOK))
-		enqueueResponse = testConstruct.Enqueue(g, item)
+		enqueueResponse = testConstruct.ServerClient.WillowEnqueue(g, item)
 		g.Expect(enqueueResponse.StatusCode).To(Equal(http.StatusOK))
-		enqueueResponse = testConstruct.Enqueue(g, item)
+		enqueueResponse = testConstruct.ServerClient.WillowEnqueue(g, item)
 		g.Expect(enqueueResponse.StatusCode).To(Equal(http.StatusOK))
-		enqueueResponse = testConstruct.Enqueue(g, item)
+		enqueueResponse = testConstruct.ServerClient.WillowEnqueue(g, item)
 		g.Expect(enqueueResponse.StatusCode).To(Equal(http.StatusOK))
 
 		// check the metrics
-		metrics := testConstruct.Metrics(g)
+		metrics := testConstruct.ServerClient.WillowMetrics(g)
 		g.Expect(len(metrics.Queues)).To(Equal(1))
 		g.Expect(metrics.Queues[0].Name).To(Equal("queue1"))
 		g.Expect(metrics.Queues[0].Max).To(Equal(uint64(5)))
@@ -160,19 +162,19 @@ func Test_Enqueue(t *testing.T) {
 			testConstruct.Start(g)
 			defer testConstruct.Shutdown(g)
 
-			createBody := testhelpers.Queue1
+			createBody := Queue1
 			createBody.QueueMaxSize = 1
-			createResponse := testConstruct.Create(g, createBody)
+			createResponse := testConstruct.ServerClient.WillowCreate(g, createBody)
 			g.Expect(createResponse.StatusCode).To(Equal(http.StatusCreated))
 
 			// enqueue
-			item := testhelpers.Queue1UpdateableEnqueue
+			item := Queue1UpdateableEnqueue
 			item.Updateable = false
-			enqueueResponse := testConstruct.Enqueue(g, item)
+			enqueueResponse := testConstruct.ServerClient.WillowEnqueue(g, item)
 			g.Expect(enqueueResponse.StatusCode).To(Equal(http.StatusOK))
 
 			//should case an error when enquing 2nd item
-			enqueueResponse = testConstruct.Enqueue(g, item)
+			enqueueResponse = testConstruct.ServerClient.WillowEnqueue(g, item)
 			g.Expect(enqueueResponse.StatusCode).To(Equal(http.StatusTooManyRequests))
 		})
 	})

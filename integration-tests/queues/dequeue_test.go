@@ -10,15 +10,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DanLavine/willow/integration-tests/testhelpers"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 	v1 "github.com/DanLavine/willow/pkg/models/v1"
+
+	. "github.com/DanLavine/willow/integration-tests/integrationhelpers"
 	. "github.com/onsi/gomega"
 )
 
 func Test_Dequeue(t *testing.T) {
 	g := NewGomegaWithT(t)
-	testConstruct := testhelpers.NewIntrgrationTestConstruct(g)
+	testConstruct := NewIntrgrationTestConstruct(g)
 	defer testConstruct.Cleanup(g)
 
 	t.Run("it returns an error if the queue does not exist", func(t *testing.T) {
@@ -35,7 +36,8 @@ func Test_Dequeue(t *testing.T) {
 				},
 			},
 		}
-		dequeueResponse := testConstruct.Dequeue(g, dequeueRequest)
+
+		dequeueResponse := testConstruct.ServerClient.WillowDequeue(g, dequeueRequest)
 		g.Expect(dequeueResponse.StatusCode).To(Equal(http.StatusNotAcceptable))
 	})
 
@@ -44,11 +46,11 @@ func Test_Dequeue(t *testing.T) {
 		defer testConstruct.Shutdown(g)
 
 		// create the queue
-		createResponse := testConstruct.Create(g, testhelpers.Queue1)
+		createResponse := testConstruct.ServerClient.WillowCreate(g, Queue1)
 		g.Expect(createResponse.StatusCode).To(Equal(http.StatusCreated))
 
 		// enqueue an item
-		enqueueResponse := testConstruct.Enqueue(g, testhelpers.Queue1UpdateableEnqueue)
+		enqueueResponse := testConstruct.ServerClient.WillowEnqueue(g, Queue1UpdateableEnqueue)
 		g.Expect(enqueueResponse.StatusCode).To(Equal(http.StatusOK))
 
 		// dequeue the item
@@ -61,7 +63,7 @@ func Test_Dequeue(t *testing.T) {
 				},
 			},
 		}
-		dequeueResponse := testConstruct.Dequeue(g, dequeueRequest)
+		dequeueResponse := testConstruct.ServerClient.WillowDequeue(g, dequeueRequest)
 		g.Expect(dequeueResponse.StatusCode).To(Equal(http.StatusOK))
 
 		// parse response
@@ -83,10 +85,10 @@ func Test_Dequeue(t *testing.T) {
 		defer testConstruct.Shutdown(g)
 
 		// create the queue
-		createResponse := testConstruct.Create(g, testhelpers.Queue1)
+		createResponse := testConstruct.ServerClient.WillowCreate(g, Queue1)
 		g.Expect(createResponse.StatusCode).To(Equal(http.StatusCreated))
 
-		// dequeue the item
+		// dequeue the item before the queue tags exists
 		dequeueRequest := v1.ReaderSelect{
 			BrokerName: "queue1",
 			Queries: []v1.ReaderQuery{
@@ -101,7 +103,7 @@ func Test_Dequeue(t *testing.T) {
 		g.Expect(err).ToNot(HaveOccurred())
 
 		dequeueBuffer := bytes.NewBuffer(requestBody)
-		request, err := http.NewRequest("GET", fmt.Sprintf("%s/v1/brokers/item/dequeue", testConstruct.ServerAddress()), dequeueBuffer)
+		request, err := http.NewRequest("GET", "https://127.0.0.1:8080/v1/brokers/item/dequeue", dequeueBuffer)
 		g.Expect(err).ToNot(HaveOccurred())
 
 		makingRequest := make(chan struct{})
@@ -118,7 +120,7 @@ func Test_Dequeue(t *testing.T) {
 		time.Sleep(1 * time.Second) // make sure the request for a reader goes through first
 
 		// enqueue an item
-		enqueueResponse := testConstruct.Enqueue(g, testhelpers.Queue1UpdateableEnqueue)
+		enqueueResponse := testConstruct.ServerClient.WillowEnqueue(g, Queue1UpdateableEnqueue)
 		g.Expect(enqueueResponse.StatusCode).To(Equal(http.StatusOK))
 
 		// check response
@@ -144,20 +146,20 @@ func Test_Dequeue(t *testing.T) {
 		defer testConstruct.Shutdown(g)
 
 		// create the queue
-		createResponse := testConstruct.Create(g, testhelpers.Queue1)
+		createResponse := testConstruct.ServerClient.WillowCreate(g, Queue1)
 		g.Expect(createResponse.StatusCode).To(Equal(http.StatusCreated))
 
 		// enqueue multiple items
-		message1 := testhelpers.Queue1NotUpdateableEnqueue
+		message1 := Queue1NotUpdateableEnqueue
 		message1.Data = []byte(`first`)
-		message2 := testhelpers.Queue1NotUpdateableEnqueue
+		message2 := Queue1NotUpdateableEnqueue
 		message2.Data = []byte(`second`)
-		message3 := testhelpers.Queue1NotUpdateableEnqueue
+		message3 := Queue1NotUpdateableEnqueue
 		message3.Data = []byte(`third`)
 
-		g.Expect(testConstruct.Enqueue(g, message1).StatusCode).To(Equal(http.StatusOK))
-		g.Expect(testConstruct.Enqueue(g, message2).StatusCode).To(Equal(http.StatusOK))
-		g.Expect(testConstruct.Enqueue(g, message3).StatusCode).To(Equal(http.StatusOK))
+		g.Expect(testConstruct.ServerClient.WillowEnqueue(g, message1).StatusCode).To(Equal(http.StatusOK))
+		g.Expect(testConstruct.ServerClient.WillowEnqueue(g, message2).StatusCode).To(Equal(http.StatusOK))
+		g.Expect(testConstruct.ServerClient.WillowEnqueue(g, message3).StatusCode).To(Equal(http.StatusOK))
 
 		// dequeue the item
 		dequeueRequest := v1.ReaderSelect{
@@ -171,7 +173,7 @@ func Test_Dequeue(t *testing.T) {
 		}
 
 		// 1st response check
-		response1 := testConstruct.Dequeue(g, dequeueRequest)
+		response1 := testConstruct.ServerClient.WillowDequeue(g, dequeueRequest)
 		g.Expect(response1.StatusCode).To(Equal(http.StatusOK))
 
 		body, err := io.ReadAll(response1.Body)
@@ -185,7 +187,7 @@ func Test_Dequeue(t *testing.T) {
 		g.Expect(dequeueItem1.ID).To(Equal(uint64(1)))
 
 		// 2nd response check
-		response2 := testConstruct.Dequeue(g, dequeueRequest)
+		response2 := testConstruct.ServerClient.WillowDequeue(g, dequeueRequest)
 		g.Expect(response2.StatusCode).To(Equal(http.StatusOK))
 
 		body, err = io.ReadAll(response2.Body)
@@ -199,7 +201,7 @@ func Test_Dequeue(t *testing.T) {
 		g.Expect(dequeueItem2.ID).To(Equal(uint64(2)))
 
 		// 3rd response check
-		response3 := testConstruct.Dequeue(g, dequeueRequest)
+		response3 := testConstruct.ServerClient.WillowDequeue(g, dequeueRequest)
 		g.Expect(response3.StatusCode).To(Equal(http.StatusOK))
 
 		body, err = io.ReadAll(response3.Body)
@@ -219,11 +221,11 @@ func Test_Dequeue(t *testing.T) {
 			defer testConstruct.Shutdown(g)
 
 			// create the queue
-			createResponse := testConstruct.Create(g, testhelpers.Queue1)
+			createResponse := testConstruct.ServerClient.WillowCreate(g, Queue1)
 			g.Expect(createResponse.StatusCode).To(Equal(http.StatusCreated))
 
 			// enqueue an item
-			enqueueResponse := testConstruct.Enqueue(g, testhelpers.Queue1UpdateableEnqueue)
+			enqueueResponse := testConstruct.ServerClient.WillowEnqueue(g, Queue1UpdateableEnqueue)
 			g.Expect(enqueueResponse.StatusCode).To(Equal(http.StatusOK))
 
 			// dequeue the item
@@ -236,7 +238,7 @@ func Test_Dequeue(t *testing.T) {
 					},
 				},
 			}
-			dequeueResponse := testConstruct.Dequeue(g, dequeueRequest)
+			dequeueResponse := testConstruct.ServerClient.WillowDequeue(g, dequeueRequest)
 			g.Expect(dequeueResponse.StatusCode).To(Equal(http.StatusOK))
 
 			// parse response
@@ -260,22 +262,22 @@ func Test_Dequeue(t *testing.T) {
 			defer testConstruct.Shutdown(g)
 
 			// create the queue
-			createResponse := testConstruct.Create(g, testhelpers.Queue1)
+			createResponse := testConstruct.ServerClient.WillowCreate(g, Queue1)
 			g.Expect(createResponse.StatusCode).To(Equal(http.StatusCreated))
 
 			// enqueue a few items
-			enqueueResponse := testConstruct.Enqueue(g, testhelpers.Queue1UpdateableEnqueue)
+			enqueueResponse := testConstruct.ServerClient.WillowEnqueue(g, Queue1UpdateableEnqueue)
 			g.Expect(enqueueResponse.StatusCode).To(Equal(http.StatusOK))
 
-			enqueueCopy := testhelpers.Queue1UpdateableEnqueue
+			enqueueCopy := Queue1UpdateableEnqueue
 			enqueueCopy.BrokerInfo.Tags = datatypes.StringMap{"some": datatypes.String("tag"), "another": datatypes.String("tag")}
 			enqueueCopy.Data = []byte(`some more data to find`)
-			enqueueResponse = testConstruct.Enqueue(g, enqueueCopy)
+			enqueueResponse = testConstruct.ServerClient.WillowEnqueue(g, enqueueCopy)
 			g.Expect(enqueueResponse.StatusCode).To(Equal(http.StatusOK))
 
-			enqueueNotFound := testhelpers.Queue1UpdateableEnqueue
+			enqueueNotFound := Queue1UpdateableEnqueue
 			enqueueNotFound.BrokerInfo.Tags = datatypes.StringMap{"not found": datatypes.String("tag")}
-			enqueueResponse = testConstruct.Enqueue(g, enqueueNotFound)
+			enqueueResponse = testConstruct.ServerClient.WillowEnqueue(g, enqueueNotFound)
 			g.Expect(enqueueResponse.StatusCode).To(Equal(http.StatusOK))
 
 			expectedItem := []v1.DequeueItemResponse{
@@ -308,7 +310,7 @@ func Test_Dequeue(t *testing.T) {
 						},
 					},
 				}
-				dequeueResponse := testConstruct.Dequeue(g, dequeueRequest)
+				dequeueResponse := testConstruct.ServerClient.WillowDequeue(g, dequeueRequest)
 				g.Expect(dequeueResponse.StatusCode).To(Equal(http.StatusOK))
 
 				// parse response
@@ -341,23 +343,23 @@ func Test_Dequeue(t *testing.T) {
 			defer testConstruct.Shutdown(g)
 
 			// create the queue
-			createResponse := testConstruct.Create(g, testhelpers.Queue1)
+			createResponse := testConstruct.ServerClient.WillowCreate(g, Queue1)
 			g.Expect(createResponse.StatusCode).To(Equal(http.StatusCreated))
 
 			// enqueue a few items
-			enqueueResponse := testConstruct.Enqueue(g, testhelpers.Queue1UpdateableEnqueue)
+			enqueueResponse := testConstruct.ServerClient.WillowEnqueue(g, Queue1UpdateableEnqueue)
 			g.Expect(enqueueResponse.StatusCode).To(Equal(http.StatusOK))
 
-			enqueueCopy := testhelpers.Queue1UpdateableEnqueue
+			enqueueCopy := Queue1UpdateableEnqueue
 			enqueueCopy.BrokerInfo.Tags = datatypes.StringMap{"some": datatypes.String("tag"), "another": datatypes.String("tag")}
 			enqueueCopy.Data = []byte(`some more data to find`)
-			enqueueResponse = testConstruct.Enqueue(g, enqueueCopy)
+			enqueueResponse = testConstruct.ServerClient.WillowEnqueue(g, enqueueCopy)
 			g.Expect(enqueueResponse.StatusCode).To(Equal(http.StatusOK))
 
-			enqueueMatchesFound := testhelpers.Queue1UpdateableEnqueue
+			enqueueMatchesFound := Queue1UpdateableEnqueue
 			enqueueMatchesFound.BrokerInfo.Tags = datatypes.StringMap{"the other unique tag": datatypes.String("ok")}
 			enqueueMatchesFound.Data = []byte(`this should be found`)
-			enqueueResponse = testConstruct.Enqueue(g, enqueueMatchesFound)
+			enqueueResponse = testConstruct.ServerClient.WillowEnqueue(g, enqueueMatchesFound)
 			g.Expect(enqueueResponse.StatusCode).To(Equal(http.StatusOK))
 
 			expectedItem := []v1.DequeueItemResponse{
@@ -394,7 +396,7 @@ func Test_Dequeue(t *testing.T) {
 						},
 					},
 				}
-				dequeueResponse := testConstruct.Dequeue(g, dequeueRequest)
+				dequeueResponse := testConstruct.ServerClient.WillowDequeue(g, dequeueRequest)
 				g.Expect(dequeueResponse.StatusCode).To(Equal(http.StatusOK))
 
 				// parse response

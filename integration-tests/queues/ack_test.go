@@ -6,16 +6,16 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/DanLavine/willow/integration-tests/testhelpers"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 	v1 "github.com/DanLavine/willow/pkg/models/v1"
 
+	. "github.com/DanLavine/willow/integration-tests/integrationhelpers"
 	. "github.com/onsi/gomega"
 )
 
 func Test_ACK(t *testing.T) {
 	g := NewGomegaWithT(t)
-	testConstruct := testhelpers.NewIntrgrationTestConstruct(g)
+	testConstruct := NewIntrgrationTestConstruct(g)
 	defer testConstruct.Cleanup(g)
 
 	t.Run("it returns an error if the queue does not exist", func(t *testing.T) {
@@ -31,7 +31,7 @@ func Test_ACK(t *testing.T) {
 			Passed: true,
 		}
 
-		ackResponse := testConstruct.ACK(g, ackRequest)
+		ackResponse := testConstruct.ServerClient.WillowACK(g, ackRequest)
 		g.Expect(ackResponse.StatusCode).To(Equal(http.StatusNotAcceptable))
 	})
 
@@ -40,7 +40,7 @@ func Test_ACK(t *testing.T) {
 		defer testConstruct.Shutdown(g)
 
 		// create the queue
-		createResponse := testConstruct.Create(g, testhelpers.Queue1)
+		createResponse := testConstruct.ServerClient.WillowCreate(g, Queue1)
 		g.Expect(createResponse.StatusCode).To(Equal(http.StatusCreated))
 
 		ackRequest := v1.ACK{
@@ -52,7 +52,7 @@ func Test_ACK(t *testing.T) {
 			Passed: true,
 		}
 
-		ackResponse := testConstruct.ACK(g, ackRequest)
+		ackResponse := testConstruct.ServerClient.WillowACK(g, ackRequest)
 		g.Expect(ackResponse.StatusCode).To(Equal(http.StatusBadRequest))
 
 		body, err := io.ReadAll(ackResponse.Body)
@@ -65,11 +65,11 @@ func Test_ACK(t *testing.T) {
 		defer testConstruct.Shutdown(g)
 
 		// create the queue
-		createResponse := testConstruct.Create(g, testhelpers.Queue1)
+		createResponse := testConstruct.ServerClient.WillowCreate(g, Queue1)
 		g.Expect(createResponse.StatusCode).To(Equal(http.StatusCreated))
 
 		// enqueue an item
-		enqueueResponse := testConstruct.Enqueue(g, testhelpers.Queue1UpdateableEnqueue)
+		enqueueResponse := testConstruct.ServerClient.WillowEnqueue(g, Queue1UpdateableEnqueue)
 		g.Expect(enqueueResponse.StatusCode).To(Equal(http.StatusOK))
 
 		ackRequest := v1.ACK{
@@ -81,7 +81,7 @@ func Test_ACK(t *testing.T) {
 			Passed: true,
 		}
 
-		ackResponse := testConstruct.ACK(g, ackRequest)
+		ackResponse := testConstruct.ServerClient.WillowACK(g, ackRequest)
 		g.Expect(ackResponse.StatusCode).To(Equal(http.StatusBadRequest))
 
 		body, err := io.ReadAll(ackResponse.Body)
@@ -100,19 +100,19 @@ func Test_ACK(t *testing.T) {
 			}()
 
 			// create the queue
-			createResponse := testConstruct.Create(g, testhelpers.Queue1)
+			createResponse := testConstruct.ServerClient.WillowCreate(g, Queue1)
 			g.Expect(createResponse.StatusCode).To(Equal(http.StatusCreated))
 
 			// enqueue an item
-			enqueueResponse := testConstruct.Enqueue(g, testhelpers.Queue1UpdateableEnqueue)
+			enqueueResponse := testConstruct.ServerClient.WillowEnqueue(g, Queue1UpdateableEnqueue)
 			g.Expect(enqueueResponse.StatusCode).To(Equal(http.StatusOK))
 
 			// dequeue an item
-			dequeueResponse := testConstruct.Dequeue(g, testhelpers.Queue1Dequeue)
+			dequeueResponse := testConstruct.ServerClient.WillowDequeue(g, Queue1Dequeue)
 			g.Expect(dequeueResponse.StatusCode).To(Equal(http.StatusOK))
 
 			// check metrics
-			metrics := testConstruct.Metrics(g)
+			metrics := testConstruct.ServerClient.WillowMetrics(g)
 			g.Expect(len(metrics.Queues)).To(Equal(1))
 			g.Expect(metrics.Queues[0].Name).To(Equal("queue1"))
 			g.Expect(metrics.Queues[0].Max).To(Equal(uint64(5)))
@@ -132,11 +132,11 @@ func Test_ACK(t *testing.T) {
 				Passed: true,
 			}
 
-			ackResponse := testConstruct.ACK(g, ackRequest)
+			ackResponse := testConstruct.ServerClient.WillowACK(g, ackRequest)
 			g.Expect(ackResponse.StatusCode).To(Equal(http.StatusOK))
 
 			// ensure the item has been removed
-			metrics = testConstruct.Metrics(g)
+			metrics = testConstruct.ServerClient.WillowMetrics(g)
 			g.Expect(len(metrics.Queues)).To(Equal(1))
 			g.Expect(metrics.Queues[0].Name).To(Equal("queue1"))
 			g.Expect(metrics.Queues[0].Max).To(Equal(uint64(5)))
@@ -156,19 +156,19 @@ func Test_ACK(t *testing.T) {
 			}()
 
 			// create the queue
-			createResponse := testConstruct.Create(g, testhelpers.Queue1)
+			createResponse := testConstruct.ServerClient.WillowCreate(g, Queue1)
 			g.Expect(createResponse.StatusCode).To(Equal(http.StatusCreated))
 
 			// enqueue an item
-			enqueueResponse := testConstruct.Enqueue(g, testhelpers.Queue1UpdateableEnqueue)
+			enqueueResponse := testConstruct.ServerClient.WillowEnqueue(g, Queue1UpdateableEnqueue)
 			g.Expect(enqueueResponse.StatusCode).To(Equal(http.StatusOK))
 
 			// dequeue an item
-			dequeueResponse := testConstruct.Dequeue(g, testhelpers.Queue1Dequeue)
+			dequeueResponse := testConstruct.ServerClient.WillowDequeue(g, Queue1Dequeue)
 			g.Expect(dequeueResponse.StatusCode).To(Equal(http.StatusOK))
 
 			// check metrics
-			metrics := testConstruct.Metrics(g)
+			metrics := testConstruct.ServerClient.WillowMetrics(g)
 			g.Expect(len(metrics.Queues)).To(Equal(1))
 			g.Expect(metrics.Queues[0].Name).To(Equal("queue1"))
 			g.Expect(metrics.Queues[0].Max).To(Equal(uint64(5)))
@@ -179,13 +179,13 @@ func Test_ACK(t *testing.T) {
 			g.Expect(metrics.Queues[0].Tags[0].Processing).To(Equal(uint64(1)))
 
 			// have the client disconnect
-			testConstruct.CloseClient()
+			testConstruct.ServerClient.CloseClient()
 			g.Eventually(func() string {
 				return testConstruct.ServerStdout.String()
 			}).Should(ContainSubstring("Client disconnect"))
 
 			// ensure that the item was properly processed server side
-			metrics = testConstruct.Metrics(g)
+			metrics = testConstruct.ServerClient.WillowMetrics(g)
 			g.Expect(len(metrics.Queues)).To(Equal(1))
 			g.Expect(metrics.Queues[0].Name).To(Equal("queue1"))
 			g.Expect(metrics.Queues[0].Max).To(Equal(uint64(5)))
