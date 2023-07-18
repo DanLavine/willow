@@ -18,7 +18,7 @@ func TestBTree_Iterate(t *testing.T) {
 
 		err = bTree.Iterate(nil)
 		g.Expect(err).To(HaveOccurred())
-		g.Expect(err.Error()).To(Equal("Iterate callback is nil"))
+		g.Expect(err.Error()).To(Equal("callback cannot be nil"))
 	})
 
 	t.Run("it does not run the iterative function if there are no values", func(t *testing.T) {

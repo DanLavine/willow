@@ -31,5 +31,8 @@ type OnCreate func() any
 // Callback for calling a function when a value is found in a tree
 type OnFind func(item any)
 
+// Callback where a query might find multiple items to return
+type OnFindSelection func(item []any)
+
 // Callback to check that an item can actually be removed from a tree
 type CanDelete func(item any) bool

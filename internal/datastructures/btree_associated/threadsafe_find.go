@@ -6,6 +6,7 @@ import (
 	"github.com/DanLavine/willow/internal/datastructures"
 	"github.com/DanLavine/willow/internal/datastructures/set"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
+	"github.com/DanLavine/willow/pkg/models/query"
 )
 
 func (at *threadsafeAssociatedTree) Find(keyValuePairs datatypes.StringMap, onFind datastructures.OnFind) error {
@@ -66,4 +67,46 @@ func (at *threadsafeAssociatedTree) Find(keyValuePairs datatypes.StringMap, onFi
 	}
 
 	return nil
+}
+
+// FindQuery will find any items that match the provided query parameter
+func (at *threadsafeAssociatedTree) FindQuery(selection query.Select, onFindSelection datastructures.OnFindSelection) error {
+	if err := selection.Validate(); err != nil {
+		return err
+	}
+
+	if onFindSelection == nil {
+		return fmt.Errorf("onFindSelection cannot be nil")
+	}
+
+	at.lock.RLock()
+	defer at.lock.RUnlock()
+
+	items := []any{}
+	callback := func(item any) {
+		items = append(items, item)
+	}
+
+	// Select all items in the tree
+	if selection.Where == nil && len(selection.And) == 0 && len(selection.Or) == 0 {
+		at.idTree.Iterate(callback)
+	}
+
+	if selection.Where != nil {
+
+	}
+
+	onFindSelection(items)
+	return nil
+}
+
+func (at *threadsafeAssociatedTree) selectAll(onFindSelection datastructures.OnFindSelection) {
+	items := []any{}
+	at.idTree.Iterate(func(item any) {
+		items = append(items, item)
+	})
+}
+
+func (at *threadsafeAssociatedTree) selectWhere(query *query.Query, callback datastructures.OnFind, eonFindSelection datastructures.OnFindSelection) {
+
 }

@@ -37,6 +37,12 @@ func (s *set[T]) Add(value T) {
 	s.values[value] = struct{}{}
 }
 
+func (s *set[T]) AddBulk(values []T) {
+	for _, value := range values {
+		s.values[value] = struct{}{}
+	}
+}
+
 func (s *set[T]) Clear() {
 	s.values = map[T]struct{}{}
 }

@@ -22,22 +22,22 @@ type ComparableDataType interface {
 
 type DataType int
 
-const (
-	T_uint8 DataType = iota
-	T_uint16
-	T_uint32
-	T_uint64
-	T_uint
-	T_int8
-	T_int16
-	T_int32
-	T_int64
-	T_int
-	T_float32
-	T_float64
-	T_string
-	T_nil // there is no "value". Used when we only care about keys all pointing to the same thing
-	T_any // the value is a complex user defined struct
+var (
+	T_uint8   DataType = 0
+	T_uint16  DataType = 1
+	T_uint32  DataType = 2
+	T_uint64  DataType = 3
+	T_uint    DataType = 4
+	T_int8    DataType = 5
+	T_int16   DataType = 6
+	T_int32   DataType = 7
+	T_int64   DataType = 8
+	T_int     DataType = 9
+	T_float32 DataType = 10
+	T_float64 DataType = 11
+	T_string  DataType = 12
+	T_nil     DataType = 13 // there is no "value". Used when we only care about keys all pointing to the same thing
+	T_any     DataType = 14 // the value is a complex user defined struct
 
 	// T_bool doesn't make much sense since it can oonly ever be true or false
 )
@@ -49,6 +49,9 @@ type EncapsulatedData struct {
 }
 
 func (edt EncapsulatedData) Less(comparableObj EncapsulatedData) bool {
+	//fmt.Println("edt:", edt)
+	//fmt.Println("compareable:", comparableObj)
+
 	// know data type is less
 	if edt.DataType < comparableObj.DataType {
 		return true
