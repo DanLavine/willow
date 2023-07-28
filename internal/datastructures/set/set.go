@@ -7,6 +7,9 @@ type Set[T comparable] interface {
 	// Add a value to the set
 	Add(values T)
 
+	// add a number of values to a set
+	AddBulk(values []T)
+
 	// Remove a value from the set
 	Remove(value T)
 

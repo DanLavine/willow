@@ -25,10 +25,12 @@ func GreaterThan() *Comparison        { return &greaterThan }
 func GreaterThanOrEqual() *Comparison { return &greaterThanOrEqual }
 
 type Value struct {
-	Exists *bool
+	Exists     *bool
+	ExistsType *datatypes.DataType
 
 	Value           *datatypes.EncapsulatedData
 	ValueComparison *Comparison
+	ValueTypeMatch  *bool
 }
 
 func (v *Value) Validate() error {

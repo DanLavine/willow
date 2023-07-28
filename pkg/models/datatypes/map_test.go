@@ -106,9 +106,6 @@ func TestStringMap_GenerateTagPairs(t *testing.T) {
 		stringMap := setupStringMap(g)
 		generatedTagGroups := stringMap.GenerateTagPairs()
 
-		fmt.Printf("generated string map len: %#v\n", len(generatedTagGroups))
-		fmt.Printf("generated string map: %#v\n", generatedTagGroups)
-
 		// a group
 		MatchOnce(g, generatedTagGroups, StringMap{"a": String("1"), "b": String("2"), "c": String("3")})
 		MatchOnce(g, generatedTagGroups, StringMap{"a": String("1"), "b": String("2"), "d": String("4")})

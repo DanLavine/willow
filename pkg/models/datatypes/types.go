@@ -17,10 +17,27 @@ type EnumerableCompareType interface {
 
 // user defined interface that needs to implemented for each custom data type
 type ComparableDataType interface {
+	// compare the objects including type and value
 	Less(item ComparableDataType) bool
+
+	// check if the compared object is Less then the object's type
+	LessType(item ComparableDataType) bool
+
+	// compare the objects' Values. This will panic if not coomparing the same types. So needs a
+	// few checks against the LessType to know if this is safe.
+	LessValue(item ComparableDataType) bool
 }
 
 type DataType int
+
+func (dt DataType) Less(dataType DataType) bool {
+	// know data type is less
+	if dt < dataType {
+		return true
+	}
+
+	return false
+}
 
 var (
 	T_uint8   DataType = 0
@@ -49,9 +66,6 @@ type EncapsulatedData struct {
 }
 
 func (edt EncapsulatedData) Less(comparableObj EncapsulatedData) bool {
-	//fmt.Println("edt:", edt)
-	//fmt.Println("compareable:", comparableObj)
-
 	// know data type is less
 	if edt.DataType < comparableObj.DataType {
 		return true
@@ -93,6 +107,60 @@ func (edt EncapsulatedData) Less(comparableObj EncapsulatedData) bool {
 	case T_nil:
 		// NOTE: This is important to always return false. This way on a btree when doing the lookup, we will always
 		// find 1 copy of this item. The check is !item1.Less(item2) && !item2.Less(item1) -> returns true
+		return false
+	default: // T_any
+		// In this case the user defined both Values and should know how to compare their own data types
+		//
+		// NOTE: we know these casts are safe since the end user created these from the `Any(...)` function
+		return edt.Value.(ComparableDataType).Less(comparableObj.Value.(ComparableDataType))
+	}
+}
+
+func (edt EncapsulatedData) LessType(comparableObj EncapsulatedData) bool {
+	// know data type is less
+	if edt.DataType < comparableObj.DataType {
+		return true
+	}
+
+	return false
+}
+
+func (edt EncapsulatedData) LessValue(comparableObj EncapsulatedData) bool {
+	// when the EncapsulatedData and ComparableDataType are the same, check the actual values
+	switch edt.DataType {
+	case T_uint8:
+		return edt.Value.(uint8) < comparableObj.Value.(uint8)
+	case T_uint16:
+		return edt.Value.(uint16) < comparableObj.Value.(uint16)
+	case T_uint32:
+		return edt.Value.(uint32) < comparableObj.Value.(uint32)
+	case T_uint64:
+		return edt.Value.(uint64) < comparableObj.Value.(uint64)
+	case T_uint:
+		return edt.Value.(uint) < comparableObj.Value.(uint)
+	case T_int8:
+		return edt.Value.(int8) < comparableObj.Value.(int8)
+	case T_int16:
+		return edt.Value.(int16) < comparableObj.Value.(int16)
+	case T_int32:
+		return edt.Value.(int32) < comparableObj.Value.(int32)
+	case T_int64:
+		return edt.Value.(int64) < comparableObj.Value.(int64)
+	case T_int:
+		return edt.Value.(int) < comparableObj.Value.(int)
+	case T_float32:
+		return edt.Value.(float32) < comparableObj.Value.(float32)
+	case T_float64:
+		return edt.Value.(float64) < comparableObj.Value.(float64)
+	case T_string:
+		return edt.Value.(string) < comparableObj.Value.(string)
+	case T_nil:
+		// NOTE: This is important to always return false. This way on a btree when doing the lookup, we will always
+		// find 1 copy of this item. The check is !item1.Less(item2) && !item2.Less(item1) -> returns true
+		if comparableObj.DataType != T_nil {
+			panic("comparable object data type is not T_nil")
+		}
+
 		return false
 	default: // T_any
 		// In this case the user defined both Values and should know how to compare their own data types

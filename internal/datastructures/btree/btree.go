@@ -26,6 +26,17 @@ type BTree interface {
 	// - error - any errors encontered. I.E. key is not valid
 	Find(key datatypes.EncapsulatedData, onFind datastructures.OnFind) error
 
+	FindNotEqual(key datatypes.EncapsulatedData, callback datastructures.OnFindSelection) error
+	FindLessThan(key datatypes.EncapsulatedData, callback datastructures.OnFindSelection) error
+	FindLessThanOrEqual(key datatypes.EncapsulatedData, callback datastructures.OnFindSelection) error
+	FindGreaterThan(key datatypes.EncapsulatedData, callback datastructures.OnFindSelection) error
+	FindGreaterThanOrEqual(key datatypes.EncapsulatedData, callback datastructures.OnFindSelection) error
+
+	FindNotEqualMatchType(key datatypes.EncapsulatedData, callback datastructures.OnFindSelection) error
+	FindLessThanMatchType(key datatypes.EncapsulatedData, callback datastructures.OnFindSelection) error
+	FindLessThanOrEqualMatchType(key datatypes.EncapsulatedData, callback datastructures.OnFindSelection) error
+	FindGreaterThanMatchType(key datatypes.EncapsulatedData, callback datastructures.OnFindSelection) error
+	FindGreaterThanOrEqualMatchType(key datatypes.EncapsulatedData, callback datastructures.OnFindSelection) error
 	// If the provided key does not exist, the onCreate function will be called to initalize a new object.
 	// Otherwise the onFind callback will be invoked for the value associated with the key
 	//
@@ -47,6 +58,8 @@ type BTree interface {
 	// RETURNS:
 	// - error - any errors with parameters encontered. I.E. callback is nil
 	Iterate(callback datastructures.OnFind) error
+
+	IterateMatchType(dataType datatypes.DataType, callback datastructures.OnFind) error
 
 	// Delete an item in the Tree
 	//
