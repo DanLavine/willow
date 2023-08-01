@@ -41,7 +41,7 @@ func (kl *KeyLimits) Validate(keys int) error {
 	}
 
 	if *kl.NumberOfKeys <= 0 {
-		return fmt.Errorf("NumberOfKeys: Must be larger than the 0")
+		return fmt.Errorf("NumberOfKeys: Must be larger than the provided 0")
 	}
 
 	if keys != 0 && keys > *kl.NumberOfKeys {

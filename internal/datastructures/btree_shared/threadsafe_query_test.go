@@ -1,7 +1,6 @@
 package btreeshared
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/DanLavine/willow/pkg/models/datatypes"
@@ -33,7 +32,7 @@ func TestAssociatedTree_Query_ParamCheck(t *testing.T) {
 	})
 }
 
-func TestAssociatedTree_Query(t *testing.T) {
+func TestAssociatedTree_Query_Basic(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	existsTrue := true
@@ -69,7 +68,10 @@ func TestAssociatedTree_Query(t *testing.T) {
 				foundItems = items
 			}
 
-			err := associatedTree.Query(query.Select{}, onFindSelection)
+			query := query.Select{}
+			g.Expect(query.Validate()).ToNot(HaveOccurred())
+
+			err := associatedTree.Query(query, onFindSelection)
 			g.Expect(err).ToNot(HaveOccurred())
 			g.Expect(foundItems).To(ContainElements("1", "2", "3", "4", "5", "6"))
 		})
@@ -113,6 +115,7 @@ func TestAssociatedTree_Query(t *testing.T) {
 							},
 						},
 					}
+					g.Expect(query.Validate()).ToNot(HaveOccurred())
 
 					err := associatedTree.Query(query, onFindSelection)
 					g.Expect(err).ToNot(HaveOccurred())
@@ -140,6 +143,7 @@ func TestAssociatedTree_Query(t *testing.T) {
 								},
 							},
 						}
+						g.Expect(query.Validate()).ToNot(HaveOccurred())
 
 						err := associatedTree.Query(query, onFindSelection)
 						g.Expect(err).ToNot(HaveOccurred())
@@ -165,6 +169,7 @@ func TestAssociatedTree_Query(t *testing.T) {
 								},
 							},
 						}
+						g.Expect(query.Validate()).ToNot(HaveOccurred())
 
 						err := associatedTree.Query(query, onFindSelection)
 						g.Expect(err).ToNot(HaveOccurred())
@@ -188,6 +193,7 @@ func TestAssociatedTree_Query(t *testing.T) {
 								},
 							},
 						}
+						g.Expect(query.Validate()).ToNot(HaveOccurred())
 
 						err := associatedTree.Query(query, onFindSelection)
 						g.Expect(err).ToNot(HaveOccurred())
@@ -212,6 +218,7 @@ func TestAssociatedTree_Query(t *testing.T) {
 							},
 						},
 					}
+					g.Expect(query.Validate()).ToNot(HaveOccurred())
 
 					err := associatedTree.Query(query, onFindSelection)
 					g.Expect(err).ToNot(HaveOccurred())
@@ -239,6 +246,7 @@ func TestAssociatedTree_Query(t *testing.T) {
 								},
 							},
 						}
+						g.Expect(query.Validate()).ToNot(HaveOccurred())
 
 						err := associatedTree.Query(query, onFindSelection)
 						g.Expect(err).ToNot(HaveOccurred())
@@ -264,6 +272,7 @@ func TestAssociatedTree_Query(t *testing.T) {
 								},
 							},
 						}
+						g.Expect(query.Validate()).ToNot(HaveOccurred())
 
 						err := associatedTree.Query(query, onFindSelection)
 						g.Expect(err).ToNot(HaveOccurred())
@@ -294,6 +303,7 @@ func TestAssociatedTree_Query(t *testing.T) {
 								},
 							},
 						}
+						g.Expect(query.Validate()).ToNot(HaveOccurred())
 
 						err := associatedTree.Query(query, onFindSelection)
 						g.Expect(err).ToNot(HaveOccurred())
@@ -340,6 +350,7 @@ func TestAssociatedTree_Query(t *testing.T) {
 							},
 						},
 					}
+					g.Expect(query.Validate()).ToNot(HaveOccurred())
 
 					err := associatedTree.Query(query, onFindSelection)
 					g.Expect(err).ToNot(HaveOccurred())
@@ -367,6 +378,7 @@ func TestAssociatedTree_Query(t *testing.T) {
 								},
 							},
 						}
+						g.Expect(query.Validate()).ToNot(HaveOccurred())
 
 						err := associatedTree.Query(query, onFindSelection)
 						g.Expect(err).ToNot(HaveOccurred())
@@ -392,6 +404,7 @@ func TestAssociatedTree_Query(t *testing.T) {
 								},
 							},
 						}
+						g.Expect(query.Validate()).ToNot(HaveOccurred())
 
 						err := associatedTree.Query(query, onFindSelection)
 						g.Expect(err).ToNot(HaveOccurred())
@@ -415,6 +428,7 @@ func TestAssociatedTree_Query(t *testing.T) {
 								},
 							},
 						}
+						g.Expect(query.Validate()).ToNot(HaveOccurred())
 
 						err := associatedTree.Query(query, onFindSelection)
 						g.Expect(err).ToNot(HaveOccurred())
@@ -439,6 +453,7 @@ func TestAssociatedTree_Query(t *testing.T) {
 							},
 						},
 					}
+					g.Expect(query.Validate()).ToNot(HaveOccurred())
 
 					err := associatedTree.Query(query, onFindSelection)
 					g.Expect(err).ToNot(HaveOccurred())
@@ -466,6 +481,7 @@ func TestAssociatedTree_Query(t *testing.T) {
 								},
 							},
 						}
+						g.Expect(query.Validate()).ToNot(HaveOccurred())
 
 						err := associatedTree.Query(query, onFindSelection)
 						g.Expect(err).ToNot(HaveOccurred())
@@ -491,6 +507,7 @@ func TestAssociatedTree_Query(t *testing.T) {
 								},
 							},
 						}
+						g.Expect(query.Validate()).ToNot(HaveOccurred())
 
 						err := associatedTree.Query(query, onFindSelection)
 						g.Expect(err).ToNot(HaveOccurred())
@@ -522,6 +539,7 @@ func TestAssociatedTree_Query(t *testing.T) {
 								},
 							},
 						}
+						g.Expect(query.Validate()).ToNot(HaveOccurred())
 
 						err := associatedTree.Query(query, onFindSelection)
 						g.Expect(err).ToNot(HaveOccurred())
@@ -549,6 +567,7 @@ func TestAssociatedTree_Query(t *testing.T) {
 						},
 					},
 				}
+				g.Expect(query.Validate()).ToNot(HaveOccurred())
 
 				err := associatedTree.Query(query, onFindSelection)
 				g.Expect(err).ToNot(HaveOccurred())
@@ -559,9 +578,9 @@ func TestAssociatedTree_Query(t *testing.T) {
 	})
 
 	t.Run("Desribe Select WHERE.Value query", func(t *testing.T) {
-		t.Run("Context when the MatchType is not set or false", func(t *testing.T) {
+		t.Run("Context when the MatchType is not set", func(t *testing.T) {
 			t.Run("Context when ValueCompare is =", func(t *testing.T) {
-				t.Run("It matches only the itmes that contain the exact key values", func(t *testing.T) {
+				t.Run("It matches only the items that contain the exact key values", func(t *testing.T) {
 					associatedTree := setupQuery(g)
 
 					var foundItems []any
@@ -577,6 +596,7 @@ func TestAssociatedTree_Query(t *testing.T) {
 							},
 						},
 					}
+					g.Expect(query.Validate()).ToNot(HaveOccurred())
 
 					err := associatedTree.Query(query, onFindSelection)
 					g.Expect(err).ToNot(HaveOccurred())
@@ -585,7 +605,7 @@ func TestAssociatedTree_Query(t *testing.T) {
 				})
 
 				t.Run("Context whene there are multiple key values", func(t *testing.T) {
-					t.Run("It matches only the itmes that contain all the exact key values", func(t *testing.T) {
+					t.Run("It matches only the items that contain all the exact key values", func(t *testing.T) {
 						associatedTree := setupQuery(g)
 
 						var foundItems []any
@@ -603,6 +623,7 @@ func TestAssociatedTree_Query(t *testing.T) {
 								},
 							},
 						}
+						g.Expect(query.Validate()).ToNot(HaveOccurred())
 
 						err := associatedTree.Query(query, onFindSelection)
 						g.Expect(err).ToNot(HaveOccurred())
@@ -613,7 +634,7 @@ func TestAssociatedTree_Query(t *testing.T) {
 			})
 
 			t.Run("Context when ValueCompare is !=", func(t *testing.T) {
-				t.Run("It matches any itmes that do not contain the key value", func(t *testing.T) {
+				t.Run("It matches any items that do not contain the key value", func(t *testing.T) {
 					associatedTree := setupQuery(g)
 
 					var foundItems []any
@@ -629,6 +650,7 @@ func TestAssociatedTree_Query(t *testing.T) {
 							},
 						},
 					}
+					g.Expect(query.Validate()).ToNot(HaveOccurred())
 
 					err := associatedTree.Query(query, onFindSelection)
 					g.Expect(err).ToNot(HaveOccurred())
@@ -637,7 +659,7 @@ func TestAssociatedTree_Query(t *testing.T) {
 				})
 
 				t.Run("Context whene there are multiple key values", func(t *testing.T) {
-					t.Run("It matches all itmes that contain none of the key values", func(t *testing.T) {
+					t.Run("It matches all items that contain none of the key values", func(t *testing.T) {
 						associatedTree := NewThreadSafe()
 
 						// create a number of entries in the associated tree
@@ -667,10 +689,10 @@ func TestAssociatedTree_Query(t *testing.T) {
 								},
 							},
 						}
+						g.Expect(query.Validate()).ToNot(HaveOccurred())
 
 						err := associatedTree.Query(query, onFindSelection)
 						g.Expect(err).ToNot(HaveOccurred())
-						fmt.Println("foundItem:", foundItems)
 						g.Expect(len(foundItems)).To(Equal(3))
 						g.Expect(foundItems).To(ContainElements("1", "2", "3"))
 					})
@@ -678,7 +700,7 @@ func TestAssociatedTree_Query(t *testing.T) {
 			})
 
 			t.Run("Context when ValueCompare is <", func(t *testing.T) {
-				t.Run("It matches only the itmes that are less than the provided key value", func(t *testing.T) {
+				t.Run("It matches only the items that are less than the provided key value", func(t *testing.T) {
 					associatedTree := setupQuery(g)
 
 					var foundItems []any
@@ -694,6 +716,7 @@ func TestAssociatedTree_Query(t *testing.T) {
 							},
 						},
 					}
+					g.Expect(query.Validate()).ToNot(HaveOccurred())
 
 					err := associatedTree.Query(query, onFindSelection)
 					g.Expect(err).ToNot(HaveOccurred())
@@ -703,7 +726,7 @@ func TestAssociatedTree_Query(t *testing.T) {
 			})
 
 			t.Run("Context when ValueCompare is <=", func(t *testing.T) {
-				t.Run("It matches only the itmes that are less than or equal to the provided key value", func(t *testing.T) {
+				t.Run("It matches only the items that are less than or equal to the provided key value", func(t *testing.T) {
 					associatedTree := setupQuery(g)
 
 					var foundItems []any
@@ -719,6 +742,7 @@ func TestAssociatedTree_Query(t *testing.T) {
 							},
 						},
 					}
+					g.Expect(query.Validate()).ToNot(HaveOccurred())
 
 					err := associatedTree.Query(query, onFindSelection)
 					g.Expect(err).ToNot(HaveOccurred())
@@ -728,7 +752,7 @@ func TestAssociatedTree_Query(t *testing.T) {
 			})
 
 			t.Run("Context when ValueCompare is >", func(t *testing.T) {
-				t.Run("It matches only the itmes that are greater than the provided key value", func(t *testing.T) {
+				t.Run("It matches only the items that are greater than the provided key value", func(t *testing.T) {
 					associatedTree := setupQuery(g)
 
 					var foundItems []any
@@ -744,6 +768,7 @@ func TestAssociatedTree_Query(t *testing.T) {
 							},
 						},
 					}
+					g.Expect(query.Validate()).ToNot(HaveOccurred())
 
 					err := associatedTree.Query(query, onFindSelection)
 					g.Expect(err).ToNot(HaveOccurred())
@@ -753,7 +778,7 @@ func TestAssociatedTree_Query(t *testing.T) {
 			})
 
 			t.Run("Context when ValueCompare is >=", func(t *testing.T) {
-				t.Run("It matches only the itmes that are greater than or equal to the provided key value", func(t *testing.T) {
+				t.Run("It matches only the items that are greater than or equal to the provided key value", func(t *testing.T) {
 					associatedTree := setupQuery(g)
 
 					var foundItems []any
@@ -769,6 +794,7 @@ func TestAssociatedTree_Query(t *testing.T) {
 							},
 						},
 					}
+					g.Expect(query.Validate()).ToNot(HaveOccurred())
 
 					err := associatedTree.Query(query, onFindSelection)
 					g.Expect(err).ToNot(HaveOccurred())
@@ -795,6 +821,7 @@ func TestAssociatedTree_Query(t *testing.T) {
 						},
 					},
 				}
+				g.Expect(query.Validate()).ToNot(HaveOccurred())
 
 				err := associatedTree.Query(query, onFindSelection)
 				g.Expect(err).ToNot(HaveOccurred())
@@ -802,5 +829,466 @@ func TestAssociatedTree_Query(t *testing.T) {
 				g.Expect(foundItems).To(ContainElements("5"))
 			})
 		})
+
+		t.Run("Context when a MatchType is set", func(t *testing.T) {
+			typeMatchTrue := true
+
+			t.Run("Context when ValueCompare is !=", func(t *testing.T) {
+				t.Run("It matches any items that do not contain the key value for the selected type", func(t *testing.T) {
+					associatedTree := setupQuery(g)
+
+					var foundItems []any
+					onFindSelection := func(items []any) {
+						foundItems = items
+					}
+
+					int8Four := datatypes.Int8(4)
+					query := query.Select{
+						Where: &query.Query{
+							KeyValues: map[string]query.Value{
+								"1": {Value: &int8Four, ValueComparison: query.NotEquals(), ValueTypeMatch: &typeMatchTrue},
+							},
+						},
+					}
+					g.Expect(query.Validate()).ToNot(HaveOccurred())
+
+					err := associatedTree.Query(query, onFindSelection)
+					g.Expect(err).ToNot(HaveOccurred())
+					g.Expect(len(foundItems)).To(Equal(1))
+					g.Expect(foundItems).To(ContainElements("3"))
+				})
+			})
+
+			t.Run("Context when ValueCompare is <", func(t *testing.T) {
+				t.Run("It matches only the items that are less than the provided key value and share a type", func(t *testing.T) {
+					associatedTree := setupQuery(g)
+
+					var foundItems []any
+					onFindSelection := func(items []any) {
+						foundItems = items
+					}
+
+					intTwo := datatypes.Int(2)
+					query := query.Select{
+						Where: &query.Query{
+							KeyValues: map[string]query.Value{
+								"1": {Value: &intTwo, ValueComparison: query.LessThan(), ValueTypeMatch: &typeMatchTrue},
+							},
+						},
+					}
+					g.Expect(query.Validate()).ToNot(HaveOccurred())
+
+					err := associatedTree.Query(query, onFindSelection)
+					g.Expect(err).ToNot(HaveOccurred())
+					g.Expect(len(foundItems)).To(Equal(1))
+					g.Expect(foundItems).To(ContainElements("1"))
+				})
+			})
+
+			t.Run("Context when ValueCompare is <=", func(t *testing.T) {
+				t.Run("It matches only the items that are less than or equal to the provided key value when the types match", func(t *testing.T) {
+					associatedTree := setupQuery(g)
+
+					var foundItems []any
+					onFindSelection := func(items []any) {
+						foundItems = items
+					}
+
+					intOne := datatypes.Int(1)
+					query := query.Select{
+						Where: &query.Query{
+							KeyValues: map[string]query.Value{
+								"1": {Value: &intOne, ValueComparison: query.LessThanOrEqual(), ValueTypeMatch: &typeMatchTrue},
+							},
+						},
+					}
+					g.Expect(query.Validate()).ToNot(HaveOccurred())
+
+					err := associatedTree.Query(query, onFindSelection)
+					g.Expect(err).ToNot(HaveOccurred())
+					g.Expect(len(foundItems)).To(Equal(1))
+					g.Expect(foundItems).To(ContainElements("1"))
+				})
+			})
+
+			t.Run("Context when ValueCompare is >", func(t *testing.T) {
+				t.Run("It matches only the items that are greater than the provided key value for the matched type", func(t *testing.T) {
+					associatedTree := setupQuery(g)
+
+					var foundItems []any
+					onFindSelection := func(items []any) {
+						foundItems = items
+					}
+
+					int8Three := datatypes.Int8(3)
+					query := query.Select{
+						Where: &query.Query{
+							KeyValues: map[string]query.Value{
+								"1": {Value: &int8Three, ValueComparison: query.GreaterThan(), ValueTypeMatch: &typeMatchTrue},
+							},
+						},
+					}
+					g.Expect(query.Validate()).ToNot(HaveOccurred())
+
+					err := associatedTree.Query(query, onFindSelection)
+					g.Expect(err).ToNot(HaveOccurred())
+					g.Expect(len(foundItems)).To(Equal(1))
+					g.Expect(foundItems).To(ContainElements("6"))
+				})
+			})
+
+			t.Run("Context when ValueCompare is >=", func(t *testing.T) {
+				t.Run("It matches only the items that are greater than or equal to the provided key value, when keys match", func(t *testing.T) {
+					associatedTree := setupQuery(g)
+
+					var foundItems []any
+					onFindSelection := func(items []any) {
+						foundItems = items
+					}
+
+					int8Four := datatypes.Int8(4)
+					query := query.Select{
+						Where: &query.Query{
+							KeyValues: map[string]query.Value{
+								"1": {Value: &int8Four, ValueComparison: query.GreaterThanOrEqual(), ValueTypeMatch: &typeMatchTrue},
+							},
+						},
+					}
+					g.Expect(query.Validate()).ToNot(HaveOccurred())
+
+					err := associatedTree.Query(query, onFindSelection)
+					g.Expect(err).ToNot(HaveOccurred())
+					g.Expect(len(foundItems)).To(Equal(1))
+					g.Expect(foundItems).To(ContainElements("6"))
+				})
+			})
+
+			t.Run("It matches all provided key value comparisons when there are multiple", func(t *testing.T) {
+				associatedTree := setupQuery(g)
+
+				var foundItems []any
+				onFindSelection := func(items []any) {
+					foundItems = items
+				}
+
+				int8Two := datatypes.Int8(2)
+				float32_5_4 := datatypes.Float32(5.4)
+				query := query.Select{
+					Where: &query.Query{
+						KeyValues: map[string]query.Value{
+							"1": {Value: &int8Two, ValueComparison: query.GreaterThanOrEqual(), ValueTypeMatch: &typeMatchTrue},
+							"2": {Value: &float32_5_4, ValueComparison: query.LessThan(), ValueTypeMatch: &typeMatchTrue},
+						},
+					},
+				}
+				g.Expect(query.Validate()).ToNot(HaveOccurred())
+
+				err := associatedTree.Query(query, onFindSelection)
+				g.Expect(err).ToNot(HaveOccurred())
+				g.Expect(len(foundItems)).To(Equal(1))
+				g.Expect(foundItems).To(ContainElements("6"))
+			})
+		})
+	})
+}
+
+func TestAssociatedTree_Query_JoinAND(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	noOpOnFind := func(item any) {}
+
+	setupQuery := func(g *GomegaWithT) *threadsafeAssociatedTree {
+		associatedTree := NewThreadSafe()
+
+		// create a number of entries in the associated tree
+		keyValues1 := datatypes.StringMap{"1": datatypes.Int(1)}
+		keyValues2 := datatypes.StringMap{"2": datatypes.Int(2)}
+		keyValues3 := datatypes.StringMap{"3": datatypes.Int(3)}
+		keyValues4 := datatypes.StringMap{"1": datatypes.String("1")}
+		keyValues5 := datatypes.StringMap{"2": datatypes.String("2")}
+		keyValues6 := datatypes.StringMap{"3": datatypes.String("3")}
+		keyValues7 := datatypes.StringMap{"1": datatypes.Int(1), "2": datatypes.Int(2)}
+		keyValues8 := datatypes.StringMap{"1": datatypes.Int(1), "2": datatypes.String("2")}
+		keyValues9 := datatypes.StringMap{"1": datatypes.Int(1), "3": datatypes.Int(3)}
+		keyValues10 := datatypes.StringMap{"1": datatypes.Int(1), "3": datatypes.String("3")}
+		keyValues11 := datatypes.StringMap{"2": datatypes.Int(2), "3": datatypes.Int(3)}
+		keyValues12 := datatypes.StringMap{"2": datatypes.Int(2), "3": datatypes.String("3")}
+		keyValues13 := datatypes.StringMap{"1": datatypes.Int(1), "2": datatypes.Int(2), "3": datatypes.Int(3)}
+		keyValues14 := datatypes.StringMap{"1": datatypes.Int(1), "2": datatypes.String("2"), "3": datatypes.String("3")}
+
+		g.Expect(associatedTree.CreateOrFind(keyValues1, func() any { return "1" }, noOpOnFind)).ToNot(HaveOccurred())
+		g.Expect(associatedTree.CreateOrFind(keyValues2, func() any { return "2" }, noOpOnFind)).ToNot(HaveOccurred())
+		g.Expect(associatedTree.CreateOrFind(keyValues3, func() any { return "3" }, noOpOnFind)).ToNot(HaveOccurred())
+		g.Expect(associatedTree.CreateOrFind(keyValues4, func() any { return "4" }, noOpOnFind)).ToNot(HaveOccurred())
+		g.Expect(associatedTree.CreateOrFind(keyValues5, func() any { return "5" }, noOpOnFind)).ToNot(HaveOccurred())
+		g.Expect(associatedTree.CreateOrFind(keyValues6, func() any { return "6" }, noOpOnFind)).ToNot(HaveOccurred())
+		g.Expect(associatedTree.CreateOrFind(keyValues7, func() any { return "7" }, noOpOnFind)).ToNot(HaveOccurred())
+		g.Expect(associatedTree.CreateOrFind(keyValues8, func() any { return "8" }, noOpOnFind)).ToNot(HaveOccurred())
+		g.Expect(associatedTree.CreateOrFind(keyValues9, func() any { return "9" }, noOpOnFind)).ToNot(HaveOccurred())
+		g.Expect(associatedTree.CreateOrFind(keyValues10, func() any { return "10" }, noOpOnFind)).ToNot(HaveOccurred())
+		g.Expect(associatedTree.CreateOrFind(keyValues11, func() any { return "11" }, noOpOnFind)).ToNot(HaveOccurred())
+		g.Expect(associatedTree.CreateOrFind(keyValues12, func() any { return "12" }, noOpOnFind)).ToNot(HaveOccurred())
+		g.Expect(associatedTree.CreateOrFind(keyValues13, func() any { return "13" }, noOpOnFind)).ToNot(HaveOccurred())
+		g.Expect(associatedTree.CreateOrFind(keyValues14, func() any { return "14" }, noOpOnFind)).ToNot(HaveOccurred())
+
+		return associatedTree
+	}
+
+	t.Run("It runs the callback when values are intersected together at the same level", func(t *testing.T) {
+		associatedTree := setupQuery(g)
+
+		var foundItems []any
+		onFindSelection := func(items []any) {
+			foundItems = items
+		}
+
+		intOne := datatypes.Int(1)
+		intTwo := datatypes.Int(2)
+		query := query.Select{
+			And: []query.Select{
+				{Where: &query.Query{KeyValues: map[string]query.Value{"1": query.Value{Value: &intOne, ValueComparison: query.Equals()}}}},
+				{Where: &query.Query{KeyValues: map[string]query.Value{"2": query.Value{Value: &intTwo, ValueComparison: query.Equals()}}}},
+			},
+		}
+		g.Expect(query.Validate()).ToNot(HaveOccurred())
+
+		err := associatedTree.Query(query, onFindSelection)
+		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(len(foundItems)).To(Equal(2))
+		g.Expect(foundItems).To(ContainElements("7", "13"))
+	})
+
+	t.Run("It runs the callback when values are intersected together with the Where clause", func(t *testing.T) {
+		associatedTree := setupQuery(g)
+
+		var foundItems []any
+		onFindSelection := func(items []any) {
+			foundItems = items
+		}
+
+		intOne := datatypes.Int(1)
+		intTwo := datatypes.Int(2)
+		query := query.Select{
+			Where: &query.Query{KeyValues: map[string]query.Value{"1": query.Value{Value: &intOne, ValueComparison: query.Equals()}}},
+			And: []query.Select{
+				{Where: &query.Query{KeyValues: map[string]query.Value{"2": query.Value{Value: &intTwo, ValueComparison: query.Equals()}}}},
+			},
+		}
+		g.Expect(query.Validate()).ToNot(HaveOccurred())
+
+		err := associatedTree.Query(query, onFindSelection)
+		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(len(foundItems)).To(Equal(2))
+		g.Expect(foundItems).To(ContainElements("7", "13"))
+	})
+
+	t.Run("It runs the callback when values are intersected together at multiple levels", func(t *testing.T) {
+		associatedTree := setupQuery(g)
+
+		var foundItems []any
+		onFindSelection := func(items []any) {
+			foundItems = items
+		}
+
+		intOne := datatypes.Int(1)
+		intTwo := datatypes.Int(2)
+		query := query.Select{
+			And: []query.Select{
+				{And: []query.Select{{And: []query.Select{{Where: &query.Query{KeyValues: map[string]query.Value{"1": query.Value{Value: &intOne, ValueComparison: query.Equals()}}}}}}}},
+				{Where: &query.Query{KeyValues: map[string]query.Value{"2": query.Value{Value: &intTwo, ValueComparison: query.Equals()}}}},
+			},
+		}
+		g.Expect(query.Validate()).ToNot(HaveOccurred())
+
+		err := associatedTree.Query(query, onFindSelection)
+		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(len(foundItems)).To(Equal(2))
+		g.Expect(foundItems).To(ContainElements("7", "13"))
+	})
+}
+
+func TestAssociatedTree_Query_JoinOR(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	noOpOnFind := func(item any) {}
+
+	setupQuery := func(g *GomegaWithT) *threadsafeAssociatedTree {
+		associatedTree := NewThreadSafe()
+
+		// create a number of entries in the associated tree
+		keyValues1 := datatypes.StringMap{"1": datatypes.Int(1)}
+		keyValues2 := datatypes.StringMap{"2": datatypes.Int(2)}
+		keyValues3 := datatypes.StringMap{"3": datatypes.Int(3)}
+		keyValues4 := datatypes.StringMap{"1": datatypes.String("1")}
+		keyValues5 := datatypes.StringMap{"2": datatypes.String("2")}
+		keyValues6 := datatypes.StringMap{"3": datatypes.String("3")}
+		keyValues7 := datatypes.StringMap{"1": datatypes.Int(1), "2": datatypes.Int(2)}
+		keyValues8 := datatypes.StringMap{"1": datatypes.Int(1), "2": datatypes.String("2")}
+		keyValues9 := datatypes.StringMap{"1": datatypes.Int(1), "3": datatypes.Int(3)}
+		keyValues10 := datatypes.StringMap{"1": datatypes.Int(1), "3": datatypes.String("3")}
+		keyValues11 := datatypes.StringMap{"2": datatypes.Int(2), "3": datatypes.Int(3)}
+		keyValues12 := datatypes.StringMap{"2": datatypes.Int(2), "3": datatypes.String("3")}
+		keyValues13 := datatypes.StringMap{"1": datatypes.Int(1), "2": datatypes.Int(2), "3": datatypes.Int(3)}
+		keyValues14 := datatypes.StringMap{"1": datatypes.Int(1), "2": datatypes.String("2"), "3": datatypes.String("3")}
+
+		g.Expect(associatedTree.CreateOrFind(keyValues1, func() any { return "1" }, noOpOnFind)).ToNot(HaveOccurred())
+		g.Expect(associatedTree.CreateOrFind(keyValues2, func() any { return "2" }, noOpOnFind)).ToNot(HaveOccurred())
+		g.Expect(associatedTree.CreateOrFind(keyValues3, func() any { return "3" }, noOpOnFind)).ToNot(HaveOccurred())
+		g.Expect(associatedTree.CreateOrFind(keyValues4, func() any { return "4" }, noOpOnFind)).ToNot(HaveOccurred())
+		g.Expect(associatedTree.CreateOrFind(keyValues5, func() any { return "5" }, noOpOnFind)).ToNot(HaveOccurred())
+		g.Expect(associatedTree.CreateOrFind(keyValues6, func() any { return "6" }, noOpOnFind)).ToNot(HaveOccurred())
+		g.Expect(associatedTree.CreateOrFind(keyValues7, func() any { return "7" }, noOpOnFind)).ToNot(HaveOccurred())
+		g.Expect(associatedTree.CreateOrFind(keyValues8, func() any { return "8" }, noOpOnFind)).ToNot(HaveOccurred())
+		g.Expect(associatedTree.CreateOrFind(keyValues9, func() any { return "9" }, noOpOnFind)).ToNot(HaveOccurred())
+		g.Expect(associatedTree.CreateOrFind(keyValues10, func() any { return "10" }, noOpOnFind)).ToNot(HaveOccurred())
+		g.Expect(associatedTree.CreateOrFind(keyValues11, func() any { return "11" }, noOpOnFind)).ToNot(HaveOccurred())
+		g.Expect(associatedTree.CreateOrFind(keyValues12, func() any { return "12" }, noOpOnFind)).ToNot(HaveOccurred())
+		g.Expect(associatedTree.CreateOrFind(keyValues13, func() any { return "13" }, noOpOnFind)).ToNot(HaveOccurred())
+		g.Expect(associatedTree.CreateOrFind(keyValues14, func() any { return "14" }, noOpOnFind)).ToNot(HaveOccurred())
+
+		return associatedTree
+	}
+
+	t.Run("It runs the callback when values are unioned together at the same level", func(t *testing.T) {
+		associatedTree := setupQuery(g)
+
+		var foundItems []any
+		onFindSelection := func(items []any) {
+			foundItems = items
+		}
+
+		intOne := datatypes.Int(1)
+		intTwo := datatypes.Int(2)
+		query := query.Select{
+			Or: []query.Select{
+				{Where: &query.Query{KeyValues: map[string]query.Value{"1": query.Value{Value: &intOne, ValueComparison: query.Equals()}}}},
+				{Where: &query.Query{KeyValues: map[string]query.Value{"2": query.Value{Value: &intTwo, ValueComparison: query.Equals()}}}},
+			},
+		}
+		g.Expect(query.Validate()).ToNot(HaveOccurred())
+
+		err := associatedTree.Query(query, onFindSelection)
+		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(len(foundItems)).To(Equal(10))
+		g.Expect(foundItems).To(ContainElements("1", "2", "7", "8", "9", "10", "11", "12", "13", "14"))
+	})
+
+	t.Run("It runs the callback when values are unioned together with the Where clause", func(t *testing.T) {
+		associatedTree := setupQuery(g)
+
+		var foundItems []any
+		onFindSelection := func(items []any) {
+			foundItems = items
+		}
+
+		intOne := datatypes.Int(1)
+		intTwo := datatypes.Int(2)
+		query := query.Select{
+			Where: &query.Query{KeyValues: map[string]query.Value{"1": query.Value{Value: &intOne, ValueComparison: query.Equals()}}},
+			Or: []query.Select{
+				{Where: &query.Query{KeyValues: map[string]query.Value{"2": query.Value{Value: &intTwo, ValueComparison: query.Equals()}}}},
+			},
+		}
+		g.Expect(query.Validate()).ToNot(HaveOccurred())
+
+		err := associatedTree.Query(query, onFindSelection)
+		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(len(foundItems)).To(Equal(10))
+		g.Expect(foundItems).To(ContainElements("1", "2", "7", "8", "9", "10", "11", "12", "13", "14"))
+	})
+
+	t.Run("It runs the callback when values are intersected together at multiple levels", func(t *testing.T) {
+		associatedTree := setupQuery(g)
+
+		var foundItems []any
+		onFindSelection := func(items []any) {
+			foundItems = items
+		}
+
+		intOne := datatypes.Int(1)
+		intTwo := datatypes.Int(2)
+		query := query.Select{
+			Or: []query.Select{
+				{And: []query.Select{{And: []query.Select{{Where: &query.Query{KeyValues: map[string]query.Value{"1": query.Value{Value: &intOne, ValueComparison: query.Equals()}}}}}}}},
+				{Where: &query.Query{KeyValues: map[string]query.Value{"2": query.Value{Value: &intTwo, ValueComparison: query.Equals()}}}},
+			},
+		}
+		g.Expect(query.Validate()).ToNot(HaveOccurred())
+
+		err := associatedTree.Query(query, onFindSelection)
+		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(len(foundItems)).To(Equal(10))
+		g.Expect(foundItems).To(ContainElements("1", "2", "7", "8", "9", "10", "11", "12", "13", "14"))
+	})
+}
+
+func TestAssociatedTree_Query_AND_OR_joins(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	noOpOnFind := func(item any) {}
+
+	setupQuery := func(g *GomegaWithT) *threadsafeAssociatedTree {
+		associatedTree := NewThreadSafe()
+
+		// create a number of entries in the associated tree
+		keyValues1 := datatypes.StringMap{"1": datatypes.Int(1)}
+		keyValues2 := datatypes.StringMap{"2": datatypes.Int(2)}
+		keyValues3 := datatypes.StringMap{"3": datatypes.Int(3)}
+		keyValues4 := datatypes.StringMap{"1": datatypes.String("1")}
+		keyValues5 := datatypes.StringMap{"2": datatypes.String("2")}
+		keyValues6 := datatypes.StringMap{"3": datatypes.String("3")}
+		keyValues7 := datatypes.StringMap{"1": datatypes.Int(1), "2": datatypes.Int(2)}
+		keyValues8 := datatypes.StringMap{"1": datatypes.Int(1), "2": datatypes.String("2")}
+		keyValues9 := datatypes.StringMap{"1": datatypes.Int(1), "3": datatypes.Int(3)}
+		keyValues10 := datatypes.StringMap{"1": datatypes.Int(1), "3": datatypes.String("3")}
+		keyValues11 := datatypes.StringMap{"2": datatypes.Int(2), "3": datatypes.Int(3)}
+		keyValues12 := datatypes.StringMap{"2": datatypes.Int(2), "3": datatypes.String("3")}
+		keyValues13 := datatypes.StringMap{"1": datatypes.Int(1), "2": datatypes.Int(2), "3": datatypes.Int(3)}
+		keyValues14 := datatypes.StringMap{"1": datatypes.Int(1), "2": datatypes.String("2"), "3": datatypes.String("3")}
+
+		g.Expect(associatedTree.CreateOrFind(keyValues1, func() any { return "1" }, noOpOnFind)).ToNot(HaveOccurred())
+		g.Expect(associatedTree.CreateOrFind(keyValues2, func() any { return "2" }, noOpOnFind)).ToNot(HaveOccurred())
+		g.Expect(associatedTree.CreateOrFind(keyValues3, func() any { return "3" }, noOpOnFind)).ToNot(HaveOccurred())
+		g.Expect(associatedTree.CreateOrFind(keyValues4, func() any { return "4" }, noOpOnFind)).ToNot(HaveOccurred())
+		g.Expect(associatedTree.CreateOrFind(keyValues5, func() any { return "5" }, noOpOnFind)).ToNot(HaveOccurred())
+		g.Expect(associatedTree.CreateOrFind(keyValues6, func() any { return "6" }, noOpOnFind)).ToNot(HaveOccurred())
+		g.Expect(associatedTree.CreateOrFind(keyValues7, func() any { return "7" }, noOpOnFind)).ToNot(HaveOccurred())
+		g.Expect(associatedTree.CreateOrFind(keyValues8, func() any { return "8" }, noOpOnFind)).ToNot(HaveOccurred())
+		g.Expect(associatedTree.CreateOrFind(keyValues9, func() any { return "9" }, noOpOnFind)).ToNot(HaveOccurred())
+		g.Expect(associatedTree.CreateOrFind(keyValues10, func() any { return "10" }, noOpOnFind)).ToNot(HaveOccurred())
+		g.Expect(associatedTree.CreateOrFind(keyValues11, func() any { return "11" }, noOpOnFind)).ToNot(HaveOccurred())
+		g.Expect(associatedTree.CreateOrFind(keyValues12, func() any { return "12" }, noOpOnFind)).ToNot(HaveOccurred())
+		g.Expect(associatedTree.CreateOrFind(keyValues13, func() any { return "13" }, noOpOnFind)).ToNot(HaveOccurred())
+		g.Expect(associatedTree.CreateOrFind(keyValues14, func() any { return "14" }, noOpOnFind)).ToNot(HaveOccurred())
+
+		return associatedTree
+	}
+
+	t.Run("It joins all values together accordingly", func(t *testing.T) {
+		associatedTree := setupQuery(g)
+
+		var foundItems []any
+		onFindSelection := func(items []any) {
+			foundItems = items
+		}
+
+		intOne := datatypes.Int(1)
+		intTwo := datatypes.Int(2)
+		intThree := datatypes.Int(3)
+		query := query.Select{
+			And: []query.Select{
+				{Where: &query.Query{KeyValues: map[string]query.Value{"1": query.Value{Value: &intOne, ValueComparison: query.Equals()}}}},
+				{Where: &query.Query{KeyValues: map[string]query.Value{"2": query.Value{Value: &intTwo, ValueComparison: query.Equals()}}}},
+			},
+			Or: []query.Select{
+				{Where: &query.Query{KeyValues: map[string]query.Value{"3": query.Value{Value: &intThree, ValueComparison: query.Equals()}}}},
+			},
+		}
+		g.Expect(query.Validate()).ToNot(HaveOccurred())
+
+		err := associatedTree.Query(query, onFindSelection)
+		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(len(foundItems)).To(Equal(5))
+		g.Expect(foundItems).To(ContainElements("3", "7", "9", "11", "13"))
 	})
 }

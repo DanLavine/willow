@@ -38,10 +38,31 @@ func (v *Value) Validate() error {
 		return fmt.Errorf(": Requires an Exists or Value check")
 	}
 
-	if v.Exists != nil && v.Value != nil {
-		return fmt.Errorf(": Can only contain a single Exists or Value check, not both")
+	// validate existance
+	if v.Exists != nil {
+		if v.Value != nil {
+			return fmt.Errorf(": Can only contain a single Exists or Value check, not both")
+		}
+
+		if v.ValueComparison != nil {
+			return fmt.Errorf(": ValueComparison is provided, but is incompatible with Exists check")
+		}
+
+		if v.ValueTypeMatch != nil {
+			return fmt.Errorf(": ValueTypeMatch is provided, but is incompatible with Exists check")
+		}
+
+		if v.ExistsType != nil {
+			switch *v.ExistsType {
+			case 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14:
+				// these are all valid
+			default:
+				return fmt.Errorf(": Unexpected ExistsType. Must be an int from 1-14 inclusive")
+			}
+		}
 	}
 
+	// validate values
 	if v.Value != nil {
 		if v.ValueComparison == nil {
 			return fmt.Errorf(".ValueComparison: is required for a Value")

@@ -529,14 +529,14 @@ func (bn *threadSafeBNode) findGreaterThanMatchType(key datatypes.EncapsulatedDa
 	for index = 0; index < bn.numberOfValues; index++ {
 		keyValue := bn.keyValues[index]
 
-		// if the key we are looking for, has a type less than what we are comparing, contine
+		// if the key we are looking for, has a type less than in the tree, break and check the child
 		if key.LessType(keyValue.key) {
-			continue
+			break
 		}
 
-		// if the key value we are compaing is greater than the key we care about, we found all values and can exit
+		// if the key value in the tree is less than the key we care about iterate to the next value
 		if keyValue.key.LessType(key) {
-			return
+			continue
 		}
 
 		// at this point, we know the keys type's match
@@ -656,14 +656,14 @@ func (bn *threadSafeBNode) findGreaterThanOrEqualMatchType(key datatypes.Encapsu
 	for index = 0; index < bn.numberOfValues; index++ {
 		keyValue := bn.keyValues[index]
 
-		// if the key we are looking for, has a type less than what we are comparing, contine
+		// if the key we are looking for, has a type less than in the tree, break and check the child
 		if key.LessType(keyValue.key) {
-			continue
+			break
 		}
 
-		// if the key value we are compaing is greater than the key we care about, we found all values and can exit
+		// if the key value in the tree is less than the key we care about iterate to the next value
 		if keyValue.key.LessType(key) {
-			return
+			continue
 		}
 
 		if key.LessValue(keyValue.key) {

@@ -26,14 +26,27 @@ func (tsat *threadsafeAssociatedTree) Query(selection query.Select, onFindSelect
 	if selection.Where == nil && selection.And == nil && selection.Or == nil {
 		// select all
 		tsat.ids.Iterate(onFind)
+
+		// only run the query if we have found items
+		if len(items) != 0 {
+			onFindSelection(items)
+		}
 	} else {
 		// need to recurse through everything
 		tsat.query(selection, onFind)
-	}
 
-	// only run the query if we have found items
-	if len(items) != 0 {
-		onFindSelection(items)
+		// add all possible values to the end users callback
+		finalItems := []any{}
+		for _, id := range items {
+			if item := tsat.ids.Get(id.(uint64)); item != nil {
+				finalItems = append(finalItems, item)
+			}
+		}
+
+		// only run the query if we have found items
+		if len(finalItems) != 0 {
+			onFindSelection(finalItems)
+		}
 	}
 
 	return nil
@@ -67,7 +80,6 @@ func (tsat *threadsafeAssociatedTree) query(selection query.Select, onFind datas
 		}
 
 		addBulkIDs := func(newSet set.Set[uint64]) func(item []any) {
-
 			return func(items []any) {
 				for _, item := range items {
 					idNode := item.(*threadsafeIDNode)
@@ -146,10 +158,15 @@ func (tsat *threadsafeAssociatedTree) query(selection query.Select, onFind datas
 					valuesNode := item.(*threadsafeValuesNode)
 
 					// find the value to remove everything
-					valuesNode.values.Find(*value.Value, addID(newSet))
+					if value.ValueTypeMatch != nil && *value.ValueTypeMatch == true {
+						inclusive = true
+						valuesNode.values.FindNotEqualMatchType(*value.Value, addBulkIDs(newSet))
+						validIDs = append(validIDs, newSet)
+					} else {
+						valuesNode.values.Find(*value.Value, addID(newSet))
+						invalidIDs = append(invalidIDs, newSet)
+					}
 				})
-
-				invalidIDs = append(invalidIDs, newSet)
 			case query.LessThan():
 				inclusive = true
 
@@ -157,44 +174,53 @@ func (tsat *threadsafeAssociatedTree) query(selection query.Select, onFind datas
 				tsat.keys.Find(datatypes.String(key), func(item any) {
 					valuesNode := item.(*threadsafeValuesNode)
 
-					// only need to match the one value
-					valuesNode.values.FindLessThan(*value.Value, addBulkIDs(newSet))
+					if value.ValueTypeMatch != nil && *value.ValueTypeMatch == true {
+						valuesNode.values.FindLessThanMatchType(*value.Value, addBulkIDs(newSet))
+					} else {
+						valuesNode.values.FindLessThan(*value.Value, addBulkIDs(newSet))
+					}
 				})
 
 				validIDs = append(validIDs, newSet)
 			case query.LessThanOrEqual():
 				inclusive = true
 
-				// only need to match one key
 				tsat.keys.Find(datatypes.String(key), func(item any) {
 					valuesNode := item.(*threadsafeValuesNode)
 
-					// only need to match the one value
-					valuesNode.values.FindLessThanOrEqual(*value.Value, addBulkIDs(newSet))
+					if value.ValueTypeMatch != nil && *value.ValueTypeMatch == true {
+						valuesNode.values.FindLessThanOrEqualMatchType(*value.Value, addBulkIDs(newSet))
+					} else {
+						valuesNode.values.FindLessThanOrEqual(*value.Value, addBulkIDs(newSet))
+					}
 				})
 
 				validIDs = append(validIDs, newSet)
 			case query.GreaterThan():
 				inclusive = true
 
-				// only need to match one key
 				tsat.keys.Find(datatypes.String(key), func(item any) {
 					valuesNode := item.(*threadsafeValuesNode)
 
-					// only need to match the one value
-					valuesNode.values.FindGreaterThan(*value.Value, addBulkIDs(newSet))
+					if value.ValueTypeMatch != nil && *value.ValueTypeMatch == true {
+						valuesNode.values.FindGreaterThanMatchType(*value.Value, addBulkIDs(newSet))
+					} else {
+						valuesNode.values.FindGreaterThan(*value.Value, addBulkIDs(newSet))
+					}
 				})
 
 				validIDs = append(validIDs, newSet)
 			case query.GreaterThanOrEqual():
 				inclusive = true
 
-				// only need to match one key
 				tsat.keys.Find(datatypes.String(key), func(item any) {
 					valuesNode := item.(*threadsafeValuesNode)
 
-					// only need to match the one value
-					valuesNode.values.FindGreaterThanOrEqual(*value.Value, addBulkIDs(newSet))
+					if value.ValueTypeMatch != nil && *value.ValueTypeMatch == true {
+						valuesNode.values.FindGreaterThanOrEqualMatchType(*value.Value, addBulkIDs(newSet))
+					} else {
+						valuesNode.values.FindGreaterThanOrEqual(*value.Value, addBulkIDs(newSet))
+					}
 				})
 
 				validIDs = append(validIDs, newSet)
@@ -239,10 +265,44 @@ func (tsat *threadsafeAssociatedTree) query(selection query.Select, onFind datas
 		finalIds.Remove(id)
 	}
 
-	// add all possible values to the end users callback
-	for _, validID := range finalIds.Values() {
-		if item := tsat.ids.Get(validID); item != nil {
-			onFind(item)
+	// intersect all the ANDs together
+	for index, andSelection := range selection.And {
+		// can exit early if we know that there are 0 ids. Don't need to search
+		if finalIds.Size() == 0 {
+			if selection.Where == nil && index == 0 {
+				// nothing to do here. everything is joined in []And
+			} else {
+				// must not have any ids, so can exit early and stop selecting everything
+				break
+			}
 		}
+
+		andIDs := []uint64{}
+		andOnFind := func(item any) {
+			andIDs = append(andIDs, item.(uint64))
+		}
+
+		tsat.query(andSelection, andOnFind)
+
+		if selection.Where == nil && index == 0 {
+			finalIds.AddBulk(andIDs)
+		} else {
+			finalIds.Intersection(andIDs)
+		}
+	}
+
+	// union all the ORs together
+	for _, orSelection := range selection.Or {
+		orIDs := []uint64{}
+		orOnFind := func(item any) {
+			orIDs = append(orIDs, item.(uint64))
+		}
+
+		tsat.query(orSelection, orOnFind)
+		finalIds.AddBulk(orIDs)
+	}
+
+	for _, id := range finalIds.Values() {
+		onFind(id)
 	}
 }
