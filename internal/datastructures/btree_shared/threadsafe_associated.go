@@ -1,13 +1,17 @@
 package btreeshared
 
 import (
+	"sync"
+	"sync/atomic"
+
 	"github.com/DanLavine/willow/internal/datastructures/btree"
-	idtree "github.com/DanLavine/willow/internal/datastructures/id_tree"
+	"github.com/DanLavine/willow/internal/idgenerator"
 )
 
 type threadsafeAssociatedTree struct {
 	// the actual saved values in the tree
-	ids *idtree.IDTree
+	ids         btree.BTree
+	idGenerator idgenerator.UniqueIDs
 
 	// each value here is a threadSafeValuesNode
 	keys btree.BTree
@@ -19,20 +23,32 @@ type threadsafeValuesNode struct {
 }
 
 type threadsafeIDNode struct {
+	lock *sync.RWMutex
+
+	// this is needed for determining on create/delete race conditions if a particular key value pair is in the process of
+	// being created when the delete thread ran.
+	creating *atomic.Int64
+
 	// each value in here is an threadsafeIDNode
 	// which are saved in the threadsafefAssociatedTree.ids
-	ids [][]uint64
+	ids [][]string
 }
 
 func NewThreadSafe() *threadsafeAssociatedTree {
-	btree, err := btree.NewThreadSafe(2)
+	ids, err := btree.NewThreadSafe(2)
+	if err != nil {
+		panic(err)
+	}
+
+	keys, err := btree.NewThreadSafe(2)
 	if err != nil {
 		panic(err)
 	}
 
 	return &threadsafeAssociatedTree{
-		ids:  idtree.NewIDTree(),
-		keys: btree,
+		ids:         ids,
+		idGenerator: idgenerator.UUID(),
+		keys:        keys,
 	}
 }
 
@@ -49,6 +65,8 @@ func newValuesNode() *threadsafeValuesNode {
 
 func newIDNode() *threadsafeIDNode {
 	return &threadsafeIDNode{
-		ids: [][]uint64{},
+		lock:     new(sync.RWMutex),
+		creating: new(atomic.Int64),
+		ids:      [][]string{},
 	}
 }

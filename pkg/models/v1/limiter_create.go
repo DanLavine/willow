@@ -1,5 +1,9 @@
 package v1
 
+import (
+	"github.com/DanLavine/willow/pkg/models/query"
+)
+
 type LimiterRuleCreateRequest struct {
 	// Name of the rule
 	Name string
@@ -11,10 +15,10 @@ type LimiterRuleCreateRequest struct {
 	GroupBy []string
 
 	// When comparing tags, use this selection to figure out if a rule applies to them
-	Seletion Selection
+	Seletion query.Select
 
 	// Limit Key is an optional param that can be used to dictate what value of the tags to use as a limiter
-	LimitKey *LimiKey
+	LimitKey *LimitKey
 }
 
 type LimitKey struct {

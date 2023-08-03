@@ -38,9 +38,7 @@ func (tsat *threadsafeAssociatedTree) Query(selection query.Select, onFindSelect
 		// add all possible values to the end users callback
 		finalItems := []any{}
 		for _, id := range items {
-			if item := tsat.ids.Get(id.(uint64)); item != nil {
-				finalItems = append(finalItems, item)
-			}
+			tsat.ids.Find(datatypes.String(id.(string)), func(item any) { finalItems = append(finalItems, item) })
 		}
 
 		// only run the query if we have found items
@@ -53,17 +51,19 @@ func (tsat *threadsafeAssociatedTree) Query(selection query.Select, onFindSelect
 }
 
 func (tsat *threadsafeAssociatedTree) query(selection query.Select, onFind datastructures.OnFind) {
-	validIDs := []set.Set[uint64]{}
-	invalidIDs := []set.Set[uint64]{}
+	validIDs := []set.Set[string]{}
+	invalidIDs := []set.Set[string]{}
 
 	// parse the where clause
 	inclusive := false
 	if selection.Where != nil {
 		where := selection.Where
 
-		addID := func(newSet set.Set[uint64]) func(item any) {
+		addID := func(newSet set.Set[string]) func(item any) {
 			return func(item any) {
 				idNode := item.(*threadsafeIDNode)
+				idNode.lock.RLock()
+				defer idNode.lock.RUnlock()
 
 				for index, ids := range idNode.ids {
 					// break if we reach a key count that has more than the requested length
@@ -79,10 +79,12 @@ func (tsat *threadsafeAssociatedTree) query(selection query.Select, onFind datas
 			}
 		}
 
-		addBulkIDs := func(newSet set.Set[uint64]) func(item []any) {
+		addBulkIDs := func(newSet set.Set[string]) func(item []any) {
 			return func(items []any) {
 				for _, item := range items {
 					idNode := item.(*threadsafeIDNode)
+					idNode.lock.RLock()
+					defer idNode.lock.RUnlock()
 
 					for index, ids := range idNode.ids {
 						// break if we reach a key count that has more than the requested length
@@ -99,8 +101,10 @@ func (tsat *threadsafeAssociatedTree) query(selection query.Select, onFind datas
 			}
 		}
 
-		for key, value := range where.KeyValues {
-			newSet := set.New[uint64]()
+		sortedKeys := where.SortedKeys()
+		for _, key := range sortedKeys {
+			value := where.KeyValues[key]
+			newSet := set.New[string]()
 
 			// existence check
 			if value.Exists != nil {
@@ -229,7 +233,7 @@ func (tsat *threadsafeAssociatedTree) query(selection query.Select, onFind datas
 
 		// Special case where the only query is a FALSE check. So need to also find all other IDs
 		if !inclusive {
-			newSet := set.New[uint64]()
+			newSet := set.New[string]()
 
 			tsat.keys.Iterate(func(item any) {
 				valuesNode := item.(*threadsafeValuesNode)
@@ -241,7 +245,7 @@ func (tsat *threadsafeAssociatedTree) query(selection query.Select, onFind datas
 	}
 
 	// save all the not IDs and join them?
-	finalIds := set.New[uint64]()
+	finalIds := set.New[string]()
 	for index, includeIds := range validIDs {
 		if index == 0 {
 			finalIds.AddBulk(includeIds.Values())
@@ -251,7 +255,7 @@ func (tsat *threadsafeAssociatedTree) query(selection query.Select, onFind datas
 	}
 
 	// join exclude IDs
-	finalExcludeIds := set.New[uint64]()
+	finalExcludeIds := set.New[string]()
 	for index, excludeIds := range invalidIDs {
 		if index == 0 {
 			finalExcludeIds.AddBulk(excludeIds.Values())
@@ -277,9 +281,9 @@ func (tsat *threadsafeAssociatedTree) query(selection query.Select, onFind datas
 			}
 		}
 
-		andIDs := []uint64{}
+		andIDs := []string{}
 		andOnFind := func(item any) {
-			andIDs = append(andIDs, item.(uint64))
+			andIDs = append(andIDs, item.(string))
 		}
 
 		tsat.query(andSelection, andOnFind)
@@ -293,9 +297,9 @@ func (tsat *threadsafeAssociatedTree) query(selection query.Select, onFind datas
 
 	// union all the ORs together
 	for _, orSelection := range selection.Or {
-		orIDs := []uint64{}
+		orIDs := []string{}
 		orOnFind := func(item any) {
-			orIDs = append(orIDs, item.(uint64))
+			orIDs = append(orIDs, item.(string))
 		}
 
 		tsat.query(orSelection, orOnFind)

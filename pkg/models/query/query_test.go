@@ -6,6 +6,29 @@ import (
 	. "github.com/onsi/gomega"
 )
 
+func Test_Query_SortedKeys(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	t.Run("It returns a slice of all keys in a sorted order", func(t *testing.T) {
+		True := true
+
+		query := &Query{
+			KeyValues: map[string]Value{
+				"3": Value{Exists: &True},
+				"2": Value{Exists: &True},
+				"1": Value{Exists: &True},
+				"6": Value{Exists: &True},
+				"5": Value{Exists: &True},
+				"7": Value{Exists: &True},
+				"4": Value{Exists: &True},
+			},
+		}
+
+		sortedKeys := query.SortedKeys()
+		g.Expect(sortedKeys).To(Equal([]string{"1", "2", "3", "4", "5", "6", "7"}))
+	})
+}
+
 func Test_Query_Validate(t *testing.T) {
 	g := NewGomegaWithT(t)
 

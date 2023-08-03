@@ -16,6 +16,7 @@ require (
 	github.com/google/go-cmp v0.5.9 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/rogpeppe/go-internal v1.9.0 // indirect
+	github.com/segmentio/ksuid v1.0.4 // indirect
 	go.uber.org/atomic v1.10.0 // indirect
 	go.uber.org/mock v0.2.0 // indirect
 	go.uber.org/multierr v1.9.0 // indirect

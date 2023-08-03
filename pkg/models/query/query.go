@@ -1,6 +1,9 @@
 package query
 
-import "fmt"
+import (
+	"fmt"
+	"sort"
+)
 
 type Query struct {
 	// Key Values ensures that all key values exist
@@ -13,6 +16,16 @@ type Query struct {
 type KeyLimits struct {
 	// limit how many keys can make up a collection
 	NumberOfKeys *int
+}
+
+func (q *Query) SortedKeys() []string {
+	keys := []string{}
+	for key, _ := range q.KeyValues {
+		keys = append(keys, key)
+	}
+
+	sort.Strings(keys)
+	return keys
 }
 
 func (q *Query) Validate() error {

@@ -12,28 +12,28 @@ func (tsat *threadsafeAssociatedTree) CreateOrFind(keyValuePairs datatypes.Strin
 	if len(keyValuePairs) == 0 {
 		return fmt.Errorf("keyValuePairs cannot be empty")
 	}
-
 	if onCreate == nil {
 		return fmt.Errorf("onCreate cannot be nil")
 	}
-
 	if onFind == nil {
 		return fmt.Errorf("onFind cannot be nil")
 	}
 
-	// TODO: This can use a read lock. but the other part needs a write lock I think. Need to figure that out
-	//// always attempt a read first since these are read locked
-	//found := false
-	//wrappedOnFind := func(item any) {
-	//	found = true
-	//	onFind(item)
-	//}
-	//_ = at.Find(keyValuePairs, wrappedOnFind)
-	//if found == true {
-	//	return nil
-	//}
+	// always attempt a find first so we only need read locks
+	found := false
+	wrappedOnFind := func(item any) {
+		found = true
+		onFind(item)
+	}
+	if err := tsat.Find(keyValuePairs, wrappedOnFind); err != nil {
+		return err
+	}
+	if found == true {
+		return nil
+	}
 
-	var idSet set.Set[uint64]
+	// At this point we are 99%+ going to create the values, so our IDNodes need to use a write lock
+
 	var idNodes []*threadsafeIDNode
 
 	// sort the keys so their won't be any deadlocks if everything goes smoothly
@@ -43,30 +43,11 @@ func (tsat *threadsafeAssociatedTree) CreateOrFind(keyValuePairs datatypes.Strin
 	// callback for when a "value" is found
 	findValue := func(item any) {
 		idNode := item.(*threadsafeIDNode)
+		idNode.lock.Lock()
+		defer idNode.lock.Unlock()
+
+		idNode.creating.Add(1)
 		idNodes = append(idNodes, idNode)
-
-		// need to create the new association
-		if len(idNode.ids) < keyValuePairsLen {
-			for i := len(idNode.ids); i < keyValuePairsLen; i++ {
-				idNode.ids = append(idNode.ids, []uint64{})
-			}
-
-			// record that we are going to need a new ID
-			if idSet == nil {
-				idSet = set.New[uint64]()
-			} else {
-				idSet.Clear()
-			}
-
-			return
-		}
-
-		// need to save the possible IDs it could be
-		if idSet == nil {
-			idSet = set.New[uint64](idNode.ids[keyValuePairsLen-1]...)
-		} else {
-			idSet.Intersection(idNode.ids[keyValuePairsLen-1])
-		}
 	}
 
 	// callback for when a "value" needs to be created
@@ -103,55 +84,72 @@ func (tsat *threadsafeAssociatedTree) CreateOrFind(keyValuePairs datatypes.Strin
 		tsat.keys.CreateOrFind(datatypes.String(key), createKey(findKey(key)), findKey(key))
 	}
 
+	var idSet set.Set[string]
+	for _, idNode := range idNodes {
+		idNode.lock.Lock()
+
+		if len(idNode.ids) < keyValuePairsLen {
+			// need to create the new association
+			for i := len(idNode.ids); i < keyValuePairsLen; i++ {
+				idNode.ids = append(idNode.ids, []string{})
+			}
+
+			// record that we are going to need a new ID
+			if idSet == nil {
+				idSet = set.New[string]()
+			} else {
+				idSet.Clear()
+			}
+		} else {
+			// need to save the possible IDs it could be
+			if idSet == nil {
+				idSet = set.New[string](idNode.ids[keyValuePairsLen-1]...)
+			} else {
+				idSet.Intersection(idNode.ids[keyValuePairsLen-1])
+			}
+		}
+	}
+
 	// must have been a race where 2 requests tried to create the same object
-	if idSet.Size() == 1 {
-		onFind(tsat.ids.Get(idSet.Values()[0]))
+	if idSet != nil && idSet.Size() == 1 {
+		tsat.ids.Find(datatypes.String(idSet.Values()[0]), onFind)
+
+		// unlock the IDs
+		for _, idNode := range idNodes {
+			idNode.creating.Add(-1)
+			idNode.lock.Unlock()
+		}
+
 		return nil
 	}
 
-	// need to create the the new object and save the ID
+	// always save the new IDs so we can unlock the IDNodes
+	newID := tsat.idGenerator.ID()
+	for _, idNode := range idNodes {
+		idNode.ids[keyValuePairsLen-1] = append(idNode.ids[keyValuePairsLen-1], newID)
+	}
+
 	if newValue := onCreate(); newValue != nil {
-		newID := tsat.ids.Add(newValue)
+		tsat.ids.CreateOrFind(datatypes.String(newID), func() any { return newValue }, func(item any) {
+			panic(fmt.Errorf("found an id that already exists. Globaly unique ID failure: %s", newID))
+		})
+
+		// unlock the IDs
 		for _, idNode := range idNodes {
-			idNode.ids[keyValuePairsLen-1] = append(idNode.ids[keyValuePairsLen-1], newID)
+			idNode.creating.Add(-1)
+			idNode.lock.Unlock()
 		}
 	} else {
-		// something failed. Will need to clean up
+		// failed to crete the new item to save.
 
-		// shrink the value nodes and possibly remove them
-		deleteValue := func(item any) bool {
-			idNode := item.(*threadsafeIDNode)
-			for i := len(idNode.ids) - 1; i >= 0; i-- {
-				if len(idNode.ids[i]) == 0 {
-					idNode.ids = idNode.ids[:len(idNode.ids)-1]
-				} else {
-					// don't process anymore since we found a value
-					break
-				}
-			}
-
-			return len(idNode.ids) == 0
+		// unlock the IDs
+		for _, idNode := range idNodes {
+			idNode.creating.Add(-1)
+			idNode.lock.Unlock()
 		}
 
-		// remove the key if there are no more values
-		deleteKey := func(key string) func(item any) bool {
-			return func(item any) bool {
-				valuesForKey := item.(*threadsafeValuesNode)
-
-				// try to remove the value if it was created
-				if err := valuesForKey.values.Delete(keyValuePairs[key], deleteValue); err != nil {
-					panic(err)
-				}
-
-				return valuesForKey.values.Empty()
-			}
-		}
-
-		for _, key := range sortedKeys {
-			if err := tsat.keys.Delete(datatypes.String(key), deleteKey(key)); err != nil {
-				panic(err)
-			}
-		}
+		// call delete for the item to clean everything up
+		tsat.Delete(keyValuePairs, nil)
 	}
 
 	return nil
