@@ -8,119 +8,100 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestCompositeTree_Find_ParameterChecks(t *testing.T) {
+func TestAssociatedTree_Find_ParamCheck(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	keyValuePairs := datatypes.StringMap{"one": datatypes.String("1")}
-	onFindNoOp := func(item any) {}
+	keys := datatypes.StringMap{"1": datatypes.Int(1)}
+	onFind := func(item any) {}
 
-	t.Run("it returns an error if the 'keyValuePairs' are nil", func(t *testing.T) {
+	t.Run("it returns an error with nil keyValues", func(t *testing.T) {
 		associatedTree := NewThreadSafe()
 
-		err := associatedTree.Find(nil, onFindNoOp)
+		err := associatedTree.Find(nil, onFind)
 		g.Expect(err).To(HaveOccurred())
-		g.Expect(err.Error()).To(Equal("keyValuePairs requires a length of at least 1"))
+		g.Expect(err.Error()).To(ContainSubstring("keyValuePairs cannot be empty"))
 	})
 
-	t.Run("it returns an error if the 'keyValuePairs' are empty", func(t *testing.T) {
+	t.Run("it returns an error with nil onFind", func(t *testing.T) {
 		associatedTree := NewThreadSafe()
 
-		err := associatedTree.Find(datatypes.StringMap{}, onFindNoOp)
+		err := associatedTree.Find(keys, nil)
 		g.Expect(err).To(HaveOccurred())
-		g.Expect(err.Error()).To(Equal("keyValuePairs requires a length of at least 1"))
-	})
-
-	t.Run("it returns an error if the 'onFind' is nil", func(t *testing.T) {
-		associatedTree := NewThreadSafe()
-
-		err := associatedTree.Find(keyValuePairs, nil)
-		g.Expect(err).To(HaveOccurred())
-		g.Expect(err.Error()).To(Equal("onFind cannot be nil"))
+		g.Expect(err.Error()).To(ContainSubstring("onFind cannot be nil"))
 	})
 }
 
-func TestCompositeTree_Find(t *testing.T) {
+func TestAssociatedTree_Find(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	onFindNoOp := func(item any) {}
+	keys := datatypes.StringMap{"1": datatypes.Int(1)}
+	noOpOnFind := func(item any) {}
 
-	keyValues1 := datatypes.StringMap{
-		"1": datatypes.String("other"),
-	}
-	keyValues1a := datatypes.StringMap{
-		"1": datatypes.String("a"),
-	}
-	keyValues2 := datatypes.StringMap{
-		"1": datatypes.String("other"),
-		"2": datatypes.String("foo"),
-	}
-	keyValues2a := datatypes.StringMap{
-		"1": datatypes.String("other"),
-		"2": datatypes.String("a"),
-	}
-
-	setup := func() *threadsafeAssociatedTree {
+	t.Run("it does not run the callback when the value cannot be found", func(t *testing.T) {
 		associatedTree := NewThreadSafe()
 
-		g.Expect(associatedTree.CreateOrFind(keyValues1, NewJoinTreeTester("1"), onFindNoOp)).ToNot(HaveOccurred())
-		g.Expect(associatedTree.CreateOrFind(keyValues1a, NewJoinTreeTester("1a"), onFindNoOp)).ToNot(HaveOccurred())
-		g.Expect(associatedTree.CreateOrFind(keyValues2, NewJoinTreeTester("2"), onFindNoOp)).ToNot(HaveOccurred())
-		g.Expect(associatedTree.CreateOrFind(keyValues2a, NewJoinTreeTester("2a"), onFindNoOp)).ToNot(HaveOccurred())
-
-		return associatedTree
-	}
-
-	t.Run("it doesn't run onFind if all key value pairs don't match", func(t *testing.T) {
-		associatedTree := setup()
-
 		found := false
-		onfind := func(item any) {
+		onFind := func(item any) {
 			found = true
 		}
 
-		err := associatedTree.Find(datatypes.StringMap{"1": datatypes.Int(1)}, onfind)
+		err := associatedTree.Find(keys, onFind)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(found).To(BeFalse())
 	})
 
-	t.Run("it can find a single key value that is found in the tree", func(t *testing.T) {
-		associatedTree := setup()
+	t.Run("it fails fast if a key value index is not found", func(t *testing.T) {
+		associatedTree := NewThreadSafe()
 
-		found := false
-		onfind := func(item any) {
-			found = true
-			g.Expect(item.(*JoinTreeTester).Value).To(Equal("1"))
-		}
+		keyValues1 := datatypes.StringMap{"1": datatypes.String("1")}
+		keyValues2 := datatypes.StringMap{"1": datatypes.String("1"), "2": datatypes.Float32(3.4)}
 
-		err := associatedTree.Find(datatypes.StringMap{"1": datatypes.String("other")}, onfind)
-		g.Expect(err).ToNot(HaveOccurred())
-		g.Expect(found).To(BeTrue())
+		// create a single key value pair
+		g.Expect(associatedTree.CreateOrFind(keyValues1, func() any { return "1" }, noOpOnFind)).ToNot(HaveOccurred())
+
+		// this should break fast in the code since nothing has 2 indexes
+		g.Expect(associatedTree.Find(keyValues2, noOpOnFind)).ToNot(HaveOccurred())
 	})
 
-	t.Run("it can find a multi key value pair that is found in the tree", func(t *testing.T) {
-		associatedTree := setup()
+	t.Run("it runs the callback for only key value pairs who match exacly", func(t *testing.T) {
+		associatedTree := NewThreadSafe()
 
-		found := false
-		onfind := func(item any) {
-			found = true
-			g.Expect(item.(*JoinTreeTester).Value).To(Equal("2"))
+		keyValues1 := datatypes.StringMap{"1": datatypes.Int(1)}
+		keyValues2 := datatypes.StringMap{"1": datatypes.String("1")}
+		keyValues3 := datatypes.StringMap{"1": datatypes.Int(1), "2": datatypes.Float32(3.4)}
+		keyValues4 := datatypes.StringMap{"1": datatypes.Int(1), "2": datatypes.Float64(3.4)}
+
+		keys := []string{}
+		onFind := func(key string) func(item any) {
+			return func(item any) {
+				switch key {
+				case "1":
+					keys = append(keys, "1")
+					g.Expect(item).To(Equal("1"))
+				case "2":
+					keys = append(keys, "2")
+					g.Expect(item).To(Equal("2"))
+				case "3":
+					keys = append(keys, "3")
+					g.Expect(item).To(Equal("3"))
+				case "4":
+					keys = append(keys, "4")
+					g.Expect(item).To(Equal("4"))
+				default:
+					g.Fail("Unexpected key")
+				}
+			}
 		}
 
-		err := associatedTree.Find(datatypes.StringMap{"1": datatypes.String("other"), "2": datatypes.String("foo")}, onfind)
-		g.Expect(err).ToNot(HaveOccurred())
-		g.Expect(found).To(BeTrue())
-	})
+		g.Expect(associatedTree.CreateOrFind(keyValues1, func() any { return "1" }, noOpOnFind)).ToNot(HaveOccurred())
+		g.Expect(associatedTree.CreateOrFind(keyValues2, func() any { return "2" }, noOpOnFind)).ToNot(HaveOccurred())
+		g.Expect(associatedTree.CreateOrFind(keyValues3, func() any { return "3" }, noOpOnFind)).ToNot(HaveOccurred())
+		g.Expect(associatedTree.CreateOrFind(keyValues4, func() any { return "4" }, noOpOnFind)).ToNot(HaveOccurred())
 
-	t.Run("it does not run onFind if a key is not found", func(t *testing.T) {
-		associatedTree := setup()
-
-		found := false
-		onfind := func(item any) {
-			found = true
-		}
-
-		err := associatedTree.Find(datatypes.StringMap{"not found": datatypes.String("not found")}, onfind)
-		g.Expect(err).ToNot(HaveOccurred())
-		g.Expect(found).To(BeFalse())
+		g.Expect(associatedTree.Find(keyValues1, onFind("1"))).ToNot(HaveOccurred())
+		g.Expect(associatedTree.Find(keyValues2, onFind("2"))).ToNot(HaveOccurred())
+		g.Expect(associatedTree.Find(keyValues3, onFind("3"))).ToNot(HaveOccurred())
+		g.Expect(associatedTree.Find(keyValues4, onFind("4"))).ToNot(HaveOccurred())
+		g.Expect(keys).To(ContainElements("1", "2", "3", "4"))
 	})
 }

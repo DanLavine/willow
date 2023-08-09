@@ -8,118 +8,159 @@ import (
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 )
 
-func (at *threadsafeAssociatedTree) CreateOrFind(keyValuePairs datatypes.StringMap, onCreate datastructures.OnCreate, onFind datastructures.OnFind) error {
+// CreateOrFind inserts or finds the value in the assoociation tree. This is thread safe to call with
+// any other functions on the same object.
+//
+// PARAMS:
+// - keyValuePair - is a map of key value pairs that compose an object's identity
+// - onCreate - is the callback used to create the value if it doesn't already exist in the tree. This must return nil, if creatiing the object failed.
+// - onFind - is the callback used when an item is found in the tree. It will recive the object's value saved in the tree (what was originally provided)
+//
+// RETURNS:
+// - error - any errors encountered with the parameters
+func (tsat *threadsafeAssociatedTree) CreateOrFind(keyValuePairs datatypes.StringMap, onCreate datastructures.OnCreate, onFind datastructures.OnFind) error {
 	if len(keyValuePairs) == 0 {
 		return fmt.Errorf("keyValuePairs cannot be empty")
 	}
-
 	if onCreate == nil {
 		return fmt.Errorf("onCreate cannot be nil")
 	}
-
 	if onFind == nil {
 		return fmt.Errorf("onFind cannot be nil")
 	}
 
-	// always attempt a read first since these are read locked
+	// always attempt a find first so we only need read locks
 	found := false
 	wrappedOnFind := func(item any) {
 		found = true
 		onFind(item)
 	}
-	_ = at.Find(keyValuePairs, wrappedOnFind)
+	if err := tsat.Find(keyValuePairs, wrappedOnFind); err != nil {
+		return err
+	}
 	if found == true {
 		return nil
 	}
 
-	// need to 'probably' create the item
-	at.lock.Lock()
-	defer at.lock.Unlock()
+	// At this point we are 99%+ going to create the values, so our IDNodes need to use a write lock
 
-	var idHolders []*idHolder
+	var idNodes []*threadsafeIDNode
 
-	// record all the id holders
-	findIDHolder := func(item any) {
-		idHolder := item.(*idHolder)
-		idHolders = append(idHolders, idHolder)
+	// sort the keys so their won't be any deadlocks if everything goes smoothly
+	keyValuePairsLen := len(keyValuePairs)
+	sortedKeys := keyValuePairs.SoretedKeys()
+
+	// callback for when a "value" is found
+	findValue := func(item any) {
+		idNode := item.(*threadsafeIDNode)
+		idNode.lock.Lock()
+		defer idNode.lock.Unlock()
+
+		idNode.creating.Add(1)
+		idNodes = append(idNodes, idNode)
 	}
 
-	// callback when the key is found
-	findKey := func(createValue datatypes.EncapsulatedData) func(item any) {
+	// callback for when a "value" needs to be created
+	createValue := func() any {
+		newIDNode := newIDNode()
+		findValue(newIDNode)
+
+		return newIDNode
+	}
+
+	// callback for when a "key" is found
+	findKey := func(key string) func(item any) {
 		return func(item any) {
-			valuesForKey := item.(*keyValues)
-			_ = valuesForKey.values.CreateOrFind(createValue, newIDHolder(findIDHolder), findIDHolder)
+			valuesNode := item.(*threadsafeValuesNode)
+
+			lookupValue := keyValuePairs[key]
+			if err := valuesNode.values.CreateOrFind(lookupValue, createValue, findValue); err != nil {
+				panic(err)
+			}
 		}
 	}
 
-	// callback for the associated key value groups
-	findAssociatedKeyValueGroup := func(item any) {
-		associatedKeyValues := item.(*keyValues)
+	// callback when creating a new value node when searching for a "key"
+	createKey := func(onFind datastructures.OnFind) func() any {
+		return func() any {
+			newValueNode := newValuesNode()
+			onFind(newValueNode)
 
-		// create or find the values for all key value pairs
-		for createKey, createValue := range keyValuePairs {
-			associatedKeyValues.values.CreateOrFind(datatypes.String(createKey), newKeyValues(findKey(createValue)), findKey(createValue))
+			return newValueNode
 		}
 	}
 
-	at.groupedKeyValueAssociation.CreateOrFind(
-		datatypes.Int(len(keyValuePairs)),
-		newKeyValues(findAssociatedKeyValueGroup),
-		findAssociatedKeyValueGroup,
-	)
-
-	// determine if all the idholders hold a common id
-	idSet := set.New[uint64](idHolders[0].IDs...)
-	for i := 1; i < len(idHolders); i++ {
-		idSet.Intersection(idHolders[i].IDs)
+	for _, key := range sortedKeys {
+		tsat.keys.CreateOrFind(datatypes.String(key), createKey(findKey(key)), findKey(key))
 	}
 
-	// must have been a race where 2 requests are creating the same item
-	if idSet.Size() == 1 {
-		onFind(at.idTree.Get(idSet.Values()[0]))
+	var idSet set.Set[string]
+	for _, idNode := range idNodes {
+		idNode.lock.Lock()
+
+		if len(idNode.ids) < keyValuePairsLen {
+			// need to create the new association
+			for i := len(idNode.ids); i < keyValuePairsLen; i++ {
+				idNode.ids = append(idNode.ids, []string{})
+			}
+
+			// record that we are going to need a new ID
+			if idSet == nil {
+				idSet = set.New[string]()
+			} else {
+				idSet.Clear()
+			}
+		} else {
+			// need to save the possible IDs it could be
+			if idSet == nil {
+				idSet = set.New[string](idNode.ids[keyValuePairsLen-1]...)
+			} else {
+				idSet.Intersection(idNode.ids[keyValuePairsLen-1])
+			}
+		}
+	}
+
+	// must have been a race where 2 requests tried to create the same object
+	if idSet != nil && idSet.Size() == 1 {
+		tsat.ids.Find(datatypes.String(idSet.Values()[0]), onFind)
+
+		// unlock the IDs
+		for _, idNode := range idNodes {
+			idNode.creating.Add(-1)
+			idNode.lock.Unlock()
+		}
+
 		return nil
 	}
 
-	// need to create the new value and save the ID
+	// always save the new IDs so we can unlock the IDNodes
+	newID := tsat.idGenerator.ID()
+	for _, idNode := range idNodes {
+		idNode.ids[keyValuePairsLen-1] = append(idNode.ids[keyValuePairsLen-1], newID)
+	}
+
 	if newValue := onCreate(); newValue != nil {
-		id := at.idTree.Add(newValue)
-		for _, idHolder := range idHolders {
-			idHolder.add(id)
+		tsat.ids.CreateOrFind(datatypes.String(newID), func() any { return newValue }, func(item any) {
+			panic(fmt.Errorf("found an id that already exists. Globaly unique ID failure: %s", newID))
+		})
+
+		// unlock the IDs
+		for _, idNode := range idNodes {
+			idNode.creating.Add(-1)
+			idNode.lock.Unlock()
 		}
 	} else {
-		at.cleanFaildCreate(keyValuePairs)
+		// failed to crete the new item to save.
+
+		// unlock the IDs
+		for _, idNode := range idNodes {
+			idNode.creating.Add(-1)
+			idNode.lock.Unlock()
+		}
+
+		// call delete for the item to clean everything up
+		tsat.Delete(keyValuePairs, nil)
 	}
 
 	return nil
-}
-
-func (at *threadsafeAssociatedTree) cleanFaildCreate(keyValuePairs datatypes.StringMap) {
-	// delete the Value
-	deleteValue := func(item any) bool {
-		idHolder := item.(*idHolder)
-		return len(idHolder.IDs) == 0
-	}
-
-	// delete the Key
-	deleteKey := func(value datatypes.EncapsulatedData) func(item any) bool {
-		return func(item any) bool {
-			valuesForKey := item.(*keyValues)
-			valuesForKey.values.Delete(value, deleteValue)
-
-			return valuesForKey.values.Empty()
-		}
-	}
-
-	// delete the associated key values
-	deleteAssociatedKeyValues := func(item any) bool {
-		keyValues := item.(*keyValues)
-
-		for createKey, createValue := range keyValuePairs {
-			keyValues.values.Delete(datatypes.String(createKey), deleteKey(createValue))
-		}
-
-		return keyValues.values.Empty()
-	}
-
-	_ = at.groupedKeyValueAssociation.Delete(datatypes.Int(len(keyValuePairs)), deleteAssociatedKeyValues)
 }

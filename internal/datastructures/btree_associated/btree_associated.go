@@ -3,65 +3,60 @@ package btreeassociated
 import (
 	"github.com/DanLavine/willow/internal/datastructures"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
+	"github.com/DanLavine/willow/pkg/models/query"
 )
 
-// BTreeAssociated is  way of grouping arbitrary key values into a unique searchable data set.
+// bTreeAssociated is used to grouping arbitrary key values into a unique searchable data set.
 //
-// The tree can be broken into 3 node types:
-//  1. groupedKeyValueAssociation - The root level of the Composite Tree is a BTree of Integer Keys and each node is a compositeColumn.
-//     Another BTree which contains an the number of key+value pairs == Integer Keys. Using this info we can gurantee
-//     that each sub tree at the Integer Node is unique.
-//  2. keyValuePairs - The values of the compositeColumn's BTree are then the Keys
-//  3. idholders - the values for a unique entire
+// The tree is structured with these rules:
+// 1. The root of the tree is all the 'keys' which are searchable via a string data type.
+// 2. each KeyNode for a 'key' is another bTree with possible 'values'.
+// 3. each ValueNode is a struct contains a slice of [][]string, where the 1st index is how many keys comprise a unique index.
+// I.E:
+//
+//	0 -> 1, so will only have 1 id ever.
+//	1 -> 2, so will need to look for another tag (intersecction) to know if the pair share an ID. OR a union to find all IDs that have a particular KeyValue pair
+//	2 -> 3, etc
+//	...
 //
 // Example (tree root):
 //
-//	       4
+//	       d
 //	    /      \
-//	   2       6,8
-//	 /  \    /  | \
-//	1    3   5  7  9
+//	   c       f,h
+//	 /  \    /  |  \
+//	a    b  e   g   i
 //
-// If we were to investigate the tree of 3 for something like unique project details, we would see all the 'keys' at this stage
-// and the tree would look at a minimum something like: (because it is 3, there needs to be at least 3 keys value groups per item)
-// (groupedKeyValueAssociation) - (for tree 3)
+// If we were to investigate the tree of 'a' it could just be a list of all words that begin with 'a'.
 //
-//	  organization
-//	   /        \
-//	namespace  project
+//			apple
+//	   /    \
+//	ant     axe
 //
-// Where finaly the last tree under 'namespace', which are all the possible values for a namespace could look something like:
-// (keyValuePairs) - (index is city)
+// at this point, any value will have a structure of:
 //
-//				  default,staging
-//	    /         |        \
-//	  active	 pending    test
+//	type unique_ids struct {
+//	  ids: [][]string
+//	}
 //
-// At this point the Value's under any 'namespace' is a list of unique ID's. Using a set, we can search for any arbitray tags + values
-// and do a number of filters to find a particualr subset of data.
+// So if we wanted to just find the map[string]EncapsulatedData{'a':'ant'}
+// This would correspond to ids[0][0] -> general ant info it the kye value pair (or whatever is saved)
 //
-// For example, getting all three values for map[string]string{organization:123, namespace:default, project:willow} will generate
-// 1 unique ID that points for all those search criteria (can be done by using a union for all data between the values returned from each tree).
+// but if we wanted something like large ant colonies, we could find something like map[string]EncapsulatedData{'a':'ant', 'colony size':'large'}
+// with these, we could do an intersection of ant.ids[1] n 'colony size'.ids[1] -> would output all intersected ids for large an colonies
+// if that is how we decided to store the data.
 //
-// Similarly, if we instead say something like map[string]string{project:willow} we could just get the list of ID's from project willow. and
-// now we have any possible entry that has the project:willow key value pairing
-//
-// Lastly, we can do something like map[string]string{namespace:*, project:willow} (where star means anything). This could again return all values
-// where project:willow key value pairing exists iff they also have a namespace tag.
-//
-// There are some other constraints that need to be accounted for as well. For example, I need a way of specifying 'key+value limit = 3' otherwise
-// we would also need to search the 4-9 trees for any of those values as well since they are an arbitrary collection of tags. But that can come later
-// as query params. For now this structre should give us everything we need
+// With this flexibility, we can find any type of unique groupings, and query a generalized key value data set
 type BTreeAssociated interface {
-	// Get value associated with a collection of key value pairs
+	// Find an item in the assoociation tree
 	Find(keyValuePairs datatypes.StringMap, onFind datastructures.OnFind) error
 
-	// CreateOrFind a value associated with a collection of key value pairs
+	// Serch for any number of items in the assoociation tree
+	Query(selection query.Select, onFindSelection datastructures.OnFindSelection) error
+
+	// Create or Find an item in the assoociation tree
 	CreateOrFind(keyValuePairs datatypes.StringMap, onCreate datastructures.OnCreate, onFind datastructures.OnFind) error
 
-	// Iterate over the tree and for each value found invoke the callback with the node's value
-	Iterate(callback datastructures.OnFind) error
-
-	// Remove a item from the tree
+	// Delete an item in the assoociation tree
 	Delete(keyValuePairs datatypes.StringMap, canDelete datastructures.CanDelete) error
 }

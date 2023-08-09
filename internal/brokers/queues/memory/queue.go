@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/DanLavine/goasync"
+	"github.com/DanLavine/willow/pkg/models/query"
 	v1 "github.com/DanLavine/willow/pkg/models/v1"
 	"go.uber.org/zap"
 
@@ -174,17 +175,20 @@ func (q *Queue) Metrics() *v1.QueueMetricsResponse {
 		DeadLetterQueueMetrics: nil,
 	}
 
-	metricsFunc := func(value any) {
-		tagNode := value.(*tagNode)
-		tagNode.lock.RLock()
-		defer tagNode.lock.RUnlock()
+	metricsFunc := func(values []any) {
+		for _, value := range values {
+			tagNode := value.(*tagNode)
+			tagNode.lock.RLock()
+			defer tagNode.lock.RUnlock()
 
-		if tagNode.tagGroup != nil {
-			metrics.Tags = append(metrics.Tags, tagNode.tagGroup.Metrics())
+			if tagNode.tagGroup != nil {
+				metrics.Tags = append(metrics.Tags, tagNode.tagGroup.Metrics())
+			}
 		}
 	}
 
-	q.tagGroups.Iterate(metricsFunc)
+	// find all items in the tree
+	q.tagGroups.Query(query.Select{}, metricsFunc)
 
 	return metrics
 }

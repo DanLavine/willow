@@ -8,95 +8,151 @@ import (
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 )
 
-func (at *threadsafeAssociatedTree) Delete(keyValuePairs datatypes.StringMap, canDelete datastructures.CanDelete) error {
-	if keyValuePairs == nil {
-		return fmt.Errorf("keyValuePairs is nil")
+// Delete an item from the associated tree. This is thread safe to call with any other functions
+// for this object
+//
+// PARAMS:
+// - keyValuePair - is a map of key value pairs that compose an object to be deleted if found
+// - canDalete - optional parameter to check if an item is found, whether or not the item can be deleted
+//
+// RETURNS:
+// - error - any errors encountered with parameters
+func (tsat *threadsafeAssociatedTree) Delete(keyValuePairs datatypes.StringMap, canDelete datastructures.CanDelete) error {
+	if len(keyValuePairs) == 0 {
+		return fmt.Errorf("keyValuePairs cannot be empty")
 	}
 
-	at.lock.Lock()
-	defer at.lock.Unlock()
+	var idSet set.Set[string]
+	idNodes := []*threadsafeIDNode{}
 
-	var idHolders []*idHolder
+	// sort the keys so their won't be any deadlocks if everything goes smoothly
+	keyValuePairsLen := len(keyValuePairs)
+	sortedKeys := keyValuePairs.SoretedKeys()
 
-	// remove an ID from the ID  Holders
-	foundValue := func(item any) {
-		idHolder := item.(*idHolder)
-		idHolders = append(idHolders, idHolder)
+	// callback for when a "value" is found
+	findValue := func(item any) {
+		idNode := item.(*threadsafeIDNode)
+		idNodes = append(idNodes, idNode)
 	}
 
-	// recurse through all the values for a particular key
-	foundKey := func(findValue datatypes.EncapsulatedData) func(item any) {
+	// callback for when a "key" is found
+	findKey := func(key string) func(item any) {
 		return func(item any) {
-			valuesForKey := item.(*keyValues)
-			valuesForKey.values.Find(findValue, foundValue)
+			valuesNode := item.(*threadsafeValuesNode)
+			if err := valuesNode.values.Find(keyValuePairs[key], findValue); err != nil {
+				panic(err)
+			}
 		}
 	}
 
-	// delete the value if the idHolder has no more ids
-	deleteValue := func(item any) bool {
-		idHolder := item.(*idHolder)
-		return len(idHolder.IDs) == 0
+	// filter all the key value pairs into one specific id to lookup
+	for _, key := range sortedKeys {
+		tsat.keys.Find(datatypes.String(key), findKey(key))
 	}
 
-	// delete delete the key if there are no more values
-	deleteKey := func(findValue datatypes.EncapsulatedData) func(item any) bool {
+	// we at least hit all the key value pairs
+	if len(idNodes) == keyValuePairsLen {
+		for index, idNode := range idNodes {
+			idNode.lock.Lock()
+
+			// for any of the ID Nodes, if they don't have the desired key value length, we know there isn't an ID to remove
+			// NOTE: This is super important to return early here. In a race with create, there won't be any
+			// entries untill they are properly created. So this is a guard to bail early if create is in the process
+			// of adding entries
+			// NOTE: the above isn't correct. if create, [create|delete] happen, can be messed up still
+			if len(idNode.ids) < keyValuePairsLen {
+				// unlock any nodes that were locked
+				for i := 0; i <= index; i++ {
+					idNodes[i].lock.Unlock()
+				}
+
+				// just break early.
+				return nil
+			}
+
+			// need to save the possible IDs it could be
+			if idSet == nil {
+				idSet = set.New[string](idNode.ids[keyValuePairsLen-1]...)
+			} else {
+				idSet.Intersection(idNode.ids[keyValuePairsLen-1])
+			}
+		}
+
+		// if there is only 1 value in the set, then we know that we found the desired object id
+		if idSet != nil && idSet.Size() == 1 {
+			deleted := true
+			idToDelete := idSet.Values()[0]
+
+			// try and delte the ID's value from the tree
+			tsat.ids.Delete(datatypes.String(idToDelete), func(item any) bool {
+				if canDelete != nil {
+					deleted = canDelete(item)
+				}
+
+				return deleted
+			})
+
+			// try to cleanup all ID nodes
+			if deleted {
+				for _, idNode := range idNodes {
+					// remove the id from the id node
+					for index, value := range idNode.ids[keyValuePairsLen-1] {
+						if value == idToDelete {
+							// swap with last element
+							idNode.ids[keyValuePairsLen-1][index] = idNode.ids[keyValuePairsLen-1][len(idNode.ids[keyValuePairsLen-1])-1]
+							// pop last element
+							idNode.ids[keyValuePairsLen-1] = idNode.ids[keyValuePairsLen-1][:len(idNode.ids[keyValuePairsLen-1])-1]
+						}
+					}
+
+					// truncate the IDNode to free memory
+					for i := len(idNode.ids) - 1; i >= 0; i-- {
+						if len(idNode.ids[i]) == 0 {
+							idNode.ids = idNode.ids[:len(idNode.ids)-1]
+						} else {
+							// don't process anymore since we found a value
+							break
+						}
+					}
+				}
+			}
+		}
+
+		// ensure we unlock the nodes at the end
+		for _, idNode := range idNodes {
+			idNode.lock.Unlock()
+		}
+	}
+
+	// remove the KEYs and VALUEs if there are no more saved IDs
+	deleteValue := func(item any) bool {
+		// don't need to lock here. BTree has exclusive lock access already
+		idNode := item.(*threadsafeIDNode)
+		idNode.lock.Lock()
+		defer idNode.lock.Unlock()
+
+		return len(idNode.ids) == 0 && idNode.creating.Load() == 0
+	}
+
+	deleteKey := func(key string) func(item any) bool {
 		return func(item any) bool {
-			valuesForKey := item.(*keyValues)
-			valuesForKey.values.Delete(findValue, deleteValue)
+			valuesForKey := item.(*threadsafeValuesNode)
+
+			// try to remove the value if it was created
+			if err := valuesForKey.values.Delete(keyValuePairs[key], deleteValue); err != nil {
+				panic(err)
+			}
 
 			return valuesForKey.values.Empty()
 		}
 	}
 
-	groupedKeyValuesDelete := func(item any) bool {
-		groupedKeyValues := item.(*keyValues)
-
-		// first find the ID we need to delete
-		for findKey, findValue := range keyValuePairs {
-			groupedKeyValues.values.Find(datatypes.String(findKey), foundKey(findValue))
+	// cleanup any indexes that are now empty
+	for _, key := range sortedKeys {
+		if err := tsat.keys.Delete(datatypes.String(key), deleteKey(key)); err != nil {
+			return err
 		}
-
-		// exit early since all key value pairs were not found
-		if len(idHolders) != len(keyValuePairs) {
-			return false
-		}
-
-		// filter ids
-		idSet := set.New[uint64](idHolders[0].IDs...)
-		for i := 1; i < len(idHolders); i++ {
-			idSet.Intersection(idHolders[i].IDs)
-		}
-
-		// didn't find a shared id
-		if idSet.Size() != 1 {
-			return false
-		}
-
-		// check to see if the item can be deleted
-		idToDelete := idSet.Values()[0]
-		itemToDelete := at.idTree.Get(idToDelete)
-		if canDelete != nil && !canDelete(itemToDelete) {
-			return false
-		}
-
-		// item can be deleted
-		// 1. remove from the item tree
-		at.idTree.Remove(idToDelete)
-		// 2. remove from all id holders
-		for _, idHolder := range idHolders {
-			idHolder.remove(idToDelete)
-		}
-		// 3. loop through the trees again to check their deletion
-		for findKey, findValue := range keyValuePairs {
-			_ = groupedKeyValues.values.Delete(datatypes.String(findKey), deleteKey(findValue))
-		}
-
-		// remove the entire grouped key values if there are no more values
-		return groupedKeyValues.values.Empty()
 	}
-
-	// attempt to delete
-	_ = at.groupedKeyValueAssociation.Delete(datatypes.Int(len(keyValuePairs)), groupedKeyValuesDelete)
 
 	return nil
 }

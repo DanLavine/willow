@@ -46,7 +46,7 @@ func TestMemoryQueue_Enqueue(t *testing.T) {
 
 		err := queue.Enqueue(zap.NewNop(), &v1.EnqueueItemRequest{BrokerInfo: v1.BrokerInfo{Name: "test"}, Data: []byte(``)})
 		g.Expect(err).ToNot(BeNil())
-		g.Expect(err.Error()).To(ContainSubstring("Internal Server Error. Actual: keyValuePairs requires a length of at least 1."))
+		g.Expect(err.Error()).To(ContainSubstring("Internal Server Error. Actual: keyValuePairs cannot be empty."))
 	})
 
 	t.Run("it records that an item is ready", func(t *testing.T) {

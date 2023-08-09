@@ -1,4 +1,4 @@
-package btreeshared
+package btreeassociated
 
 import (
 	"fmt"
@@ -9,6 +9,15 @@ import (
 	"github.com/DanLavine/willow/pkg/models/query"
 )
 
+// Query can be used to find a single or collection of items that match specific criteria. This
+// is thread safe to call with any of the other functions ono this object
+//
+// PARAMS:
+// - selection - the selection for the specified items to find. See the Select docs for this param specifically
+// - onFindSelection - is the callback used for an items found in the tree. It will recive the objects' value saved in the tree (what were originally provided)
+//
+// RETURNS:
+// - error - any errors encountered with the parameters
 func (tsat *threadsafeAssociatedTree) Query(selection query.Select, onFindSelection datastructures.OnFindSelection) error {
 	if err := selection.Validate(); err != nil {
 		return err
