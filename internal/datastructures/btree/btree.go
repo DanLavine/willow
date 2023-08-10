@@ -26,17 +26,36 @@ type BTree interface {
 	// - error - any errors encontered. I.E. key is not valid
 	Find(key datatypes.EncapsulatedData, onFind datastructures.OnFind) error
 
+	// Iterare over all items that don't equal the provided key
 	FindNotEqual(key datatypes.EncapsulatedData, callback datastructures.OnFindSelection) error
+
+	// Iterare over all items where the key's are less than the provided value
 	FindLessThan(key datatypes.EncapsulatedData, callback datastructures.OnFindSelection) error
+
+	// Iterare over all items where the key's are less than or equal to the provided value
 	FindLessThanOrEqual(key datatypes.EncapsulatedData, callback datastructures.OnFindSelection) error
+
+	// Iterare over all items where the key's are greater than the provided value
 	FindGreaterThan(key datatypes.EncapsulatedData, callback datastructures.OnFindSelection) error
+
+	// Iterare over all items where the key's are greater than or equal to the provided value
 	FindGreaterThanOrEqual(key datatypes.EncapsulatedData, callback datastructures.OnFindSelection) error
 
+	// Iterare over all items that don't equal the provided key, where the key's in the BTree match the search key's data type
 	FindNotEqualMatchType(key datatypes.EncapsulatedData, callback datastructures.OnFindSelection) error
+
+	// Iterare over all items less than the provided key, where the key's in the BTree match the search key's data type
 	FindLessThanMatchType(key datatypes.EncapsulatedData, callback datastructures.OnFindSelection) error
+
+	// Iterare over all items less than or equal to the provided key, where the key's in the BTree match the search key's data type
 	FindLessThanOrEqualMatchType(key datatypes.EncapsulatedData, callback datastructures.OnFindSelection) error
+
+	// Iterare over all items greater than the provided key, where the key's in the BTree match the search key's data type
 	FindGreaterThanMatchType(key datatypes.EncapsulatedData, callback datastructures.OnFindSelection) error
+
+	// Iterare over all items greater than or euqal to the provided key, where the key's in the BTree match the search key's data type
 	FindGreaterThanOrEqualMatchType(key datatypes.EncapsulatedData, callback datastructures.OnFindSelection) error
+
 	// If the provided key does not exist, the onCreate function will be called to initalize a new object.
 	// Otherwise the onFind callback will be invoked for the value associated with the key
 	//

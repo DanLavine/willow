@@ -17,10 +17,12 @@ func (btree *threadSafeBTree) Iterate(callback datastructures.OnFind) error {
 	}
 
 	btree.lock.RLock()
-	defer btree.lock.RUnlock()
-
 	if btree.root != nil {
+		btree.root.lock.RLock()
+		btree.lock.RUnlock()
 		btree.root.iterate(callback)
+	} else {
+		btree.lock.RUnlock()
 	}
 
 	return nil
@@ -30,6 +32,13 @@ func (bn *threadSafeBNode) iterate(callback datastructures.OnFind) {
 	for i := 0; i < bn.numberOfValues; i++ {
 		callback(bn.keyValues[i].value)
 	}
+
+	for i := 0; i < bn.numberOfChildren; i++ {
+		bn.children[i].lock.RLock()
+	}
+
+	// have a lock on all the children at this point, can release the lock at this level
+	bn.lock.RUnlock()
 
 	for i := 0; i < bn.numberOfChildren; i++ {
 		bn.children[i].iterate(callback)
@@ -43,16 +52,19 @@ func (btree *threadSafeBTree) IterateMatchType(dataType datatypes.DataType, call
 	}
 
 	btree.lock.RLock()
-	defer btree.lock.RUnlock()
-
 	if btree.root != nil {
+		btree.root.lock.RLock()
+		btree.lock.RUnlock()
 		btree.root.iterateMatchType(dataType, callback)
+	} else {
+		btree.lock.RUnlock()
 	}
 
 	return nil
 }
 
 func (bn *threadSafeBNode) iterateMatchType(dataType datatypes.DataType, callback datastructures.OnFind) {
+	startIndex := -1
 	var i int
 	for i = 0; i < bn.numberOfValues; i++ {
 		// the key in the tree is less then the value we are looking for, iterate to the next value if it exists
@@ -62,26 +74,45 @@ func (bn *threadSafeBNode) iterateMatchType(dataType datatypes.DataType, callbac
 
 		// the key we are searching for is less than the key in the tree. Try the less than tree and return
 		if dataType.Less(bn.keyValues[i].key.DataType) {
-			if bn.numberOfChildren != 0 {
-				bn.children[i].iterateMatchType(dataType, callback)
+			if startIndex == -1 {
+				startIndex = i
 			}
 
-			return
+			break
 		}
 
 		// at this point, we know that the DataType's match
+		if startIndex == -1 {
+			startIndex = i
+		}
 
 		// run the callback
 		callback(bn.keyValues[i].value)
 
-		// if there is a less than child, run that
+		// always attempt a recurse on the less than nodes to find all values
 		if bn.numberOfChildren != 0 {
-			bn.children[i].iterateMatchType(dataType, callback)
+			bn.children[i].lock.RLock()
 		}
 	}
 
+	// always lock the index we broke on since we need to check the less than side, or is the last child node (greater than)
+	if bn.numberOfChildren != 0 {
+		bn.children[i].lock.RLock()
+	}
+
+	// have a lock on all the children at this point, can release the lock at this level
+	bn.lock.RUnlock()
+
 	// if we go here, run one last check on the last greater than child tree
 	if bn.numberOfChildren != 0 {
-		bn.children[i].iterateMatchType(dataType, callback)
+		if startIndex == -1 {
+			// key must be grater than all values we checked, must be on the greater than side
+			bn.children[i].iterateMatchType(dataType, callback)
+		} else {
+			// need to recurse to all potential children from the start index
+			for index := startIndex; index <= i; index++ {
+				bn.children[index].iterateMatchType(dataType, callback)
+			}
+		}
 	}
 }

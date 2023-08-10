@@ -8,6 +8,11 @@ import (
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 )
 
+// TODO: DSL
+// Find is 2x as fast
+// Delete is 2x as sloe
+// Create is ~the same for times in the random testing
+
 // threadSafeBTree is a shareable thread safe BTree object.
 type threadSafeBTree struct {
 	// lock for managing the root of the btree
@@ -22,7 +27,6 @@ type threadSafeBTree struct {
 
 // threadSafeBNode is the internal node for a threadSafeBTree
 type threadSafeBNode struct {
-	// lock for managing the current values or operations happening on a child node
 	// TODO: I think i have a nice strategy to implement write locks. Will need to pass in an unlock() callback
 	// to children that will be called iff the node does not need to be split. But what about the readers? need
 	// to figure out what to do there. That will come after this refactor
@@ -119,6 +123,9 @@ func (bn *threadSafeBNode) dropGreatest() {
 	bn.numberOfValues--
 
 	if bn.numberOfChildren != 0 {
+		bn.children[bn.numberOfChildren-1].lock.Lock()
+		defer bn.children[bn.numberOfChildren-1].lock.Unlock()
+
 		bn.children[bn.numberOfChildren-1] = nil
 		bn.numberOfChildren--
 	}
@@ -154,7 +161,7 @@ func (bn *threadSafeBNode) maxValues() int {
 // printer helper function for tests to see what the tree actually looks like if there is an error
 func (bn *threadSafeBNode) print(parentString string) {
 	if parentString == "" {
-		fmt.Println("tree")
+		parentString = "tree"
 	}
 	passedString := parentString
 

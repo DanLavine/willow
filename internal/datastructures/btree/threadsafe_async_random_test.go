@@ -16,14 +16,16 @@ import (
 func TestBTree_Random_Create(t *testing.T) {
 	g := NewGomegaWithT(t)
 
+	iterateCount := 10_000
+
 	t.Run("works for a tree nodeSize of 2", func(t *testing.T) {
 		bTree, err := NewThreadSafe(2)
 		g.Expect(err).ToNot(HaveOccurred())
 
 		wg := new(sync.WaitGroup)
 		randomGenerator := rand.New(rand.NewSource(time.Now().UnixNano()))
-		for i := 0; i < 10_000; i++ {
-			num := randomGenerator.Intn(10_000)
+		for i := 0; i < iterateCount; i++ {
+			num := randomGenerator.Intn(iterateCount)
 			key := datatypes.Int(num)
 
 			wg.Add(1)
@@ -180,6 +182,8 @@ func TestBTree_Random_Find(t *testing.T) {
 func TestBTree_Random_Delete(t *testing.T) {
 	g := NewGomegaWithT(t)
 
+	iterateCount := 10_000
+
 	setup := func(g *GomegaWithT, order int) *threadSafeBTree {
 		bTree, err := NewThreadSafe(order)
 		g.Expect(err).ToNot(HaveOccurred())
@@ -187,7 +191,7 @@ func TestBTree_Random_Delete(t *testing.T) {
 		onFindNoOp := func(item any) {}
 
 		wg := new(sync.WaitGroup)
-		for i := 0; i < 10_000; i++ {
+		for i := 0; i < iterateCount; i++ {
 			wg.Add(1)
 			go func(tKey datatypes.EncapsulatedData, tNum int) {
 				defer wg.Done()
@@ -203,9 +207,10 @@ func TestBTree_Random_Delete(t *testing.T) {
 
 	t.Run("it can delete items in parallel with a nodeSize of 2", func(t *testing.T) {
 		bTree := setup(g, 2)
+		bTree.root.print("")
 
 		wg := new(sync.WaitGroup)
-		for i := 0; i < 10_000; i++ {
+		for i := 0; i < iterateCount; i++ {
 			wg.Add(1)
 			go func(tKey datatypes.EncapsulatedData, tNum int) {
 				defer wg.Done()
@@ -214,6 +219,9 @@ func TestBTree_Random_Delete(t *testing.T) {
 		}
 
 		wg.Wait()
+		if !bTree.Empty() {
+			bTree.root.print("")
+		}
 		g.Expect(bTree.Empty()).To(BeTrue())
 	})
 
@@ -221,7 +229,7 @@ func TestBTree_Random_Delete(t *testing.T) {
 		bTree := setup(g, 3)
 
 		wg := new(sync.WaitGroup)
-		for i := 0; i < 10_000; i++ {
+		for i := 0; i < iterateCount; i++ {
 			wg.Add(1)
 			go func(tKey datatypes.EncapsulatedData, tNum int) {
 				defer wg.Done()
@@ -237,7 +245,7 @@ func TestBTree_Random_Delete(t *testing.T) {
 		bTree := setup(g, 4)
 
 		wg := new(sync.WaitGroup)
-		for i := 0; i < 10_000; i++ {
+		for i := 0; i < iterateCount; i++ {
 			wg.Add(1)
 			go func(tKey datatypes.EncapsulatedData, tNum int) {
 				defer wg.Done()

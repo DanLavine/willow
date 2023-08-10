@@ -2,6 +2,7 @@ package btree
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/DanLavine/willow/internal/datastructures"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
@@ -14,18 +15,9 @@ import (
 // the key's associated keyValue will be passed to the 'onFind' callback.
 //
 // PARAMS:
-// * value - value to insert into the BTree
-// * onCreate - required function to create the value if it does not yet exist in the tree
-// * onFind - required callbaack function that will ass the value as the param to datastructures.OnFind
-//
-// RETURNS:
-// * TreeItem - value that was originally passed in for insertion, or the original value that matches
-//
-// PARAMS:
-//   - key - key to use when comparing to other possible values
-//   - onCreate - callback function to create the value if it does not exist. If the create callback was to fail, its up
-//     to the callback to perform any cleanup operations and return nil. In this case nothing will be saved to the tree
-//   - onFind - method to call if the key already exists
+// - key - key to use when comparing to other possible values
+// - onCreate - callback function to create the value if it does not exist. If the create callback was to fail, its up to the callback to perform any cleanup operations and return nil. In this case nothing will be saved to the tree
+// - onFind - method to call if the key already exists
 //
 // RETURNS:
 // - error - any errors encontered. I.E. key is not valid
@@ -33,11 +25,9 @@ func (btree *threadSafeBTree) CreateOrFind(key datatypes.EncapsulatedData, onCre
 	if err := key.Validate(); err != nil {
 		return fmt.Errorf("key is invalid: %w", err)
 	}
-
 	if onCreate == nil {
 		return fmt.Errorf("onCreate callback is nil, but a keyValue is required")
 	}
-
 	if onFind == nil {
 		return fmt.Errorf("onFind callback is nil, but a keyValue is required")
 	}
@@ -50,30 +40,41 @@ func (btree *threadSafeBTree) CreateOrFind(key datatypes.EncapsulatedData, onCre
 		found = true
 		onFind(item)
 	}
-	// won't get an error here since params already checked
-	_ = btree.Find(key, findAlreadyCreated)
-	if found {
+	if _ = btree.Find(key, findAlreadyCreated); found == true {
 		return nil
 	}
 
-	// TODO: Improve me
-	// value was not found. now we need to create it, so need a tree path lock
-	// There has to be a better way of inserting, but not sure atm how to do that properly
+	// lock the current node. But as we progress down the tree, if we know that we can insert a new value at a specific level, we can unlock
+	// the parent node. This way, we don't need an exclusive lock on the whole tree, but can find the smallest workable subset
 	btree.lock.Lock()
-	defer btree.lock.Unlock()
+
+	once := new(sync.Once)
+	unlock := func() { once.Do(func() { btree.lock.Unlock() }) }
+	defer func() { unlock() }()
 
 	if btree.root == nil {
 		btree.root = newBTreeNode(btree.nodeSize)
 	}
 
-	if newRoot := btree.root.createOrFind(btree.nodeSize, key, onFind, onCreate); newRoot != nil {
+	btree.root.lock.Lock()
+	if newRoot := btree.root.createOrFind(unlock, key, onCreate, onFind); newRoot != nil {
 		btree.root = newRoot
 	}
 
 	return nil
 }
 
-// create a new value in the BTree
+// Create a new value or Find an existing value in the BTree.
+// The threading unlock strategy follows a number of rules when determining if it can unlock a Node
+// or the parent Node(s) for parallel requests:
+// TODO: DSL make sure this is still valid after delete
+//  1. Lock the Node with an exclusive lock since Crete can add a new value
+//  2. Increment an "operation" that happening on the node
+//  3. Iff there is space to insert a new value on the node, we can consider realeasiing the locks on the parent nodes.
+//     3.1 If the number of parallel process that care about the node < number of free value slots, we can release the lock of the parent nodes.
+//     Otherwise, the node will be unlocked when a process on the child completes.
+//     3.2 Otherwise, wrap the release into a callback down to another node that eventually has free space
+//  4. At the end, decrement the operations counter and ensure the lock is released
 //
 // PARAMS:
 // * value - value to be inserted into the tree
@@ -83,14 +84,31 @@ func (btree *threadSafeBTree) CreateOrFind(key datatypes.EncapsulatedData, onCre
 // RETURNS:
 // * TreeItem - the keyValue inserted or value if it already existed
 // * *threadSafeBNode - a new node if there was a split
-func (bn *threadSafeBNode) createOrFind(nodeSize int, key datatypes.EncapsulatedData, onFind datastructures.OnFind, onCreate datastructures.OnCreate) *threadSafeBNode {
+func (bn *threadSafeBNode) createOrFind(releaseParentLock func(), key datatypes.EncapsulatedData, onCreate datastructures.OnCreate, onFind datastructures.OnFind) *threadSafeBNode {
+	// always release the current lock on return
+	once := new(sync.Once)
+	unlock := func() { once.Do(func() { bn.lock.Unlock() }) }
+	defer func() { unlock() }()
+
+	// special case when recursing if we can unlock the parents
+	// This happens when an internal node has guranteed space for a new value
+	recurseUnlock := func() {
+		releaseParentLock()
+		unlock()
+	}
+
+	// we know we are not splitting the current node, can release the parent locks
+	if bn.numberOfValues+1 <= bn.maxValues() {
+		releaseParentLock()
+	}
+
 	switch bn.numberOfChildren {
 	case 0: // leaf node
 		bn.createTreeItem(key, onFind, onCreate)
 
-		// need to split node
-		if bn.numberOfValues > nodeSize {
-			return bn.splitLeaf(nodeSize)
+		// need to check the number of values after creation because creating the item can fail and no inster operation takes place
+		if bn.numberOfValues > bn.maxValues() {
+			return bn.splitLeaf()
 		}
 
 		return nil
@@ -106,16 +124,18 @@ func (bn *threadSafeBNode) createOrFind(nodeSize int, key datatypes.Encapsulated
 					return nil
 				}
 
-				// found index
+				// found child index
 				break
 			}
 		}
 
-		//  will be the found or created on the last child index (right child)
-		if node := bn.children[index].createOrFind(nodeSize, key, onFind, onCreate); node != nil {
+		//  found the index where the child node to recurse for index creation
+		bn.children[index].lock.Lock()
+		if node := bn.children[index].createOrFind(recurseUnlock, key, onCreate, onFind); node != nil {
 			bn.insertNode(node)
-			if bn.numberOfValues > nodeSize {
-				return bn.splitNode(nodeSize)
+
+			if bn.numberOfValues > bn.maxValues() {
+				return bn.splitNode()
 			}
 		}
 
@@ -173,23 +193,23 @@ func (bn *threadSafeBNode) appendTreeItem(key datatypes.EncapsulatedData, value 
 // RETURNS:
 // * TreeItem - tree value to be inserted or original value if found
 // * threadSafeBNode - new "root" node of the split nodes. Will be nil if original value is found
-func (bn *threadSafeBNode) splitLeaf(nodeSize int) *threadSafeBNode {
-	pivotIndex := nodeSize / 2
+func (bn *threadSafeBNode) splitLeaf() *threadSafeBNode {
+	pivotIndex := bn.maxValues() / 2
 
 	// 1. create the new nodes
-	parentNode := newBTreeNode(nodeSize)
+	parentNode := newBTreeNode(bn.maxValues())
 	parentNode.appendTreeItem(bn.keyValues[pivotIndex].key, bn.keyValues[pivotIndex].value)
 	parentNode.numberOfChildren = 2
 
 	// 2. create left node
-	parentNode.children[0] = newBTreeNode(nodeSize)
+	parentNode.children[0] = newBTreeNode(bn.maxValues())
 	for i := 0; i < pivotIndex; i++ {
 		parentNode.children[0].appendTreeItem(bn.keyValues[i].key, bn.keyValues[i].value)
 	}
 
 	// 3. create right node
-	parentNode.children[1] = newBTreeNode(nodeSize)
-	for i := pivotIndex + 1; i <= nodeSize; i++ {
+	parentNode.children[1] = newBTreeNode(bn.maxValues())
+	for i := pivotIndex + 1; i <= bn.maxValues(); i++ {
 		parentNode.children[1].appendTreeItem(bn.keyValues[i].key, bn.keyValues[i].value)
 	}
 
@@ -198,10 +218,6 @@ func (bn *threadSafeBNode) splitLeaf(nodeSize int) *threadSafeBNode {
 
 // insertNode is called only on "internal" nodes who have space for a promoted node keyValue
 func (bn *threadSafeBNode) insertNode(node *threadSafeBNode) {
-	//if node.numberOfChildren == 0 && node.numberOfValues == 0 {
-	//	return
-	//}
-
 	var index int
 	for index = 0; index < bn.numberOfValues; index++ {
 		keyValue := bn.keyValues[index]
@@ -213,7 +229,10 @@ func (bn *threadSafeBNode) insertNode(node *threadSafeBNode) {
 			}
 
 			for i := bn.numberOfChildren; i > index; i-- {
+				// locks are required in case a read operation is taking place. We want to ensure those finish properly
+				bn.children[i-1].lock.Lock()
 				bn.children[i] = bn.children[i-1]
+				bn.children[i].lock.Unlock()
 			}
 
 			break
@@ -243,16 +262,16 @@ func (bn *threadSafeBNode) insertNode(node *threadSafeBNode) {
 // RETURNS:
 // * TreeItem - tree value to be inserted or original value if found
 // * threadSafeBNode - new "root" node of the split nodes. Will be nil if original value is found
-func (bn *threadSafeBNode) splitNode(nodeSize int) *threadSafeBNode {
-	pivotIndex := nodeSize / 2
+func (bn *threadSafeBNode) splitNode() *threadSafeBNode {
+	pivotIndex := bn.maxValues() / 2
 
 	// 1. create the new nodes
-	parentNode := newBTreeNode(nodeSize)
+	parentNode := newBTreeNode(bn.maxValues())
 	parentNode.appendTreeItem(bn.keyValues[pivotIndex].key, bn.keyValues[pivotIndex].value)
 	parentNode.numberOfChildren = 2
 
 	// 2. create left nodes
-	parentNode.children[0] = newBTreeNode(nodeSize)
+	parentNode.children[0] = newBTreeNode(bn.maxValues())
 	var index int
 	for index = 0; index < pivotIndex; index++ {
 		parentNode.children[0].appendTreeItem(bn.keyValues[index].key, bn.keyValues[index].value)
@@ -263,8 +282,8 @@ func (bn *threadSafeBNode) splitNode(nodeSize int) *threadSafeBNode {
 	parentNode.children[0].numberOfChildren++
 
 	// 2. create right nodes
-	parentNode.children[1] = newBTreeNode(nodeSize)
-	for index = pivotIndex + 1; index <= nodeSize; index++ {
+	parentNode.children[1] = newBTreeNode(bn.maxValues())
+	for index = pivotIndex + 1; index <= bn.maxValues(); index++ {
 		parentNode.children[1].appendTreeItem(bn.keyValues[index].key, bn.keyValues[index].value)
 		parentNode.children[1].children[index-pivotIndex-1] = bn.children[index]
 		parentNode.children[1].numberOfChildren++

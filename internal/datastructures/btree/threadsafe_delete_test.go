@@ -1088,7 +1088,7 @@ func TestBTree_Delete_HeightThreeAndAbove(t *testing.T) {
 			//       /      |         \
 			//[  empty]   60,75      100,120
 			//   /       /  |  \    /   |   \
-			//  30,38  38   50  70 78  90  110  130
+			//  30,38  50  70  78  90  110  130
 			//
 			//
 			// with a final rotation seting up the final tree:
@@ -1114,6 +1114,7 @@ func TestBTree_Delete_HeightThreeAndAbove(t *testing.T) {
 			g.Expect(gchild1_1.keyValues[0].key).To(Equal(Key30))
 			g.Expect(gchild1_1.keyValues[1].key).To(Equal(Key38))
 
+			bTree.root.print("")
 			gchild1_2 := child1.children[1]
 			g.Expect(gchild1_2.numberOfChildren).To(Equal(0))
 			g.Expect(gchild1_2.numberOfValues).To(Equal(1))

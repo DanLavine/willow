@@ -128,8 +128,18 @@ func TestMemoryQueue_Enqueue(t *testing.T) {
 		g.Expect(queue.Enqueue(zap.NewNop(), enqueue2)).ToNot(HaveOccurred())
 		metrics = queue.Metrics()
 		g.Expect(len(metrics.Tags)).To(Equal(2))
-		g.Expect(metrics.Tags[0].Tags).To(Equal(datatypes.StringMap{"a": datatypes.String("a")}))
-		g.Expect(metrics.Tags[1].Tags).To(Equal(datatypes.StringMap{"a": datatypes.String("a"), "b": datatypes.String("b")}))
+		g.Expect(metrics.Tags).To(ContainElements([]*v1.TagMetricsResponse{
+			{
+				Ready:      1,
+				Processing: 0,
+				Tags:       datatypes.StringMap{"a": datatypes.String("a")},
+			},
+			{
+				Ready:      1,
+				Processing: 0,
+				Tags:       datatypes.StringMap{"a": datatypes.String("a"), "b": datatypes.String("b")},
+			},
+		}))
 	})
 
 	t.Run("it returns an error if the item cannot be enqueued because there are to many messages waiting to process", func(t *testing.T) {
