@@ -38,7 +38,7 @@ func (tsat *threadsafeAssociatedTree) CreateOrFind(keyValuePairs datatypes.Strin
 	if err := tsat.Find(keyValuePairs, wrappedOnFind); err != nil {
 		return err
 	}
-	if found == true {
+	if found {
 		return nil
 	}
 

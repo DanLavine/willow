@@ -49,16 +49,3 @@ Use Cases:
    have multiple setups all configured to test various hardware. We halso ave a wide spread of potential releases
    from any CI pipeline for N repos + N branches. Pulling from a SUBSET for our server machines configuration
    can just run any build from any queue
-
-# Work List
-
-## In Progress
-1. Have a "rules" set for limits
-
-## TODO
-1. when a queue item fails, it goes to the the dead-letter-queue
-1. add a retry ablity for queue items
-1. add a "timeout" ability for queue items
-1. dead-letter-queue can load from disk
-1. Add ability for queues to have limits (number of messages)
-1. Ensure a server can restart + clients can finish processing any items they had after server restarts

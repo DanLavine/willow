@@ -83,7 +83,7 @@ func TestBTree_FindNotEqual(t *testing.T) {
 	t.Run("it returns an error if the key is invalid", func(t *testing.T) {
 		bTree := setupTree(g)
 
-		err := bTree.FindNotEqual(datatypes.EncapsulatedData{DataType: -1, Value: "bad"}, func(items []any) {})
+		err := bTree.FindNotEqual(datatypes.EncapsulatedData{DataType: -1, Value: "bad"}, func(items any) bool { return true })
 		g.Expect(err).To(HaveOccurred())
 		g.Expect(err.Error()).To(ContainSubstring("key is invalid:"))
 	})
@@ -97,12 +97,13 @@ func TestBTree_FindNotEqual(t *testing.T) {
 		g.Expect(err.Error()).To(ContainSubstring("callback cannot be nil"))
 	})
 
-	t.Run("it passes a slice of all items found less than the key", func(t *testing.T) {
+	t.Run("it runs the callback on all items found less than the key", func(t *testing.T) {
 		bTree := setupTree(g)
 
 		foundItems := []any{}
-		onFind := func(items []any) {
-			foundItems = items
+		onFind := func(items any) bool {
+			foundItems = append(foundItems, items)
+			return true
 		}
 
 		bTree.FindNotEqual(datatypes.Int(512), onFind)
@@ -114,12 +115,26 @@ func TestBTree_FindNotEqual(t *testing.T) {
 		bTree := setupTree(g)
 
 		foundItems := []any{}
-		onFind := func(items []any) {
-			foundItems = items
+		onFind := func(items any) bool {
+			foundItems = append(foundItems, items)
+			return true
 		}
 
 		bTree.FindNotEqual(datatypes.String("512"), onFind)
 		g.Expect(len(foundItems)).To(Equal(1_024)) // all ints, no strings in the setup
+	})
+
+	t.Run("it breaks the iteration when find callback returns false", func(t *testing.T) {
+		bTree := setupTree(g)
+
+		foundItems := []any{}
+		onFind := func(items any) bool {
+			foundItems = append(foundItems, items)
+			return len(foundItems) < 5
+		}
+
+		bTree.FindNotEqual(datatypes.String("512"), onFind)
+		g.Expect(len(foundItems)).To(Equal(5))
 	})
 }
 
@@ -140,7 +155,7 @@ func TestBTree_FindNotEqualMatchType(t *testing.T) {
 	t.Run("it returns an error if the key is invalid", func(t *testing.T) {
 		bTree := setupTree(g)
 
-		err := bTree.FindNotEqualMatchType(datatypes.EncapsulatedData{DataType: -1, Value: "bad"}, func(items []any) {})
+		err := bTree.FindNotEqualMatchType(datatypes.EncapsulatedData{DataType: -1, Value: "bad"}, func(items any) bool { return true })
 		g.Expect(err).To(HaveOccurred())
 		g.Expect(err.Error()).To(ContainSubstring("key is invalid:"))
 	})
@@ -154,12 +169,13 @@ func TestBTree_FindNotEqualMatchType(t *testing.T) {
 		g.Expect(err.Error()).To(ContainSubstring("callback cannot be nil"))
 	})
 
-	t.Run("it passes a slice of all items found less than the key", func(t *testing.T) {
+	t.Run("it runs the callback for all items found less than the key", func(t *testing.T) {
 		bTree := setupTree(g)
 
 		foundItems := []any{}
-		onFind := func(items []any) {
-			foundItems = items
+		onFind := func(item any) bool {
+			foundItems = append(foundItems, item)
+			return true
 		}
 
 		bTree.FindNotEqualMatchType(datatypes.Int(512), onFind)
@@ -167,7 +183,7 @@ func TestBTree_FindNotEqualMatchType(t *testing.T) {
 		g.Expect(foundItems).ToNot(ContainElement("512"))
 	})
 
-	t.Run("it acconts for the type when comparing", func(t *testing.T) {
+	t.Run("it accounts for the type when comparing", func(t *testing.T) {
 		bTree, err := NewThreadSafe(2)
 		g.Expect(err).ToNot(HaveOccurred())
 
@@ -180,8 +196,9 @@ func TestBTree_FindNotEqualMatchType(t *testing.T) {
 		g.Expect(bTree.CreateOrFind(datatypes.Int32(2), func() any { return "2" }, OnFindTest)).ToNot(HaveOccurred())
 
 		foundItems := []any{}
-		onFind := func(items []any) {
-			foundItems = items
+		onFind := func(item any) bool {
+			foundItems = append(foundItems, item)
+			return true
 		}
 
 		// sets up a tree with the keys like so:
@@ -194,6 +211,19 @@ func TestBTree_FindNotEqualMatchType(t *testing.T) {
 		bTree.FindNotEqualMatchType(datatypes.Int16(2), onFind)
 		g.Expect(len(foundItems)).To(Equal(2))
 		g.Expect(foundItems).To(ContainElements([]string{"int16_1", "int16_3"}))
+	})
+
+	t.Run("it breaks the iteration when find callback returns false", func(t *testing.T) {
+		bTree := setupTree(g)
+
+		foundItems := []any{}
+		onFind := func(item any) bool {
+			foundItems = append(foundItems, item)
+			return len(foundItems) < 5
+		}
+
+		bTree.FindNotEqualMatchType(datatypes.Int(512), onFind)
+		g.Expect(len(foundItems)).To(Equal(5))
 	})
 }
 
@@ -214,7 +244,7 @@ func TestBTree_FindLessThan(t *testing.T) {
 	t.Run("it returns an error if the key is invalid", func(t *testing.T) {
 		bTree := setupTree(g)
 
-		err := bTree.FindLessThan(datatypes.EncapsulatedData{DataType: -1, Value: "bad"}, func(items []any) {})
+		err := bTree.FindLessThan(datatypes.EncapsulatedData{DataType: -1, Value: "bad"}, func(item any) bool { return true })
 		g.Expect(err).To(HaveOccurred())
 		g.Expect(err.Error()).To(ContainSubstring("key is invalid:"))
 	})
@@ -228,24 +258,26 @@ func TestBTree_FindLessThan(t *testing.T) {
 		g.Expect(err.Error()).To(ContainSubstring("callback cannot be nil"))
 	})
 
-	t.Run("it does not run the callback if the item is not found in the tree", func(t *testing.T) {
+	t.Run("it does not run the callback if no items are not found in the tree", func(t *testing.T) {
 		bTree := setupTree(g)
 
 		called := false
-		onFind := func(item []any) {
+		onFind := func(item any) bool {
 			called = true
+			return true
 		}
 
 		g.Expect(bTree.FindLessThan(datatypes.Int64(-1), onFind)).ToNot(HaveOccurred())
 		g.Expect(called).To(BeFalse())
 	})
 
-	t.Run("it passes a slice of all items found less than the key", func(t *testing.T) {
+	t.Run("it runs the callback for all items found less than the key", func(t *testing.T) {
 		bTree := setupTree(g)
 
 		foundItems := []any{}
-		onFind := func(items []any) {
-			foundItems = items
+		onFind := func(item any) bool {
+			foundItems = append(foundItems, item)
+			return true
 		}
 
 		bTree.FindLessThan(datatypes.Int(512), onFind)
@@ -256,13 +288,26 @@ func TestBTree_FindLessThan(t *testing.T) {
 		bTree := setupTree(g)
 
 		foundItems := []any{}
-		onFind := func(items []any) {
-			foundItems = items
+		onFind := func(item any) bool {
+			foundItems = append(foundItems, item)
+			return true
 		}
 
-		//bTree.root.print("")
 		bTree.FindLessThan(datatypes.String("512"), onFind)
 		g.Expect(len(foundItems)).To(Equal(1024)) // all ints are less than strings
+	})
+
+	t.Run("it breaks the iteration when find callback returns false", func(t *testing.T) {
+		bTree := setupTree(g)
+
+		foundItems := []any{}
+		onFind := func(item any) bool {
+			foundItems = append(foundItems, item)
+			return len(foundItems) < 5
+		}
+
+		bTree.FindLessThan(datatypes.String("512"), onFind)
+		g.Expect(len(foundItems)).To(Equal(5))
 	})
 }
 
@@ -283,7 +328,7 @@ func TestBTree_FindLessThanMatchType(t *testing.T) {
 	t.Run("it returns an error if the key is invalid", func(t *testing.T) {
 		bTree := setupTree(g)
 
-		err := bTree.FindLessThanMatchType(datatypes.EncapsulatedData{DataType: -1, Value: "bad"}, func(items []any) {})
+		err := bTree.FindLessThanMatchType(datatypes.EncapsulatedData{DataType: -1, Value: "bad"}, func(item any) bool { return true })
 		g.Expect(err).To(HaveOccurred())
 		g.Expect(err.Error()).To(ContainSubstring("key is invalid:"))
 	})
@@ -301,8 +346,9 @@ func TestBTree_FindLessThanMatchType(t *testing.T) {
 		bTree := setupTree(g)
 
 		called := false
-		onFind := func(item []any) {
+		onFind := func(ite any) bool {
 			called = true
+			return true
 		}
 
 		g.Expect(bTree.FindLessThanMatchType(datatypes.Int64(-1), onFind)).ToNot(HaveOccurred())
@@ -313,8 +359,9 @@ func TestBTree_FindLessThanMatchType(t *testing.T) {
 		bTree := setupTree(g)
 
 		foundItems := []any{}
-		onFind := func(items []any) {
-			foundItems = items
+		onFind := func(item any) bool {
+			foundItems = append(foundItems, item)
+			return true
 		}
 
 		bTree.FindLessThanMatchType(datatypes.Int(512), onFind)
@@ -325,13 +372,26 @@ func TestBTree_FindLessThanMatchType(t *testing.T) {
 		bTree := setupTree(g)
 
 		foundItems := []any{}
-		onFind := func(items []any) {
-			foundItems = items
+		onFind := func(item any) bool {
+			foundItems = append(foundItems, item)
+			return true
 		}
 
-		//bTree.root.print("")
 		bTree.FindLessThanMatchType(datatypes.String("512"), onFind)
 		g.Expect(len(foundItems)).To(Equal(0))
+	})
+
+	t.Run("it breaks the iteration when find callback returns false", func(t *testing.T) {
+		bTree := setupTree(g)
+
+		foundItems := []any{}
+		onFind := func(item any) bool {
+			foundItems = append(foundItems, item)
+			return len(foundItems) < 5
+		}
+
+		bTree.FindLessThanMatchType(datatypes.Int(512), onFind)
+		g.Expect(len(foundItems)).To(Equal(5))
 	})
 }
 
@@ -352,7 +412,7 @@ func TestBTree_FindLessThanOrEqual(t *testing.T) {
 	t.Run("it returns an error if the key is invalid", func(t *testing.T) {
 		bTree := setupTree(g)
 
-		err := bTree.FindLessThanOrEqual(datatypes.EncapsulatedData{DataType: -1, Value: "bad"}, func(items []any) {})
+		err := bTree.FindLessThanOrEqual(datatypes.EncapsulatedData{DataType: -1, Value: "bad"}, func(item any) bool { return true })
 		g.Expect(err).To(HaveOccurred())
 		g.Expect(err.Error()).To(ContainSubstring("key is invalid:"))
 	})
@@ -370,8 +430,9 @@ func TestBTree_FindLessThanOrEqual(t *testing.T) {
 		bTree := setupTree(g)
 
 		called := false
-		onFind := func(item []any) {
+		onFind := func(item any) bool {
 			called = true
+			return true
 		}
 
 		g.Expect(bTree.FindLessThanOrEqual(datatypes.Int64(-1), onFind)).ToNot(HaveOccurred())
@@ -382,8 +443,9 @@ func TestBTree_FindLessThanOrEqual(t *testing.T) {
 		bTree := setupTree(g)
 
 		foundItems := []any{}
-		onFind := func(items []any) {
-			foundItems = items
+		onFind := func(item any) bool {
+			foundItems = append(foundItems, item)
+			return true
 		}
 
 		bTree.FindLessThanOrEqual(datatypes.Int(512), onFind)
@@ -394,12 +456,26 @@ func TestBTree_FindLessThanOrEqual(t *testing.T) {
 		bTree := setupTree(g)
 
 		foundItems := []any{}
-		onFind := func(items []any) {
-			foundItems = items
+		onFind := func(item any) bool {
+			foundItems = append(foundItems, item)
+			return true
 		}
 
 		bTree.FindLessThanOrEqual(datatypes.String("512"), onFind)
 		g.Expect(len(foundItems)).To(Equal(1024)) // int is less than string
+	})
+
+	t.Run("it breaks the iteration when find callback returns false", func(t *testing.T) {
+		bTree := setupTree(g)
+
+		foundItems := []any{}
+		onFind := func(item any) bool {
+			foundItems = append(foundItems, item)
+			return len(foundItems) < 5
+		}
+
+		bTree.FindLessThanOrEqual(datatypes.String("512"), onFind)
+		g.Expect(len(foundItems)).To(Equal(5))
 	})
 }
 
@@ -420,7 +496,7 @@ func TestBTree_FindLessThanOrEqualMatchType(t *testing.T) {
 	t.Run("it returns an error if the key is invalid", func(t *testing.T) {
 		bTree := setupTree(g)
 
-		err := bTree.FindLessThanOrEqualMatchType(datatypes.EncapsulatedData{DataType: -1, Value: "bad"}, func(items []any) {})
+		err := bTree.FindLessThanOrEqualMatchType(datatypes.EncapsulatedData{DataType: -1, Value: "bad"}, func(item any) bool { return true })
 		g.Expect(err).To(HaveOccurred())
 		g.Expect(err.Error()).To(ContainSubstring("key is invalid:"))
 	})
@@ -438,8 +514,9 @@ func TestBTree_FindLessThanOrEqualMatchType(t *testing.T) {
 		bTree := setupTree(g)
 
 		called := false
-		onFind := func(item []any) {
+		onFind := func(item any) bool {
 			called = true
+			return true
 		}
 
 		g.Expect(bTree.FindLessThanOrEqualMatchType(datatypes.Int64(-1), onFind)).ToNot(HaveOccurred())
@@ -450,8 +527,9 @@ func TestBTree_FindLessThanOrEqualMatchType(t *testing.T) {
 		bTree := setupTree(g)
 
 		foundItems := []any{}
-		onFind := func(items []any) {
-			foundItems = items
+		onFind := func(item any) bool {
+			foundItems = append(foundItems, item)
+			return true
 		}
 
 		bTree.FindLessThanOrEqualMatchType(datatypes.Int(512), onFind)
@@ -462,8 +540,9 @@ func TestBTree_FindLessThanOrEqualMatchType(t *testing.T) {
 		bTree := setupTree(g)
 
 		foundItems := []any{}
-		onFind := func(items []any) {
-			foundItems = items
+		onFind := func(item any) bool {
+			foundItems = append(foundItems, item)
+			return true
 		}
 
 		bTree.FindLessThanOrEqualMatchType(datatypes.String("512"), onFind)
@@ -471,6 +550,19 @@ func TestBTree_FindLessThanOrEqualMatchType(t *testing.T) {
 
 		bTree.FindLessThanOrEqualMatchType(datatypes.Int64(512), onFind)
 		g.Expect(len(foundItems)).To(Equal(0)) // int is less than string
+	})
+
+	t.Run("it breaks the iteration when find callback returns false", func(t *testing.T) {
+		bTree := setupTree(g)
+
+		foundItems := []any{}
+		onFind := func(item any) bool {
+			foundItems = append(foundItems, item)
+			return len(foundItems) < 5
+		}
+
+		bTree.FindLessThanOrEqualMatchType(datatypes.Int(512), onFind)
+		g.Expect(len(foundItems)).To(Equal(5))
 	})
 }
 
@@ -491,7 +583,7 @@ func TestBTree_FindGreaterThan(t *testing.T) {
 	t.Run("it returns an error if the key is invalid", func(t *testing.T) {
 		bTree := setupTree(g)
 
-		err := bTree.FindGreaterThan(datatypes.EncapsulatedData{DataType: -1, Value: "bad"}, func(items []any) {})
+		err := bTree.FindGreaterThan(datatypes.EncapsulatedData{DataType: -1, Value: "bad"}, func(item any) bool { return true })
 		g.Expect(err).To(HaveOccurred())
 		g.Expect(err.Error()).To(ContainSubstring("key is invalid:"))
 	})
@@ -509,8 +601,9 @@ func TestBTree_FindGreaterThan(t *testing.T) {
 		bTree := setupTree(g)
 
 		called := false
-		onFind := func(item []any) {
+		onFind := func(item any) bool {
 			called = true
+			return true
 		}
 
 		g.Expect(bTree.FindGreaterThan(datatypes.Int(9_001), onFind)).ToNot(HaveOccurred())
@@ -521,8 +614,9 @@ func TestBTree_FindGreaterThan(t *testing.T) {
 		bTree := setupTree(g)
 
 		foundItems := []any{}
-		onFind := func(items []any) {
-			foundItems = items
+		onFind := func(item any) bool {
+			foundItems = append(foundItems, item)
+			return true
 		}
 
 		bTree.FindGreaterThan(datatypes.Int(512), onFind)
@@ -533,12 +627,26 @@ func TestBTree_FindGreaterThan(t *testing.T) {
 		bTree := setupTree(g)
 
 		foundItems := []any{}
-		onFind := func(items []any) {
-			foundItems = items
+		onFind := func(item any) bool {
+			foundItems = append(foundItems, item)
+			return true
 		}
 
 		bTree.FindGreaterThan(datatypes.Int64(512), onFind)
 		g.Expect(len(foundItems)).To(Equal(1024)) // ints are larger than int64
+	})
+
+	t.Run("it breaks the iteration when find callback returns false", func(t *testing.T) {
+		bTree := setupTree(g)
+
+		foundItems := []any{}
+		onFind := func(item any) bool {
+			foundItems = append(foundItems, item)
+			return len(foundItems) < 5
+		}
+
+		bTree.FindGreaterThan(datatypes.Int(512), onFind)
+		g.Expect(len(foundItems)).To(Equal(5))
 	})
 }
 
@@ -559,7 +667,7 @@ func TestBTree_FindGreaterThanMatchType(t *testing.T) {
 	t.Run("it returns an error if the key is invalid", func(t *testing.T) {
 		bTree := setupTree(g)
 
-		err := bTree.FindGreaterThanMatchType(datatypes.EncapsulatedData{DataType: -1, Value: "bad"}, func(items []any) {})
+		err := bTree.FindGreaterThanMatchType(datatypes.EncapsulatedData{DataType: -1, Value: "bad"}, func(item any) bool { return true })
 		g.Expect(err).To(HaveOccurred())
 		g.Expect(err.Error()).To(ContainSubstring("key is invalid:"))
 	})
@@ -577,8 +685,9 @@ func TestBTree_FindGreaterThanMatchType(t *testing.T) {
 		bTree := setupTree(g)
 
 		called := false
-		onFind := func(item []any) {
+		onFind := func(item any) bool {
 			called = true
+			return true
 		}
 
 		g.Expect(bTree.FindGreaterThanMatchType(datatypes.Int(9_001), onFind)).ToNot(HaveOccurred())
@@ -589,8 +698,9 @@ func TestBTree_FindGreaterThanMatchType(t *testing.T) {
 		bTree := setupTree(g)
 
 		foundItems := []any{}
-		onFind := func(items []any) {
-			foundItems = items
+		onFind := func(item any) bool {
+			foundItems = append(foundItems, item)
+			return true
 		}
 
 		bTree.FindGreaterThanMatchType(datatypes.Int(512), onFind)
@@ -601,8 +711,9 @@ func TestBTree_FindGreaterThanMatchType(t *testing.T) {
 		bTree := setupTree(g)
 
 		foundItems := []any{}
-		onFind := func(items []any) {
-			foundItems = items
+		onFind := func(item any) bool {
+			foundItems = append(foundItems, item)
+			return true
 		}
 
 		bTree.FindGreaterThanMatchType(datatypes.Int64(512), onFind)
@@ -610,6 +721,19 @@ func TestBTree_FindGreaterThanMatchType(t *testing.T) {
 
 		bTree.FindGreaterThanMatchType(datatypes.String("512"), onFind)
 		g.Expect(len(foundItems)).To(Equal(0))
+	})
+
+	t.Run("it breaks the iteration when find callback returns false", func(t *testing.T) {
+		bTree := setupTree(g)
+
+		foundItems := []any{}
+		onFind := func(item any) bool {
+			foundItems = append(foundItems, item)
+			return len(foundItems) < 5
+		}
+
+		bTree.FindGreaterThanMatchType(datatypes.Int(512), onFind)
+		g.Expect(len(foundItems)).To(Equal(5))
 	})
 }
 
@@ -630,7 +754,7 @@ func TestBTree_FindGreaterThanOrEqual(t *testing.T) {
 	t.Run("it returns an error if the key is invalid", func(t *testing.T) {
 		bTree := setupTree(g)
 
-		err := bTree.FindGreaterThanOrEqual(datatypes.EncapsulatedData{DataType: -1, Value: "bad"}, func(items []any) {})
+		err := bTree.FindGreaterThanOrEqual(datatypes.EncapsulatedData{DataType: -1, Value: "bad"}, func(item any) bool { return true })
 		g.Expect(err).To(HaveOccurred())
 		g.Expect(err.Error()).To(ContainSubstring("key is invalid:"))
 	})
@@ -648,8 +772,9 @@ func TestBTree_FindGreaterThanOrEqual(t *testing.T) {
 		bTree := setupTree(g)
 
 		called := false
-		onFind := func(item []any) {
+		onFind := func(item any) bool {
 			called = true
+			return true
 		}
 
 		g.Expect(bTree.FindGreaterThanOrEqual(datatypes.Int(9_001), onFind)).ToNot(HaveOccurred())
@@ -660,8 +785,9 @@ func TestBTree_FindGreaterThanOrEqual(t *testing.T) {
 		bTree := setupTree(g)
 
 		foundItems := []any{}
-		onFind := func(items []any) {
-			foundItems = items
+		onFind := func(item any) bool {
+			foundItems = append(foundItems, item)
+			return true
 		}
 
 		bTree.FindGreaterThanOrEqual(datatypes.Int(512), onFind)
@@ -672,12 +798,33 @@ func TestBTree_FindGreaterThanOrEqual(t *testing.T) {
 		bTree := setupTree(g)
 
 		foundItems := []any{}
-		onFind := func(items []any) {
-			foundItems = items
+		onFind := func(item any) bool {
+			foundItems = append(foundItems, item)
+			return true
 		}
 
 		bTree.FindGreaterThanOrEqual(datatypes.Int64(512), onFind)
 		g.Expect(len(foundItems)).To(Equal(1024)) // int is larger than int64
+	})
+
+	t.Run("it breaks the iteration when find callback returns false", func(t *testing.T) {
+		bTree := setupTree(g)
+
+		foundItems := []any{}
+		findCounter := 5
+		onFind := func(item any) bool {
+			foundItems = append(foundItems, item)
+			return len(foundItems) < findCounter
+		}
+
+		bTree.FindGreaterThanOrEqual(datatypes.Int(512), onFind)
+		g.Expect(len(foundItems)).To(Equal(5))
+
+		// this needs to be in the right sub tree, not the left since we find many larger than values,
+		foundItems = []any{}
+		findCounter = 0
+		bTree.FindGreaterThanOrEqual(datatypes.Int(767), onFind)
+		g.Expect(len(foundItems)).To(Equal(1))
 	})
 }
 
@@ -698,7 +845,7 @@ func TestBTree_FindGreaterThanOrEqualMatchType(t *testing.T) {
 	t.Run("it returns an error if the key is invalid", func(t *testing.T) {
 		bTree := setupTree(g)
 
-		err := bTree.FindGreaterThanOrEqualMatchType(datatypes.EncapsulatedData{DataType: -1, Value: "bad"}, func(items []any) {})
+		err := bTree.FindGreaterThanOrEqualMatchType(datatypes.EncapsulatedData{DataType: -1, Value: "bad"}, func(item any) bool { return true })
 		g.Expect(err).To(HaveOccurred())
 		g.Expect(err.Error()).To(ContainSubstring("key is invalid:"))
 	})
@@ -716,8 +863,9 @@ func TestBTree_FindGreaterThanOrEqualMatchType(t *testing.T) {
 		bTree := setupTree(g)
 
 		called := false
-		onFind := func(item []any) {
+		onFind := func(item any) bool {
 			called = true
+			return true
 		}
 
 		g.Expect(bTree.FindGreaterThanOrEqualMatchType(datatypes.Int(9_001), onFind)).ToNot(HaveOccurred())
@@ -728,8 +876,9 @@ func TestBTree_FindGreaterThanOrEqualMatchType(t *testing.T) {
 		bTree := setupTree(g)
 
 		foundItems := []any{}
-		onFind := func(items []any) {
-			foundItems = items
+		onFind := func(item any) bool {
+			foundItems = append(foundItems, item)
+			return true
 		}
 
 		bTree.FindGreaterThanOrEqualMatchType(datatypes.Int(512), onFind)
@@ -740,8 +889,9 @@ func TestBTree_FindGreaterThanOrEqualMatchType(t *testing.T) {
 		bTree := setupTree(g)
 
 		foundItems := []any{}
-		onFind := func(items []any) {
-			foundItems = items
+		onFind := func(item any) bool {
+			foundItems = append(foundItems, item)
+			return true
 		}
 
 		bTree.FindGreaterThanOrEqualMatchType(datatypes.Int64(512), onFind)
@@ -749,5 +899,25 @@ func TestBTree_FindGreaterThanOrEqualMatchType(t *testing.T) {
 
 		bTree.FindGreaterThanOrEqualMatchType(datatypes.String("512"), onFind)
 		g.Expect(len(foundItems)).To(Equal(0))
+	})
+
+	t.Run("it breaks the iteration when find callback returns false", func(t *testing.T) {
+		bTree := setupTree(g)
+
+		foundItems := []any{}
+		findCounter := 5
+		onFind := func(item any) bool {
+			foundItems = append(foundItems, item)
+			return len(foundItems) < findCounter
+		}
+
+		bTree.FindGreaterThanOrEqualMatchType(datatypes.Int(512), onFind)
+		g.Expect(len(foundItems)).To(Equal(5))
+
+		// this needs to be in the right sub tree, not the left since we find many larger than values,
+		foundItems = []any{}
+		findCounter = 0
+		bTree.FindGreaterThanOrEqualMatchType(datatypes.Int(767), onFind)
+		g.Expect(len(foundItems)).To(Equal(1))
 	})
 }

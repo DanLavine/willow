@@ -181,7 +181,6 @@ func TestBTree_Random_Find(t *testing.T) {
 
 func TestBTree_Random_Delete(t *testing.T) {
 	g := NewGomegaWithT(t)
-
 	iterateCount := 10_000
 
 	setup := func(g *GomegaWithT, order int) *threadSafeBTree {
@@ -207,54 +206,71 @@ func TestBTree_Random_Delete(t *testing.T) {
 
 	t.Run("it can delete items in parallel with a nodeSize of 2", func(t *testing.T) {
 		bTree := setup(g, 2)
-		bTree.root.print("")
+
+		counter := new(atomic.Int64)
+		delete := func(item any) bool {
+			counter.Add(1)
+			return true
+		}
 
 		wg := new(sync.WaitGroup)
 		for i := 0; i < iterateCount; i++ {
 			wg.Add(1)
-			go func(tKey datatypes.EncapsulatedData, tNum int) {
+			go func(tKey datatypes.EncapsulatedData) {
 				defer wg.Done()
-				g.Expect(bTree.Delete(tKey, nil)).ToNot(HaveOccurred())
-			}(datatypes.Int(i), i)
+				g.Expect(bTree.Delete(tKey, delete)).ToNot(HaveOccurred())
+			}(datatypes.Int(i))
 		}
 
 		wg.Wait()
-		if !bTree.Empty() {
-			bTree.root.print("")
-		}
 		g.Expect(bTree.Empty()).To(BeTrue())
+		g.Expect(counter.Load()).To(Equal(int64(iterateCount)))
 	})
 
 	t.Run("it can delete items in parallel with a nodeSize of 3", func(t *testing.T) {
 		bTree := setup(g, 3)
 
+		counter := new(atomic.Int64)
+		delete := func(item any) bool {
+			counter.Add(1)
+			return true
+		}
+
 		wg := new(sync.WaitGroup)
 		for i := 0; i < iterateCount; i++ {
 			wg.Add(1)
-			go func(tKey datatypes.EncapsulatedData, tNum int) {
+			go func(tKey datatypes.EncapsulatedData) {
 				defer wg.Done()
-				g.Expect(bTree.Delete(tKey, nil)).ToNot(HaveOccurred())
-			}(datatypes.Int(i), i)
+				g.Expect(bTree.Delete(tKey, delete)).ToNot(HaveOccurred())
+			}(datatypes.Int(i))
 		}
 
 		wg.Wait()
 		g.Expect(bTree.Empty()).To(BeTrue())
+		g.Expect(counter.Load()).To(Equal(int64(iterateCount)))
 	})
 
 	t.Run("it can delete items in parallel with a nodeSize of 4", func(t *testing.T) {
 		bTree := setup(g, 4)
 
+		counter := new(atomic.Int64)
+		delete := func(item any) bool {
+			counter.Add(1)
+			return true
+		}
+
 		wg := new(sync.WaitGroup)
 		for i := 0; i < iterateCount; i++ {
 			wg.Add(1)
-			go func(tKey datatypes.EncapsulatedData, tNum int) {
+			go func(tKey datatypes.EncapsulatedData) {
 				defer wg.Done()
-				g.Expect(bTree.Delete(tKey, nil)).ToNot(HaveOccurred())
-			}(datatypes.Int(i), i)
+				g.Expect(bTree.Delete(tKey, delete)).ToNot(HaveOccurred())
+			}(datatypes.Int(i))
 		}
 
 		wg.Wait()
 		g.Expect(bTree.Empty()).To(BeTrue())
+		g.Expect(counter.Load()).To(Equal(int64(iterateCount)))
 	})
 }
 
@@ -262,13 +278,28 @@ func TestBTree_Random_AllActions(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	onFindNoOp := func(item any) {}
+	onFindPaginateTrue := func(_ any) bool { return true }
+	onFindPaginateFalse := func(_ any) bool { return false }
 
 	t.Run("it can run all actions with a nodeSize of 2", func(t *testing.T) {
 		bTree, err := NewThreadSafe(2)
 		g.Expect(err).ToNot(HaveOccurred())
 
 		wg := new(sync.WaitGroup)
+		var onFindPaginate func(item any) bool
 		for i := 0; i < 10_000; i++ {
+			switch i % 3 {
+			case 0:
+				onFindPaginate = onFindPaginateTrue
+			case 1:
+				onFindPaginate = onFindPaginateFalse
+			case 2:
+				if time.Now().Unix()%2 == 0 {
+					onFindPaginate = onFindPaginateTrue
+				} else {
+					onFindPaginate = onFindPaginateFalse
+				}
+			}
 			// add
 			wg.Add(1)
 			go func(tKey datatypes.EncapsulatedData, tNum int) {
@@ -278,10 +309,87 @@ func TestBTree_Random_AllActions(t *testing.T) {
 
 			// find
 			wg.Add(1)
-			go func(tKey datatypes.EncapsulatedData, tNum int) {
+			go func(tKey datatypes.EncapsulatedData) {
 				defer wg.Done()
 				g.Expect(bTree.Find(tKey, onFindNoOp)).ToNot(HaveOccurred())
-			}(datatypes.Int(i), i)
+			}(datatypes.Int(i))
+
+			// find not equal
+			wg.Add(1)
+			go func(tKey datatypes.EncapsulatedData, callback func(any) bool) {
+				defer wg.Done()
+				g.Expect(bTree.FindNotEqual(tKey, callback)).ToNot(HaveOccurred())
+			}(datatypes.Int(i), onFindPaginate)
+
+			// find not equal match type
+			wg.Add(1)
+			go func(tKey datatypes.EncapsulatedData, callback func(any) bool) {
+				defer wg.Done()
+				g.Expect(bTree.FindNotEqualMatchType(tKey, callback)).ToNot(HaveOccurred())
+			}(datatypes.Int(i), onFindPaginate)
+
+			// find not equal match type
+			wg.Add(1)
+			go func(tKey datatypes.EncapsulatedData, callback func(any) bool) {
+				defer wg.Done()
+				g.Expect(bTree.FindNotEqualMatchType(tKey, callback)).ToNot(HaveOccurred())
+			}(datatypes.Int(i), onFindPaginate)
+
+			// find less than
+			wg.Add(1)
+			go func(tKey datatypes.EncapsulatedData, callback func(any) bool) {
+				defer wg.Done()
+				g.Expect(bTree.FindLessThan(tKey, callback)).ToNot(HaveOccurred())
+			}(datatypes.Int(i), onFindPaginate)
+
+			// find less than match type
+			wg.Add(1)
+			go func(tKey datatypes.EncapsulatedData, callback func(any) bool) {
+				defer wg.Done()
+				g.Expect(bTree.FindLessThanMatchType(tKey, callback)).ToNot(HaveOccurred())
+			}(datatypes.Int(i), onFindPaginate)
+
+			// find less than or equal
+			wg.Add(1)
+			go func(tKey datatypes.EncapsulatedData, callback func(any) bool) {
+				defer wg.Done()
+				g.Expect(bTree.FindLessThanOrEqual(tKey, callback)).ToNot(HaveOccurred())
+			}(datatypes.Int(i), onFindPaginate)
+
+			// find less than or equal match type
+			wg.Add(1)
+			go func(tKey datatypes.EncapsulatedData, callback func(any) bool) {
+				defer wg.Done()
+				g.Expect(bTree.FindLessThanOrEqualMatchType(tKey, callback)).ToNot(HaveOccurred())
+			}(datatypes.Int(i), onFindPaginate)
+
+			// find greater than
+			wg.Add(1)
+			go func(tKey datatypes.EncapsulatedData, callback func(any) bool) {
+				defer wg.Done()
+				g.Expect(bTree.FindGreaterThan(tKey, callback)).ToNot(HaveOccurred())
+			}(datatypes.Int(i), onFindPaginate)
+
+			// find greater than match type
+			wg.Add(1)
+			go func(tKey datatypes.EncapsulatedData, callback func(any) bool) {
+				defer wg.Done()
+				g.Expect(bTree.FindGreaterThanMatchType(tKey, callback)).ToNot(HaveOccurred())
+			}(datatypes.Int(i), onFindPaginate)
+
+			// find greater than or equal
+			wg.Add(1)
+			go func(tKey datatypes.EncapsulatedData, callback func(any) bool) {
+				defer wg.Done()
+				g.Expect(bTree.FindGreaterThanOrEqual(tKey, callback)).ToNot(HaveOccurred())
+			}(datatypes.Int(i), onFindPaginate)
+
+			// find greater than or equal match type
+			wg.Add(1)
+			go func(tKey datatypes.EncapsulatedData, callback func(any) bool) {
+				defer wg.Done()
+				g.Expect(bTree.FindGreaterThanOrEqualMatchType(tKey, callback)).ToNot(HaveOccurred())
+			}(datatypes.Int(i), onFindPaginate)
 
 			// delete
 			wg.Add(1)
@@ -300,7 +408,20 @@ func TestBTree_Random_AllActions(t *testing.T) {
 		g.Expect(err).ToNot(HaveOccurred())
 
 		wg := new(sync.WaitGroup)
+		var onFindPaginate func(item any) bool
 		for i := 0; i < 10_000; i++ {
+			switch i % 3 {
+			case 0:
+				onFindPaginate = onFindPaginateTrue
+			case 1:
+				onFindPaginate = onFindPaginateFalse
+			case 2:
+				if time.Now().Unix()%2 == 0 {
+					onFindPaginate = onFindPaginateTrue
+				} else {
+					onFindPaginate = onFindPaginateFalse
+				}
+			}
 			// add
 			wg.Add(1)
 			go func(tKey datatypes.EncapsulatedData, tNum int) {
@@ -310,10 +431,88 @@ func TestBTree_Random_AllActions(t *testing.T) {
 
 			// find
 			wg.Add(1)
-			go func(tKey datatypes.EncapsulatedData, tNum int) {
+			go func(tKey datatypes.EncapsulatedData) {
 				defer wg.Done()
 				g.Expect(bTree.Find(tKey, onFindNoOp)).ToNot(HaveOccurred())
-			}(datatypes.Int(i), i)
+			}(datatypes.Int(i))
+
+			// find not equal
+
+			wg.Add(1)
+			go func(tKey datatypes.EncapsulatedData, callback func(any) bool) {
+				defer wg.Done()
+				g.Expect(bTree.FindNotEqual(tKey, callback)).ToNot(HaveOccurred())
+			}(datatypes.Int(i), onFindPaginate)
+
+			// find not equal match type
+			wg.Add(1)
+			go func(tKey datatypes.EncapsulatedData, callback func(any) bool) {
+				defer wg.Done()
+				g.Expect(bTree.FindNotEqualMatchType(tKey, callback)).ToNot(HaveOccurred())
+			}(datatypes.Int(i), onFindPaginate)
+
+			// find not equal match type
+			wg.Add(1)
+			go func(tKey datatypes.EncapsulatedData, callback func(any) bool) {
+				defer wg.Done()
+				g.Expect(bTree.FindNotEqualMatchType(tKey, callback)).ToNot(HaveOccurred())
+			}(datatypes.Int(i), onFindPaginate)
+
+			// find less than
+			wg.Add(1)
+			go func(tKey datatypes.EncapsulatedData, callback func(any) bool) {
+				defer wg.Done()
+				g.Expect(bTree.FindLessThan(tKey, callback)).ToNot(HaveOccurred())
+			}(datatypes.Int(i), onFindPaginate)
+
+			// find less than match type
+			wg.Add(1)
+			go func(tKey datatypes.EncapsulatedData, callback func(any) bool) {
+				defer wg.Done()
+				g.Expect(bTree.FindLessThanMatchType(tKey, callback)).ToNot(HaveOccurred())
+			}(datatypes.Int(i), onFindPaginate)
+
+			// find less than or equal
+			wg.Add(1)
+			go func(tKey datatypes.EncapsulatedData, callback func(any) bool) {
+				defer wg.Done()
+				g.Expect(bTree.FindLessThanOrEqual(tKey, callback)).ToNot(HaveOccurred())
+			}(datatypes.Int(i), onFindPaginate)
+
+			// find less than or equal match type
+			wg.Add(1)
+			go func(tKey datatypes.EncapsulatedData, callback func(any) bool) {
+				defer wg.Done()
+				g.Expect(bTree.FindLessThanOrEqualMatchType(tKey, callback)).ToNot(HaveOccurred())
+			}(datatypes.Int(i), onFindPaginate)
+
+			// find greater than
+			wg.Add(1)
+			go func(tKey datatypes.EncapsulatedData, callback func(any) bool) {
+				defer wg.Done()
+				g.Expect(bTree.FindGreaterThan(tKey, callback)).ToNot(HaveOccurred())
+			}(datatypes.Int(i), onFindPaginate)
+
+			// find greater than match type
+			wg.Add(1)
+			go func(tKey datatypes.EncapsulatedData, callback func(any) bool) {
+				defer wg.Done()
+				g.Expect(bTree.FindGreaterThanMatchType(tKey, callback)).ToNot(HaveOccurred())
+			}(datatypes.Int(i), onFindPaginate)
+
+			// find greater than or equal
+			wg.Add(1)
+			go func(tKey datatypes.EncapsulatedData, callback func(any) bool) {
+				defer wg.Done()
+				g.Expect(bTree.FindGreaterThanOrEqual(tKey, callback)).ToNot(HaveOccurred())
+			}(datatypes.Int(i), onFindPaginate)
+
+			// find greater than or equal match type
+			wg.Add(1)
+			go func(tKey datatypes.EncapsulatedData, callback func(any) bool) {
+				defer wg.Done()
+				g.Expect(bTree.FindGreaterThanOrEqualMatchType(tKey, callback)).ToNot(HaveOccurred())
+			}(datatypes.Int(i), onFindPaginate)
 
 			// delete
 			wg.Add(1)
@@ -332,7 +531,20 @@ func TestBTree_Random_AllActions(t *testing.T) {
 		g.Expect(err).ToNot(HaveOccurred())
 
 		wg := new(sync.WaitGroup)
+		var onFindPaginate func(item any) bool
 		for i := 0; i < 10_000; i++ {
+			switch i % 3 {
+			case 0:
+				onFindPaginate = onFindPaginateTrue
+			case 1:
+				onFindPaginate = onFindPaginateFalse
+			case 2:
+				if time.Now().Unix()%2 == 0 {
+					onFindPaginate = onFindPaginateTrue
+				} else {
+					onFindPaginate = onFindPaginateFalse
+				}
+			}
 			// add
 			wg.Add(1)
 			go func(tKey datatypes.EncapsulatedData, tNum int) {
@@ -342,10 +554,88 @@ func TestBTree_Random_AllActions(t *testing.T) {
 
 			// find
 			wg.Add(1)
-			go func(tKey datatypes.EncapsulatedData, tNum int) {
+			go func(tKey datatypes.EncapsulatedData) {
 				defer wg.Done()
 				g.Expect(bTree.Find(tKey, onFindNoOp)).ToNot(HaveOccurred())
-			}(datatypes.Int(i), i)
+			}(datatypes.Int(i))
+
+			// find not equal
+
+			wg.Add(1)
+			go func(tKey datatypes.EncapsulatedData, callback func(any) bool) {
+				defer wg.Done()
+				g.Expect(bTree.FindNotEqual(tKey, callback)).ToNot(HaveOccurred())
+			}(datatypes.Int(i), onFindPaginate)
+
+			// find not equal match type
+			wg.Add(1)
+			go func(tKey datatypes.EncapsulatedData, callback func(any) bool) {
+				defer wg.Done()
+				g.Expect(bTree.FindNotEqualMatchType(tKey, callback)).ToNot(HaveOccurred())
+			}(datatypes.Int(i), onFindPaginate)
+
+			// find not equal match type
+			wg.Add(1)
+			go func(tKey datatypes.EncapsulatedData, callback func(any) bool) {
+				defer wg.Done()
+				g.Expect(bTree.FindNotEqualMatchType(tKey, callback)).ToNot(HaveOccurred())
+			}(datatypes.Int(i), onFindPaginate)
+
+			// find less than
+			wg.Add(1)
+			go func(tKey datatypes.EncapsulatedData, callback func(any) bool) {
+				defer wg.Done()
+				g.Expect(bTree.FindLessThan(tKey, callback)).ToNot(HaveOccurred())
+			}(datatypes.Int(i), onFindPaginate)
+
+			// find less than match type
+			wg.Add(1)
+			go func(tKey datatypes.EncapsulatedData, callback func(any) bool) {
+				defer wg.Done()
+				g.Expect(bTree.FindLessThanMatchType(tKey, callback)).ToNot(HaveOccurred())
+			}(datatypes.Int(i), onFindPaginate)
+
+			// find less than or equal
+			wg.Add(1)
+			go func(tKey datatypes.EncapsulatedData, callback func(any) bool) {
+				defer wg.Done()
+				g.Expect(bTree.FindLessThanOrEqual(tKey, callback)).ToNot(HaveOccurred())
+			}(datatypes.Int(i), onFindPaginate)
+
+			// find less than or equal match type
+			wg.Add(1)
+			go func(tKey datatypes.EncapsulatedData, callback func(any) bool) {
+				defer wg.Done()
+				g.Expect(bTree.FindLessThanOrEqualMatchType(tKey, callback)).ToNot(HaveOccurred())
+			}(datatypes.Int(i), onFindPaginate)
+
+			// find greater than
+			wg.Add(1)
+			go func(tKey datatypes.EncapsulatedData, callback func(any) bool) {
+				defer wg.Done()
+				g.Expect(bTree.FindGreaterThan(tKey, callback)).ToNot(HaveOccurred())
+			}(datatypes.Int(i), onFindPaginate)
+
+			// find greater than match type
+			wg.Add(1)
+			go func(tKey datatypes.EncapsulatedData, callback func(any) bool) {
+				defer wg.Done()
+				g.Expect(bTree.FindGreaterThanMatchType(tKey, callback)).ToNot(HaveOccurred())
+			}(datatypes.Int(i), onFindPaginate)
+
+			// find greater than or equal
+			wg.Add(1)
+			go func(tKey datatypes.EncapsulatedData, callback func(any) bool) {
+				defer wg.Done()
+				g.Expect(bTree.FindGreaterThanOrEqual(tKey, callback)).ToNot(HaveOccurred())
+			}(datatypes.Int(i), onFindPaginate)
+
+			// find greater than or equal match type
+			wg.Add(1)
+			go func(tKey datatypes.EncapsulatedData, callback func(any) bool) {
+				defer wg.Done()
+				g.Expect(bTree.FindGreaterThanOrEqualMatchType(tKey, callback)).ToNot(HaveOccurred())
+			}(datatypes.Int(i), onFindPaginate)
 
 			// delete
 			wg.Add(1)

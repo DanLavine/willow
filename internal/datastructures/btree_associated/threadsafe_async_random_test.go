@@ -19,9 +19,10 @@ func validateThreadSafeTree(g *GomegaWithT, associatedTree *threadsafeAssociated
 	identifiers := []map[string]int{}
 
 	// find all the ids and count them
-	associatedTree.keys.Iterate(func(item any) {
+	associatedTree.keys.Iterate(func(item any) bool {
 		valueNode := item.(*threadsafeValuesNode)
-		valueNode.values.Iterate(func(item any) {
+
+		valueNode.values.Iterate(func(item any) bool {
 			idNode := item.(*threadsafeIDNode)
 
 			for index, ids := range idNode.ids {
@@ -37,7 +38,11 @@ func validateThreadSafeTree(g *GomegaWithT, associatedTree *threadsafeAssociated
 					}
 				}
 			}
+
+			return true
 		})
+
+		return true
 	})
 
 	// ensure that the IDs show up the proper number of times
@@ -92,9 +97,10 @@ func validateThreadSafeTreeWithoutKeyLenght(g *GomegaWithT, associatedTree *thre
 	identifiers := []map[string]int{}
 
 	// find all the ids and count them
-	associatedTree.keys.Iterate(func(item any) {
+	associatedTree.keys.Iterate(func(item any) bool {
 		valueNode := item.(*threadsafeValuesNode)
-		valueNode.values.Iterate(func(item any) {
+
+		valueNode.values.Iterate(func(item any) bool {
 			idNode := item.(*threadsafeIDNode)
 
 			for index, ids := range idNode.ids {
@@ -110,7 +116,11 @@ func validateThreadSafeTreeWithoutKeyLenght(g *GomegaWithT, associatedTree *thre
 					}
 				}
 			}
+
+			return true
 		})
+
+		return true
 	})
 
 	// ensure that the IDs show up the proper number of times
@@ -314,22 +324,21 @@ func TestAssociated_Random_Query(t *testing.T) {
 					switch tNum % 2 {
 					case 0:
 						strValue := datatypes.String(fmt.Sprintf("%d", tNum))
-						whereSelection.Where = &query.Query{KeyValues: map[string]query.Value{fmt.Sprintf("%d", i): query.Value{Value: &strValue, ValueComparison: query.Equals()}}}
+						whereSelection.Where = &query.Query{KeyValues: map[string]query.Value{fmt.Sprintf("%d", i): {Value: &strValue, ValueComparison: query.Equals()}}}
 						selection.And = append(selection.And, whereSelection)
 					default:
 						intValue := datatypes.Int(tNum)
-						whereSelection.Where = &query.Query{KeyValues: map[string]query.Value{fmt.Sprintf("%d", i): query.Value{Value: &intValue, ValueComparison: query.Equals()}}}
+						whereSelection.Where = &query.Query{KeyValues: map[string]query.Value{fmt.Sprintf("%d", i): {Value: &intValue, ValueComparison: query.Equals()}}}
 						selection.Or = append(selection.Or, whereSelection)
 					}
 				}
 				g.Expect(selection.Validate()).ToNot(HaveOccurred())
 
 				findCounter := 0
-				g.Expect(associatedTree.Query(selection, func(items []any) {
+				g.Expect(associatedTree.Query(selection, func(item any) bool {
 					findCounter++
-					g.Expect(len(items)).To(BeNumerically(">=", 1))
+					return true
 				})).ToNot(HaveOccurred())
-
 				g.Expect(findCounter).To(Equal(1), fmt.Sprintf("Index %d has an invalid find counter", tNum))
 			}(i)
 		}
@@ -490,16 +499,18 @@ func TestAssociated_Random_AllActions(t *testing.T) {
 					switch tNum % 2 {
 					case 0:
 						strValue := datatypes.String(fmt.Sprintf("%d", tNum))
-						whereSelection.Where = &query.Query{KeyValues: map[string]query.Value{fmt.Sprintf("%d", i): query.Value{Value: &strValue, ValueComparison: query.Equals()}}}
+						whereSelection.Where = &query.Query{KeyValues: map[string]query.Value{fmt.Sprintf("%d", i): {Value: &strValue, ValueComparison: query.Equals()}}}
 						selection.And = append(selection.And, whereSelection)
 					default:
 						intValue := datatypes.Int(tNum)
-						whereSelection.Where = &query.Query{KeyValues: map[string]query.Value{fmt.Sprintf("%d", i): query.Value{Value: &intValue, ValueComparison: query.Equals()}}}
+						whereSelection.Where = &query.Query{KeyValues: map[string]query.Value{fmt.Sprintf("%d", i): {Value: &intValue, ValueComparison: query.Equals()}}}
 						selection.Or = append(selection.Or, whereSelection)
 					}
 				}
 				g.Expect(selection.Validate()).ToNot(HaveOccurred())
-				g.Expect(associatedTree.Query(selection, func(items []any) { g.Expect(len(items)).To(BeNumerically(">=", 1)) })).ToNot(HaveOccurred())
+				g.Expect(associatedTree.Query(selection, func(item any) bool {
+					return true
+				})).ToNot(HaveOccurred())
 			}(i)
 		}
 		wg.Wait()

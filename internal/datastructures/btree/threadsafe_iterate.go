@@ -11,7 +11,7 @@ import (
 //
 // PARAMS:
 // - callback - function is called when a Tree's Node value != nil. The Iterate callback is passed the Node's value
-func (btree *threadSafeBTree) Iterate(callback datastructures.OnFind) error {
+func (btree *threadSafeBTree) Iterate(callback datastructures.OnFindPagination) error {
 	if callback == nil {
 		return fmt.Errorf("callback cannot be nil")
 	}
@@ -20,7 +20,7 @@ func (btree *threadSafeBTree) Iterate(callback datastructures.OnFind) error {
 	if btree.root != nil {
 		btree.root.lock.RLock()
 		btree.lock.RUnlock()
-		btree.root.iterate(callback)
+		_ = btree.root.iterate(callback)
 	} else {
 		btree.lock.RUnlock()
 	}
@@ -28,9 +28,12 @@ func (btree *threadSafeBTree) Iterate(callback datastructures.OnFind) error {
 	return nil
 }
 
-func (bn *threadSafeBNode) iterate(callback datastructures.OnFind) {
+func (bn *threadSafeBNode) iterate(callback datastructures.OnFindPagination) bool {
 	for i := 0; i < bn.numberOfValues; i++ {
-		callback(bn.keyValues[i].value)
+		if !callback(bn.keyValues[i].value) {
+			bn.lock.RUnlock()
+			return false
+		}
 	}
 
 	for i := 0; i < bn.numberOfChildren; i++ {
@@ -41,12 +44,20 @@ func (bn *threadSafeBNode) iterate(callback datastructures.OnFind) {
 	bn.lock.RUnlock()
 
 	for i := 0; i < bn.numberOfChildren; i++ {
-		bn.children[i].iterate(callback)
+		if !bn.children[i].iterate(callback) {
+			for unlockIndex := i + 1; unlockIndex < bn.numberOfChildren; unlockIndex++ {
+				bn.children[unlockIndex].lock.RUnlock()
+			}
+
+			return false
+		}
 	}
+
+	return true
 }
 
 // Iterate over all the values for a given type
-func (btree *threadSafeBTree) IterateMatchType(dataType datatypes.DataType, callback datastructures.OnFind) error {
+func (btree *threadSafeBTree) IterateMatchType(dataType datatypes.DataType, callback datastructures.OnFindPagination) error {
 	if callback == nil {
 		return fmt.Errorf("callback cannot be nil")
 	}
@@ -55,7 +66,7 @@ func (btree *threadSafeBTree) IterateMatchType(dataType datatypes.DataType, call
 	if btree.root != nil {
 		btree.root.lock.RLock()
 		btree.lock.RUnlock()
-		btree.root.iterateMatchType(dataType, callback)
+		_ = btree.root.iterateMatchType(dataType, callback)
 	} else {
 		btree.lock.RUnlock()
 	}
@@ -63,7 +74,7 @@ func (btree *threadSafeBTree) IterateMatchType(dataType datatypes.DataType, call
 	return nil
 }
 
-func (bn *threadSafeBNode) iterateMatchType(dataType datatypes.DataType, callback datastructures.OnFind) {
+func (bn *threadSafeBNode) iterateMatchType(dataType datatypes.DataType, callback datastructures.OnFindPagination) bool {
 	startIndex := -1
 	var i int
 	for i = 0; i < bn.numberOfValues; i++ {
@@ -86,12 +97,21 @@ func (bn *threadSafeBNode) iterateMatchType(dataType datatypes.DataType, callbac
 			startIndex = i
 		}
 
-		// run the callback
-		callback(bn.keyValues[i].value)
-
 		// always attempt a recurse on the less than nodes to find all values
 		if bn.numberOfChildren != 0 {
 			bn.children[i].lock.RLock()
+		}
+
+		// run the callback
+		if !callback(bn.keyValues[i].value) {
+			if bn.numberOfChildren != 0 {
+				for unlockIndex := startIndex; unlockIndex < i; unlockIndex++ {
+					bn.children[unlockIndex].lock.RUnlock()
+				}
+			}
+
+			bn.lock.RUnlock()
+			return false
 		}
 	}
 
@@ -107,12 +127,20 @@ func (bn *threadSafeBNode) iterateMatchType(dataType datatypes.DataType, callbac
 	if bn.numberOfChildren != 0 {
 		if startIndex == -1 {
 			// key must be grater than all values we checked, must be on the greater than side
-			bn.children[i].iterateMatchType(dataType, callback)
+			return bn.children[i].iterateMatchType(dataType, callback)
 		} else {
 			// need to recurse to all potential children from the start index
 			for index := startIndex; index <= i; index++ {
-				bn.children[index].iterateMatchType(dataType, callback)
+				if !bn.children[index].iterateMatchType(dataType, callback) {
+					for unlockIndex := index + 1; unlockIndex < i; unlockIndex++ {
+						bn.children[unlockIndex].lock.RUnlock()
+					}
+
+					return false
+				}
 			}
 		}
 	}
+
+	return true
 }

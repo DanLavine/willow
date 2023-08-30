@@ -40,7 +40,7 @@ func (btree *threadSafeBTree) CreateOrFind(key datatypes.EncapsulatedData, onCre
 		found = true
 		onFind(item)
 	}
-	if _ = btree.Find(key, findAlreadyCreated); found == true {
+	if _ = btree.Find(key, findAlreadyCreated); found {
 		return nil
 	}
 

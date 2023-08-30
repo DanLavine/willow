@@ -1,6 +1,7 @@
 package btreeassociated
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/DanLavine/willow/pkg/models/datatypes"
@@ -13,22 +14,22 @@ func TestAssociatedTree_Query_ParamCheck(t *testing.T) {
 
 	validSelection := query.Select{}
 	invalidSelection := query.Select{Where: &query.Query{}}
-	onFindSelection := func(items []any) {}
+	onFindPagination := func(items any) bool { return true }
 
 	t.Run("it returns an error if the select query is invalid", func(t *testing.T) {
 		associatedTree := NewThreadSafe()
 
-		err := associatedTree.Query(invalidSelection, onFindSelection)
+		err := associatedTree.Query(invalidSelection, onFindPagination)
 		g.Expect(err).To(HaveOccurred())
-		g.Expect(err.Error()).To(ContainSubstring("Requires KeyValues or Limits parameters"))
+		g.Expect(err.Error()).To(ContainSubstring("requires KeyValues or Limits parameters"))
 	})
 
-	t.Run("it returns an error with nil onFindSelection", func(t *testing.T) {
+	t.Run("it returns an error with nil onFindPagination", func(t *testing.T) {
 		associatedTree := NewThreadSafe()
 
 		err := associatedTree.Query(validSelection, nil)
 		g.Expect(err).To(HaveOccurred())
-		g.Expect(err.Error()).To(ContainSubstring("onFindSelection cannot be nil"))
+		g.Expect(err.Error()).To(ContainSubstring("onFindPagination cannot be nil"))
 	})
 }
 
@@ -64,16 +65,34 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 			associatedTree := setupQuery(g)
 
 			var foundItems []any
-			onFindSelection := func(items []any) {
-				foundItems = items
+			onFindPagination := func(item any) bool {
+				foundItems = append(foundItems, item)
+				return true
 			}
 
 			query := query.Select{}
 			g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-			err := associatedTree.Query(query, onFindSelection)
+			err := associatedTree.Query(query, onFindPagination)
 			g.Expect(err).ToNot(HaveOccurred())
 			g.Expect(foundItems).To(ContainElements("1", "2", "3", "4", "5", "6"))
+		})
+
+		t.Run("It can break the query quickly if the pagination callback returns false", func(t *testing.T) {
+			associatedTree := setupQuery(g)
+
+			var foundItems []any
+			onFindPagination := func(item any) bool {
+				foundItems = append(foundItems, item)
+				return false
+			}
+
+			query := query.Select{}
+			g.Expect(query.Validate()).ToNot(HaveOccurred())
+
+			err := associatedTree.Query(query, onFindPagination)
+			g.Expect(err).ToNot(HaveOccurred())
+			g.Expect(len(foundItems)).To(Equal(1))
 		})
 	})
 
@@ -104,8 +123,9 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 					associatedTree := setupQuery(g)
 
 					var foundItems []any
-					onFindSelection := func(items []any) {
-						foundItems = items
+					onFindPagination := func(item any) bool {
+						foundItems = append(foundItems, item)
+						return true
 					}
 
 					query := query.Select{
@@ -117,10 +137,33 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 					}
 					g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-					err := associatedTree.Query(query, onFindSelection)
+					err := associatedTree.Query(query, onFindPagination)
 					g.Expect(err).ToNot(HaveOccurred())
 					g.Expect(len(foundItems)).To(Equal(4))
 					g.Expect(foundItems).To(ContainElements("1", "3", "4", "6"))
+				})
+
+				t.Run("It can break the finds early when pagination returns false", func(t *testing.T) {
+					associatedTree := setupQuery(g)
+
+					var foundItems []any
+					onFindPagination := func(item any) bool {
+						foundItems = append(foundItems, item)
+						return false
+					}
+
+					query := query.Select{
+						Where: &query.Query{
+							KeyValues: map[string]query.Value{
+								"1": {Exists: &existsTrue},
+							},
+						},
+					}
+					g.Expect(query.Validate()).ToNot(HaveOccurred())
+
+					err := associatedTree.Query(query, onFindPagination)
+					g.Expect(err).ToNot(HaveOccurred())
+					g.Expect(len(foundItems)).To(Equal(1))
 				})
 
 				t.Run("Context when also setting LIMITS", func(t *testing.T) {
@@ -129,8 +172,9 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 
 						one := 1
 						var foundItems []any
-						onFindSelection := func(items []any) {
-							foundItems = items
+						onFindPagination := func(item any) bool {
+							foundItems = append(foundItems, item)
+							return true
 						}
 
 						query := query.Select{
@@ -145,7 +189,7 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 						}
 						g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-						err := associatedTree.Query(query, onFindSelection)
+						err := associatedTree.Query(query, onFindPagination)
 						g.Expect(err).ToNot(HaveOccurred())
 						g.Expect(len(foundItems)).To(Equal(1))
 						g.Expect(foundItems).To(ContainElements("1"))
@@ -157,8 +201,9 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 						associatedTree := setupQuery(g)
 
 						var foundItems []any
-						onFindSelection := func(items []any) {
-							foundItems = items
+						onFindPagination := func(item any) bool {
+							foundItems = append(foundItems, item)
+							return true
 						}
 
 						query := query.Select{
@@ -171,7 +216,7 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 						}
 						g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-						err := associatedTree.Query(query, onFindSelection)
+						err := associatedTree.Query(query, onFindPagination)
 						g.Expect(err).ToNot(HaveOccurred())
 						g.Expect(len(foundItems)).To(Equal(3))
 						g.Expect(foundItems).To(ContainElements("3", "4", "6"))
@@ -181,8 +226,9 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 						associatedTree := setupQuery(g)
 
 						var foundItems []any
-						onFindSelection := func(items []any) {
-							foundItems = items
+						onFindPagination := func(item any) bool {
+							foundItems = append(foundItems, item)
+							return true
 						}
 
 						query := query.Select{
@@ -195,7 +241,7 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 						}
 						g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-						err := associatedTree.Query(query, onFindSelection)
+						err := associatedTree.Query(query, onFindPagination)
 						g.Expect(err).ToNot(HaveOccurred())
 						g.Expect(len(foundItems)).To(Equal(0))
 					})
@@ -207,8 +253,9 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 					associatedTree := setupQuery(g)
 
 					var foundItems []any
-					onFindSelection := func(items []any) {
-						foundItems = items
+					onFindPagination := func(item any) bool {
+						foundItems = append(foundItems, item)
+						return true
 					}
 
 					query := query.Select{
@@ -220,7 +267,7 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 					}
 					g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-					err := associatedTree.Query(query, onFindSelection)
+					err := associatedTree.Query(query, onFindPagination)
 					g.Expect(err).ToNot(HaveOccurred())
 					g.Expect(len(foundItems)).To(Equal(2))
 					g.Expect(foundItems).To(ContainElements("2", "5"))
@@ -232,8 +279,9 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 
 						one := 1
 						var foundItems []any
-						onFindSelection := func(items []any) {
-							foundItems = items
+						onFindPagination := func(item any) bool {
+							foundItems = append(foundItems, item)
+							return true
 						}
 
 						query := query.Select{
@@ -248,7 +296,7 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 						}
 						g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-						err := associatedTree.Query(query, onFindSelection)
+						err := associatedTree.Query(query, onFindPagination)
 						g.Expect(err).ToNot(HaveOccurred())
 						g.Expect(len(foundItems)).To(Equal(1))
 						g.Expect(foundItems).To(ContainElements("2"))
@@ -260,8 +308,9 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 						associatedTree := setupQuery(g)
 
 						var foundItems []any
-						onFindSelection := func(items []any) {
-							foundItems = items
+						onFindPagination := func(item any) bool {
+							foundItems = append(foundItems, item)
+							return true
 						}
 
 						query := query.Select{
@@ -274,7 +323,7 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 						}
 						g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-						err := associatedTree.Query(query, onFindSelection)
+						err := associatedTree.Query(query, onFindPagination)
 						g.Expect(err).ToNot(HaveOccurred())
 						g.Expect(len(foundItems)).To(Equal(3))
 						g.Expect(foundItems).To(ContainElements("1", "2", "5"))
@@ -292,8 +341,9 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 						g.Expect(associatedTree.CreateOrFind(keyValues3, func() any { return "2" }, noOpOnFind)).ToNot(HaveOccurred())
 
 						var foundItems []any
-						onFindSelection := func(items []any) {
-							foundItems = items
+						onFindPagination := func(item any) bool {
+							foundItems = append(foundItems, item)
+							return true
 						}
 
 						query := query.Select{
@@ -305,7 +355,7 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 						}
 						g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-						err := associatedTree.Query(query, onFindSelection)
+						err := associatedTree.Query(query, onFindPagination)
 						g.Expect(err).ToNot(HaveOccurred())
 						g.Expect(len(foundItems)).To(Equal(0))
 					})
@@ -339,8 +389,9 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 					associatedTree := setupQuery(g)
 
 					var foundItems []any
-					onFindSelection := func(items []any) {
-						foundItems = items
+					onFindPagination := func(item any) bool {
+						foundItems = append(foundItems, item)
+						return true
 					}
 
 					query := query.Select{
@@ -352,7 +403,7 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 					}
 					g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-					err := associatedTree.Query(query, onFindSelection)
+					err := associatedTree.Query(query, onFindPagination)
 					g.Expect(err).ToNot(HaveOccurred())
 					g.Expect(len(foundItems)).To(Equal(1))
 					g.Expect(foundItems).To(ContainElements("1"))
@@ -364,8 +415,9 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 
 						one := 1
 						var foundItems []any
-						onFindSelection := func(items []any) {
-							foundItems = items
+						onFindPagination := func(item any) bool {
+							foundItems = append(foundItems, item)
+							return true
 						}
 
 						query := query.Select{
@@ -380,7 +432,7 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 						}
 						g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-						err := associatedTree.Query(query, onFindSelection)
+						err := associatedTree.Query(query, onFindPagination)
 						g.Expect(err).ToNot(HaveOccurred())
 						g.Expect(len(foundItems)).To(Equal(1))
 						g.Expect(foundItems).To(ContainElements("2"))
@@ -392,8 +444,9 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 						associatedTree := setupQuery(g)
 
 						var foundItems []any
-						onFindSelection := func(items []any) {
-							foundItems = items
+						onFindPagination := func(item any) bool {
+							foundItems = append(foundItems, item)
+							return true
 						}
 
 						query := query.Select{
@@ -406,7 +459,7 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 						}
 						g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-						err := associatedTree.Query(query, onFindSelection)
+						err := associatedTree.Query(query, onFindPagination)
 						g.Expect(err).ToNot(HaveOccurred())
 						g.Expect(len(foundItems)).To(Equal(2))
 						g.Expect(foundItems).To(ContainElements("3", "6"))
@@ -416,8 +469,9 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 						associatedTree := setupQuery(g)
 
 						var foundItems []any
-						onFindSelection := func(items []any) {
-							foundItems = items
+						onFindPagination := func(item any) bool {
+							foundItems = append(foundItems, item)
+							return true
 						}
 
 						query := query.Select{
@@ -430,7 +484,7 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 						}
 						g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-						err := associatedTree.Query(query, onFindSelection)
+						err := associatedTree.Query(query, onFindPagination)
 						g.Expect(err).ToNot(HaveOccurred())
 						g.Expect(len(foundItems)).To(Equal(0))
 					})
@@ -442,8 +496,9 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 					associatedTree := setupQuery(g)
 
 					var foundItems []any
-					onFindSelection := func(items []any) {
-						foundItems = items
+					onFindPagination := func(item any) bool {
+						foundItems = append(foundItems, item)
+						return true
 					}
 
 					query := query.Select{
@@ -455,7 +510,7 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 					}
 					g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-					err := associatedTree.Query(query, onFindSelection)
+					err := associatedTree.Query(query, onFindPagination)
 					g.Expect(err).ToNot(HaveOccurred())
 					g.Expect(len(foundItems)).To(Equal(4))
 					g.Expect(foundItems).To(ContainElements("1", "2", "4", "5"))
@@ -467,8 +522,9 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 
 						one := 1
 						var foundItems []any
-						onFindSelection := func(items []any) {
-							foundItems = items
+						onFindPagination := func(item any) bool {
+							foundItems = append(foundItems, item)
+							return true
 						}
 
 						query := query.Select{
@@ -483,7 +539,7 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 						}
 						g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-						err := associatedTree.Query(query, onFindSelection)
+						err := associatedTree.Query(query, onFindPagination)
 						g.Expect(err).ToNot(HaveOccurred())
 						g.Expect(len(foundItems)).To(Equal(2))
 						g.Expect(foundItems).To(ContainElements("1", "2"))
@@ -495,8 +551,9 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 						associatedTree := setupQuery(g)
 
 						var foundItems []any
-						onFindSelection := func(items []any) {
-							foundItems = items
+						onFindPagination := func(item any) bool {
+							foundItems = append(foundItems, item)
+							return true
 						}
 
 						query := query.Select{
@@ -509,7 +566,7 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 						}
 						g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-						err := associatedTree.Query(query, onFindSelection)
+						err := associatedTree.Query(query, onFindPagination)
 						g.Expect(err).ToNot(HaveOccurred())
 						g.Expect(len(foundItems)).To(Equal(4))
 						g.Expect(foundItems).To(ContainElements("1", "2", "4", "5"))
@@ -527,8 +584,9 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 						g.Expect(associatedTree.CreateOrFind(keyValues3, func() any { return "3" }, noOpOnFind)).ToNot(HaveOccurred())
 
 						var foundItems []any
-						onFindSelection := func(items []any) {
-							foundItems = items
+						onFindPagination := func(item any) bool {
+							foundItems = append(foundItems, item)
+							return true
 						}
 
 						query := query.Select{
@@ -541,7 +599,7 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 						}
 						g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-						err := associatedTree.Query(query, onFindSelection)
+						err := associatedTree.Query(query, onFindPagination)
 						g.Expect(err).ToNot(HaveOccurred())
 						g.Expect(len(foundItems)).To(Equal(0))
 					})
@@ -554,8 +612,9 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 				associatedTree := setupQuery(g)
 
 				var foundItems []any
-				onFindSelection := func(items []any) {
-					foundItems = items
+				onFindPagination := func(item any) bool {
+					foundItems = append(foundItems, item)
+					return true
 				}
 
 				query := query.Select{
@@ -569,7 +628,7 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 				}
 				g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-				err := associatedTree.Query(query, onFindSelection)
+				err := associatedTree.Query(query, onFindPagination)
 				g.Expect(err).ToNot(HaveOccurred())
 				g.Expect(len(foundItems)).To(Equal(2))
 				g.Expect(foundItems).To(ContainElements("3", "6"))
@@ -584,8 +643,9 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 					associatedTree := setupQuery(g)
 
 					var foundItems []any
-					onFindSelection := func(items []any) {
-						foundItems = items
+					onFindPagination := func(item any) bool {
+						foundItems = append(foundItems, item)
+						return true
 					}
 
 					intOne := datatypes.Int(1)
@@ -598,7 +658,7 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 					}
 					g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-					err := associatedTree.Query(query, onFindSelection)
+					err := associatedTree.Query(query, onFindPagination)
 					g.Expect(err).ToNot(HaveOccurred())
 					g.Expect(len(foundItems)).To(Equal(1))
 					g.Expect(foundItems).To(ContainElements("1"))
@@ -609,8 +669,9 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 						associatedTree := setupQuery(g)
 
 						var foundItems []any
-						onFindSelection := func(items []any) {
-							foundItems = items
+						onFindPagination := func(item any) bool {
+							foundItems = append(foundItems, item)
+							return true
 						}
 
 						stringOne := datatypes.String("1")
@@ -625,7 +686,7 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 						}
 						g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-						err := associatedTree.Query(query, onFindSelection)
+						err := associatedTree.Query(query, onFindPagination)
 						g.Expect(err).ToNot(HaveOccurred())
 						g.Expect(len(foundItems)).To(Equal(1))
 						g.Expect(foundItems).To(ContainElements("4"))
@@ -638,8 +699,9 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 					associatedTree := setupQuery(g)
 
 					var foundItems []any
-					onFindSelection := func(items []any) {
-						foundItems = items
+					onFindPagination := func(item any) bool {
+						foundItems = append(foundItems, item)
+						return true
 					}
 
 					intOne := datatypes.Int(1)
@@ -652,7 +714,7 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 					}
 					g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-					err := associatedTree.Query(query, onFindSelection)
+					err := associatedTree.Query(query, onFindPagination)
 					g.Expect(err).ToNot(HaveOccurred())
 					g.Expect(len(foundItems)).To(Equal(5))
 					g.Expect(foundItems).To(ContainElements("2", "3", "4", "5", "6"))
@@ -675,8 +737,9 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 						g.Expect(associatedTree.CreateOrFind(keyValues5, func() any { return "5" }, noOpOnFind)).ToNot(HaveOccurred())
 
 						var foundItems []any
-						onFindSelection := func(items []any) {
-							foundItems = items
+						onFindPagination := func(item any) bool {
+							foundItems = append(foundItems, item)
+							return true
 						}
 
 						intOne := datatypes.Int(1)
@@ -691,7 +754,7 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 						}
 						g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-						err := associatedTree.Query(query, onFindSelection)
+						err := associatedTree.Query(query, onFindPagination)
 						g.Expect(err).ToNot(HaveOccurred())
 						g.Expect(len(foundItems)).To(Equal(3))
 						g.Expect(foundItems).To(ContainElements("1", "2", "3"))
@@ -704,8 +767,9 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 					associatedTree := setupQuery(g)
 
 					var foundItems []any
-					onFindSelection := func(items []any) {
-						foundItems = items
+					onFindPagination := func(item any) bool {
+						foundItems = append(foundItems, item)
+						return true
 					}
 
 					intTwo := datatypes.Int(2)
@@ -718,7 +782,7 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 					}
 					g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-					err := associatedTree.Query(query, onFindSelection)
+					err := associatedTree.Query(query, onFindPagination)
 					g.Expect(err).ToNot(HaveOccurred())
 					g.Expect(len(foundItems)).To(Equal(3))
 					g.Expect(foundItems).To(ContainElements("1", "3", "6"))
@@ -730,8 +794,9 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 					associatedTree := setupQuery(g)
 
 					var foundItems []any
-					onFindSelection := func(items []any) {
-						foundItems = items
+					onFindPagination := func(item any) bool {
+						foundItems = append(foundItems, item)
+						return true
 					}
 
 					intOne := datatypes.Int(1)
@@ -744,7 +809,7 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 					}
 					g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-					err := associatedTree.Query(query, onFindSelection)
+					err := associatedTree.Query(query, onFindPagination)
 					g.Expect(err).ToNot(HaveOccurred())
 					g.Expect(len(foundItems)).To(Equal(3))
 					g.Expect(foundItems).To(ContainElements("1", "3", "6"))
@@ -756,8 +821,9 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 					associatedTree := setupQuery(g)
 
 					var foundItems []any
-					onFindSelection := func(items []any) {
-						foundItems = items
+					onFindPagination := func(item any) bool {
+						foundItems = append(foundItems, item)
+						return true
 					}
 
 					int8Four := datatypes.Int8(4)
@@ -770,7 +836,7 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 					}
 					g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-					err := associatedTree.Query(query, onFindSelection)
+					err := associatedTree.Query(query, onFindPagination)
 					g.Expect(err).ToNot(HaveOccurred())
 					g.Expect(len(foundItems)).To(Equal(2))
 					g.Expect(foundItems).To(ContainElements("1", "4"))
@@ -782,8 +848,9 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 					associatedTree := setupQuery(g)
 
 					var foundItems []any
-					onFindSelection := func(items []any) {
-						foundItems = items
+					onFindPagination := func(item any) bool {
+						foundItems = append(foundItems, item)
+						return true
 					}
 
 					int8Four := datatypes.Int8(4)
@@ -796,7 +863,7 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 					}
 					g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-					err := associatedTree.Query(query, onFindSelection)
+					err := associatedTree.Query(query, onFindPagination)
 					g.Expect(err).ToNot(HaveOccurred())
 					g.Expect(len(foundItems)).To(Equal(3))
 					g.Expect(foundItems).To(ContainElements("1", "4", "6"))
@@ -807,8 +874,9 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 				associatedTree := setupQuery(g)
 
 				var foundItems []any
-				onFindSelection := func(items []any) {
-					foundItems = items
+				onFindPagination := func(item any) bool {
+					foundItems = append(foundItems, item)
+					return true
 				}
 
 				int8One := datatypes.Int8(1)
@@ -823,7 +891,7 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 				}
 				g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-				err := associatedTree.Query(query, onFindSelection)
+				err := associatedTree.Query(query, onFindPagination)
 				g.Expect(err).ToNot(HaveOccurred())
 				g.Expect(len(foundItems)).To(Equal(1))
 				g.Expect(foundItems).To(ContainElements("5"))
@@ -838,8 +906,9 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 					associatedTree := setupQuery(g)
 
 					var foundItems []any
-					onFindSelection := func(items []any) {
-						foundItems = items
+					onFindPagination := func(item any) bool {
+						foundItems = append(foundItems, item)
+						return true
 					}
 
 					int8Four := datatypes.Int8(4)
@@ -852,7 +921,7 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 					}
 					g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-					err := associatedTree.Query(query, onFindSelection)
+					err := associatedTree.Query(query, onFindPagination)
 					g.Expect(err).ToNot(HaveOccurred())
 					g.Expect(len(foundItems)).To(Equal(1))
 					g.Expect(foundItems).To(ContainElements("3"))
@@ -864,8 +933,9 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 					associatedTree := setupQuery(g)
 
 					var foundItems []any
-					onFindSelection := func(items []any) {
-						foundItems = items
+					onFindPagination := func(item any) bool {
+						foundItems = append(foundItems, item)
+						return true
 					}
 
 					intTwo := datatypes.Int(2)
@@ -878,7 +948,7 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 					}
 					g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-					err := associatedTree.Query(query, onFindSelection)
+					err := associatedTree.Query(query, onFindPagination)
 					g.Expect(err).ToNot(HaveOccurred())
 					g.Expect(len(foundItems)).To(Equal(1))
 					g.Expect(foundItems).To(ContainElements("1"))
@@ -890,8 +960,9 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 					associatedTree := setupQuery(g)
 
 					var foundItems []any
-					onFindSelection := func(items []any) {
-						foundItems = items
+					onFindPagination := func(item any) bool {
+						foundItems = append(foundItems, item)
+						return true
 					}
 
 					intOne := datatypes.Int(1)
@@ -904,7 +975,7 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 					}
 					g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-					err := associatedTree.Query(query, onFindSelection)
+					err := associatedTree.Query(query, onFindPagination)
 					g.Expect(err).ToNot(HaveOccurred())
 					g.Expect(len(foundItems)).To(Equal(1))
 					g.Expect(foundItems).To(ContainElements("1"))
@@ -916,8 +987,9 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 					associatedTree := setupQuery(g)
 
 					var foundItems []any
-					onFindSelection := func(items []any) {
-						foundItems = items
+					onFindPagination := func(item any) bool {
+						foundItems = append(foundItems, item)
+						return true
 					}
 
 					int8Three := datatypes.Int8(3)
@@ -930,7 +1002,7 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 					}
 					g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-					err := associatedTree.Query(query, onFindSelection)
+					err := associatedTree.Query(query, onFindPagination)
 					g.Expect(err).ToNot(HaveOccurred())
 					g.Expect(len(foundItems)).To(Equal(1))
 					g.Expect(foundItems).To(ContainElements("6"))
@@ -942,8 +1014,9 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 					associatedTree := setupQuery(g)
 
 					var foundItems []any
-					onFindSelection := func(items []any) {
-						foundItems = items
+					onFindPagination := func(item any) bool {
+						foundItems = append(foundItems, item)
+						return true
 					}
 
 					int8Four := datatypes.Int8(4)
@@ -956,7 +1029,7 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 					}
 					g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-					err := associatedTree.Query(query, onFindSelection)
+					err := associatedTree.Query(query, onFindPagination)
 					g.Expect(err).ToNot(HaveOccurred())
 					g.Expect(len(foundItems)).To(Equal(1))
 					g.Expect(foundItems).To(ContainElements("6"))
@@ -967,8 +1040,9 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 				associatedTree := setupQuery(g)
 
 				var foundItems []any
-				onFindSelection := func(items []any) {
-					foundItems = items
+				onFindPagination := func(item any) bool {
+					foundItems = append(foundItems, item)
+					return true
 				}
 
 				int8Two := datatypes.Int8(2)
@@ -983,7 +1057,7 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 				}
 				g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-				err := associatedTree.Query(query, onFindSelection)
+				err := associatedTree.Query(query, onFindPagination)
 				g.Expect(err).ToNot(HaveOccurred())
 				g.Expect(len(foundItems)).To(Equal(1))
 				g.Expect(foundItems).To(ContainElements("6"))
@@ -1038,21 +1112,22 @@ func TestAssociatedTree_Query_JoinAND(t *testing.T) {
 		associatedTree := setupQuery(g)
 
 		var foundItems []any
-		onFindSelection := func(items []any) {
-			foundItems = items
+		onFindPagination := func(item any) bool {
+			foundItems = append(foundItems, item)
+			return true
 		}
 
 		intOne := datatypes.Int(1)
 		intTwo := datatypes.Int(2)
 		query := query.Select{
 			And: []query.Select{
-				{Where: &query.Query{KeyValues: map[string]query.Value{"1": query.Value{Value: &intOne, ValueComparison: query.Equals()}}}},
-				{Where: &query.Query{KeyValues: map[string]query.Value{"2": query.Value{Value: &intTwo, ValueComparison: query.Equals()}}}},
+				{Where: &query.Query{KeyValues: map[string]query.Value{"1": {Value: &intOne, ValueComparison: query.Equals()}}}},
+				{Where: &query.Query{KeyValues: map[string]query.Value{"2": {Value: &intTwo, ValueComparison: query.Equals()}}}},
 			},
 		}
 		g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-		err := associatedTree.Query(query, onFindSelection)
+		err := associatedTree.Query(query, onFindPagination)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(len(foundItems)).To(Equal(2))
 		g.Expect(foundItems).To(ContainElements("7", "13"))
@@ -1062,21 +1137,22 @@ func TestAssociatedTree_Query_JoinAND(t *testing.T) {
 		associatedTree := setupQuery(g)
 
 		var foundItems []any
-		onFindSelection := func(items []any) {
-			foundItems = items
+		onFindPagination := func(item any) bool {
+			foundItems = append(foundItems, item)
+			return true
 		}
 
 		intOne := datatypes.Int(1)
 		intTwo := datatypes.Int(2)
 		query := query.Select{
-			Where: &query.Query{KeyValues: map[string]query.Value{"1": query.Value{Value: &intOne, ValueComparison: query.Equals()}}},
+			Where: &query.Query{KeyValues: map[string]query.Value{"1": {Value: &intOne, ValueComparison: query.Equals()}}},
 			And: []query.Select{
-				{Where: &query.Query{KeyValues: map[string]query.Value{"2": query.Value{Value: &intTwo, ValueComparison: query.Equals()}}}},
+				{Where: &query.Query{KeyValues: map[string]query.Value{"2": {Value: &intTwo, ValueComparison: query.Equals()}}}},
 			},
 		}
 		g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-		err := associatedTree.Query(query, onFindSelection)
+		err := associatedTree.Query(query, onFindPagination)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(len(foundItems)).To(Equal(2))
 		g.Expect(foundItems).To(ContainElements("7", "13"))
@@ -1086,21 +1162,22 @@ func TestAssociatedTree_Query_JoinAND(t *testing.T) {
 		associatedTree := setupQuery(g)
 
 		var foundItems []any
-		onFindSelection := func(items []any) {
-			foundItems = items
+		onFindPagination := func(item any) bool {
+			foundItems = append(foundItems, item)
+			return true
 		}
 
 		intOne := datatypes.Int(1)
 		intTwo := datatypes.Int(2)
 		query := query.Select{
 			And: []query.Select{
-				{And: []query.Select{{And: []query.Select{{Where: &query.Query{KeyValues: map[string]query.Value{"1": query.Value{Value: &intOne, ValueComparison: query.Equals()}}}}}}}},
-				{Where: &query.Query{KeyValues: map[string]query.Value{"2": query.Value{Value: &intTwo, ValueComparison: query.Equals()}}}},
+				{And: []query.Select{{And: []query.Select{{Where: &query.Query{KeyValues: map[string]query.Value{"1": {Value: &intOne, ValueComparison: query.Equals()}}}}}}}},
+				{Where: &query.Query{KeyValues: map[string]query.Value{"2": {Value: &intTwo, ValueComparison: query.Equals()}}}},
 			},
 		}
 		g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-		err := associatedTree.Query(query, onFindSelection)
+		err := associatedTree.Query(query, onFindPagination)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(len(foundItems)).To(Equal(2))
 		g.Expect(foundItems).To(ContainElements("7", "13"))
@@ -1153,22 +1230,24 @@ func TestAssociatedTree_Query_JoinOR(t *testing.T) {
 		associatedTree := setupQuery(g)
 
 		var foundItems []any
-		onFindSelection := func(items []any) {
-			foundItems = items
+		onFindPagination := func(item any) bool {
+			foundItems = append(foundItems, item)
+			return true
 		}
 
 		intOne := datatypes.Int(1)
 		intTwo := datatypes.Int(2)
 		query := query.Select{
 			Or: []query.Select{
-				{Where: &query.Query{KeyValues: map[string]query.Value{"1": query.Value{Value: &intOne, ValueComparison: query.Equals()}}}},
-				{Where: &query.Query{KeyValues: map[string]query.Value{"2": query.Value{Value: &intTwo, ValueComparison: query.Equals()}}}},
+				{Where: &query.Query{KeyValues: map[string]query.Value{"1": {Value: &intOne, ValueComparison: query.Equals()}}}},
+				{Where: &query.Query{KeyValues: map[string]query.Value{"2": {Value: &intTwo, ValueComparison: query.Equals()}}}},
 			},
 		}
 		g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-		err := associatedTree.Query(query, onFindSelection)
+		err := associatedTree.Query(query, onFindPagination)
 		g.Expect(err).ToNot(HaveOccurred())
+		fmt.Println("found items:", foundItems)
 		g.Expect(len(foundItems)).To(Equal(10))
 		g.Expect(foundItems).To(ContainElements("1", "2", "7", "8", "9", "10", "11", "12", "13", "14"))
 	})
@@ -1177,21 +1256,22 @@ func TestAssociatedTree_Query_JoinOR(t *testing.T) {
 		associatedTree := setupQuery(g)
 
 		var foundItems []any
-		onFindSelection := func(items []any) {
-			foundItems = items
+		onFindPagination := func(item any) bool {
+			foundItems = append(foundItems, item)
+			return true
 		}
 
 		intOne := datatypes.Int(1)
 		intTwo := datatypes.Int(2)
 		query := query.Select{
-			Where: &query.Query{KeyValues: map[string]query.Value{"1": query.Value{Value: &intOne, ValueComparison: query.Equals()}}},
+			Where: &query.Query{KeyValues: map[string]query.Value{"1": {Value: &intOne, ValueComparison: query.Equals()}}},
 			Or: []query.Select{
-				{Where: &query.Query{KeyValues: map[string]query.Value{"2": query.Value{Value: &intTwo, ValueComparison: query.Equals()}}}},
+				{Where: &query.Query{KeyValues: map[string]query.Value{"2": {Value: &intTwo, ValueComparison: query.Equals()}}}},
 			},
 		}
 		g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-		err := associatedTree.Query(query, onFindSelection)
+		err := associatedTree.Query(query, onFindPagination)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(len(foundItems)).To(Equal(10))
 		g.Expect(foundItems).To(ContainElements("1", "2", "7", "8", "9", "10", "11", "12", "13", "14"))
@@ -1201,21 +1281,22 @@ func TestAssociatedTree_Query_JoinOR(t *testing.T) {
 		associatedTree := setupQuery(g)
 
 		var foundItems []any
-		onFindSelection := func(items []any) {
-			foundItems = items
+		onFindPagination := func(item any) bool {
+			foundItems = append(foundItems, item)
+			return true
 		}
 
 		intOne := datatypes.Int(1)
 		intTwo := datatypes.Int(2)
 		query := query.Select{
 			Or: []query.Select{
-				{And: []query.Select{{And: []query.Select{{Where: &query.Query{KeyValues: map[string]query.Value{"1": query.Value{Value: &intOne, ValueComparison: query.Equals()}}}}}}}},
-				{Where: &query.Query{KeyValues: map[string]query.Value{"2": query.Value{Value: &intTwo, ValueComparison: query.Equals()}}}},
+				{And: []query.Select{{And: []query.Select{{Where: &query.Query{KeyValues: map[string]query.Value{"1": {Value: &intOne, ValueComparison: query.Equals()}}}}}}}},
+				{Where: &query.Query{KeyValues: map[string]query.Value{"2": {Value: &intTwo, ValueComparison: query.Equals()}}}},
 			},
 		}
 		g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-		err := associatedTree.Query(query, onFindSelection)
+		err := associatedTree.Query(query, onFindPagination)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(len(foundItems)).To(Equal(10))
 		g.Expect(foundItems).To(ContainElements("1", "2", "7", "8", "9", "10", "11", "12", "13", "14"))
@@ -1268,8 +1349,9 @@ func TestAssociatedTree_Query_AND_OR_joins(t *testing.T) {
 		associatedTree := setupQuery(g)
 
 		var foundItems []any
-		onFindSelection := func(items []any) {
-			foundItems = items
+		onFindPagination := func(item any) bool {
+			foundItems = append(foundItems, item)
+			return true
 		}
 
 		intOne := datatypes.Int(1)
@@ -1277,16 +1359,16 @@ func TestAssociatedTree_Query_AND_OR_joins(t *testing.T) {
 		intThree := datatypes.Int(3)
 		query := query.Select{
 			And: []query.Select{
-				{Where: &query.Query{KeyValues: map[string]query.Value{"1": query.Value{Value: &intOne, ValueComparison: query.Equals()}}}},
-				{Where: &query.Query{KeyValues: map[string]query.Value{"2": query.Value{Value: &intTwo, ValueComparison: query.Equals()}}}},
+				{Where: &query.Query{KeyValues: map[string]query.Value{"1": {Value: &intOne, ValueComparison: query.Equals()}}}},
+				{Where: &query.Query{KeyValues: map[string]query.Value{"2": {Value: &intTwo, ValueComparison: query.Equals()}}}},
 			},
 			Or: []query.Select{
-				{Where: &query.Query{KeyValues: map[string]query.Value{"3": query.Value{Value: &intThree, ValueComparison: query.Equals()}}}},
+				{Where: &query.Query{KeyValues: map[string]query.Value{"3": {Value: &intThree, ValueComparison: query.Equals()}}}},
 			},
 		}
 		g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-		err := associatedTree.Query(query, onFindSelection)
+		err := associatedTree.Query(query, onFindPagination)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(len(foundItems)).To(Equal(5))
 		g.Expect(foundItems).To(ContainElements("3", "7", "9", "11", "13"))

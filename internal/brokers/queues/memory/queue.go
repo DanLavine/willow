@@ -175,16 +175,16 @@ func (q *Queue) Metrics() *v1.QueueMetricsResponse {
 		DeadLetterQueueMetrics: nil,
 	}
 
-	metricsFunc := func(values []any) {
-		for _, value := range values {
-			tagNode := value.(*tagNode)
-			tagNode.lock.RLock()
-			defer tagNode.lock.RUnlock()
+	metricsFunc := func(value any) bool {
+		tagNode := value.(*tagNode)
+		tagNode.lock.RLock()
+		defer tagNode.lock.RUnlock()
 
-			if tagNode.tagGroup != nil {
-				metrics.Tags = append(metrics.Tags, tagNode.tagGroup.Metrics())
-			}
+		if tagNode.tagGroup != nil {
+			metrics.Tags = append(metrics.Tags, tagNode.tagGroup.Metrics())
 		}
+
+		return true
 	}
 
 	// find all items in the tree

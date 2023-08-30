@@ -25,7 +25,7 @@ func TestBTree_Iterate(t *testing.T) {
 		bTree, err := NewThreadSafe(2)
 		g.Expect(err).ToNot(HaveOccurred())
 
-		iterate := func(_ any) {
+		iterate := func(_ any) bool {
 			panic("should not call")
 		}
 
@@ -42,7 +42,7 @@ func TestBTree_Iterate(t *testing.T) {
 
 		seenValues := map[string]struct{}{}
 		count := 0
-		iterate := func(val any) {
+		iterate := func(val any) bool {
 			BTreeTester := val.(*BTreeTester)
 
 			// check that each value is unique
@@ -50,10 +50,34 @@ func TestBTree_Iterate(t *testing.T) {
 			seenValues[BTreeTester.Value] = struct{}{}
 
 			count++
+			return true
 		}
 
 		bTree.Iterate(iterate)
 		g.Expect(count).To(Equal(1_024))
+	})
+
+	t.Run("it breaks the iteration when the callback returns false", func(t *testing.T) {
+		bTree, err := NewThreadSafe(2)
+		g.Expect(err).ToNot(HaveOccurred())
+
+		for i := 0; i < 1_024; i++ {
+			g.Expect(bTree.CreateOrFind(datatypes.Int(i), NewBTreeTester(fmt.Sprintf("%d", i)), OnFindTest)).ToNot(HaveOccurred())
+		}
+
+		seenValues := map[string]struct{}{}
+		iterate := func(val any) bool {
+			BTreeTester := val.(*BTreeTester)
+
+			// check that each value is unique
+			g.Expect(seenValues).ToNot(HaveKey(BTreeTester.Value))
+			seenValues[BTreeTester.Value] = struct{}{}
+
+			return len(seenValues) < 5
+		}
+
+		bTree.Iterate(iterate)
+		g.Expect(len(seenValues)).To(Equal(5))
 	})
 }
 
@@ -73,7 +97,7 @@ func TestBTree_IterateMatchType(t *testing.T) {
 		bTree, err := NewThreadSafe(2)
 		g.Expect(err).ToNot(HaveOccurred())
 
-		iterate := func(_ any) {
+		iterate := func(_ any) bool {
 			panic("should not call")
 		}
 
@@ -92,37 +116,65 @@ func TestBTree_IterateMatchType(t *testing.T) {
 
 		count := 0
 
-		bTree.IterateMatchType(datatypes.T_int, func(item any) {
+		bTree.IterateMatchType(datatypes.T_int, func(item any) bool {
 			bTreeTester := item.(*BTreeTester)
 
 			g.Expect(bTreeTester.Value).To(Equal("1"))
 			count++
+			return true
 		})
-		bTree.IterateMatchType(datatypes.T_int8, func(item any) {
+		bTree.IterateMatchType(datatypes.T_int8, func(item any) bool {
 			bTreeTester := item.(*BTreeTester)
 
 			g.Expect(bTreeTester.Value).To(Equal("2"))
 			count++
+			return true
 		})
-		bTree.IterateMatchType(datatypes.T_int16, func(item any) {
+		bTree.IterateMatchType(datatypes.T_int16, func(item any) bool {
 			bTreeTester := item.(*BTreeTester)
 
 			g.Expect(bTreeTester.Value).To(Equal("3"))
 			count++
+			return true
 		})
-		bTree.IterateMatchType(datatypes.T_int32, func(item any) {
+		bTree.IterateMatchType(datatypes.T_int32, func(item any) bool {
 			bTreeTester := item.(*BTreeTester)
 
 			g.Expect(bTreeTester.Value).To(Equal("4"))
 			count++
+			return true
 		})
-		bTree.IterateMatchType(datatypes.T_int64, func(item any) {
+		bTree.IterateMatchType(datatypes.T_int64, func(item any) bool {
 			bTreeTester := item.(*BTreeTester)
 
 			g.Expect(bTreeTester.Value).To(Equal("5"))
 			count++
+			return true
 		})
 
 		g.Expect(count).To(Equal(5))
+	})
+
+	t.Run("it breaks the iteration when the callback returns false", func(t *testing.T) {
+		bTree, err := NewThreadSafe(2)
+		g.Expect(err).ToNot(HaveOccurred())
+
+		for i := 0; i < 1_024; i++ {
+			g.Expect(bTree.CreateOrFind(datatypes.Int(i), NewBTreeTester(fmt.Sprintf("%d", i)), OnFindTest)).ToNot(HaveOccurred())
+		}
+
+		seenValues := map[string]struct{}{}
+		iterate := func(val any) bool {
+			BTreeTester := val.(*BTreeTester)
+
+			// check that each value is unique
+			g.Expect(seenValues).ToNot(HaveKey(BTreeTester.Value))
+			seenValues[BTreeTester.Value] = struct{}{}
+
+			return len(seenValues) < 5
+		}
+
+		bTree.IterateMatchType(datatypes.T_int, iterate)
+		g.Expect(len(seenValues)).To(Equal(5))
 	})
 }

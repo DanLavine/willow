@@ -52,7 +52,7 @@ type BTreeAssociated interface {
 	Find(keyValuePairs datatypes.StringMap, onFind datastructures.OnFind) error
 
 	// Serch for any number of items in the assoociation tree
-	Query(selection query.Select, onFindSelection datastructures.OnFindSelection) error
+	Query(selection query.Select, onFindSelection datastructures.OnFindPagination) error
 
 	// Create or Find an item in the assoociation tree
 	CreateOrFind(keyValuePairs datatypes.StringMap, onCreate datastructures.OnCreate, onFind datastructures.OnFind) error

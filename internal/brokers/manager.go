@@ -98,9 +98,10 @@ func (bm *brokerManager) Find(logger *zap.Logger, queueName string) (queues.Queu
 func (m *brokerManager) Metrics() *v1.MetricsResponse {
 	metrics := &v1.MetricsResponse{}
 
-	iterator := func(value any) {
+	iterator := func(value any) bool {
 		managedQueue := value.(queues.ManagedQueue)
 		metrics.Queues = append(metrics.Queues, managedQueue.Metrics())
+		return true
 	}
 
 	m.queues.Iterate(iterator)

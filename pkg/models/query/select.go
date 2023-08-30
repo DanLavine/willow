@@ -25,7 +25,7 @@ func (s *Select) Validate() error {
 	// validate single query
 	if s.Where != nil {
 		if err := s.Where.Validate(); err != nil {
-			return fmt.Errorf("Where.%s", err.Error())
+			return fmt.Errorf("Where%s", err.Error())
 		}
 	}
 

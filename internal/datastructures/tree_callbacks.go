@@ -29,10 +29,25 @@ package datastructures
 type OnCreate func() any
 
 // Callback for calling a function when a value is found in a tree
+//
+//	PARAMS:
+//	- item - the item saved in the key value store
 type OnFind func(item any)
 
-// Callback where a query might find multiple items to return
-type OnFindSelection func(item []any)
+// Callback for calling a function when a value is found in a tree during pagination
+//
+//	PARAMS:
+//	- item - the item saved in the key value store
+//
+//	RETURNS:
+//	- bool - iff true, the pagination will stop processing.
+type OnFindPagination func(item any) bool
 
 // Callback to check that an item can actually be removed from a tree
+//
+// PARAMS:
+// - item - the item saved in the key value store
+//
+// RETURNS:
+// - bool - if true, will remove the item item from the tree and will call any AfterDelete triggers
 type CanDelete func(item any) bool

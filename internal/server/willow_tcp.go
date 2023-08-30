@@ -64,7 +64,7 @@ func (willow *willowTCP) Initialize() error {
 		Certificates: []tls.Certificate{cert},
 	}
 
-	// load the CA cert if it exists
+	// load the ROOT CA cert if it exists (for self signed certs)
 	if *willow.config.WillowCA != "" {
 		CaPEM, err := ioutil.ReadFile(*willow.config.WillowCA)
 		if err != nil {
@@ -147,6 +147,7 @@ func (willow *willowTCP) Execute(willowCTX context.Context) error {
 			// context was closed and server closed error. clean shutdown case
 		default:
 			// always return the error if the context was not closed
+			logger.Error("server shutdown unexpectedly", zap.Error(err))
 			return err
 		}
 	}

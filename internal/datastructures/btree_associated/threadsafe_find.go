@@ -69,7 +69,7 @@ func (tsat *threadsafeAssociatedTree) Find(keyValuePairs datatypes.StringMap, on
 	}
 
 	// if there is only 1 value in the set, then we know that we found the desired object
-	if failFast == false && counter == keyValuePairsLen && idSet != nil && idSet.Size() == 1 {
+	if !failFast && counter == keyValuePairsLen && idSet != nil && idSet.Size() == 1 {
 		tsat.ids.Find(datatypes.String(idSet.Values()[0]), onFind)
 	}
 

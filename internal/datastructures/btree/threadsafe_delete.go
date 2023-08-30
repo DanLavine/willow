@@ -56,11 +56,15 @@ func (btree *threadSafeBTree) Delete(key datatypes.EncapsulatedData, canDelete d
 	unlock := func() { once.Do(func() { btree.lock.Unlock() }) }
 	defer func() { unlock() }()
 
-	//fmt.Println("deleting:", key.Value)
 	if btree.root != nil {
 		btree.root.lock.Lock()
-		if btree.root.remove(unlock, btree.nodeSize, key, canDelete) && btree.root.numberOfValues == 0 {
-			btree.root = btree.root.children[0]
+		if btree.root.remove(unlock, btree.nodeSize, key, canDelete) {
+
+			// if we were told to reblance, need to ensure we have the lock for all nodes we are touching
+			// this is required when the node size is set to 4+
+			if btree.root.numberOfValues == 0 {
+				btree.root = btree.root.children[0]
+			}
 		}
 	}
 
@@ -81,9 +85,9 @@ func (bn *threadSafeBNode) remove(releaseParentLock func(), nodeSize int, keyToD
 		unlock()
 	}
 
-	// we know the paren't node doesn' have to take any action on this node's delete operation.
-	// so we can release all locks above this node
-	if bn.numberOfValues-1 >= bn.maxValues() {
+	// we know the parent node does not have to take any action on this node's delete operation
+	// since we won't cause a rebalance. So we can release all locks above this node
+	if bn.numberOfValues-1 >= bn.minValues() {
 		releaseParentLock()
 	}
 
@@ -241,7 +245,7 @@ func (bn *threadSafeBNode) swap(releaseParentLock func(), key any, swapNode *thr
 // rebalance is used to chek if a node needs to be rebalanced after removing an index
 func (bn *threadSafeBNode) rebalance(releaseParentLock func(), key any, childIndex int) bool {
 	switch childIndex {
-	case 0: // can only look to the right children
+	case 0: // can only rotate a right child into the left child that needs an additional value
 		bn.children[childIndex].lock.Lock()
 		bn.children[childIndex+1].lock.Lock()
 		defer bn.children[childIndex].lock.Unlock()
@@ -253,10 +257,10 @@ func (bn *threadSafeBNode) rebalance(releaseParentLock func(), key any, childInd
 
 			// rotate a keyValue from right to left
 			bn.rotateLeft(childIndex)
-			return bn.numberOfValues < bn.minValues()
-			//return false
+			//return bn.numberOfValues < bn.minValues()
+			return false
 		}
-	case bn.numberOfChildren - 1: // can only look to the left children
+	case bn.numberOfChildren - 1: // can only rotate a left children into the right child that needs an additional value
 		bn.children[childIndex-1].lock.Lock()
 		bn.children[childIndex].lock.Lock()
 		defer bn.children[childIndex-1].lock.Unlock()
@@ -268,10 +272,10 @@ func (bn *threadSafeBNode) rebalance(releaseParentLock func(), key any, childInd
 
 			// rotate a keyValue from left to right
 			bn.rotateRight(childIndex)
-			return bn.numberOfValues < bn.minValues()
-			//return false
+			//return bn.numberOfValues < bn.minValues()
+			return false
 		}
-	default: // can look to both left and right children
+	default: // can look to both left and right children into child index that needs an additional value
 		bn.children[childIndex-1].lock.Lock()
 		bn.children[childIndex].lock.Lock()
 		bn.children[childIndex+1].lock.Lock()
@@ -286,16 +290,16 @@ func (bn *threadSafeBNode) rebalance(releaseParentLock func(), key any, childInd
 
 			// rotate a keyValue from right to left
 			bn.rotateLeft(childIndex)
-			return bn.numberOfValues < bn.minValues()
-			//return false
+			//return bn.numberOfValues < bn.minValues()
+			return false
 		} else if bn.children[childIndex-1].numberOfValues > bn.minValues() {
 			// can release the parent locks since we are guranteed to not change the number of indexes on this node
 			releaseParentLock()
 
 			// rotate a keyValue from left to right
 			bn.rotateRight(childIndex)
-			return bn.numberOfValues < bn.minValues()
-			//return false
+			//return bn.numberOfValues < bn.minValues()
+			return false
 		}
 	}
 
@@ -388,7 +392,11 @@ func (bn *threadSafeBNode) rotateRight(rotateChildIndex int) {
 
 // merge down will always merge into the left child index
 func (bn *threadSafeBNode) mergeDown(childIndex int) {
-	// guranteed to have locks all the locks we need in this function
+	// already have a lock for:
+	// bn
+	// bn.children[childIndex-1] (iff we are not at the 0 index)
+	// bn.children[childIndex]
+	// bn.children[childIndex+1] (iff we are not at the last index)
 
 	// deteremine the node index we need to merge on
 	nodeIndex := childIndex
@@ -397,15 +405,73 @@ func (bn *threadSafeBNode) mergeDown(childIndex int) {
 		nodeIndex = childIndex - 1
 	}
 
-	// already have a lock to this child index
 	child := bn.children[nodeIndex]
-	child.keyValues[child.numberOfValues] = bn.keyValues[nodeIndex] // move index down
+	rightChild := bn.children[nodeIndex+1]
+
+	// move this node's value down to the child
+	child.keyValues[child.numberOfValues] = bn.keyValues[nodeIndex] // move index down to the greatest value
 	child.numberOfValues++
 
-	child.appendChildNode(bn.children[nodeIndex+1]) // merge the right node into the left node
+	// move the right child's values and children into the left node
+	var index int
+	for index = 0; index < rightChild.numberOfValues; index++ { // iterate over values
+		child.keyValues[child.numberOfValues+index] = rightChild.keyValues[index]
 
-	// clear out the merged items
-	bn.dropIndexByShiftLeft(nodeIndex, nodeIndex+1)
+		if rightChild.numberOfChildren != 0 {
+			rightChild.children[index].lock.Lock()
+			child.children[child.numberOfChildren+index] = rightChild.children[index]
+			rightChild.children[index].lock.Unlock()
+		}
+	}
+
+	if rightChild.numberOfChildren != 0 { // copy last child if it exists
+		rightChild.lastChild().lock.Lock()
+		child.children[child.numberOfChildren+index] = rightChild.lastChild()
+		rightChild.lastChild().lock.Unlock()
+	}
+
+	child.numberOfValues += rightChild.numberOfValues
+	if child.numberOfChildren != 0 {
+		child.numberOfChildren += rightChild.numberOfChildren
+	}
+
+	// clear out the merged items bys shifting all values to the left by 1
+	for index := nodeIndex; index < bn.numberOfValues; index++ { //values
+		bn.keyValues[index] = bn.keyValues[index+1]
+	}
+
+	for clearChildIndex := nodeIndex + 1; clearChildIndex < bn.numberOfChildren; clearChildIndex++ { //children
+		// when shifting the children, we need to account for the possible merge options. In the case
+		// where we can look at the right side, we need to ensure we take the n+2 lock
+		switch childIndex {
+		case 0:
+			if bn.children[clearChildIndex+1] != nil {
+				bn.children[clearChildIndex+1].lock.Lock()
+				bn.children[clearChildIndex] = bn.children[clearChildIndex+1]
+				bn.children[clearChildIndex].lock.Unlock()
+			} else {
+				bn.children[clearChildIndex] = nil
+			}
+		default:
+			if bn.children[clearChildIndex+1] != nil {
+				if clearChildIndex >= nodeIndex+2 {
+					bn.children[clearChildIndex+1].lock.Lock()
+					bn.children[clearChildIndex] = bn.children[clearChildIndex+1]
+					bn.children[clearChildIndex].lock.Unlock()
+				} else {
+					bn.children[clearChildIndex] = bn.children[clearChildIndex+1]
+				}
+			} else {
+				bn.children[clearChildIndex] = nil
+			}
+		}
+
+	}
+
+	bn.numberOfValues--
+	if bn.numberOfChildren != 0 {
+		bn.numberOfChildren--
+	}
 }
 
 // shifit an entire node from the start index to the right by count.
@@ -465,13 +531,12 @@ func (bn *threadSafeBNode) shiftNodeLeft(startIndex, count int) {
 			continue
 		}
 
-		// TODO: be smarter about these:
 		// ensure no operations are running on the node we are removing
 		bn.children[index].lock.Lock()
+		bn.children[index+count].lock.Lock()
 		bn.children[index].lock.Unlock()
 
 		// lock the moved child node and unlock it
-		bn.children[index+count].lock.Lock()
 		bn.children[index] = bn.children[index+count]
 		bn.children[index].lock.Unlock()
 	}
@@ -479,49 +544,5 @@ func (bn *threadSafeBNode) shiftNodeLeft(startIndex, count int) {
 	bn.numberOfValues -= count
 	if bn.numberOfChildren != 0 {
 		bn.numberOfChildren -= count
-	}
-}
-
-// drop an index by shifting a node to the left
-func (bn *threadSafeBNode) dropIndexByShiftLeft(nodeIndex, childIndex int) {
-	// already have a lock for:
-	// bn
-
-	for index := nodeIndex; index < bn.numberOfValues; index++ {
-		bn.keyValues[index] = bn.keyValues[index+1]
-	}
-
-	for index := childIndex; index < bn.numberOfChildren; index++ {
-		if bn.children[index+1] != nil && index >= childIndex+1 {
-			bn.children[index+1].lock.Lock()
-			defer func(i int) { bn.children[i].lock.Unlock() }(index)
-		}
-
-		bn.children[index] = bn.children[index+1]
-	}
-
-	bn.numberOfValues--
-	if bn.numberOfChildren != 0 {
-		bn.numberOfChildren--
-	}
-}
-
-// appendChildNode copies the keyValues from the provided node
-func (bn *threadSafeBNode) appendChildNode(node *threadSafeBNode) {
-	var index int
-	for index = 0; index < node.numberOfValues; index++ {
-		bn.keyValues[bn.numberOfValues+index] = node.keyValues[index]
-		bn.children[bn.numberOfChildren+index] = node.children[index]
-	}
-
-	if node.numberOfChildren != 0 {
-		node.lastChild().lock.Lock()
-		bn.children[bn.numberOfChildren+index] = node.lastChild()
-		defer node.lastChild().lock.Unlock()
-	}
-
-	bn.numberOfValues += node.numberOfValues
-	if bn.lastChild() != nil {
-		bn.numberOfChildren += node.numberOfChildren
 	}
 }

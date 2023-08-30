@@ -30,18 +30,18 @@ func (q *Query) SortedKeys() []string {
 
 func (q *Query) Validate() error {
 	if len(q.KeyValues) == 0 && q.Limits == nil {
-		return fmt.Errorf("Requires KeyValues or Limits parameters")
+		return fmt.Errorf(": requires KeyValues or Limits parameters")
 	}
 
 	if q.Limits != nil {
 		if err := q.Limits.Validate(len(q.KeyValues)); err != nil {
-			return fmt.Errorf("Limits.%s", err.Error())
+			return fmt.Errorf(".Limits.%s", err.Error())
 		}
 	}
 
 	for key, value := range q.KeyValues {
 		if err := value.Validate(); err != nil {
-			return fmt.Errorf("KeyValues[%s]%s", key, err.Error())
+			return fmt.Errorf(".KeyValues[%s]%s", key, err.Error())
 		}
 	}
 

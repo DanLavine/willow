@@ -14,13 +14,13 @@ func Test_Query_SortedKeys(t *testing.T) {
 
 		query := &Query{
 			KeyValues: map[string]Value{
-				"3": Value{Exists: &True},
-				"2": Value{Exists: &True},
-				"1": Value{Exists: &True},
-				"6": Value{Exists: &True},
-				"5": Value{Exists: &True},
-				"7": Value{Exists: &True},
-				"4": Value{Exists: &True},
+				"3": {Exists: &True},
+				"2": {Exists: &True},
+				"1": {Exists: &True},
+				"6": {Exists: &True},
+				"5": {Exists: &True},
+				"7": {Exists: &True},
+				"4": {Exists: &True},
 			},
 		}
 
@@ -37,16 +37,16 @@ func Test_Query_Validate(t *testing.T) {
 
 		err := query.Validate()
 		g.Expect(err).To(HaveOccurred())
-		g.Expect(err.Error()).To(Equal("Requires KeyValues or Limits parameters"))
+		g.Expect(err.Error()).To(Equal(": requires KeyValues or Limits parameters"))
 	})
 
 	t.Run("Context KeyValues", func(t *testing.T) {
 		t.Run("It returns an error if any Values are not correct", func(t *testing.T) {
-			query := &Query{KeyValues: map[string]Value{"one": Value{}}}
+			query := &Query{KeyValues: map[string]Value{"one": {}}}
 
 			err := query.Validate()
 			g.Expect(err).To(HaveOccurred())
-			g.Expect(err.Error()).To(Equal("KeyValues[one]: Requires an Exists or Value check"))
+			g.Expect(err.Error()).To(Equal(".KeyValues[one]: Requires an Exists or Value check"))
 		})
 	})
 
@@ -56,7 +56,7 @@ func Test_Query_Validate(t *testing.T) {
 
 			err := query.Validate()
 			g.Expect(err).To(HaveOccurred())
-			g.Expect(err.Error()).To(Equal("Limits.NumberOfKeys: Requires an int to be provided"))
+			g.Expect(err.Error()).To(Equal(".Limits.NumberOfKeys: Requires an int to be provided"))
 		})
 
 		t.Run("It returns an error if NumberOfKeys is 0", func(t *testing.T) {
@@ -65,17 +65,17 @@ func Test_Query_Validate(t *testing.T) {
 
 			err := query.Validate()
 			g.Expect(err).To(HaveOccurred())
-			g.Expect(err.Error()).To(Equal("Limits.NumberOfKeys: Must be larger than the provided 0"))
+			g.Expect(err.Error()).To(Equal(".Limits.NumberOfKeys: Must be larger than the provided 0"))
 		})
 
 		t.Run("It returns an error if NumberOfKeys is less than the number of KeyValues to search for", func(t *testing.T) {
 			one := 1
 			True := true
-			query := &Query{KeyValues: map[string]Value{"one": Value{Exists: &True}, "two": Value{Exists: &True}}, Limits: &KeyLimits{NumberOfKeys: &one}}
+			query := &Query{KeyValues: map[string]Value{"one": {Exists: &True}, "two": {Exists: &True}}, Limits: &KeyLimits{NumberOfKeys: &one}}
 
 			err := query.Validate()
 			g.Expect(err).To(HaveOccurred())
-			g.Expect(err.Error()).To(Equal("Limits.NumberOfKeys: Is Less than the number of KeyValues to match. Will always result in 0 matches"))
+			g.Expect(err.Error()).To(Equal(".Limits.NumberOfKeys: Is Less than the number of KeyValues to match. Will always result in 0 matches"))
 		})
 	})
 }

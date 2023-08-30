@@ -9,52 +9,47 @@ import (
 
 // BTree is a generic 2-3-4 BTree implementation.
 // See https://www.geeksforgeeks.org/2-3-4-tree/ for details on what a 2-3-4 tree is
-//
-// NOTE:
-// I think there is lot of improvement to make things faster here since it currently uses a naive
-// approach to locking values pessimistically. But it is at least safe and provides all the functional
-// foundation that is needed
 type BTree interface {
+	//  PARAMS:
+	//  - key - key to use when comparing to other possible items
+	//  - onFind - method to call if the key is found
+	//
+	//  RETURNS:
+	//  - error - any errors encontered. I.E. key is not valid
+	//
 	// Find the item in the Tree and run the `OnFind(...)` function for the saved value. Will not be called if the
 	// key cannot be found
-	//
-	// PARAMS:
-	// - key - key to use when comparing to other possible items
-	// - onFind - method to call if the key is found
-	//
-	// RETURNS:
-	// - error - any errors encontered. I.E. key is not valid
 	Find(key datatypes.EncapsulatedData, onFind datastructures.OnFind) error
 
 	// Iterare over all items that don't equal the provided key
-	FindNotEqual(key datatypes.EncapsulatedData, callback datastructures.OnFindSelection) error
+	FindNotEqual(key datatypes.EncapsulatedData, callback datastructures.OnFindPagination) error
 
 	// Iterare over all items where the key's are less than the provided value
-	FindLessThan(key datatypes.EncapsulatedData, callback datastructures.OnFindSelection) error
+	FindLessThan(key datatypes.EncapsulatedData, callback datastructures.OnFindPagination) error
 
 	// Iterare over all items where the key's are less than or equal to the provided value
-	FindLessThanOrEqual(key datatypes.EncapsulatedData, callback datastructures.OnFindSelection) error
+	FindLessThanOrEqual(key datatypes.EncapsulatedData, callback datastructures.OnFindPagination) error
 
 	// Iterare over all items where the key's are greater than the provided value
-	FindGreaterThan(key datatypes.EncapsulatedData, callback datastructures.OnFindSelection) error
+	FindGreaterThan(key datatypes.EncapsulatedData, callback datastructures.OnFindPagination) error
 
 	// Iterare over all items where the key's are greater than or equal to the provided value
-	FindGreaterThanOrEqual(key datatypes.EncapsulatedData, callback datastructures.OnFindSelection) error
+	FindGreaterThanOrEqual(key datatypes.EncapsulatedData, callback datastructures.OnFindPagination) error
 
 	// Iterare over all items that don't equal the provided key, where the key's in the BTree match the search key's data type
-	FindNotEqualMatchType(key datatypes.EncapsulatedData, callback datastructures.OnFindSelection) error
+	FindNotEqualMatchType(key datatypes.EncapsulatedData, callback datastructures.OnFindPagination) error
 
 	// Iterare over all items less than the provided key, where the key's in the BTree match the search key's data type
-	FindLessThanMatchType(key datatypes.EncapsulatedData, callback datastructures.OnFindSelection) error
+	FindLessThanMatchType(key datatypes.EncapsulatedData, callback datastructures.OnFindPagination) error
 
 	// Iterare over all items less than or equal to the provided key, where the key's in the BTree match the search key's data type
-	FindLessThanOrEqualMatchType(key datatypes.EncapsulatedData, callback datastructures.OnFindSelection) error
+	FindLessThanOrEqualMatchType(key datatypes.EncapsulatedData, callback datastructures.OnFindPagination) error
 
 	// Iterare over all items greater than the provided key, where the key's in the BTree match the search key's data type
-	FindGreaterThanMatchType(key datatypes.EncapsulatedData, callback datastructures.OnFindSelection) error
+	FindGreaterThanMatchType(key datatypes.EncapsulatedData, callback datastructures.OnFindPagination) error
 
 	// Iterare over all items greater than or euqal to the provided key, where the key's in the BTree match the search key's data type
-	FindGreaterThanOrEqualMatchType(key datatypes.EncapsulatedData, callback datastructures.OnFindSelection) error
+	FindGreaterThanOrEqualMatchType(key datatypes.EncapsulatedData, callback datastructures.OnFindPagination) error
 
 	// If the provided key does not exist, the onCreate function will be called to initalize a new object.
 	// Otherwise the onFind callback will be invoked for the value associated with the key
@@ -76,9 +71,9 @@ type BTree interface {
 	//
 	// RETURNS:
 	// - error - any errors with parameters encontered. I.E. callback is nil
-	Iterate(callback datastructures.OnFind) error
+	Iterate(callback datastructures.OnFindPagination) error
 
-	IterateMatchType(dataType datatypes.DataType, callback datastructures.OnFind) error
+	IterateMatchType(dataType datatypes.DataType, callback datastructures.OnFindPagination) error
 
 	// Delete an item in the Tree
 	//

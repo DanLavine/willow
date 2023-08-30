@@ -131,6 +131,7 @@ func (tg *tagGroup) process() *v1.DequeueItemResponse {
 }
 
 // Enqueue a new item onto the tag group.
+// If this was to be used in a "trigger", would need to return the tag group itself, to pull an item?
 func (tg *tagGroup) Enqueue(totalQueueCounter *Counter, queueItem *v1.EnqueueItemRequest) *v1.Error {
 	tg.lock.Lock()
 	defer tg.lock.Unlock()

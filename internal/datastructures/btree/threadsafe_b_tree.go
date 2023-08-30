@@ -8,11 +8,6 @@ import (
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 )
 
-// TODO: DSL
-// Find is 2x as fast
-// Delete is 2x as sloe
-// Create is ~the same for times in the random testing
-
 // threadSafeBTree is a shareable thread safe BTree object.
 type threadSafeBTree struct {
 	// lock for managing the root of the btree
@@ -27,9 +22,6 @@ type threadSafeBTree struct {
 
 // threadSafeBNode is the internal node for a threadSafeBTree
 type threadSafeBNode struct {
-	// TODO: I think i have a nice strategy to implement write locks. Will need to pass in an unlock() callback
-	// to children that will be called iff the node does not need to be split. But what about the readers? need
-	// to figure out what to do there. That will come after this refactor
 	lock *sync.RWMutex
 
 	numberOfValues int         // number of current values set. Cannot use len(values) since nil value counts towards total items
