@@ -7,7 +7,7 @@ import (
 	v1 "github.com/DanLavine/willow/pkg/models/v1"
 )
 
-//counterfeiter:generate . QueueConstructor
+//go:generate mockgen -destination=queuesfakes/constructor_mock.go -package=queuesfakes github.com/DanLavine/willow/internal/brokers/queues QueueConstructor
 type QueueConstructor interface {
 	// create a new Queue
 	NewQueue(createParams *v1.Create) (ManagedQueue, *v1.Error)

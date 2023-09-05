@@ -8,13 +8,9 @@ import (
 	"go.uber.org/zap"
 )
 
-//go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -generate
-
 // QueueManager manges all queue operations such as Create/Update/Delete, etc
 // It also is a shared resource that can be used by any other structs needing to find a Queue
 // and thier associated readers
-//
-//counterfeiter:generate . QueueManager
 type QueueManager interface {
 	// Create a new queue. performs a no-op if the queue already exists
 	//
@@ -47,7 +43,7 @@ type QueueManager interface {
 // Managed queue defines all the managment functions that queue needs for its lifecycle.
 // These functions are not useful for the client's intaction with the queue
 //
-//counterfeiter:generate . ManagedQueue
+//go:generate mockgen -destination=queuesfakes/managed_queue_mock.go -package=queuesfakes github.com/DanLavine/willow/internal/brokers/queues ManagedQueue
 type ManagedQueue interface {
 	// Inlude all the Queue functions as well
 	Queue
@@ -58,8 +54,6 @@ type ManagedQueue interface {
 
 // Queue is any type that can be part of a ManagedQueue, but mainly defines the functions
 // available to any clients.
-//
-//counterfeiter:generate . Queue
 type Queue interface {
 	// Enqueue an item onto the queue
 	Enqueue(logger *zap.Logger, enqueueItem *v1.EnqueueItemRequest) *v1.Error

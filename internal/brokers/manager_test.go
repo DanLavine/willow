@@ -1,6 +1,7 @@
 package brokers
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/DanLavine/willow/internal/brokers/queues"
@@ -8,7 +9,9 @@ import (
 	"github.com/DanLavine/willow/pkg/config"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 	v1 "github.com/DanLavine/willow/pkg/models/v1"
+
 	. "github.com/onsi/gomega"
+	"go.uber.org/mock/gomock"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
 )
@@ -22,8 +25,13 @@ func TestQueueManager_Create(t *testing.T) {
 		logger := zap.New(zapCore)
 
 		// fake constructor to return error
-		fakeQueueConstructor := &queuesfakes.FakeQueueConstructor{}
-		fakeQueueConstructor.NewQueueReturns(nil, &v1.Error{Message: "Failed to create queue"})
+		mockController := gomock.NewController(t)
+		defer mockController.Finish()
+		fakeQueueConstructor := queuesfakes.NewMockQueueConstructor(mockController)
+		fakeQueueConstructor.EXPECT().NewQueue(gomock.Any()).DoAndReturn(func(createParams *v1.Create) (queues.ManagedQueue, *v1.Error) {
+			fmt.Println("calling new queue")
+			return nil, &v1.Error{Message: "Failed to create queue"}
+		}).Times(1)
 
 		// queue manager
 		queueManager := NewBrokerManager(fakeQueueConstructor)
@@ -38,9 +46,12 @@ func TestQueueManager_Create(t *testing.T) {
 	})
 
 	t.Run("it only creates a queue's tag group if it does not exist", func(t *testing.T) {
-		// fake constructor to return error
-		fakeQueueConstructor := &queuesfakes.FakeQueueConstructor{}
-		fakeQueueConstructor.NewQueueReturns(&queuesfakes.FakeManagedQueue{}, nil)
+		mockController := gomock.NewController(t)
+		defer mockController.Finish()
+		fakeQueueConstructor := queuesfakes.NewMockQueueConstructor(mockController)
+		fakeQueueConstructor.EXPECT().NewQueue(gomock.Any()).DoAndReturn(func(createParams *v1.Create) (queues.ManagedQueue, *v1.Error) {
+			return queuesfakes.NewMockManagedQueue(mockController), nil
+		}).Times(1)
 
 		// queue manager
 		queueManager := NewBrokerManager(fakeQueueConstructor)
@@ -50,8 +61,6 @@ func TestQueueManager_Create(t *testing.T) {
 		g.Expect(err).ToNot(HaveOccurred())
 		err = queueManager.Create(zap.NewNop(), &v1.Create{Name: "test", QueueMaxSize: 5, DeadLetterQueueMaxSize: 0})
 		g.Expect(err).ToNot(HaveOccurred())
-
-		g.Expect(fakeQueueConstructor.NewQueueCallCount()).To(Equal(1))
 	})
 }
 
@@ -59,7 +68,13 @@ func TestQueueManager_Find(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	t.Run("it returns an error if the queue has not been created", func(t *testing.T) {
-		fakeQueueConstructor := &queuesfakes.FakeQueueConstructor{}
+		mockController := gomock.NewController(t)
+		defer mockController.Finish()
+		fakeQueueConstructor := queuesfakes.NewMockQueueConstructor(mockController)
+		fakeQueueConstructor.EXPECT().NewQueue(gomock.Any()).DoAndReturn(func(createParams *v1.Create) (queues.ManagedQueue, *v1.Error) {
+			return nil, nil
+		}).Times(0)
+
 		queueManager := NewBrokerManager(fakeQueueConstructor)
 		g.Expect(queueManager).ToNot(BeNil())
 
@@ -70,11 +85,12 @@ func TestQueueManager_Find(t *testing.T) {
 	})
 
 	t.Run("it returns the proper queue", func(t *testing.T) {
-		fakeQueue := &queuesfakes.FakeManagedQueue{}
-
-		fakeQueueConstructor := &queuesfakes.FakeQueueConstructor{}
-		fakeQueueConstructor.NewQueueReturnsOnCall(0, fakeQueue, nil) // check that this is returned on the proper find
-		fakeQueueConstructor.NewQueueReturns(&queuesfakes.FakeManagedQueue{}, nil)
+		mockController := gomock.NewController(t)
+		defer mockController.Finish()
+		fakeQueueConstructor := queuesfakes.NewMockQueueConstructor(mockController)
+		fakeQueueConstructor.EXPECT().NewQueue(gomock.Any()).DoAndReturn(func(createParams *v1.Create) (queues.ManagedQueue, *v1.Error) {
+			return queuesfakes.NewMockManagedQueue(mockController), nil
+		}).Times(5)
 
 		queueManager := NewBrokerManager(fakeQueueConstructor)
 		g.Expect(queueManager).ToNot(BeNil())
@@ -85,14 +101,13 @@ func TestQueueManager_Find(t *testing.T) {
 		g.Expect(queueManager.Create(zap.NewNop(), &v1.Create{Name: "test4", QueueMaxSize: 5, DeadLetterQueueMaxSize: 0})).ToNot(HaveOccurred())
 		g.Expect(queueManager.Create(zap.NewNop(), &v1.Create{Name: "test5", QueueMaxSize: 5, DeadLetterQueueMaxSize: 0})).ToNot(HaveOccurred())
 
-		queue, err := queueManager.Find(zap.NewNop(), "test1")
+		queue1, err := queueManager.Find(zap.NewNop(), "test1")
 		g.Expect(err).ToNot(HaveOccurred())
-		g.Expect(queue).To(BeIdenticalTo(fakeQueue))
 
 		// check the another queue isn't the same
-		queue, err = queueManager.Find(zap.NewNop(), "test2")
+		queue2, err := queueManager.Find(zap.NewNop(), "test2")
 		g.Expect(err).ToNot(HaveOccurred())
-		g.Expect(queue).ToNot(BeIdenticalTo(fakeQueue))
+		g.Expect(queue1).ToNot(BeIdenticalTo(queue2))
 	})
 }
 

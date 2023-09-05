@@ -5,8 +5,6 @@ import (
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 )
 
-//go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -generate
-
 // BTree is a generic 2-3-4 BTree implementation.
 // See https://www.geeksforgeeks.org/2-3-4-tree/ for details on what a 2-3-4 tree is
 type BTree interface {
