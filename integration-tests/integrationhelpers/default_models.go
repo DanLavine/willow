@@ -2,6 +2,7 @@ package integrationhelpers
 
 import (
 	"github.com/DanLavine/willow/pkg/models/datatypes"
+	"github.com/DanLavine/willow/pkg/models/query"
 	v1 "github.com/DanLavine/willow/pkg/models/v1"
 )
 
@@ -48,12 +49,14 @@ var (
 	}
 
 	// some general dequeue messages
-	Queue1Dequeue = v1.ReaderSelect{
-		BrokerName: "queue1",
-		Queries: []v1.ReaderQuery{
-			{
-				Type: v1.ReaderExactly,
-				Tags: datatypes.StringMap{"some": datatypes.String("tag")},
+	tagValue      = datatypes.String("tag")
+	Queue1Dequeue = v1.DequeueItemRequest{
+		Name: "queue1",
+		Selection: query.Select{
+			Where: &query.Query{
+				KeyValues: map[string]query.Value{
+					"some": query.Value{Value: &tagValue, ValueComparison: query.EqualsPtr()},
+				},
 			},
 		},
 	}

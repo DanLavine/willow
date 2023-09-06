@@ -2,9 +2,7 @@ package v1server
 
 import (
 	"net/http"
-	"reflect"
 
-	"github.com/DanLavine/willow/internal/brokers/tags"
 	"github.com/DanLavine/willow/internal/logger"
 	"github.com/DanLavine/willow/internal/server/client"
 	v1 "github.com/DanLavine/willow/pkg/models/v1"
@@ -57,52 +55,41 @@ func (qh *queueHandler) Dequeue(w http.ResponseWriter, r *http.Request) {
 	case "GET":
 		logger.Debug("GET")
 
-		query, err := v1.ParseReaderSelect(r.Body)
+		dequeueItemRequest, err := v1.ParseDequeueItemRequest(r.Body)
 		if err != nil {
 			w.WriteHeader(err.StatusCode)
 			w.Write(err.ToBytes())
 			return
 		}
 
-		queue, err := qh.queueManager.Find(logger, query.BrokerName)
+		queue, err := qh.queueManager.Find(logger, dequeueItemRequest.Name)
 		if err != nil {
 			w.WriteHeader(err.StatusCode)
 			w.Write(err.ToBytes())
 			return
 		}
 
-		readers, err := queue.Readers(logger, query)
+		dequeueItem, success, failure, err := queue.Dequeue(logger, r.Context(), dequeueItemRequest.Selection)
 		if err != nil {
 			w.WriteHeader(err.StatusCode)
 			w.Write(err.ToBytes())
 			return
-		} else if len(readers) == 0 {
-			w.WriteHeader(http.StatusInternalServerError)
-			return
 		}
-
-		// setup select cases
-		selectCases := []reflect.SelectCase{reflect.SelectCase{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(r.Cancel)}}
-		for _, reader := range readers {
-			selectCases = append(selectCases, reflect.SelectCase{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(reader)})
-		}
-
-		id, value, _ := reflect.Select(selectCases)
-		if id == 0 {
-			// In this case, the client was disconnected so just return
-			return
-		}
-
-		// call the dequeue function
-		dequeueResponse := value.Interface().(tags.Tag)()
-
-		// record which client is processing which item
-		clientTracker := r.Context().Value("clientTracker").(client.Tracker)
-		clientTracker.Add(dequeueResponse.ID, dequeueResponse.BrokerInfo)
 
 		// TODO: on an error, we need to mark the message as failed?
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write(dequeueResponse.ToBytes())
+		_, writeErr := w.Write(dequeueItem.ToBytes())
+		if writeErr == nil {
+			// record which client is processing which item
+			clientTracker := r.Context().Value("clientTracker").(client.Tracker)
+			clientTracker.Add(dequeueItem.ID, dequeueItem.BrokerInfo)
+
+			// successfuly sent to the client
+			success()
+		} else {
+			// failed to send to the client
+			failure()
+		}
 	default:
 		w.WriteHeader(http.StatusNotFound)
 	}

@@ -68,7 +68,7 @@ func Test_Value_Validate(t *testing.T) {
 
 		t.Run("It returns an error if a ValueComparison is set", func(t *testing.T) {
 			True := true
-			value := &Value{Exists: &True, ValueComparison: Equals()}
+			value := &Value{Exists: &True, ValueComparison: EqualsPtr()}
 
 			err := value.Validate()
 			g.Expect(err).To(HaveOccurred())
@@ -88,7 +88,7 @@ func Test_Value_Validate(t *testing.T) {
 	t.Run("Context when setting a Value", func(t *testing.T) {
 		t.Run("It accepts a Value and ValueComparison", func(t *testing.T) {
 			dInt := datatypes.Int(5)
-			value := &Value{Value: &dInt, ValueComparison: Equals()}
+			value := &Value{Value: &dInt, ValueComparison: EqualsPtr()}
 
 			err := value.Validate()
 			g.Expect(err).ToNot(HaveOccurred())

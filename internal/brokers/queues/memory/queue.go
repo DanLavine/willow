@@ -5,166 +5,202 @@ import (
 	"net/http"
 	"sync"
 
+	"github.com/DanLavine/channelops"
 	"github.com/DanLavine/goasync"
+	"github.com/DanLavine/willow/pkg/models/datatypes"
 	"github.com/DanLavine/willow/pkg/models/query"
 	v1 "github.com/DanLavine/willow/pkg/models/v1"
 	"go.uber.org/zap"
 
-	"github.com/DanLavine/willow/internal/brokers/tags"
 	btreeassociated "github.com/DanLavine/willow/internal/datastructures/btree_associated"
 	"github.com/DanLavine/willow/internal/errors"
 )
 
+type clientWaiting struct {
+	selection  query.Select
+	channelOPS channelops.ChannelOps
+}
+
 type Queue struct {
-	doneOnce *sync.Once
-	done     chan struct{}
+	// process management
+	done        chan struct{}
+	doneOnce    *sync.Once
+	lock        *sync.RWMutex
+	taskManager goasync.AsyncTaskManager
 
 	// queue information and limits
 	name string
-
-	// reader for all tag groups in this queue
-	globalChannel chan tags.Tag
+	// queue metrics information
+	counter *Counter
 
 	// items that are enqueued and ready to be processed
 	// Each element in this tree is of tyoe *tagGroup
 	tagGroups btreeassociated.BTreeAssociated
 
-	// manage all tag groups and their associated readers
-	taskManager goasync.AsyncTaskManager
+	clientsLock    *sync.RWMutex
+	clientsWaiting []clientWaiting
 
-	// queue metrics information
-	counter *Counter
+	shutdownContext       context.Context
+	shutdownContextCancel context.CancelFunc
 }
 
 func NewQueue(create *v1.Create) *Queue {
+	ctx, cancel := context.WithCancel(context.Background())
+
 	return &Queue{
-		doneOnce: new(sync.Once),
-		done:     make(chan struct{}),
+		done:        make(chan struct{}),
+		doneOnce:    new(sync.Once),
+		lock:        new(sync.RWMutex),
+		taskManager: goasync.NewTaskManager(goasync.RelaxedConfig()),
 
-		name: create.Name,
-
-		globalChannel: make(chan tags.Tag),
+		name:    create.Name,
+		counter: NewCounter(create.QueueMaxSize),
 
 		tagGroups: btreeassociated.NewThreadSafe(),
 
-		taskManager: goasync.NewTaskManager(goasync.RelaxedConfig()),
+		clientsLock:    new(sync.RWMutex),
+		clientsWaiting: []clientWaiting{},
 
-		counter: NewCounter(create.QueueMaxSize),
+		shutdownContext:       ctx,
+		shutdownContextCancel: cancel,
 	}
 }
 
 // Execute is a managment function used by the queue manager to shutdown and cleanup any managed goroutines
 func (q *Queue) Execute(ctx context.Context) error {
-	_ = q.taskManager.Run(ctx)
+	go func() {
+		<-ctx.Done()
+		q.shutdownContextCancel() // close any waiting clients
+	}()
+
+	_ = q.taskManager.Run(ctx) // waits for all tag groups to stop processing
+	q.Stop()
+
 	return nil
 }
 
 // Enqueue an item onto the message queue
 func (q *Queue) Enqueue(logger *zap.Logger, enqueueItemRequest *v1.EnqueueItemRequest) *v1.Error {
 	logger = logger.Named("Enqueue")
+	var returnErr *v1.Error
 
-	// callback to save off the tag group when found
-	var foundTagGroup *tagGroup
-	setTagGroup := func(item any) {
-		tagNode := item.(*tagNode)
-		if tagNode.tagGroup != nil {
-			foundTagGroup = tagNode.tagGroup
-		}
+	// if a tag group already exists, enqueue an item
+	onFind := func(item any) {
+		tagGroup := item.(*tagGroup)
+		returnErr = tagGroup.Enqueue(logger, q.counter, enqueueItemRequest)
 	}
 
-	if err := q.tagGroups.Find(enqueueItemRequest.Tags, setTagGroup); err != nil {
-		// always check find first to be fast
-		logger.Error("fast finding queue failed", zap.Error(err))
+	// create a new tag group and manage the processin a new goasync task
+	onCreate := func() any {
+		// create the new tag group
+		tagGroup := newTagGroup(enqueueItemRequest.Tags)
+
+		// Enqueue the item
+		onFind(tagGroup)
+
+		// start processing the tag group, if there is an error here, we are shutting down so who cares
+		_ = q.taskManager.AddExecuteTask("", tagGroup)
+
+		// update any know tag groups where the query matches this channel
+		q.updateClientWating(enqueueItemRequest.Tags, tagGroup.dequeueChannel)
+
+		// return the new tagGroup to save in the AssociatedBTree``
+		return tagGroup
+	}
+
+	if err := q.tagGroups.CreateOrFind(enqueueItemRequest.Tags, onCreate, onFind); err != nil {
+		logger.Error("failed to create or find the tag group", zap.Error(err))
 		return errors.InternalServerError.With("", err.Error())
-	} else if foundTagGroup == nil {
-		// will need to either create, or update the tag group
-		channels := []chan tags.Tag{q.globalChannel}
-		tagPairs := enqueueItemRequest.BrokerInfo.Tags.GenerateTagPairs()
-
-		for index, tagPair := range tagPairs {
-			if index == len(tagPairs)-1 {
-				// we are on the last index, so create the actual queue
-				// NOTE: this never returns an error we would care about
-				if err := q.tagGroups.CreateOrFind(tagPair, q.newTagNode(tagPair, &channels, setTagGroup), q.tagNodeUpdateTagGroup(tagPair, &channels, setTagGroup)); err != nil {
-					logger.Error("CreateOrFind of tag group failed", zap.Error(err))
-					return errors.InternalServerError.With("", err.Error())
-				}
-			} else {
-				// we only need to create/add the channel to all possible channels for the tag group
-				if err := q.tagGroups.CreateOrFind(tagPair, q.tagNodeNewGeneralChannel(&channels), q.tagNodeGetGeneralChannel(&channels)); err != nil {
-					logger.Error("CreateOrFind of tag group subset failed", zap.Error(err))
-					return errors.InternalServerError.With("", err.Error())
-				}
-			}
-		}
 	}
 
-	return foundTagGroup.Enqueue(q.counter, enqueueItemRequest)
+	return returnErr
 }
 
-// Readers is used by any clients to obtain possible readers for tag groups
-func (q *Queue) Readers(logger *zap.Logger, readerSelect *v1.ReaderSelect) ([]<-chan tags.Tag, *v1.Error) {
-	logger = logger.Named("Readers")
-	var channels []<-chan tags.Tag
+// Dequeue an item from the queue where the query selection matches a tag group
+//
+//	PARAMS:
+//	- logger - logger to record any errors
+//	- cancelContext - context from the http client to indicate if a client disconnects
+//	- selection - query to use when searching for tag groups
+func (q *Queue) Dequeue(logger *zap.Logger, cancelContext context.Context, selection query.Select) (*v1.DequeueItemResponse, func(), func(), *v1.Error) {
+	logger = logger.Named("DequeueItem")
 
-	if readerSelect == nil || readerSelect.Queries == nil {
-		// this is the case were we want everything
-		channels = append(channels, q.globalChannel)
-	} else {
-		// get all requested readers
-		for _, readerSelection := range readerSelect.Queries {
-			switch readerSelection.Type {
-			case v1.ReaderExactly:
-				if err := q.tagGroups.CreateOrFind(readerSelection.Tags, q.tagNodeNewStrictChannel(&channels), q.tagNodeGetStrictChannel(&channels)); err != nil {
-					logger.Error("Failed to find exact readers", zap.Error(err))
-					return nil, errors.InternalServerError.With("", err.Error())
-				}
-			case v1.ReaderMatches:
-				// won't return an error
-				if err := q.tagGroups.CreateOrFind(readerSelection.Tags, q.tagNodeNewGeneralChannelRead(&channels), q.tagNodeGetGeneralChannelRead(&channels)); err != nil {
-					logger.Error("Failed to find  matches readers", zap.Error(err))
-					return nil, errors.InternalServerError.With("", err.Error())
-				}
+	var dequeueResponse func(logger *zap.Logger) (*v1.DequeueItemResponse, func(), func(), *v1.Error)
+	channelOperations, reader := channelops.NewChannelOps(cancelContext, q.shutdownContext)
+
+	// add the channel operations if we don't find any values, or a new tag group is added during iteration
+	q.addClientWaiting(selection, channelOperations)
+	// remove the channelOperations when this function returns
+	defer q.removeClientWaiting(channelOperations)
+
+	onFindPagination := func(item any) bool {
+		tagGroup := item.(*tagGroup)
+
+		select {
+		case response := <-tagGroup.dequeueChannel:
+			if response != nil {
+				dequeueResponse = response.(func(logger *zap.Logger) (*v1.DequeueItemResponse, func(), func(), *v1.Error))
+				return false
 			}
+		// Could add this optimization but its hard to test right here. So is there a better way to set evereything up?
+		//case response := <-reader:
+		default:
+			channelOperations.MergeOrToOneIgnoreDuplicates(tagGroup.dequeueChannel)
 		}
+
+		return true
 	}
 
-	return channels, nil
+	if err := q.tagGroups.Query(selection, onFindPagination); err != nil {
+		logger.Error("failed to dequeue item", zap.Error(err))
+		panic(err)
+	}
+
+	// found an item that was already waiting to be processed
+	if dequeueResponse != nil {
+		// found an item
+		return dequeueResponse(logger)
+	}
+
+	// no items were ready for the client. Need to be notified when something is available
+	readerVal := <-reader
+	if readerVal != nil {
+		// something was found
+		return readerVal.(func(logger *zap.Logger) (*v1.DequeueItemResponse, func(), func(), *v1.Error))(logger)
+	}
+
+	return nil, nil, nil, errors.QueueClosed
 }
 
 func (q *Queue) ACK(logger *zap.Logger, ackItem *v1.ACK) *v1.Error {
 	logger = logger.Named("ACK")
-
-	called, deleteTagGroup := false, false
 	var ackError *v1.Error
-	ack := func(item any) {
-		tagNode := item.(*tagNode)
 
-		if tagNode.tagGroup != nil {
-			deleteTagGroup, ackError = tagNode.tagGroup.ACK(q.counter, ackItem)
-		} else {
-			ackError = &v1.Error{Message: "tag group not found", StatusCode: http.StatusBadRequest}
+	called := false
+	ack := func(item any) bool {
+		defer func() { called = true }()
+		tagGroup := item.(*tagGroup)
+
+		if err := tagGroup.ACK(logger, q.counter, ackItem); err != nil {
+			ackError = err
+			return false
 		}
 
-		called = true
+		if tagGroup.itemReadyCount.Load()+tagGroup.itemProcessingCount.Load() == 0 {
+			tagGroup.stop()
+			return true
+		}
+
+		return false
 	}
 
-	if err := q.tagGroups.Find(ackItem.Tags, ack); err != nil {
+	if err := q.tagGroups.Delete(ackItem.Tags, ack); err != nil {
 		return errors.InternalServerError.With("", err.Error())
-	} else if called == false {
+	} else if !called {
 		return &v1.Error{Message: "tag group not found", StatusCode: http.StatusBadRequest}
-	} else if ackError != nil {
-		return ackError
 	}
 
-	if deleteTagGroup {
-		// need to also delete all tag pair combinations
-		for _, tagPair := range ackItem.BrokerInfo.Tags.GenerateTagPairs() {
-			q.tagGroups.Delete(tagPair, q.canDeleteTagNode)
-		}
-	}
-
-	return nil
+	return ackError
 }
 
 func (q *Queue) Metrics() *v1.QueueMetricsResponse {
@@ -176,13 +212,8 @@ func (q *Queue) Metrics() *v1.QueueMetricsResponse {
 	}
 
 	metricsFunc := func(value any) bool {
-		tagNode := value.(*tagNode)
-		tagNode.lock.RLock()
-		defer tagNode.lock.RUnlock()
-
-		if tagNode.tagGroup != nil {
-			metrics.Tags = append(metrics.Tags, tagNode.tagGroup.Metrics())
-		}
+		tagGroup := value.(*tagGroup)
+		metrics.Tags = append(metrics.Tags, tagGroup.Metrics())
 
 		return true
 	}
@@ -197,4 +228,37 @@ func (q *Queue) Stop() {
 	q.doneOnce.Do(func() {
 		close(q.done)
 	})
+}
+
+func (q *Queue) addClientWaiting(selection query.Select, channelOps channelops.ChannelOps) {
+	q.clientsLock.Lock()
+	defer q.clientsLock.Unlock()
+
+	q.clientsWaiting = append(q.clientsWaiting, clientWaiting{selection: selection, channelOPS: channelOps})
+}
+
+func (q *Queue) removeClientWaiting(channelOps channelops.ChannelOps) {
+	q.clientsLock.Lock()
+	defer q.clientsLock.Unlock()
+
+	// find and remove the clients waiting
+	for index, clientWaiting := range q.clientsWaiting {
+		if clientWaiting.channelOPS == channelOps {
+			q.clientsWaiting[index] = q.clientsWaiting[len(q.clientsWaiting)-1]
+			q.clientsWaiting = q.clientsWaiting[:len(q.clientsWaiting)-1]
+			return
+		}
+	}
+}
+
+func (q *Queue) updateClientWating(tags datatypes.StringMap, channel chan any) {
+	q.clientsLock.RLock()
+	defer q.clientsLock.RUnlock()
+
+	// find and remove the clients waiting
+	for _, clientWaiting := range q.clientsWaiting {
+		if clientWaiting.selection.MatchTags(tags) {
+			clientWaiting.channelOPS.MergeOrToOneIgnoreDuplicates(channel)
+		}
+	}
 }

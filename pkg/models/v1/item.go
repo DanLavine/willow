@@ -3,6 +3,8 @@ package v1
 import (
 	"encoding/json"
 	"io"
+
+	"github.com/DanLavine/willow/pkg/models/query"
 )
 
 type EnqueueItemRequest struct {
@@ -20,20 +22,32 @@ type EnqueueItemRequest struct {
 	Updateable bool
 }
 
-//type DequeueItemRequest struct {
-//	// common broker info
-//	BrokerInfo BrokerInfo
-//
-//	// type of requuest we want
-//
-//}
+type DequeueItemRequest struct {
+	// common broker info
+	Name string
+
+	// query for what readeers to select
+	Selection query.Select
+}
+
+func (dir *DequeueItemRequest) Validate() *Error {
+	if dir.Name == "" {
+		return InvalidRequestBody.With("Name to be provided", "Name is the empty string")
+	}
+
+	if err := dir.Selection.Validate(); err != nil {
+		return InvalidRequestBody.With("", err.Error())
+	}
+
+	return nil
+}
 
 type DequeueItemResponse struct {
 	// common broker info
 	BrokerInfo BrokerInfo
 
 	// ID of the message that can be ACKed
-	ID uint64
+	ID string
 
 	// Message body that will be used by clients receiving this message
 	Data []byte
@@ -62,24 +76,28 @@ func ParseEnqueueItemRequest(reader io.ReadCloser) (*EnqueueItemRequest, *Error)
 	return enqueueItem, nil
 }
 
-//func ParseDequeueItemRequest(reader io.ReadCloser) (*DequeueItemRequest, *Error) {
-//	body, err := io.ReadAll(reader)
-//	if err != nil {
-//		return nil, InvalidRequestBody.With("", err.Error())
-//	}
-//	defer reader.Close()
-//
-//	dequeueItemRequest := &DequeueItemRequest{}
-//	if err := json.Unmarshal(body, dequeueItemRequest); err != nil {
-//		return nil, ParseRequestBodyError.With("dequeue query to be valid json", err.Error())
-//	}
-//
-//	if err := dequeueItemRequest.BrokerInfo.validate(); err != nil {
-//		return nil, err
-//	}
-//
-//	return dequeueItemRequest, nil
-//}
+func ParseDequeueItemRequest(reader io.ReadCloser) (*DequeueItemRequest, *Error) {
+	body, err := io.ReadAll(reader)
+	if err != nil {
+		return nil, InvalidRequestBody.With("", err.Error())
+	}
+	defer reader.Close()
+
+	dequeueItemRequest := &DequeueItemRequest{}
+	if err := json.Unmarshal(body, dequeueItemRequest); err != nil {
+		return nil, ParseRequestBodyError.With("dequeue query to be valid json", err.Error())
+	}
+
+	if dequeueItemRequest.Name == "" {
+		return nil, InvalidRequestBody.With("dequeueItemRequest requires the 'Name' to be provided", "")
+	}
+
+	if err := dequeueItemRequest.Selection.Validate(); err != nil {
+		return nil, InvalidRequestBody.With("", err.Error())
+	}
+
+	return dequeueItemRequest, nil
+}
 
 func (dqr *DequeueItemResponse) ToBytes() []byte {
 	data, _ := json.Marshal(dqr)

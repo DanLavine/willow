@@ -6,15 +6,24 @@ import (
 	"net/http"
 )
 
+type RequeueLocation uint
+
+const (
+	RequeueFront RequeueLocation = iota
+	RequeueEnd
+	RequeueNone
+)
+
 type ACK struct {
 	// common broker info
 	BrokerInfo
 
 	// ID of the original message being acknowledged
-	ID uint64
+	ID string
 
 	// Indicate a success or failure of the message
-	Passed bool
+	Passed          bool
+	RequeueLocation RequeueLocation // only used when set to false
 }
 
 func ParseACKRequest(reader io.ReadCloser) (*ACK, *Error) {
@@ -40,8 +49,8 @@ func (ack *ACK) Validate() *Error {
 		return err
 	}
 
-	if ack.ID == 0 {
-		return &Error{Message: "ID cannot be 0", StatusCode: http.StatusBadRequest}
+	if ack.ID == "" {
+		return &Error{Message: "ID cannot be an empty string", StatusCode: http.StatusBadRequest}
 	}
 
 	return nil

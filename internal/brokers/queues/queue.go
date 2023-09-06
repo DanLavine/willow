@@ -3,7 +3,7 @@ package queues
 import (
 	"context"
 
-	"github.com/DanLavine/willow/internal/brokers/tags"
+	"github.com/DanLavine/willow/pkg/models/query"
 	v1 "github.com/DanLavine/willow/pkg/models/v1"
 	"go.uber.org/zap"
 )
@@ -58,8 +58,8 @@ type Queue interface {
 	// Enqueue an item onto the queue
 	Enqueue(logger *zap.Logger, enqueueItem *v1.EnqueueItemRequest) *v1.Error
 
-	// Get readers for a specific queue's tags
-	Readers(logger *zap.Logger, readerSelect *v1.ReaderSelect) ([]<-chan tags.Tag, *v1.Error)
+	// Dequeue an item from the queue
+	Dequeue(logger *zap.Logger, cancelContext context.Context, selection query.Select) (*v1.DequeueItemResponse, func(), func(), *v1.Error)
 
 	// ACK a message
 	ACK(logger *zap.Logger, ackItem *v1.ACK) *v1.Error

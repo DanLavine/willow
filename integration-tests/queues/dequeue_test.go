@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/DanLavine/willow/pkg/models/datatypes"
+	"github.com/DanLavine/willow/pkg/models/query"
 	v1 "github.com/DanLavine/willow/pkg/models/v1"
 
 	. "github.com/DanLavine/willow/integration-tests/integrationhelpers"
@@ -26,13 +27,15 @@ func Test_Dequeue(t *testing.T) {
 		testConstruct.Start(g)
 		defer testConstruct.Shutdown(g)
 
-		// dequeue the item
-		dequeueRequest := v1.ReaderSelect{
-			BrokerName: "queue1",
-			Queries: []v1.ReaderQuery{
-				{
-					Type: v1.ReaderExactly,
-					Tags: datatypes.StringMap{"some": datatypes.String("tag")},
+		// dequeue item request
+		tagString := datatypes.String("tag")
+		dequeueRequest := v1.DequeueItemRequest{
+			Name: "queue1",
+			Selection: query.Select{
+				Where: &query.Query{
+					KeyValues: map[string]query.Value{
+						"some": query.Value{Value: &tagString, ValueComparison: query.EqualsPtr()},
+					},
 				},
 			},
 		}
@@ -53,16 +56,23 @@ func Test_Dequeue(t *testing.T) {
 		enqueueResponse := testConstruct.ServerClient.WillowEnqueue(g, Queue1UpdateableEnqueue)
 		g.Expect(enqueueResponse.StatusCode).To(Equal(http.StatusOK))
 
-		// dequeue the item
-		dequeueRequest := v1.ReaderSelect{
-			BrokerName: "queue1",
-			Queries: []v1.ReaderQuery{
-				{
-					Type: v1.ReaderExactly,
-					Tags: datatypes.StringMap{"some": datatypes.String("tag")},
+		// dequeue item request
+		tagString := datatypes.String("tag")
+		oneKey := 1
+		dequeueRequest := v1.DequeueItemRequest{
+			Name: "queue1",
+			Selection: query.Select{
+				Where: &query.Query{
+					KeyValues: map[string]query.Value{
+						"some": query.Value{Value: &tagString, ValueComparison: query.EqualsPtr()},
+					},
+					Limits: &query.KeyLimits{
+						NumberOfKeys: &oneKey,
+					},
 				},
 			},
 		}
+
 		dequeueResponse := testConstruct.ServerClient.WillowDequeue(g, dequeueRequest)
 		g.Expect(dequeueResponse.StatusCode).To(Equal(http.StatusOK))
 
@@ -76,7 +86,6 @@ func Test_Dequeue(t *testing.T) {
 		// check item returned
 		g.Expect(dequeueItem.BrokerInfo.Name).To(Equal("queue1"))
 		g.Expect(dequeueItem.BrokerInfo.Tags).To(Equal(datatypes.StringMap{"some": datatypes.String("tag")}))
-		g.Expect(dequeueItem.ID).To(Equal(uint64(1)))
 		g.Expect(dequeueItem.Data).To(Equal([]byte(`hello world`)))
 	})
 
@@ -88,13 +97,19 @@ func Test_Dequeue(t *testing.T) {
 		createResponse := testConstruct.ServerClient.WillowCreate(g, Queue1)
 		g.Expect(createResponse.StatusCode).To(Equal(http.StatusCreated))
 
-		// dequeue the item before the queue tags exists
-		dequeueRequest := v1.ReaderSelect{
-			BrokerName: "queue1",
-			Queries: []v1.ReaderQuery{
-				{
-					Type: v1.ReaderExactly,
-					Tags: datatypes.StringMap{"some": datatypes.String("tag")},
+		// dequeue item request
+		tagString := datatypes.String("tag")
+		oneKey := 1
+		dequeueRequest := v1.DequeueItemRequest{
+			Name: "queue1",
+			Selection: query.Select{
+				Where: &query.Query{
+					KeyValues: map[string]query.Value{
+						"some": query.Value{Value: &tagString, ValueComparison: query.EqualsPtr()},
+					},
+					Limits: &query.KeyLimits{
+						NumberOfKeys: &oneKey,
+					},
 				},
 			},
 		}
@@ -137,7 +152,6 @@ func Test_Dequeue(t *testing.T) {
 		// check item returned
 		g.Expect(dequeueItem.BrokerInfo.Name).To(Equal("queue1"))
 		g.Expect(dequeueItem.BrokerInfo.Tags).To(Equal(datatypes.StringMap{"some": datatypes.String("tag")}))
-		g.Expect(dequeueItem.ID).To(Equal(uint64(1)))
 		g.Expect(dequeueItem.Data).To(Equal([]byte(`hello world`)))
 	})
 
@@ -161,13 +175,19 @@ func Test_Dequeue(t *testing.T) {
 		g.Expect(testConstruct.ServerClient.WillowEnqueue(g, message2).StatusCode).To(Equal(http.StatusOK))
 		g.Expect(testConstruct.ServerClient.WillowEnqueue(g, message3).StatusCode).To(Equal(http.StatusOK))
 
-		// dequeue the item
-		dequeueRequest := v1.ReaderSelect{
-			BrokerName: "queue1",
-			Queries: []v1.ReaderQuery{
-				{
-					Type: v1.ReaderExactly,
-					Tags: datatypes.StringMap{"some": datatypes.String("tag")},
+		// dequeue item request
+		tagString := datatypes.String("tag")
+		oneKey := 1
+		dequeueRequest := v1.DequeueItemRequest{
+			Name: "queue1",
+			Selection: query.Select{
+				Where: &query.Query{
+					KeyValues: map[string]query.Value{
+						"some": query.Value{Value: &tagString, ValueComparison: query.EqualsPtr()},
+					},
+					Limits: &query.KeyLimits{
+						NumberOfKeys: &oneKey,
+					},
 				},
 			},
 		}
@@ -184,7 +204,6 @@ func Test_Dequeue(t *testing.T) {
 		g.Expect(dequeueItem1.BrokerInfo.Name).To(Equal("queue1"))
 		g.Expect(dequeueItem1.BrokerInfo.Tags).To(Equal(datatypes.StringMap{"some": datatypes.String("tag")}))
 		g.Expect(dequeueItem1.Data).To(Equal([]byte(`first`)))
-		g.Expect(dequeueItem1.ID).To(Equal(uint64(1)))
 
 		// 2nd response check
 		response2 := testConstruct.ServerClient.WillowDequeue(g, dequeueRequest)
@@ -198,7 +217,6 @@ func Test_Dequeue(t *testing.T) {
 		g.Expect(dequeueItem2.BrokerInfo.Name).To(Equal("queue1"))
 		g.Expect(dequeueItem2.BrokerInfo.Tags).To(Equal(datatypes.StringMap{"some": datatypes.String("tag")}))
 		g.Expect(dequeueItem2.Data).To(Equal([]byte(`second`)))
-		g.Expect(dequeueItem2.ID).To(Equal(uint64(2)))
 
 		// 3rd response check
 		response3 := testConstruct.ServerClient.WillowDequeue(g, dequeueRequest)
@@ -212,32 +230,97 @@ func Test_Dequeue(t *testing.T) {
 		g.Expect(dequeueItem3.BrokerInfo.Name).To(Equal("queue1"))
 		g.Expect(dequeueItem3.BrokerInfo.Tags).To(Equal(datatypes.StringMap{"some": datatypes.String("tag")}))
 		g.Expect(dequeueItem3.Data).To(Equal([]byte(`third`)))
-		g.Expect(dequeueItem3.ID).To(Equal(uint64(3)))
 	})
 
-	t.Run("when the query criteria is 'Exact'", func(t *testing.T) {
-		t.Run("it pulls from the proper queue", func(t *testing.T) {
-			testConstruct.Start(g)
-			defer testConstruct.Shutdown(g)
+	t.Run("it respects the query criterian and pulls from the proper tag groups", func(t *testing.T) {
+		testConstruct.Start(g)
+		defer testConstruct.Shutdown(g)
 
-			// create the queue
-			createResponse := testConstruct.ServerClient.WillowCreate(g, Queue1)
-			g.Expect(createResponse.StatusCode).To(Equal(http.StatusCreated))
+		defer func() {
+			fmt.Println(string(testConstruct.Session.Out.Contents()))
+			fmt.Println(string(testConstruct.Session.Err.Contents()))
+		}()
 
-			// enqueue an item
-			enqueueResponse := testConstruct.ServerClient.WillowEnqueue(g, Queue1UpdateableEnqueue)
-			g.Expect(enqueueResponse.StatusCode).To(Equal(http.StatusOK))
+		// create the queue
+		createResponse := testConstruct.ServerClient.WillowCreate(g, Queue1)
+		g.Expect(createResponse.StatusCode).To(Equal(http.StatusCreated))
 
-			// dequeue the item
-			dequeueRequest := v1.ReaderSelect{
-				BrokerName: "queue1",
-				Queries: []v1.ReaderQuery{
-					{
-						Type: v1.ReaderExactly,
-						Tags: datatypes.StringMap{"some": datatypes.String("tag")},
+		// enqueue a few items
+		enqueueResponse := testConstruct.ServerClient.WillowEnqueue(g, Queue1UpdateableEnqueue)
+		g.Expect(enqueueResponse.StatusCode).To(Equal(http.StatusOK))
+
+		enqueueCopy := Queue1UpdateableEnqueue
+		enqueueCopy.BrokerInfo.Tags = datatypes.StringMap{"some": datatypes.String("tag"), "another": datatypes.String("tag")}
+		enqueueCopy.Data = []byte(`some more data to find`)
+		enqueueResponse = testConstruct.ServerClient.WillowEnqueue(g, enqueueCopy)
+		g.Expect(enqueueResponse.StatusCode).To(Equal(http.StatusOK))
+
+		enqueueMatchesFound := Queue1UpdateableEnqueue
+		enqueueMatchesFound.BrokerInfo.Tags = datatypes.StringMap{"the other unique tag": datatypes.String("ok")}
+		enqueueMatchesFound.Data = []byte(`this should be found`)
+		enqueueResponse = testConstruct.ServerClient.WillowEnqueue(g, enqueueMatchesFound)
+		g.Expect(enqueueResponse.StatusCode).To(Equal(http.StatusOK))
+
+		expectedItem := []v1.DequeueItemResponse{
+			{
+				BrokerInfo: v1.BrokerInfo{
+					Name: "queue1",
+					Tags: datatypes.StringMap{"some": datatypes.String("tag"), "another": datatypes.String("tag")},
+				},
+				Data: []byte(`some more data to find`),
+			},
+			{
+				BrokerInfo: v1.BrokerInfo{
+					Name: "queue1",
+					Tags: datatypes.StringMap{"the other unique tag": datatypes.String("ok")},
+				},
+				Data: []byte(`this should be found`),
+			},
+		}
+
+		foundOne, foundTwo := false, false
+		for i := 1; i <= 2; i++ {
+			tagString := datatypes.String("tag")
+			notokString := datatypes.String("not ok")
+			twoKey := 2
+			trueValue := true
+			dequeueRequest := v1.DequeueItemRequest{
+				Name: "queue1",
+				Selection: query.Select{
+					Or: []query.Select{
+						{
+							Where: &query.Query{
+								KeyValues: map[string]query.Value{
+									"some":    query.Value{Value: &tagString, ValueComparison: query.EqualsPtr()},
+									"another": query.Value{Value: &tagString, ValueComparison: query.EqualsPtr()},
+								},
+								Limits: &query.KeyLimits{
+									NumberOfKeys: &twoKey,
+								},
+							},
+						},
+						{
+							And: []query.Select{
+								{
+									Where: &query.Query{
+										KeyValues: map[string]query.Value{
+											"the other unique tag": query.Value{Value: &notokString, ValueComparison: query.NotEqualsPtr()},
+										},
+									},
+								},
+								{
+									Where: &query.Query{
+										KeyValues: map[string]query.Value{
+											"the other unique tag": query.Value{Exists: &trueValue},
+										},
+									},
+								},
+							},
+						},
 					},
 				},
 			}
+
 			dequeueResponse := testConstruct.ServerClient.WillowDequeue(g, dequeueRequest)
 			g.Expect(dequeueResponse.StatusCode).To(Equal(http.StatusOK))
 
@@ -245,181 +328,27 @@ func Test_Dequeue(t *testing.T) {
 			body, err := io.ReadAll(dequeueResponse.Body)
 			g.Expect(err).ToNot(HaveOccurred())
 
-			dequeueItem := &v1.DequeueItemResponse{}
-			g.Expect(json.Unmarshal(body, dequeueItem)).ToNot(HaveOccurred())
+			dequeueItem := v1.DequeueItemResponse{}
+			g.Expect(json.Unmarshal(body, &dequeueItem)).ToNot(HaveOccurred())
 
-			// check item returned
-			g.Expect(dequeueItem.BrokerInfo.Name).To(Equal("queue1"))
-			g.Expect(dequeueItem.BrokerInfo.Tags).To(Equal(datatypes.StringMap{"some": datatypes.String("tag")}))
-			g.Expect(dequeueItem.ID).To(Equal(uint64(1)))
-			g.Expect(dequeueItem.Data).To(Equal([]byte(`hello world`)))
-		})
-	})
-
-	t.Run("when the query criteria is 'Matches'", func(t *testing.T) {
-		t.Run("it pulls from the proper queue", func(t *testing.T) {
-			testConstruct.Start(g)
-			defer testConstruct.Shutdown(g)
-
-			// create the queue
-			createResponse := testConstruct.ServerClient.WillowCreate(g, Queue1)
-			g.Expect(createResponse.StatusCode).To(Equal(http.StatusCreated))
-
-			// enqueue a few items
-			enqueueResponse := testConstruct.ServerClient.WillowEnqueue(g, Queue1UpdateableEnqueue)
-			g.Expect(enqueueResponse.StatusCode).To(Equal(http.StatusOK))
-
-			enqueueCopy := Queue1UpdateableEnqueue
-			enqueueCopy.BrokerInfo.Tags = datatypes.StringMap{"some": datatypes.String("tag"), "another": datatypes.String("tag")}
-			enqueueCopy.Data = []byte(`some more data to find`)
-			enqueueResponse = testConstruct.ServerClient.WillowEnqueue(g, enqueueCopy)
-			g.Expect(enqueueResponse.StatusCode).To(Equal(http.StatusOK))
-
-			enqueueNotFound := Queue1UpdateableEnqueue
-			enqueueNotFound.BrokerInfo.Tags = datatypes.StringMap{"not found": datatypes.String("tag")}
-			enqueueResponse = testConstruct.ServerClient.WillowEnqueue(g, enqueueNotFound)
-			g.Expect(enqueueResponse.StatusCode).To(Equal(http.StatusOK))
-
-			expectedItem := []v1.DequeueItemResponse{
-				{
-					BrokerInfo: v1.BrokerInfo{
-						Name: "queue1",
-						Tags: datatypes.StringMap{"some": datatypes.String("tag")},
-					},
-					Data: []byte(`hello world`),
-					ID:   1,
-				},
-				{
-					BrokerInfo: v1.BrokerInfo{
-						Name: "queue1",
-						Tags: datatypes.StringMap{"some": datatypes.String("tag"), "another": datatypes.String("tag")},
-					},
-					Data: []byte(`some more data to find`),
-					ID:   1,
-				},
+			if reflect.DeepEqual(dequeueItem.BrokerInfo.Tags, expectedItem[0].BrokerInfo.Tags) {
+				expectedItem[0].ID = dequeueItem.ID
+				g.Expect(dequeueItem).To(Equal(expectedItem[0]))
+				foundOne = true
+			} else if reflect.DeepEqual(dequeueItem.BrokerInfo.Tags, expectedItem[1].BrokerInfo.Tags) {
+				expectedItem[1].ID = dequeueItem.ID
+				g.Expect(dequeueItem).To(Equal(expectedItem[1]))
+				foundTwo = true
+			} else {
+				fmt.Printf("broker info: %#v\n", dequeueItem.BrokerInfo)
+				g.Fail(fmt.Sprintf("found unexpected tags: %v", dequeueItem.BrokerInfo.Tags))
 			}
 
-			foundOne, foundTwo := false, false
-			for i := 1; i <= 2; i++ {
-				dequeueRequest := v1.ReaderSelect{
-					BrokerName: "queue1",
-					Queries: []v1.ReaderQuery{
-						{
-							Type: v1.ReaderMatches,
-							Tags: datatypes.StringMap{"some": datatypes.String("tag")},
-						},
-					},
-				}
-				dequeueResponse := testConstruct.ServerClient.WillowDequeue(g, dequeueRequest)
-				g.Expect(dequeueResponse.StatusCode).To(Equal(http.StatusOK))
+			fmt.Printf("Dequeued Item: %#v\n", dequeueItem)
+		}
 
-				// parse response
-				body, err := io.ReadAll(dequeueResponse.Body)
-				g.Expect(err).ToNot(HaveOccurred())
-
-				dequeueItem := v1.DequeueItemResponse{}
-				g.Expect(json.Unmarshal(body, &dequeueItem)).ToNot(HaveOccurred())
-
-				if reflect.DeepEqual(dequeueItem.BrokerInfo.Tags, expectedItem[0].BrokerInfo.Tags) {
-					g.Expect(dequeueItem).To(Equal(expectedItem[0]))
-					foundOne = true
-				} else if reflect.DeepEqual(dequeueItem.BrokerInfo.Tags, expectedItem[1].BrokerInfo.Tags) {
-					g.Expect(dequeueItem).To(Equal(expectedItem[1]))
-					foundTwo = true
-				} else {
-					g.Fail(fmt.Sprintf("found unexpected tags: %v", dequeueItem.BrokerInfo.Tags))
-				}
-			}
-
-			// check both items returned
-			g.Expect(foundOne).To(BeTrue())
-			g.Expect(foundTwo).To(BeTrue())
-		})
-	})
-
-	t.Run("when the query criteria is multiple lookups", func(t *testing.T) {
-		t.Run("it pulls from any of the proper queue's tag groups", func(t *testing.T) {
-			testConstruct.Start(g)
-			defer testConstruct.Shutdown(g)
-
-			// create the queue
-			createResponse := testConstruct.ServerClient.WillowCreate(g, Queue1)
-			g.Expect(createResponse.StatusCode).To(Equal(http.StatusCreated))
-
-			// enqueue a few items
-			enqueueResponse := testConstruct.ServerClient.WillowEnqueue(g, Queue1UpdateableEnqueue)
-			g.Expect(enqueueResponse.StatusCode).To(Equal(http.StatusOK))
-
-			enqueueCopy := Queue1UpdateableEnqueue
-			enqueueCopy.BrokerInfo.Tags = datatypes.StringMap{"some": datatypes.String("tag"), "another": datatypes.String("tag")}
-			enqueueCopy.Data = []byte(`some more data to find`)
-			enqueueResponse = testConstruct.ServerClient.WillowEnqueue(g, enqueueCopy)
-			g.Expect(enqueueResponse.StatusCode).To(Equal(http.StatusOK))
-
-			enqueueMatchesFound := Queue1UpdateableEnqueue
-			enqueueMatchesFound.BrokerInfo.Tags = datatypes.StringMap{"the other unique tag": datatypes.String("ok")}
-			enqueueMatchesFound.Data = []byte(`this should be found`)
-			enqueueResponse = testConstruct.ServerClient.WillowEnqueue(g, enqueueMatchesFound)
-			g.Expect(enqueueResponse.StatusCode).To(Equal(http.StatusOK))
-
-			expectedItem := []v1.DequeueItemResponse{
-				{
-					BrokerInfo: v1.BrokerInfo{
-						Name: "queue1",
-						Tags: datatypes.StringMap{"some": datatypes.String("tag"), "another": datatypes.String("tag")},
-					},
-					Data: []byte(`some more data to find`),
-					ID:   1,
-				},
-				{
-					BrokerInfo: v1.BrokerInfo{
-						Name: "queue1",
-						Tags: datatypes.StringMap{"the other unique tag": datatypes.String("ok")},
-					},
-					Data: []byte(`this should be found`),
-					ID:   1,
-				},
-			}
-
-			foundOne, foundTwo := false, false
-			for i := 1; i <= 2; i++ {
-				dequeueRequest := v1.ReaderSelect{
-					BrokerName: "queue1",
-					Queries: []v1.ReaderQuery{
-						{
-							Type: v1.ReaderExactly,
-							Tags: datatypes.StringMap{"some": datatypes.String("tag"), "another": datatypes.String("tag")},
-						},
-						{
-							Type: v1.ReaderMatches,
-							Tags: datatypes.StringMap{"the other unique tag": datatypes.String("ok")},
-						},
-					},
-				}
-				dequeueResponse := testConstruct.ServerClient.WillowDequeue(g, dequeueRequest)
-				g.Expect(dequeueResponse.StatusCode).To(Equal(http.StatusOK))
-
-				// parse response
-				body, err := io.ReadAll(dequeueResponse.Body)
-				g.Expect(err).ToNot(HaveOccurred())
-
-				dequeueItem := v1.DequeueItemResponse{}
-				g.Expect(json.Unmarshal(body, &dequeueItem)).ToNot(HaveOccurred())
-
-				if reflect.DeepEqual(dequeueItem.BrokerInfo.Tags, expectedItem[0].BrokerInfo.Tags) {
-					g.Expect(dequeueItem).To(Equal(expectedItem[0]))
-					foundOne = true
-				} else if reflect.DeepEqual(dequeueItem.BrokerInfo.Tags, expectedItem[1].BrokerInfo.Tags) {
-					g.Expect(dequeueItem).To(Equal(expectedItem[1]))
-					foundTwo = true
-				} else {
-					g.Fail(fmt.Sprintf("found unexpected tags: %v", dequeueItem.BrokerInfo.Tags))
-				}
-			}
-
-			// check both items returned
-			g.Expect(foundOne).To(BeTrue())
-			g.Expect(foundTwo).To(BeTrue())
-		})
+		// check both items returned
+		g.Expect(foundOne).To(BeTrue())
+		g.Expect(foundTwo).To(BeTrue())
 	})
 }

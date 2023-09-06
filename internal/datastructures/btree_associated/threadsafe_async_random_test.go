@@ -324,11 +324,11 @@ func TestAssociated_Random_Query(t *testing.T) {
 					switch tNum % 2 {
 					case 0:
 						strValue := datatypes.String(fmt.Sprintf("%d", tNum))
-						whereSelection.Where = &query.Query{KeyValues: map[string]query.Value{fmt.Sprintf("%d", i): {Value: &strValue, ValueComparison: query.Equals()}}}
+						whereSelection.Where = &query.Query{KeyValues: map[string]query.Value{fmt.Sprintf("%d", i): {Value: &strValue, ValueComparison: query.EqualsPtr()}}}
 						selection.And = append(selection.And, whereSelection)
 					default:
 						intValue := datatypes.Int(tNum)
-						whereSelection.Where = &query.Query{KeyValues: map[string]query.Value{fmt.Sprintf("%d", i): {Value: &intValue, ValueComparison: query.Equals()}}}
+						whereSelection.Where = &query.Query{KeyValues: map[string]query.Value{fmt.Sprintf("%d", i): {Value: &intValue, ValueComparison: query.EqualsPtr()}}}
 						selection.Or = append(selection.Or, whereSelection)
 					}
 				}
@@ -499,11 +499,11 @@ func TestAssociated_Random_AllActions(t *testing.T) {
 					switch tNum % 2 {
 					case 0:
 						strValue := datatypes.String(fmt.Sprintf("%d", tNum))
-						whereSelection.Where = &query.Query{KeyValues: map[string]query.Value{fmt.Sprintf("%d", i): {Value: &strValue, ValueComparison: query.Equals()}}}
+						whereSelection.Where = &query.Query{KeyValues: map[string]query.Value{fmt.Sprintf("%d", i): {Value: &strValue, ValueComparison: query.EqualsPtr()}}}
 						selection.And = append(selection.And, whereSelection)
 					default:
 						intValue := datatypes.Int(tNum)
-						whereSelection.Where = &query.Query{KeyValues: map[string]query.Value{fmt.Sprintf("%d", i): {Value: &intValue, ValueComparison: query.Equals()}}}
+						whereSelection.Where = &query.Query{KeyValues: map[string]query.Value{fmt.Sprintf("%d", i): {Value: &intValue, ValueComparison: query.EqualsPtr()}}}
 						selection.Or = append(selection.Or, whereSelection)
 					}
 				}

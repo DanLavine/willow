@@ -11,15 +11,15 @@ import (
 )
 
 type Tracker interface {
-	Add(id uint64, brokerInfo v1.BrokerInfo)
-	Remove(id uint64, brokerInfo v1.BrokerInfo)
+	Add(id string, brokerInfo v1.BrokerInfo)
+	Remove(id string, brokerInfo v1.BrokerInfo)
 
 	// don't keep track of this thing on each of our queues, just pass it in on the dissconnect
 	Disconnect(logger *zap.Logger, conn net.Conn, queueManager queues.QueueManager)
 }
 
 type processingID struct {
-	id         uint64
+	id         string
 	brokerInfo v1.BrokerInfo
 }
 
@@ -37,14 +37,14 @@ func NewTracker() *tracker {
 	}
 }
 
-func (t *tracker) Add(id uint64, brokerInfo v1.BrokerInfo) {
+func (t *tracker) Add(id string, brokerInfo v1.BrokerInfo) {
 	t.lock.Lock()
 	defer t.lock.Unlock()
 
 	t.processingIDs = append(t.processingIDs, processingID{id: id, brokerInfo: brokerInfo})
 }
 
-func (t *tracker) Remove(id uint64, brokerInfo v1.BrokerInfo) {
+func (t *tracker) Remove(id string, brokerInfo v1.BrokerInfo) {
 	t.lock.Lock()
 	defer t.lock.Unlock()
 
@@ -68,11 +68,13 @@ func (t *tracker) Disconnect(logger *zap.Logger, conn net.Conn, queueManager que
 	for _, pID := range t.processingIDs {
 		queue, _ := queueManager.Find(logger, pID.brokerInfo.Name)
 		if queue != nil {
-			if err := queue.ACK(logger, &v1.ACK{BrokerInfo: pID.brokerInfo, ID: pID.id, Passed: false}); err != nil {
+			if err := queue.ACK(logger, &v1.ACK{BrokerInfo: pID.brokerInfo, ID: pID.id, Passed: false, RequeueLocation: v1.RequeueNone}); err != nil {
 				logger.Error("failed attempting to ack a closed client", zap.Error(err))
 			} else {
-				logger.Debug("failed item", zap.Any("broker_info", pID.brokerInfo), zap.Uint64("id", pID.id))
+				logger.Debug("successfully failed pending item", zap.Any("broker_info", pID.brokerInfo), zap.String("id", pID.id))
 			}
+		} else {
+			logger.Error("failed to find the queue", zap.String("queue_name", pID.brokerInfo.Name))
 		}
 	}
 }

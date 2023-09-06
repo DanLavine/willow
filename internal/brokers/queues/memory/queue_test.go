@@ -2,13 +2,12 @@ package memory
 
 import (
 	"context"
-	"reflect"
 	"testing"
-	"time"
 
 	"github.com/DanLavine/goasync"
 	"github.com/DanLavine/willow/internal/errors"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
+	"github.com/DanLavine/willow/pkg/models/query"
 	v1 "github.com/DanLavine/willow/pkg/models/v1"
 	. "github.com/onsi/gomega"
 	"go.uber.org/zap"
@@ -120,7 +119,6 @@ func TestMemoryQueue_Enqueue(t *testing.T) {
 		enqueue2 := &v1.EnqueueItemRequest{BrokerInfo: v1.BrokerInfo{Name: "test", Tags: datatypes.StringMap{"a": datatypes.String("a")}}, Data: []byte(`squash me!`), Updateable: true}
 
 		g.Expect(queue.Enqueue(zap.NewNop(), enqueue1)).ToNot(HaveOccurred())
-
 		metrics := queue.Metrics()
 		g.Expect(len(metrics.Tags)).To(Equal(1))
 		g.Expect(metrics.Tags[0].Tags).To(Equal(datatypes.StringMap{"a": datatypes.String("a"), "b": datatypes.String("b")}))
@@ -154,41 +152,19 @@ func TestMemoryQueue_Enqueue(t *testing.T) {
 	})
 }
 
-func TestMemoryQueue_Readers(t *testing.T) {
+func TestMemoryQueue_Dequeue(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	enqueueItem1 := v1.EnqueueItemRequest{
-		BrokerInfo: v1.BrokerInfo{
-			Name: "test",
-			Tags: datatypes.StringMap{"a": datatypes.String("a"), "b": datatypes.String("b"), "c": datatypes.String("c")},
+	globalSelect := query.Select{}
+	bValue := datatypes.String("b")
+	bSelection := query.Select{
+		Where: &query.Query{
+			KeyValues: map[string]query.Value{
+				"b": {Value: &bValue, ValueComparison: query.EqualsPtr()},
+			},
 		},
-		Data:       []byte(`first`),
-		Updateable: false,
 	}
-	enqueueItem2 := v1.EnqueueItemRequest{
-		BrokerInfo: v1.BrokerInfo{
-			Name: "test",
-			Tags: datatypes.StringMap{"b": datatypes.String("b"), "c": datatypes.String("c"), "d": datatypes.String("d")},
-		},
-		Data:       []byte(`second`),
-		Updateable: false,
-	}
-	enqueueItem3 := v1.EnqueueItemRequest{
-		BrokerInfo: v1.BrokerInfo{
-			Name: "test",
-			Tags: datatypes.StringMap{"c": datatypes.String("c"), "d": datatypes.String("d"), "e": datatypes.String("e")},
-		},
-		Data:       []byte(`third`),
-		Updateable: false,
-	}
-	enqueueItem4 := v1.EnqueueItemRequest{
-		BrokerInfo: v1.BrokerInfo{
-			Name: "test",
-			Tags: datatypes.StringMap{"a": datatypes.String("a"), "b": datatypes.String("b"), "c": datatypes.String("c"), "d": datatypes.String("d")},
-		},
-		Data:       []byte(`fourth`),
-		Updateable: false,
-	}
+	g.Expect(globalSelect.Validate()).ToNot(HaveOccurred())
 
 	setupQueue := func(g *GomegaWithT) (*Queue, context.CancelFunc) {
 		queue := NewQueue(createParams)
@@ -206,162 +182,404 @@ func TestMemoryQueue_Readers(t *testing.T) {
 		return queue, cancel
 	}
 
-	t.Run("it will create the requested readers even if they do not yet exist", func(t *testing.T) {
-		queue, cancel := setupQueue(g)
-		defer queue.Stop()
-		defer cancel()
+	t.Run("It returns nil if the taskManager is canceled", func(t *testing.T) {
+		queue := NewQueue(createParams)
+		g.Expect(queue).ToNot(BeNil())
 
-		readerSelect := &v1.ReaderSelect{
-			BrokerName: "test",
-			Queries: []v1.ReaderQuery{
-				{Type: v1.ReaderExactly, Tags: datatypes.StringMap{"shouldn't be there yet": datatypes.String("ok")}},
-				{Type: v1.ReaderMatches, Tags: datatypes.StringMap{"shouldn't be there yet": datatypes.String("ok")}},
-			},
-		}
-		g.Expect(readerSelect.Validate()).ToNot(HaveOccurred())
+		// run the queue in the background
+		taskManager := goasync.NewTaskManager(goasync.RelaxedConfig())
+		g.Expect(taskManager.AddExecuteTask("queue", queue)).ToNot(HaveOccurred())
 
-		readers, err := queue.Readers(zap.NewNop(), readerSelect)
-		g.Expect(err).ToNot(HaveOccurred())
-		g.Expect(len(readers)).To(Equal(2))
+		ctx, cancel := context.WithCancel(context.Background())
+		go func() {
+			_ = taskManager.Run(ctx)
+		}()
+		cancel()
+
+		var dequeue *v1.DequeueItemResponse
+		var onSuccess func()
+		var onFail func()
+		var err *v1.Error
+		g.Eventually(func() bool {
+			dequeue, onSuccess, onFail, err = queue.Dequeue(zap.NewNop(), context.Background(), globalSelect)
+			return true
+		}).Should(BeTrue())
+		g.Expect(dequeue).To(BeNil())
+		g.Expect(onSuccess).To(BeNil())
+		g.Expect(onFail).To(BeNil())
+		g.Expect(err).ToNot(BeNil())
 	})
 
-	t.Run("it updates the processing count on metrics for the tag group", func(t *testing.T) {
+	t.Run("It returns nil if the cancelContext is canceled and there are no queues", func(t *testing.T) {
 		queue, cancel := setupQueue(g)
-		defer queue.Stop()
 		defer cancel()
 
-		g.Expect(queue.Enqueue(zap.NewNop(), enqueueItemNotUpdateable)).ToNot(HaveOccurred())
+		cancelContext, stopCancelContext := context.WithCancel(context.Background())
+		stopCancelContext()
 
-		metrics := queue.Metrics()
-		g.Expect(metrics).ToNot(BeNil())
-		g.Expect(metrics).To(Equal(&v1.QueueMetricsResponse{Name: "test", Total: 1, Max: 5, Tags: []*v1.TagMetricsResponse{{Processing: 0, Ready: 1, Tags: datatypes.StringMap{"updateable": datatypes.String("false")}}}}))
-
-		readerSelect := &v1.ReaderSelect{
-			BrokerName: "test",
-			Queries: []v1.ReaderQuery{
-				{Type: v1.ReaderExactly, Tags: datatypes.StringMap{"updateable": datatypes.String("false")}},
-			},
-		}
-		g.Expect(readerSelect.Validate()).ToNot(HaveOccurred())
-
-		readers, err := queue.Readers(zap.NewNop(), readerSelect)
-		g.Expect(err).ToNot(HaveOccurred())
-		g.Expect(len(readers)).To(Equal(1))
-
-		select {
-		case <-time.After(time.Second):
-			g.Fail("Failed to dequeue item")
-		case dequeueFunc := <-readers[0]:
-			dequeueFunc()
-		}
-
-		metrics = queue.Metrics()
-		g.Expect(metrics).ToNot(BeNil())
-		g.Expect(metrics).To(Equal(&v1.QueueMetricsResponse{Name: "test", Total: 1, Max: 5, Tags: []*v1.TagMetricsResponse{{Processing: 1, Ready: 0, Tags: datatypes.StringMap{"updateable": datatypes.String("false")}}}}))
+		var dequeue *v1.DequeueItemResponse
+		var onSuccess func()
+		var onFail func()
+		var err *v1.Error
+		g.Eventually(func() bool {
+			dequeue, onSuccess, onFail, err = queue.Dequeue(zap.NewNop(), cancelContext, globalSelect)
+			return true
+		}).Should(BeTrue())
+		g.Expect(dequeue).To(BeNil())
+		g.Expect(onSuccess).To(BeNil())
+		g.Expect(onFail).To(BeNil())
+		g.Expect(err).ToNot(BeNil())
 	})
 
-	t.Run("'nil' query selection", func(t *testing.T) {
-		t.Run("it return the global reader if the readerSelect is nil", func(t *testing.T) {
+	t.Run("It can enqueue a message onto a client that is already waiting", func(t *testing.T) {
+		queue, cancel := setupQueue(g)
+		defer cancel()
+
+		var dequeue *v1.DequeueItemResponse
+		var onSuccess func()
+		var onFail func()
+		var err *v1.Error
+		received := make(chan struct{})
+		go func() {
+			dequeue, onSuccess, onFail, err = queue.Dequeue(zap.NewNop(), context.Background(), globalSelect)
+			close(received)
+		}()
+
+		// ensure that we eventually have a client waiting
+		g.Eventually(func() int {
+			queue.clientsLock.Lock()
+			defer queue.clientsLock.Unlock()
+			return len(queue.clientsWaiting)
+		}).Should(Equal(1))
+
+		// Enqueu an item into the queue
+		enqueueItemRequest := &v1.EnqueueItemRequest{
+			BrokerInfo: v1.BrokerInfo{
+				Name: "test",
+				Tags: datatypes.StringMap{
+					"a": datatypes.String("a"),
+				},
+			},
+			Data:       []byte(`squash me!`),
+			Updateable: true,
+		}
+		g.Expect(queue.Enqueue(zap.NewNop(), enqueueItemRequest)).ToNot(HaveOccurred())
+
+		// Eventually we shoud receive the enqueued ite,
+		g.Eventually(received).Should(BeClosed())
+		g.Expect(dequeue).ToNot(BeNil())
+		g.Expect(onSuccess).ToNot(BeNil())
+		g.Expect(onFail).ToNot(BeNil())
+		g.Expect(err).To(BeNil())
+
+		g.Expect(dequeue.ID).ToNot(Equal(""))
+		g.Expect(dequeue.BrokerInfo.Name).To(Equal("test"))
+		g.Expect(dequeue.BrokerInfo.Tags).To(Equal(datatypes.StringMap{"a": datatypes.String("a")}))
+		g.Expect(dequeue.Data).To(Equal([]byte(`squash me!`)))
+		onSuccess()
+	})
+
+	t.Run("It can enqueue a message if a tag group already has one waitiing", func(t *testing.T) {
+		queue, cancel := setupQueue(g)
+		defer cancel()
+
+		// Enqueu an item into the queue
+		enqueueItemRequest := &v1.EnqueueItemRequest{
+			BrokerInfo: v1.BrokerInfo{
+				Name: "test",
+				Tags: datatypes.StringMap{
+					"a": datatypes.String("a"),
+				},
+			},
+			Data:       []byte(`squash me!`),
+			Updateable: true,
+		}
+		g.Expect(queue.Enqueue(zap.NewNop(), enqueueItemRequest)).ToNot(HaveOccurred())
+
+		var dequeue *v1.DequeueItemResponse
+		var onSuccess func()
+		var onFail func()
+		var err *v1.Error
+		received := make(chan struct{})
+		go func() {
+			dequeue, onSuccess, onFail, err = queue.Dequeue(zap.NewNop(), context.Background(), globalSelect)
+			close(received)
+		}()
+
+		// Eventually we shoud receive the enqueued ite,
+		g.Eventually(received).Should(BeClosed())
+		g.Expect(dequeue).ToNot(BeNil())
+		g.Expect(onSuccess).ToNot(BeNil())
+		g.Expect(onFail).ToNot(BeNil())
+		g.Expect(err).To(BeNil())
+
+		g.Expect(dequeue.ID).ToNot(Equal(""))
+		g.Expect(dequeue.BrokerInfo.Name).To(Equal("test"))
+		g.Expect(dequeue.BrokerInfo.Tags).To(Equal(datatypes.StringMap{"a": datatypes.String("a")}))
+		g.Expect(dequeue.Data).To(Equal([]byte(`squash me!`)))
+		onSuccess()
+	})
+
+	t.Run("Describe query selection", func(t *testing.T) {
+		t.Run("It won't dequeue a message from any tag groups that don't match the query", func(t *testing.T) {
 			queue, cancel := setupQueue(g)
-			defer queue.Stop()
 			defer cancel()
 
-			readers, err := queue.Readers(zap.NewNop(), nil)
-			g.Expect(err).ToNot(HaveOccurred())
-			g.Expect(len(readers)).To(Equal(1))
-
-			g.Expect(queue.Enqueue(zap.NewNop(), &enqueueItem1)).ToNot(HaveOccurred())
-
-			select {
-			case <-time.After(time.Second):
-				g.Fail("Failed to dequeue item")
-			case dequeueFunc := <-readers[0]:
-				g.Expect(dequeueFunc().Data).To(Equal([]byte(`first`)))
+			// Enqueu an item into the queue
+			enqueueItemRequest := &v1.EnqueueItemRequest{
+				BrokerInfo: v1.BrokerInfo{
+					Name: "test",
+					Tags: datatypes.StringMap{
+						"a": datatypes.String("a"),
+					},
+				},
+				Data:       []byte(`squash me!`),
+				Updateable: true,
 			}
+			g.Expect(queue.Enqueue(zap.NewNop(), enqueueItemRequest)).ToNot(HaveOccurred())
+
+			// ensure that the dequeue operation never finishes
+			received := make(chan struct{})
+			go func() {
+				queue.Dequeue(zap.NewNop(), context.Background(), bSelection)
+				close(received)
+			}()
+			g.Consistently(received).ShouldNot(BeClosed())
+		})
+
+		t.Run("It won't enqueue a new message on a waiting tag group if the original query does not match", func(t *testing.T) {
+			queue, cancel := setupQueue(g)
+			defer cancel()
+
+			received := make(chan struct{})
+			go func() {
+				queue.Dequeue(zap.NewNop(), context.Background(), bSelection)
+				close(received)
+			}()
+
+			g.Consistently(received).ShouldNot(BeClosed())
+
+			// Enqueu an item into the queue
+			enqueueItemRequest := &v1.EnqueueItemRequest{
+				BrokerInfo: v1.BrokerInfo{
+					Name: "test",
+					Tags: datatypes.StringMap{
+						"a": datatypes.String("a"),
+					},
+				},
+				Data:       []byte(`squash me!`),
+				Updateable: true,
+			}
+			g.Expect(queue.Enqueue(zap.NewNop(), enqueueItemRequest)).ToNot(HaveOccurred())
+
+			// check again that the dequeue operation is waiting
+			g.Consistently(received).ShouldNot(BeClosed())
 		})
 	})
 
-	t.Run("'Match' query selections", func(t *testing.T) {
-		t.Run("finds the reader for any message queues that use the provided tag pairs", func(t *testing.T) {
+	t.Run("Context when calling OnSuccess callback", func(t *testing.T) {
+		t.Run("It removes the value from the queue and doesn't reprocess", func(t *testing.T) {
 			queue, cancel := setupQueue(g)
-			defer queue.Stop()
 			defer cancel()
 
-			// add an item in into the queue
-			// should only pull from enqueueItem1 and enqueueItem4
-			g.Expect(queue.Enqueue(zap.NewNop(), &enqueueItem1)).ToNot(HaveOccurred())
-			g.Expect(queue.Enqueue(zap.NewNop(), &enqueueItem2)).ToNot(HaveOccurred())
-			g.Expect(queue.Enqueue(zap.NewNop(), &enqueueItem3)).ToNot(HaveOccurred())
-			g.Expect(queue.Enqueue(zap.NewNop(), &enqueueItem4)).ToNot(HaveOccurred())
-
-			readerSelect := &v1.ReaderSelect{
-				BrokerName: "test",
-				Queries: []v1.ReaderQuery{
-					{Type: v1.ReaderMatches, Tags: datatypes.StringMap{"a": datatypes.String("a")}},
+			// Enqueu an item into the queue
+			enqueueItemRequest := &v1.EnqueueItemRequest{
+				BrokerInfo: v1.BrokerInfo{
+					Name: "test",
+					Tags: datatypes.StringMap{
+						"a": datatypes.String("a"),
+					},
 				},
+				Data:       []byte(`squash me!`),
+				Updateable: true,
 			}
-			g.Expect(readerSelect.Validate()).ToNot(HaveOccurred())
+			g.Expect(queue.Enqueue(zap.NewNop(), enqueueItemRequest)).ToNot(HaveOccurred())
 
-			readers, err := queue.Readers(zap.NewNop(), readerSelect)
-			g.Expect(err).ToNot(HaveOccurred())
-			g.Expect(len(readers)).To(Equal(1))
+			var onSuccess func()
+			received := make(chan struct{})
+			go func() {
+				_, onSuccess, _, _ = queue.Dequeue(zap.NewNop(), context.Background(), globalSelect)
+				close(received)
+			}()
 
-			itemOneFound, itemFourFound := false, false
-			for i := 0; i < 2; i++ {
-				select {
-				case <-time.After(time.Second):
-					g.Fail("Failed to dequeue item")
-				case dequeueFunc := <-readers[0]:
-					dequeuedItemResponses := dequeueFunc()
-					if reflect.DeepEqual(dequeuedItemResponses.BrokerInfo.Tags, enqueueItem1.Tags) {
-						itemOneFound = true
-						g.Expect(dequeuedItemResponses.Data).To(Equal([]byte(`first`)))
-					} else if reflect.DeepEqual(dequeuedItemResponses.BrokerInfo.Tags, enqueueItem4.Tags) {
-						itemFourFound = true
-						g.Expect(dequeuedItemResponses.Data).To(Equal([]byte(`fourth`)))
-					} else {
-						g.Fail("received an unexpected response")
-					}
-				}
+			// Eventually we shoud receive the enqueued ite,
+			g.Eventually(received).Should(BeClosed())
+			onSuccess()
+
+			received = make(chan struct{})
+			go func() {
+				queue.Dequeue(zap.NewNop(), context.Background(), globalSelect)
+				close(received)
+			}()
+
+			g.Consistently(received).ShouldNot(BeClosed())
+		})
+
+		t.Run("It updates the metrics", func(t *testing.T) {
+			queue, cancel := setupQueue(g)
+			defer cancel()
+
+			// Enqueu an item into the queue
+			enqueueItemRequest := &v1.EnqueueItemRequest{
+				BrokerInfo: v1.BrokerInfo{
+					Name: "test",
+					Tags: datatypes.StringMap{
+						"a": datatypes.String("a"),
+					},
+				},
+				Data:       []byte(`squash me!`),
+				Updateable: true,
 			}
+			g.Expect(queue.Enqueue(zap.NewNop(), enqueueItemRequest)).ToNot(HaveOccurred())
 
-			g.Expect(itemOneFound).To(BeTrue())
-			g.Expect(itemFourFound).To(BeTrue())
+			var onSuccess func()
+			received := make(chan struct{})
+			go func() {
+				_, onSuccess, _, _ = queue.Dequeue(zap.NewNop(), context.Background(), globalSelect)
+				close(received)
+			}()
+
+			// Eventually we shoud receive the enqueued ite,
+			g.Eventually(received).Should(BeClosed())
+			onSuccess()
+
+			metrics := queue.Metrics()
+			g.Expect(metrics.Total).To(Equal(uint64(1)))
+			g.Expect(metrics.Tags[0].Ready).To(Equal(uint64(0)))
+			g.Expect(metrics.Tags[0].Processing).To(Equal(uint64(1)))
 		})
 	})
 
-	t.Run("'Exact' query selections", func(t *testing.T) {
-		t.Run("finds only the reader that matches the tags exactly", func(t *testing.T) {
+	t.Run("Context when calling OnFail callback", func(t *testing.T) {
+		t.Run("It requeues the value to reprocess", func(t *testing.T) {
 			queue, cancel := setupQueue(g)
-			defer queue.Stop()
 			defer cancel()
 
-			// add an item in into the queue
-			// should only pull from enqueueItem1 and enqueueItem4
-			g.Expect(queue.Enqueue(zap.NewNop(), &enqueueItem1)).ToNot(HaveOccurred())
-			g.Expect(queue.Enqueue(zap.NewNop(), &enqueueItem2)).ToNot(HaveOccurred())
-			g.Expect(queue.Enqueue(zap.NewNop(), &enqueueItem3)).ToNot(HaveOccurred())
-			g.Expect(queue.Enqueue(zap.NewNop(), &enqueueItem4)).ToNot(HaveOccurred())
-
-			readerSelect := &v1.ReaderSelect{
-				BrokerName: "test",
-				Queries: []v1.ReaderQuery{
-					{Type: v1.ReaderExactly, Tags: datatypes.StringMap{"a": datatypes.String("a"), "b": datatypes.String("b"), "c": datatypes.String("c")}},
+			// Enqueu an item into the queue
+			enqueueItemRequest := &v1.EnqueueItemRequest{
+				BrokerInfo: v1.BrokerInfo{
+					Name: "test",
+					Tags: datatypes.StringMap{
+						"a": datatypes.String("a"),
+					},
 				},
+				Data:       []byte(`squash me!`),
+				Updateable: true,
 			}
-			g.Expect(readerSelect.Validate()).ToNot(HaveOccurred())
+			g.Expect(queue.Enqueue(zap.NewNop(), enqueueItemRequest)).ToNot(HaveOccurred())
 
-			readers, err := queue.Readers(zap.NewNop(), readerSelect)
-			g.Expect(err).ToNot(HaveOccurred())
-			g.Expect(len(readers)).To(Equal(1))
+			var dequeue *v1.DequeueItemResponse
+			var onFail func()
+			received := make(chan struct{})
+			go func() {
+				dequeue, _, onFail, _ = queue.Dequeue(zap.NewNop(), context.Background(), globalSelect)
+				close(received)
+			}()
 
-			select {
-			case <-time.After(time.Second):
-				g.Fail("Failed to dequeue item")
-			case dequeueFunc := <-readers[0]:
-				dequeuedItemResponses := dequeueFunc()
-				g.Expect(dequeuedItemResponses.Data).To(Equal([]byte(`first`)))
+			// Eventually we shoud receive the enqueued ite,
+			g.Eventually(received).Should(BeClosed())
+			onFail()
+
+			var dequeueAgain *v1.DequeueItemResponse
+			received = make(chan struct{})
+			go func() {
+				dequeueAgain, _, _, _ = queue.Dequeue(zap.NewNop(), context.Background(), globalSelect)
+				close(received)
+			}()
+
+			g.Eventually(received).Should(BeClosed())
+			g.Expect(dequeue).To(Equal(dequeueAgain))
+		})
+
+		t.Run("It allows for another enqueue message to squash the requeued message before processing again", func(t *testing.T) {
+			queue, cancel := setupQueue(g)
+			defer cancel()
+
+			// Enqueu an item into the queue
+			enqueueItemRequest := &v1.EnqueueItemRequest{
+				BrokerInfo: v1.BrokerInfo{
+					Name: "test",
+					Tags: datatypes.StringMap{
+						"a": datatypes.String("a"),
+					},
+				},
+				Data:       []byte(`squash me!`),
+				Updateable: true,
 			}
+			g.Expect(queue.Enqueue(zap.NewNop(), enqueueItemRequest)).ToNot(HaveOccurred())
+
+			var onFail func()
+			received := make(chan struct{})
+			go func() {
+				_, _, onFail, _ = queue.Dequeue(zap.NewNop(), context.Background(), globalSelect)
+				close(received)
+			}()
+
+			// Eventually we shoud receive the enqueued ite,
+			g.Eventually(received).Should(BeClosed())
+
+			// enqueue another item before calling onFail
+			enqueueItemRequest = &v1.EnqueueItemRequest{
+				BrokerInfo: v1.BrokerInfo{
+					Name: "test",
+					Tags: datatypes.StringMap{
+						"a": datatypes.String("a"),
+					},
+				},
+				Data:       []byte(`squashed`),
+				Updateable: true,
+			}
+			enqueuErr := make(chan error)
+			go func() {
+				enqueuErr <- queue.Enqueue(zap.NewNop(), enqueueItemRequest)
+			}()
+
+			onFail()
+			g.Eventually(enqueuErr).Should(Receive(BeNil()))
+
+			var dequeueAgain *v1.DequeueItemResponse
+			received = make(chan struct{})
+			go func() {
+				dequeueAgain, _, _, _ = queue.Dequeue(zap.NewNop(), context.Background(), globalSelect)
+				close(received)
+			}()
+
+			g.Eventually(received).Should(BeClosed())
+			g.Expect(dequeueAgain.Data).To(Equal([]byte(`squashed`)))
+		})
+
+		t.Run("It keeps proper metrics", func(t *testing.T) {
+			queue, cancel := setupQueue(g)
+			defer cancel()
+
+			// Enqueu an item into the queue
+			enqueueItemRequest := &v1.EnqueueItemRequest{
+				BrokerInfo: v1.BrokerInfo{
+					Name: "test",
+					Tags: datatypes.StringMap{
+						"a": datatypes.String("a"),
+					},
+				},
+				Data:       []byte(`squash me!`),
+				Updateable: true,
+			}
+			g.Expect(queue.Enqueue(zap.NewNop(), enqueueItemRequest)).ToNot(HaveOccurred())
+
+			var onFail func()
+			received := make(chan struct{})
+			go func() {
+				_, _, onFail, _ = queue.Dequeue(zap.NewNop(), context.Background(), globalSelect)
+				close(received)
+			}()
+
+			// Eventually we shoud receive the enqueued ite,
+			g.Eventually(received).Should(BeClosed())
+			onFail()
+
+			metrics := queue.Metrics()
+			g.Expect(metrics.Total).To(Equal(uint64(1)))
+			g.Expect(metrics.Tags[0].Ready).To(Equal(uint64(1)))
+			g.Expect(metrics.Tags[0].Processing).To(Equal(uint64(0)))
 		})
 	})
 }
@@ -395,15 +613,15 @@ func TestMemoryQueue_ACK(t *testing.T) {
 	}
 
 	t.Run("it returns an error if the requested tags cannt be found", func(t *testing.T) {
-		queue := NewQueue(createParams)
-		defer queue.Stop()
+		queue, cancel := setupQueue(g)
+		defer cancel()
 
 		ack := &v1.ACK{
 			BrokerInfo: v1.BrokerInfo{
 				Name: "test",
 				Tags: datatypes.StringMap{"not": datatypes.String("found")},
 			},
-			ID:     1,
+			ID:     "not found",
 			Passed: true,
 		}
 		g.Expect(ack.Validate()).ToNot(HaveOccurred())
@@ -422,7 +640,7 @@ func TestMemoryQueue_ACK(t *testing.T) {
 				Name: "test",
 				Tags: datatypes.StringMap{"a": datatypes.String("a"), "b": datatypes.String("b"), "not": datatypes.String("found")},
 			},
-			ID:     1,
+			ID:     "not found",
 			Passed: true,
 		}
 		g.Expect(ack.Validate()).ToNot(HaveOccurred())
@@ -432,64 +650,32 @@ func TestMemoryQueue_ACK(t *testing.T) {
 		g.Expect(err.Error()).To(ContainSubstring("tag group not found"))
 	})
 
-	t.Run("when ack is set to passed", func(t *testing.T) {
+	t.Run("Context when ack is set to passed", func(t *testing.T) {
 		setupWithEnqueuedItem := func(g *WithT) (*Queue, *v1.DequeueItemResponse, context.CancelFunc) {
 			queue, cancel := setupQueue(g)
 
 			// setup reader
-			readerSelect := &v1.ReaderSelect{
-				BrokerName: "test",
-				Queries: []v1.ReaderQuery{
-					{Type: v1.ReaderMatches, Tags: datatypes.StringMap{"a": datatypes.String("a")}},
-				},
+			dequeuRequest := &v1.DequeueItemRequest{
+				Name:      "test",
+				Selection: query.Select{},
 			}
-			g.Expect(readerSelect.Validate()).ToNot(HaveOccurred())
+			g.Expect(dequeuRequest.Validate()).ToNot(HaveOccurred())
 
 			// enqueue an item for processing
 			g.Expect(queue.Enqueue(zap.NewNop(), &enqueueItem1)).ToNot(HaveOccurred())
 
 			// dequeue the item like a client so its processing
-			readers, err := queue.Readers(zap.NewNop(), readerSelect)
+			dequeueItem, success, _, err := queue.Dequeue(zap.NewNop(), context.Background(), dequeuRequest.Selection)
 			g.Expect(err).ToNot(HaveOccurred())
-			g.Expect(len(readers)).To(Equal(1))
-
-			var dequeueItemResponse *v1.DequeueItemResponse
-			select {
-			case <-time.After(time.Second):
-				g.Fail("Failed to dequeue item")
-			case dequeueFunc := <-readers[0]:
-				dequeueItemResponse = dequeueFunc()
-			}
+			g.Expect(dequeueItem).ToNot(BeNil())
+			success()
 
 			metrics := queue.Metrics()
 			g.Expect(metrics).ToNot(BeNil())
 			g.Expect(metrics).To(Equal(&v1.QueueMetricsResponse{Name: "test", Total: 1, Max: 5, Tags: []*v1.TagMetricsResponse{{Processing: 1, Ready: 0, Tags: datatypes.StringMap{"a": datatypes.String("a"), "b": datatypes.String("b"), "c": datatypes.String("c")}}}}))
 
-			return queue, dequeueItemResponse, cancel
+			return queue, dequeueItem, cancel
 		}
-
-		t.Run("it returns an error if the id is not processing", func(t *testing.T) {
-			queue, _, cancel := setupWithEnqueuedItem(g)
-			defer cancel()
-
-			// enqueue an item for processing
-			g.Expect(queue.Enqueue(zap.NewNop(), &enqueueItem1)).ToNot(HaveOccurred())
-
-			ack := &v1.ACK{
-				BrokerInfo: v1.BrokerInfo{
-					Name: "test",
-					Tags: datatypes.StringMap{"a": datatypes.String("a"), "b": datatypes.String("b"), "c": datatypes.String("c")},
-				},
-				ID:     2,
-				Passed: true,
-			}
-			g.Expect(ack.Validate()).ToNot(HaveOccurred())
-
-			err := queue.ACK(zap.NewNop(), ack)
-			g.Expect(err).ToNot(BeNil())
-			g.Expect(err.Error()).To(ContainSubstring("ID 2 is not processing"))
-
-		})
 
 		t.Run("it returns an error if the ID cannt be found ", func(t *testing.T) {
 			queue, _, cancel := setupWithEnqueuedItem(g)
@@ -500,14 +686,14 @@ func TestMemoryQueue_ACK(t *testing.T) {
 					Name: "test",
 					Tags: datatypes.StringMap{"a": datatypes.String("a"), "b": datatypes.String("b"), "c": datatypes.String("c")},
 				},
-				ID:     9_123_098,
+				ID:     "not_found",
 				Passed: true,
 			}
 			g.Expect(ack.Validate()).ToNot(HaveOccurred())
 
 			err := queue.ACK(zap.NewNop(), ack)
 			g.Expect(err).ToNot(BeNil())
-			g.Expect(err.Error()).To(ContainSubstring("ID 9123098 does not exist for tag group"))
+			g.Expect(err.Error()).To(ContainSubstring("ID not_found does not exist for tag group"))
 
 			metrics := queue.Metrics()
 			g.Expect(metrics).ToNot(BeNil())
@@ -515,7 +701,7 @@ func TestMemoryQueue_ACK(t *testing.T) {
 		})
 
 		t.Run("it removes the item from processing with a proper ID and removes the tag group if there are no more enqueued items", func(t *testing.T) {
-			queue, _, cancel := setupWithEnqueuedItem(g)
+			queue, dequeueItem, cancel := setupWithEnqueuedItem(g)
 			defer cancel()
 
 			ack := &v1.ACK{
@@ -523,7 +709,7 @@ func TestMemoryQueue_ACK(t *testing.T) {
 					Name: "test",
 					Tags: datatypes.StringMap{"a": datatypes.String("a"), "b": datatypes.String("b"), "c": datatypes.String("c")},
 				},
-				ID:     1,
+				ID:     dequeueItem.ID,
 				Passed: true,
 			}
 			g.Expect(ack.Validate()).ToNot(HaveOccurred())
@@ -537,7 +723,7 @@ func TestMemoryQueue_ACK(t *testing.T) {
 		})
 
 		t.Run("it removes the item from processing with a proper ID and leaves the tag group if there are more enqueued items", func(t *testing.T) {
-			queue, _, cancel := setupWithEnqueuedItem(g)
+			queue, dequeueItem, cancel := setupWithEnqueuedItem(g)
 			defer cancel()
 
 			// enqueue a second item
@@ -548,7 +734,7 @@ func TestMemoryQueue_ACK(t *testing.T) {
 					Name: "test",
 					Tags: datatypes.StringMap{"a": datatypes.String("a"), "b": datatypes.String("b"), "c": datatypes.String("c")},
 				},
-				ID:     1,
+				ID:     dequeueItem.ID,
 				Passed: true,
 			}
 			g.Expect(ack.Validate()).ToNot(HaveOccurred())

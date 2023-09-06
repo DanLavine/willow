@@ -8,6 +8,7 @@ import (
 	context "context"
 	reflect "reflect"
 
+	query "github.com/DanLavine/willow/pkg/models/query"
 	v1 "github.com/DanLavine/willow/pkg/models/v1"
 	gomock "go.uber.org/mock/gomock"
 	zap "go.uber.org/zap"
@@ -50,6 +51,23 @@ func (mr *MockManagedQueueMockRecorder) ACK(arg0, arg1 interface{}) *gomock.Call
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ACK", reflect.TypeOf((*MockManagedQueue)(nil).ACK), arg0, arg1)
 }
 
+// Dequeue mocks base method.
+func (m *MockManagedQueue) Dequeue(arg0 *zap.Logger, arg1 context.Context, arg2 query.Select) (*v1.DequeueItemResponse, func(), func(), *v1.Error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Dequeue", arg0, arg1, arg2)
+	ret0, _ := ret[0].(*v1.DequeueItemResponse)
+	ret1, _ := ret[1].(func())
+	ret2, _ := ret[2].(func())
+	ret3, _ := ret[3].(*v1.Error)
+	return ret0, ret1, ret2, ret3
+}
+
+// Dequeue indicates an expected call of Dequeue.
+func (mr *MockManagedQueueMockRecorder) Dequeue(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Dequeue", reflect.TypeOf((*MockManagedQueue)(nil).Dequeue), arg0, arg1, arg2)
+}
+
 // Enqueue mocks base method.
 func (m *MockManagedQueue) Enqueue(arg0 *zap.Logger, arg1 *v1.EnqueueItemRequest) *v1.Error {
 	m.ctrl.T.Helper()
@@ -90,19 +108,4 @@ func (m *MockManagedQueue) Metrics() *v1.QueueMetricsResponse {
 func (mr *MockManagedQueueMockRecorder) Metrics() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Metrics", reflect.TypeOf((*MockManagedQueue)(nil).Metrics))
-}
-
-// Readers mocks base method.
-func (m *MockManagedQueue) Readers(arg0 *zap.Logger, arg1 *v1.ReaderSelect) ([]<-chan func() *v1.DequeueItemResponse, *v1.Error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Readers", arg0, arg1)
-	ret0, _ := ret[0].([]<-chan func() *v1.DequeueItemResponse)
-	ret1, _ := ret[1].(*v1.Error)
-	return ret0, ret1
-}
-
-// Readers indicates an expected call of Readers.
-func (mr *MockManagedQueueMockRecorder) Readers(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Readers", reflect.TypeOf((*MockManagedQueue)(nil).Readers), arg0, arg1)
 }

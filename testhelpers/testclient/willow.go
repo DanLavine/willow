@@ -40,7 +40,7 @@ func (c *Client) WillowEnqueue(g *WithT, enqueueBody v1.EnqueueItemRequest) *htt
 	return response
 }
 
-func (c *Client) WillowDequeue(g *WithT, readerQuery v1.ReaderSelect) *http.Response {
+func (c *Client) WillowDequeue(g *WithT, readerQuery v1.DequeueItemRequest) *http.Response {
 	body, err := json.Marshal(readerQuery)
 	g.Expect(err).ToNot(HaveOccurred())
 

@@ -17,12 +17,19 @@ var (
 	greaterThanOrEqual Comparison = ">="
 )
 
-func Equals() *Comparison             { return &equals }
-func NotEquals() *Comparison          { return &notEquals }
-func LessThan() *Comparison           { return &lessThan }
-func LessThanOrEqual() *Comparison    { return &lessThanOrEqual }
-func GreaterThan() *Comparison        { return &greaterThan }
-func GreaterThanOrEqual() *Comparison { return &greaterThanOrEqual }
+func Equals() Comparison             { return equals }
+func NotEquals() Comparison          { return notEquals }
+func LessThan() Comparison           { return lessThan }
+func LessThanOrEqual() Comparison    { return lessThanOrEqual }
+func GreaterThan() Comparison        { return greaterThan }
+func GreaterThanOrEqual() Comparison { return greaterThanOrEqual }
+
+func EqualsPtr() *Comparison             { return &equals }
+func NotEqualsPtr() *Comparison          { return &notEquals }
+func LessThanPtr() *Comparison           { return &lessThan }
+func LessThanOrEqualPtr() *Comparison    { return &lessThanOrEqual }
+func GreaterThanPtr() *Comparison        { return &greaterThan }
+func GreaterThanOrEqualPtr() *Comparison { return &greaterThanOrEqual }
 
 type Value struct {
 	Exists     *bool
@@ -30,7 +37,13 @@ type Value struct {
 
 	Value           *datatypes.EncapsulatedData
 	ValueComparison *Comparison
-	ValueTypeMatch  *bool
+
+	// Only in use for ranged operations [!=, <, <=, >, >=]
+	// When set to true, will ensure that we select only values that match
+	// the data type ov 'Value'
+	//
+	// TODO: change from *bool -> bool
+	ValueTypeMatch *bool
 }
 
 func (v *Value) Validate() error {

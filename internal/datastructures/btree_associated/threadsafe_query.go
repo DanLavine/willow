@@ -34,7 +34,6 @@ func (tsat *threadsafeAssociatedTree) Query(selection query.Select, onFindPagina
 		tsat.ids.Iterate(onFindPagination)
 	} else {
 		// need to recurse through everything
-		//tsat.query(selection, onFindPagination)
 
 		var validIDs set.Set[string]
 		validCounter := 0
@@ -79,7 +78,7 @@ func (tsat *threadsafeAssociatedTree) Query(selection query.Select, onFindPagina
 			}
 		}
 
-		// check the or cases as well
+		// check the OR cases as well
 		for _, orSelection := range selection.Or {
 			subsetValidIDs := tsat.queryOr(orSelection)
 
@@ -135,7 +134,6 @@ func (tsat *threadsafeAssociatedTree) queryAnd(selection query.Select) set.Set[s
 		}
 
 		subsetValidIDs := tsat.queryAnd(andSelection)
-
 		switch validCounter {
 		case 0:
 			validIDs = subsetValidIDs
@@ -172,7 +170,6 @@ func (tsat *threadsafeAssociatedTree) queryOr(selection query.Select) set.Set[st
 		}
 
 		subsetValidIDs := tsat.queryAnd(andSelection)
-
 		switch validCounter {
 		case 0:
 			validIDs = subsetValidIDs
@@ -258,6 +255,8 @@ func (tsat *threadsafeAssociatedTree) queryWhere(selection query.Select) set.Set
 					possibleIDs.AddBulk(ids)
 				}
 			}
+
+			fmt.Println("intersecting ids:", possibleIDs)
 
 			if possibleIDs != nil {
 				validIDs.Intersection(possibleIDs.Values())
@@ -362,7 +361,7 @@ func (tsat *threadsafeAssociatedTree) queryWhere(selection query.Select) set.Set
 			}
 
 			// comparison check
-			switch value.ValueComparison {
+			switch *value.ValueComparison {
 			case query.Equals():
 				inclusive = true
 

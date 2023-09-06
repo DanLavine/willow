@@ -652,7 +652,7 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 					query := query.Select{
 						Where: &query.Query{
 							KeyValues: map[string]query.Value{
-								"1": {Value: &intOne, ValueComparison: query.Equals()},
+								"1": {Value: &intOne, ValueComparison: query.EqualsPtr()},
 							},
 						},
 					}
@@ -679,8 +679,8 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 						query := query.Select{
 							Where: &query.Query{
 								KeyValues: map[string]query.Value{
-									"1": {Value: &stringOne, ValueComparison: query.Equals()},
-									"2": {Value: &stringTwo, ValueComparison: query.Equals()},
+									"1": {Value: &stringOne, ValueComparison: query.EqualsPtr()},
+									"2": {Value: &stringTwo, ValueComparison: query.EqualsPtr()},
 								},
 							},
 						}
@@ -708,7 +708,7 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 					query := query.Select{
 						Where: &query.Query{
 							KeyValues: map[string]query.Value{
-								"1": {Value: &intOne, ValueComparison: query.NotEquals()},
+								"1": {Value: &intOne, ValueComparison: query.NotEqualsPtr()},
 							},
 						},
 					}
@@ -747,8 +747,8 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 						query := query.Select{
 							Where: &query.Query{
 								KeyValues: map[string]query.Value{
-									"1": {Value: &intOne, ValueComparison: query.NotEquals()},
-									"2": {Value: &stringTwo, ValueComparison: query.NotEquals()},
+									"1": {Value: &intOne, ValueComparison: query.NotEqualsPtr()},
+									"2": {Value: &stringTwo, ValueComparison: query.NotEqualsPtr()},
 								},
 							},
 						}
@@ -776,7 +776,7 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 					query := query.Select{
 						Where: &query.Query{
 							KeyValues: map[string]query.Value{
-								"1": {Value: &intTwo, ValueComparison: query.LessThan()},
+								"1": {Value: &intTwo, ValueComparison: query.LessThanPtr()},
 							},
 						},
 					}
@@ -803,7 +803,7 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 					query := query.Select{
 						Where: &query.Query{
 							KeyValues: map[string]query.Value{
-								"1": {Value: &intOne, ValueComparison: query.LessThanOrEqual()},
+								"1": {Value: &intOne, ValueComparison: query.LessThanOrEqualPtr()},
 							},
 						},
 					}
@@ -830,7 +830,7 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 					query := query.Select{
 						Where: &query.Query{
 							KeyValues: map[string]query.Value{
-								"1": {Value: &int8Four, ValueComparison: query.GreaterThan()},
+								"1": {Value: &int8Four, ValueComparison: query.GreaterThanPtr()},
 							},
 						},
 					}
@@ -857,7 +857,7 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 					query := query.Select{
 						Where: &query.Query{
 							KeyValues: map[string]query.Value{
-								"1": {Value: &int8Four, ValueComparison: query.GreaterThanOrEqual()},
+								"1": {Value: &int8Four, ValueComparison: query.GreaterThanOrEqualPtr()},
 							},
 						},
 					}
@@ -884,8 +884,8 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 				query := query.Select{
 					Where: &query.Query{
 						KeyValues: map[string]query.Value{
-							"3": {Value: &int8One, ValueComparison: query.GreaterThanOrEqual()},
-							"4": {Value: &stringFloat, ValueComparison: query.LessThan()},
+							"3": {Value: &int8One, ValueComparison: query.GreaterThanOrEqualPtr()},
+							"4": {Value: &stringFloat, ValueComparison: query.LessThanPtr()},
 						},
 					},
 				}
@@ -915,7 +915,7 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 					query := query.Select{
 						Where: &query.Query{
 							KeyValues: map[string]query.Value{
-								"1": {Value: &int8Four, ValueComparison: query.NotEquals(), ValueTypeMatch: &typeMatchTrue},
+								"1": {Value: &int8Four, ValueComparison: query.NotEqualsPtr(), ValueTypeMatch: &typeMatchTrue},
 							},
 						},
 					}
@@ -942,7 +942,7 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 					query := query.Select{
 						Where: &query.Query{
 							KeyValues: map[string]query.Value{
-								"1": {Value: &intTwo, ValueComparison: query.LessThan(), ValueTypeMatch: &typeMatchTrue},
+								"1": {Value: &intTwo, ValueComparison: query.LessThanPtr(), ValueTypeMatch: &typeMatchTrue},
 							},
 						},
 					}
@@ -969,7 +969,7 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 					query := query.Select{
 						Where: &query.Query{
 							KeyValues: map[string]query.Value{
-								"1": {Value: &intOne, ValueComparison: query.LessThanOrEqual(), ValueTypeMatch: &typeMatchTrue},
+								"1": {Value: &intOne, ValueComparison: query.LessThanOrEqualPtr(), ValueTypeMatch: &typeMatchTrue},
 							},
 						},
 					}
@@ -996,7 +996,7 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 					query := query.Select{
 						Where: &query.Query{
 							KeyValues: map[string]query.Value{
-								"1": {Value: &int8Three, ValueComparison: query.GreaterThan(), ValueTypeMatch: &typeMatchTrue},
+								"1": {Value: &int8Three, ValueComparison: query.GreaterThanPtr(), ValueTypeMatch: &typeMatchTrue},
 							},
 						},
 					}
@@ -1023,7 +1023,7 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 					query := query.Select{
 						Where: &query.Query{
 							KeyValues: map[string]query.Value{
-								"1": {Value: &int8Four, ValueComparison: query.GreaterThanOrEqual(), ValueTypeMatch: &typeMatchTrue},
+								"1": {Value: &int8Four, ValueComparison: query.GreaterThanOrEqualPtr(), ValueTypeMatch: &typeMatchTrue},
 							},
 						},
 					}
@@ -1050,8 +1050,8 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 				query := query.Select{
 					Where: &query.Query{
 						KeyValues: map[string]query.Value{
-							"1": {Value: &int8Two, ValueComparison: query.GreaterThanOrEqual(), ValueTypeMatch: &typeMatchTrue},
-							"2": {Value: &float32_5_4, ValueComparison: query.LessThan(), ValueTypeMatch: &typeMatchTrue},
+							"1": {Value: &int8Two, ValueComparison: query.GreaterThanOrEqualPtr(), ValueTypeMatch: &typeMatchTrue},
+							"2": {Value: &float32_5_4, ValueComparison: query.LessThanPtr(), ValueTypeMatch: &typeMatchTrue},
 						},
 					},
 				}
@@ -1121,8 +1121,8 @@ func TestAssociatedTree_Query_JoinAND(t *testing.T) {
 		intTwo := datatypes.Int(2)
 		query := query.Select{
 			And: []query.Select{
-				{Where: &query.Query{KeyValues: map[string]query.Value{"1": {Value: &intOne, ValueComparison: query.Equals()}}}},
-				{Where: &query.Query{KeyValues: map[string]query.Value{"2": {Value: &intTwo, ValueComparison: query.Equals()}}}},
+				{Where: &query.Query{KeyValues: map[string]query.Value{"1": {Value: &intOne, ValueComparison: query.EqualsPtr()}}}},
+				{Where: &query.Query{KeyValues: map[string]query.Value{"2": {Value: &intTwo, ValueComparison: query.EqualsPtr()}}}},
 			},
 		}
 		g.Expect(query.Validate()).ToNot(HaveOccurred())
@@ -1145,9 +1145,9 @@ func TestAssociatedTree_Query_JoinAND(t *testing.T) {
 		intOne := datatypes.Int(1)
 		intTwo := datatypes.Int(2)
 		query := query.Select{
-			Where: &query.Query{KeyValues: map[string]query.Value{"1": {Value: &intOne, ValueComparison: query.Equals()}}},
+			Where: &query.Query{KeyValues: map[string]query.Value{"1": {Value: &intOne, ValueComparison: query.EqualsPtr()}}},
 			And: []query.Select{
-				{Where: &query.Query{KeyValues: map[string]query.Value{"2": {Value: &intTwo, ValueComparison: query.Equals()}}}},
+				{Where: &query.Query{KeyValues: map[string]query.Value{"2": {Value: &intTwo, ValueComparison: query.EqualsPtr()}}}},
 			},
 		}
 		g.Expect(query.Validate()).ToNot(HaveOccurred())
@@ -1171,8 +1171,8 @@ func TestAssociatedTree_Query_JoinAND(t *testing.T) {
 		intTwo := datatypes.Int(2)
 		query := query.Select{
 			And: []query.Select{
-				{And: []query.Select{{And: []query.Select{{Where: &query.Query{KeyValues: map[string]query.Value{"1": {Value: &intOne, ValueComparison: query.Equals()}}}}}}}},
-				{Where: &query.Query{KeyValues: map[string]query.Value{"2": {Value: &intTwo, ValueComparison: query.Equals()}}}},
+				{And: []query.Select{{And: []query.Select{{Where: &query.Query{KeyValues: map[string]query.Value{"1": {Value: &intOne, ValueComparison: query.EqualsPtr()}}}}}}}},
+				{Where: &query.Query{KeyValues: map[string]query.Value{"2": {Value: &intTwo, ValueComparison: query.EqualsPtr()}}}},
 			},
 		}
 		g.Expect(query.Validate()).ToNot(HaveOccurred())
@@ -1239,8 +1239,8 @@ func TestAssociatedTree_Query_JoinOR(t *testing.T) {
 		intTwo := datatypes.Int(2)
 		query := query.Select{
 			Or: []query.Select{
-				{Where: &query.Query{KeyValues: map[string]query.Value{"1": {Value: &intOne, ValueComparison: query.Equals()}}}},
-				{Where: &query.Query{KeyValues: map[string]query.Value{"2": {Value: &intTwo, ValueComparison: query.Equals()}}}},
+				{Where: &query.Query{KeyValues: map[string]query.Value{"1": {Value: &intOne, ValueComparison: query.EqualsPtr()}}}},
+				{Where: &query.Query{KeyValues: map[string]query.Value{"2": {Value: &intTwo, ValueComparison: query.EqualsPtr()}}}},
 			},
 		}
 		g.Expect(query.Validate()).ToNot(HaveOccurred())
@@ -1264,9 +1264,9 @@ func TestAssociatedTree_Query_JoinOR(t *testing.T) {
 		intOne := datatypes.Int(1)
 		intTwo := datatypes.Int(2)
 		query := query.Select{
-			Where: &query.Query{KeyValues: map[string]query.Value{"1": {Value: &intOne, ValueComparison: query.Equals()}}},
+			Where: &query.Query{KeyValues: map[string]query.Value{"1": {Value: &intOne, ValueComparison: query.EqualsPtr()}}},
 			Or: []query.Select{
-				{Where: &query.Query{KeyValues: map[string]query.Value{"2": {Value: &intTwo, ValueComparison: query.Equals()}}}},
+				{Where: &query.Query{KeyValues: map[string]query.Value{"2": {Value: &intTwo, ValueComparison: query.EqualsPtr()}}}},
 			},
 		}
 		g.Expect(query.Validate()).ToNot(HaveOccurred())
@@ -1290,8 +1290,8 @@ func TestAssociatedTree_Query_JoinOR(t *testing.T) {
 		intTwo := datatypes.Int(2)
 		query := query.Select{
 			Or: []query.Select{
-				{And: []query.Select{{And: []query.Select{{Where: &query.Query{KeyValues: map[string]query.Value{"1": {Value: &intOne, ValueComparison: query.Equals()}}}}}}}},
-				{Where: &query.Query{KeyValues: map[string]query.Value{"2": {Value: &intTwo, ValueComparison: query.Equals()}}}},
+				{And: []query.Select{{And: []query.Select{{Where: &query.Query{KeyValues: map[string]query.Value{"1": {Value: &intOne, ValueComparison: query.EqualsPtr()}}}}}}}},
+				{Where: &query.Query{KeyValues: map[string]query.Value{"2": {Value: &intTwo, ValueComparison: query.EqualsPtr()}}}},
 			},
 		}
 		g.Expect(query.Validate()).ToNot(HaveOccurred())
@@ -1359,11 +1359,11 @@ func TestAssociatedTree_Query_AND_OR_joins(t *testing.T) {
 		intThree := datatypes.Int(3)
 		query := query.Select{
 			And: []query.Select{
-				{Where: &query.Query{KeyValues: map[string]query.Value{"1": {Value: &intOne, ValueComparison: query.Equals()}}}},
-				{Where: &query.Query{KeyValues: map[string]query.Value{"2": {Value: &intTwo, ValueComparison: query.Equals()}}}},
+				{Where: &query.Query{KeyValues: map[string]query.Value{"1": {Value: &intOne, ValueComparison: query.EqualsPtr()}}}},
+				{Where: &query.Query{KeyValues: map[string]query.Value{"2": {Value: &intTwo, ValueComparison: query.EqualsPtr()}}}},
 			},
 			Or: []query.Select{
-				{Where: &query.Query{KeyValues: map[string]query.Value{"3": {Value: &intThree, ValueComparison: query.Equals()}}}},
+				{Where: &query.Query{KeyValues: map[string]query.Value{"3": {Value: &intThree, ValueComparison: query.EqualsPtr()}}}},
 			},
 		}
 		g.Expect(query.Validate()).ToNot(HaveOccurred())

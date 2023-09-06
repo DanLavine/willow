@@ -3,6 +3,8 @@ package query
 import (
 	"encoding/json"
 	"fmt"
+
+	"github.com/DanLavine/willow/pkg/models/datatypes"
 )
 
 type Select struct {
@@ -44,4 +46,41 @@ func (s *Select) Validate() error {
 	}
 
 	return nil
+}
+
+// used to know if arbitrary tags, match a query
+func (s *Select) MatchTags(tags datatypes.StringMap) bool {
+	matched := true
+
+	// if Where is not nil, check the tags
+	if s.Where != nil {
+		// for each item in the tag, check to see if there is a key value guard
+		// need to check the query as the source of truth...
+		matched = s.Where.MatchTags(tags)
+	}
+
+	// for each and, need to intersect that all those values match as well
+	if matched && s.And != nil {
+		for _, andCheck := range s.And {
+			if !andCheck.MatchTags(tags) {
+				matched = false
+				break
+			}
+
+		}
+	}
+
+	// can bail out early here and don't even need to check the OR values
+	if matched {
+		return true
+	}
+
+	for _, orValue := range s.Or {
+		// if any of these match, can return true
+		if orValue.MatchTags(tags) {
+			return true
+		}
+	}
+
+	return false
 }
