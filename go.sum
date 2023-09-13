@@ -8,6 +8,8 @@ github.com/DanLavine/channelops v0.0.0-20230908234803-2fd70bd23f48 h1:xGZ+uuXzNd
 github.com/DanLavine/channelops v0.0.0-20230908234803-2fd70bd23f48/go.mod h1:wgViuoEjca7ugJj/z7FfQ07D+hEoTjkLj7iFPw96rQo=
 github.com/DanLavine/channelops v0.0.0-20230909014756-bd208194ad96 h1:35lg02YEyp0y8R59YqLYasT0kYlENI3JhNPpbf9NNMI=
 github.com/DanLavine/channelops v0.0.0-20230909014756-bd208194ad96/go.mod h1:wgViuoEjca7ugJj/z7FfQ07D+hEoTjkLj7iFPw96rQo=
+github.com/DanLavine/channelops v0.0.0-20230913234237-149d4df4cafb h1:J2J6xkNEQUGhRfRDlM9Aafxv6FIRMCE0ygf8Ntrx6v8=
+github.com/DanLavine/channelops v0.0.0-20230913234237-149d4df4cafb/go.mod h1:wgViuoEjca7ugJj/z7FfQ07D+hEoTjkLj7iFPw96rQo=
 github.com/DanLavine/goasync v1.0.0 h1:3QlVIJA23C6iPiNXUSFqdxDdsXi3RfYSSw1EPWY5BgM=
 github.com/DanLavine/goasync v1.0.0/go.mod h1:nR7mV8TA1RT5d6nVgsHEqonPB5GxuNJU1WArc9gUilA=
 github.com/DanLavine/gonotify v0.0.0-20221228000906-77ad21d2336e h1:zX/Z3tg0w5ud4FvftnE/laSyZez5zqRiOvTJRJFbtH8=

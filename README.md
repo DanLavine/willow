@@ -49,17 +49,3 @@ Use Cases:
    have multiple setups all configured to test various hardware. We halso ave a wide spread of potential releases
    from any CI pipeline for N repos + N branches. Pulling from a SUBSET for our server machines configuration
    can just run any build from any queue
-
-
-If Read first happens, but process switches on line 155, could be in trouble
-Else
-If Read first happens, but context switches on line 178, then there could be 2 of the same read channel added if a create request then processes
-Else
-A read requst could be finding many differen patterns when a create request comes in that goes through and is valid to the query to already miss. In that case, we want to add the channel
-
-If Create firrst happens, then Read will allways find the grouping if the query matches based
-on the locking stratagy of the BTreeAssociated
-
-
-Shold the query always respect the provided types, even on stuff like [ !=, <, <= , >, >=].
-Makes the logic simpler to think about from the clients perspective...
