@@ -18,7 +18,7 @@ import (
 
 type clientWaiting struct {
 	selection  query.Select
-	channelOPS channelops.ChannelOps
+	channelOPS channelops.MergeReadChannelOps
 }
 
 type Queue struct {
@@ -126,7 +126,7 @@ func (q *Queue) Dequeue(logger *zap.Logger, cancelContext context.Context, selec
 	logger = logger.Named("DequeueItem")
 
 	var dequeueResponse func(logger *zap.Logger) (*v1.DequeueItemResponse, func(), func(), *v1.Error)
-	channelOperations, reader := channelops.NewChannelOps(cancelContext, q.shutdownContext)
+	channelOperations, reader := channelops.NewMergeRead(cancelContext, q.shutdownContext)
 
 	// add the channel operations if we don't find any values, or a new tag group is added during iteration
 	q.addClientWaiting(selection, channelOperations)
@@ -230,14 +230,14 @@ func (q *Queue) Stop() {
 	})
 }
 
-func (q *Queue) addClientWaiting(selection query.Select, channelOps channelops.ChannelOps) {
+func (q *Queue) addClientWaiting(selection query.Select, channelOps channelops.MergeReadChannelOps) {
 	q.clientsLock.Lock()
 	defer q.clientsLock.Unlock()
 
 	q.clientsWaiting = append(q.clientsWaiting, clientWaiting{selection: selection, channelOPS: channelOps})
 }
 
-func (q *Queue) removeClientWaiting(channelOps channelops.ChannelOps) {
+func (q *Queue) removeClientWaiting(channelOps channelops.MergeReadChannelOps) {
 	q.clientsLock.Lock()
 	defer q.clientsLock.Unlock()
 

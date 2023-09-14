@@ -3,7 +3,7 @@ module github.com/DanLavine/willow
 go 1.19
 
 require (
-	github.com/DanLavine/channelops v0.0.0-20230913234237-149d4df4cafb
+	github.com/DanLavine/channelops v0.0.0-20230914213205-26fbb4f14586
 	github.com/DanLavine/goasync v1.0.0
 	github.com/DanLavine/gonotify v0.0.0-20221228000906-77ad21d2336e
 	github.com/google/uuid v1.3.0
@@ -17,7 +17,7 @@ require (
 require (
 	github.com/google/go-cmp v0.5.9 // indirect
 	github.com/kr/text v0.2.0 // indirect
-	github.com/rogpeppe/go-internal v1.9.0 // indirect
+	github.com/rogpeppe/go-internal v1.11.0 // indirect
 	go.uber.org/atomic v1.10.0 // indirect
 	go.uber.org/multierr v1.9.0 // indirect
 	golang.org/x/text v0.11.0 // indirect
