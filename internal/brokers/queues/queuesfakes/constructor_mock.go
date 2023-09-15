@@ -8,7 +8,8 @@ import (
 	reflect "reflect"
 
 	queues "github.com/DanLavine/willow/internal/brokers/queues"
-	v1 "github.com/DanLavine/willow/pkg/models/v1"
+	api "github.com/DanLavine/willow/pkg/models/api"
+	v1willow "github.com/DanLavine/willow/pkg/models/api/v1willow"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -36,11 +37,11 @@ func (m *MockQueueConstructor) EXPECT() *MockQueueConstructorMockRecorder {
 }
 
 // NewQueue mocks base method.
-func (m *MockQueueConstructor) NewQueue(arg0 *v1.Create) (queues.ManagedQueue, *v1.Error) {
+func (m *MockQueueConstructor) NewQueue(arg0 *v1willow.Create) (queues.ManagedQueue, *api.Error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "NewQueue", arg0)
 	ret0, _ := ret[0].(queues.ManagedQueue)
-	ret1, _ := ret[1].(*v1.Error)
+	ret1, _ := ret[1].(*api.Error)
 	return ret0, ret1
 }
 

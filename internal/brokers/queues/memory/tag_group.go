@@ -11,8 +11,9 @@ import (
 	"github.com/DanLavine/gonotify"
 	"github.com/DanLavine/willow/internal/errors"
 	"github.com/DanLavine/willow/internal/idgenerator"
+	"github.com/DanLavine/willow/pkg/models/api"
+	"github.com/DanLavine/willow/pkg/models/api/v1willow"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
-	v1 "github.com/DanLavine/willow/pkg/models/v1"
 	"go.uber.org/zap"
 
 	"github.com/DanLavine/willow/internal/datastructures/btree"
@@ -28,7 +29,7 @@ type tagGroup struct {
 	availableItems []string
 
 	notifier       *gonotify.Notify
-	dequeueChannel chan any // any -> func(logger *zap.Logger) *v1.DequeueItemResponse
+	dequeueChannel chan any // any -> func(logger *zap.Logger) *v1willow.DequeueItemResponse
 
 	tags                datatypes.StringMap
 	itemReadyCount      *atomic.Uint64
@@ -115,24 +116,24 @@ func (tg *tagGroup) Execute(ctx context.Context) error {
 
 // dequeue is called by the queue when a client pulls a message for processing
 //
-//		RETURNS:
-//		- *v1.DequeueItemResponse - dequeue item
-//	 - func() - onSuccess callback if the caller was able to process the request
-//	 - func() - onFailure callback if the caller faild to process the request
-//		- *v1.Error - error with the queue
-func (tg *tagGroup) dequeue(logger *zap.Logger) (*v1.DequeueItemResponse, func(), func(), *v1.Error) {
+//	RETURNS:
+//	- *v1willow.DequeueItemResponse - dequeue item
+//	- func() - onSuccess callback if the caller was able to process the request
+//	- func() - onFailure callback if the caller faild to process the request
+//	- *v1willow.Error - error with the queue
+func (tg *tagGroup) dequeue(logger *zap.Logger) (*v1willow.DequeueItemResponse, func(), func(), *api.Error) {
 	logger = logger.Named("dequeue")
 
 	// pull the first item to process
 	tg.lock.Lock()
 	itemID := tg.availableItems[0]
 
-	var dequeueItem *v1.DequeueItemResponse
+	var dequeueItem *v1willow.DequeueItemResponse
 	onFind := func(item any) {
-		enqueuedItem := item.(*v1.EnqueueItemRequest)
+		enqueuedItem := item.(*v1willow.EnqueueItemRequest)
 
-		dequeueItem = &v1.DequeueItemResponse{
-			BrokerInfo: v1.BrokerInfo{
+		dequeueItem = &v1willow.DequeueItemResponse{
+			BrokerInfo: v1willow.BrokerInfo{
 				Name: enqueuedItem.Name,
 				Tags: tg.tags,
 			},
@@ -169,7 +170,7 @@ func (tg *tagGroup) dequeue(logger *zap.Logger) (*v1.DequeueItemResponse, func()
 
 // Enqueue a new item onto the tag group.
 // If this was to be used in a "trigger", would need to return the tag group itself, to pull an item?
-func (tg *tagGroup) Enqueue(logger *zap.Logger, totalQueueCounter *Counter, queueItem *v1.EnqueueItemRequest) *v1.Error {
+func (tg *tagGroup) Enqueue(logger *zap.Logger, totalQueueCounter *Counter, queueItem *v1willow.EnqueueItemRequest) *api.Error {
 	logger = logger.Named("Enqueue")
 	tg.lock.Lock()
 	defer tg.lock.Unlock()
@@ -179,7 +180,7 @@ func (tg *tagGroup) Enqueue(logger *zap.Logger, totalQueueCounter *Counter, queu
 
 		updated := false
 		onFind := func(item any) {
-			lastQueueItem := item.(*v1.EnqueueItemRequest)
+			lastQueueItem := item.(*v1willow.EnqueueItemRequest)
 
 			// update the last item if we can. In this case, just return
 			if lastQueueItem.Updateable == true {
@@ -221,15 +222,15 @@ func (tg *tagGroup) Enqueue(logger *zap.Logger, totalQueueCounter *Counter, queu
 //
 // RESPONSE:
 // - bool - bool to indicate if the tag group should be removed (True if there are no more items processing or waiting to process)
-// - *v1.Error - internal error encountered
-func (tg *tagGroup) ACK(logger *zap.Logger, totalQueueCounter *Counter, ackItem *v1.ACK) *v1.Error {
+// - *v1willow.Error - internal error encountered
+func (tg *tagGroup) ACK(logger *zap.Logger, totalQueueCounter *Counter, ackItem *v1willow.ACK) *api.Error {
 	logger = logger.Named("ACK")
 
 	processed := false
 	canDelete := func(item any) bool {
 		defer func() { processed = true }()
 
-		enqueuedItem := item.(*v1.EnqueueItemRequest)
+		enqueuedItem := item.(*v1willow.EnqueueItemRequest)
 		tg.itemProcessingCount.Add(^uint64(0))
 
 		if ackItem.Passed {
@@ -239,7 +240,7 @@ func (tg *tagGroup) ACK(logger *zap.Logger, totalQueueCounter *Counter, ackItem 
 		} else {
 			// requeue a failed item
 			switch ackItem.RequeueLocation {
-			case v1.RequeueFront:
+			case v1willow.RequeueFront:
 				tg.lock.Lock()
 				defer tg.lock.Unlock()
 				tg.availableItems = append([]string{ackItem.ID}, tg.availableItems...)
@@ -247,7 +248,7 @@ func (tg *tagGroup) ACK(logger *zap.Logger, totalQueueCounter *Counter, ackItem 
 				_ = tg.notifier.Add()
 				tg.itemReadyCount.Add(1)
 				return false
-			case v1.RequeueEnd:
+			case v1willow.RequeueEnd:
 				tg.lock.Lock()
 				defer tg.lock.Unlock()
 				tg.availableItems = append(tg.availableItems, enqueuedItem.Name)
@@ -269,14 +270,14 @@ func (tg *tagGroup) ACK(logger *zap.Logger, totalQueueCounter *Counter, ackItem 
 	}
 
 	if !processed {
-		return &v1.Error{Message: fmt.Sprintf("ID %s does not exist for tag group: %v", ackItem.ID, ackItem.BrokerInfo.Tags), StatusCode: http.StatusBadRequest}
+		return &api.Error{Message: fmt.Sprintf("ID %s does not exist for tag group: %v", ackItem.ID, ackItem.BrokerInfo.Tags), StatusCode: http.StatusBadRequest}
 	}
 
 	return nil
 }
 
-func (tg *tagGroup) Metrics() *v1.TagMetricsResponse {
-	return &v1.TagMetricsResponse{
+func (tg *tagGroup) Metrics() *v1willow.TagMetricsResponse {
+	return &v1willow.TagMetricsResponse{
 		Tags:       tg.tags,
 		Ready:      tg.itemReadyCount.Load(),
 		Processing: tg.itemProcessingCount.Load(),

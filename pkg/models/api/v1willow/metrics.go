@@ -1,8 +1,9 @@
-package v1
+package v1willow
 
 import (
 	"encoding/json"
 
+	"github.com/DanLavine/willow/pkg/models/api"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 )
 
@@ -36,10 +37,10 @@ type DeadLetterQueueMetricsResponse struct {
 	Count uint64
 }
 
-func (m *MetricsResponse) ToBytes() ([]byte, *Error) {
+func (m *MetricsResponse) ToBytes() ([]byte, *api.Error) {
 	data, err := json.Marshal(m)
 	if err != nil {
-		return nil, MarshelModelFailed.With("", err.Error())
+		return nil, api.MarshelModelFailed.With("", err.Error())
 	}
 
 	return data, nil

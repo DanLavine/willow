@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/DanLavine/willow/pkg/models/api/v1willow"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
-	v1 "github.com/DanLavine/willow/pkg/models/v1"
 
 	. "github.com/DanLavine/willow/integration-tests/integrationhelpers"
 	. "github.com/onsi/gomega"
@@ -21,8 +21,8 @@ func Test_Enqueue(t *testing.T) {
 		testConstruct.Start(g)
 		defer testConstruct.Shutdown(g)
 
-		enqueueBody := v1.EnqueueItemRequest{
-			BrokerInfo: v1.BrokerInfo{
+		enqueueBody := v1willow.EnqueueItemRequest{
+			BrokerInfo: v1willow.BrokerInfo{
 				Name: "test queue",
 				Tags: datatypes.StringMap{"some": datatypes.String("tag")},
 			},
@@ -38,7 +38,7 @@ func Test_Enqueue(t *testing.T) {
 		testConstruct.Start(g)
 		defer testConstruct.Shutdown(g)
 
-		createBody := v1.Create{
+		createBody := v1willow.Create{
 			Name:                   "test queue",
 			QueueMaxSize:           5,
 			DeadLetterQueueMaxSize: 0,
@@ -46,8 +46,8 @@ func Test_Enqueue(t *testing.T) {
 		createResponse := testConstruct.ServerClient.WillowCreate(g, createBody)
 		g.Expect(createResponse.StatusCode).To(Equal(http.StatusCreated))
 
-		enqueueBody := v1.EnqueueItemRequest{
-			BrokerInfo: v1.BrokerInfo{
+		enqueueBody := v1willow.EnqueueItemRequest{
+			BrokerInfo: v1willow.BrokerInfo{
 				Name: "test queue",
 				Tags: datatypes.StringMap{"some": datatypes.String("tag")},
 			},
@@ -122,8 +122,8 @@ func Test_Enqueue(t *testing.T) {
 		g.Expect(metrics.Queues[0].Max).To(Equal(uint64(5)))
 		g.Expect(metrics.Queues[0].Total).To(Equal(uint64(2)))
 		g.Expect(len(metrics.Queues[0].Tags)).To(Equal(2))
-		g.Expect(metrics.Queues[0].Tags).To(ContainElement(&v1.TagMetricsResponse{Tags: datatypes.StringMap{"some": datatypes.String("tag")}, Ready: 1, Processing: 0}))
-		g.Expect(metrics.Queues[0].Tags).To(ContainElement(&v1.TagMetricsResponse{Tags: datatypes.StringMap{"new": datatypes.String("tag"), "of": datatypes.String("course")}, Ready: 1, Processing: 0}))
+		g.Expect(metrics.Queues[0].Tags).To(ContainElement(&v1willow.TagMetricsResponse{Tags: datatypes.StringMap{"some": datatypes.String("tag")}, Ready: 1, Processing: 0}))
+		g.Expect(metrics.Queues[0].Tags).To(ContainElement(&v1willow.TagMetricsResponse{Tags: datatypes.StringMap{"new": datatypes.String("tag"), "of": datatypes.String("course")}, Ready: 1, Processing: 0}))
 	})
 
 	t.Run("updateable messages can collapse", func(t *testing.T) {

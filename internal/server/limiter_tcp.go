@@ -5,8 +5,8 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"io/ioutil"
 	"net/http"
+	"os"
 
 	"github.com/DanLavine/willow/pkg/config"
 	"go.uber.org/zap"
@@ -66,7 +66,7 @@ func (limiter *limiterTCP) Initialize() error {
 
 	// load the CA cert if it exists
 	if *limiter.config.LimiterCA != "" {
-		CaPEM, err := ioutil.ReadFile(*limiter.config.LimiterCA)
+		CaPEM, err := os.ReadFile(*limiter.config.LimiterCA)
 		if err != nil {
 			return err
 		}

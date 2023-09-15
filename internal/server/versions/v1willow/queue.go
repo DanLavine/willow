@@ -1,4 +1,4 @@
-package v1server
+package v1willow
 
 import (
 	"encoding/json"
@@ -6,7 +6,7 @@ import (
 
 	"github.com/DanLavine/willow/internal/brokers/queues"
 	"github.com/DanLavine/willow/internal/logger"
-	v1 "github.com/DanLavine/willow/pkg/models/v1"
+	"github.com/DanLavine/willow/pkg/models/api/v1willow"
 	"go.uber.org/zap"
 )
 
@@ -37,7 +37,7 @@ func (qh *queueHandler) Create(w http.ResponseWriter, r *http.Request) {
 	case "POST":
 		logger.Debug("processing create queue request")
 
-		createRequest, err := v1.ParseCreateRequest(r.Body)
+		createRequest, err := v1willow.ParseCreateRequest(r.Body)
 		if err != nil {
 			logger.Error("failed parsing request", zap.Error(err))
 

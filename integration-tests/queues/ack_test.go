@@ -7,8 +7,8 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/DanLavine/willow/pkg/models/api/v1willow"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
-	v1 "github.com/DanLavine/willow/pkg/models/v1"
 
 	. "github.com/DanLavine/willow/integration-tests/integrationhelpers"
 	. "github.com/onsi/gomega"
@@ -23,8 +23,8 @@ func Test_ACK(t *testing.T) {
 		testConstruct.Start(g)
 		defer testConstruct.Shutdown(g)
 
-		ackRequest := v1.ACK{
-			BrokerInfo: v1.BrokerInfo{
+		ackRequest := v1willow.ACK{
+			BrokerInfo: v1willow.BrokerInfo{
 				Name: "queue1",
 				Tags: datatypes.StringMap{"not": datatypes.String("found")},
 			},
@@ -44,8 +44,8 @@ func Test_ACK(t *testing.T) {
 		createResponse := testConstruct.ServerClient.WillowCreate(g, Queue1)
 		g.Expect(createResponse.StatusCode).To(Equal(http.StatusCreated))
 
-		ackRequest := v1.ACK{
-			BrokerInfo: v1.BrokerInfo{
+		ackRequest := v1willow.ACK{
+			BrokerInfo: v1willow.BrokerInfo{
 				Name: "queue1",
 				Tags: datatypes.StringMap{"not": datatypes.String("found")},
 			},
@@ -112,7 +112,7 @@ func Test_ACK(t *testing.T) {
 			dequeueResponse := testConstruct.ServerClient.WillowDequeue(g, Queue1Dequeue)
 			g.Expect(dequeueResponse.StatusCode).To(Equal(http.StatusOK))
 
-			dequeueItem := &v1.DequeueItemResponse{}
+			dequeueItem := &v1willow.DequeueItemResponse{}
 			body, err := io.ReadAll(dequeueResponse.Body)
 			g.Expect(err).ToNot(HaveOccurred())
 			g.Expect(json.Unmarshal(body, dequeueItem)).ToNot(HaveOccurred())
@@ -129,8 +129,8 @@ func Test_ACK(t *testing.T) {
 			g.Expect(metrics.Queues[0].Tags[0].Processing).To(Equal(uint64(1)))
 
 			// ack the dequeued message
-			ackRequest := v1.ACK{
-				BrokerInfo: v1.BrokerInfo{
+			ackRequest := v1willow.ACK{
+				BrokerInfo: v1willow.BrokerInfo{
 					Name: "queue1",
 					Tags: datatypes.StringMap{"some": datatypes.String("tag")},
 				},

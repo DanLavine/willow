@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/DanLavine/willow/pkg/models/api/v1willow"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 	"github.com/DanLavine/willow/pkg/models/query"
-	v1 "github.com/DanLavine/willow/pkg/models/v1"
 
 	. "github.com/DanLavine/willow/integration-tests/integrationhelpers"
 	. "github.com/onsi/gomega"
@@ -29,7 +29,7 @@ func Test_Dequeue(t *testing.T) {
 
 		// dequeue item request
 		tagString := datatypes.String("tag")
-		dequeueRequest := v1.DequeueItemRequest{
+		dequeueRequest := v1willow.DequeueItemRequest{
 			Name: "queue1",
 			Selection: query.Select{
 				Where: &query.Query{
@@ -59,7 +59,7 @@ func Test_Dequeue(t *testing.T) {
 		// dequeue item request
 		tagString := datatypes.String("tag")
 		oneKey := 1
-		dequeueRequest := v1.DequeueItemRequest{
+		dequeueRequest := v1willow.DequeueItemRequest{
 			Name: "queue1",
 			Selection: query.Select{
 				Where: &query.Query{
@@ -80,7 +80,7 @@ func Test_Dequeue(t *testing.T) {
 		body, err := io.ReadAll(dequeueResponse.Body)
 		g.Expect(err).ToNot(HaveOccurred())
 
-		dequeueItem := &v1.DequeueItemResponse{}
+		dequeueItem := &v1willow.DequeueItemResponse{}
 		g.Expect(json.Unmarshal(body, dequeueItem)).ToNot(HaveOccurred())
 
 		// check item returned
@@ -100,7 +100,7 @@ func Test_Dequeue(t *testing.T) {
 		// dequeue item request
 		tagString := datatypes.String("tag")
 		oneKey := 1
-		dequeueRequest := v1.DequeueItemRequest{
+		dequeueRequest := v1willow.DequeueItemRequest{
 			Name: "queue1",
 			Selection: query.Select{
 				Where: &query.Query{
@@ -146,7 +146,7 @@ func Test_Dequeue(t *testing.T) {
 		body, err := io.ReadAll(dequeueResponse.Body)
 		g.Expect(err).ToNot(HaveOccurred())
 
-		dequeueItem := &v1.DequeueItemResponse{}
+		dequeueItem := &v1willow.DequeueItemResponse{}
 		g.Expect(json.Unmarshal(body, dequeueItem)).ToNot(HaveOccurred())
 
 		// check item returned
@@ -178,7 +178,7 @@ func Test_Dequeue(t *testing.T) {
 		// dequeue item request
 		tagString := datatypes.String("tag")
 		oneKey := 1
-		dequeueRequest := v1.DequeueItemRequest{
+		dequeueRequest := v1willow.DequeueItemRequest{
 			Name: "queue1",
 			Selection: query.Select{
 				Where: &query.Query{
@@ -199,7 +199,7 @@ func Test_Dequeue(t *testing.T) {
 		body, err := io.ReadAll(response1.Body)
 		g.Expect(err).ToNot(HaveOccurred())
 
-		dequeueItem1 := v1.DequeueItemResponse{}
+		dequeueItem1 := v1willow.DequeueItemResponse{}
 		g.Expect(json.Unmarshal(body, &dequeueItem1)).ToNot(HaveOccurred())
 		g.Expect(dequeueItem1.BrokerInfo.Name).To(Equal("queue1"))
 		g.Expect(dequeueItem1.BrokerInfo.Tags).To(Equal(datatypes.StringMap{"some": datatypes.String("tag")}))
@@ -212,7 +212,7 @@ func Test_Dequeue(t *testing.T) {
 		body, err = io.ReadAll(response2.Body)
 		g.Expect(err).ToNot(HaveOccurred())
 
-		dequeueItem2 := v1.DequeueItemResponse{}
+		dequeueItem2 := v1willow.DequeueItemResponse{}
 		g.Expect(json.Unmarshal(body, &dequeueItem2)).ToNot(HaveOccurred())
 		g.Expect(dequeueItem2.BrokerInfo.Name).To(Equal("queue1"))
 		g.Expect(dequeueItem2.BrokerInfo.Tags).To(Equal(datatypes.StringMap{"some": datatypes.String("tag")}))
@@ -225,7 +225,7 @@ func Test_Dequeue(t *testing.T) {
 		body, err = io.ReadAll(response3.Body)
 		g.Expect(err).ToNot(HaveOccurred())
 
-		dequeueItem3 := v1.DequeueItemResponse{}
+		dequeueItem3 := v1willow.DequeueItemResponse{}
 		g.Expect(json.Unmarshal(body, &dequeueItem3)).ToNot(HaveOccurred())
 		g.Expect(dequeueItem3.BrokerInfo.Name).To(Equal("queue1"))
 		g.Expect(dequeueItem3.BrokerInfo.Tags).To(Equal(datatypes.StringMap{"some": datatypes.String("tag")}))
@@ -261,16 +261,16 @@ func Test_Dequeue(t *testing.T) {
 		enqueueResponse = testConstruct.ServerClient.WillowEnqueue(g, enqueueMatchesFound)
 		g.Expect(enqueueResponse.StatusCode).To(Equal(http.StatusOK))
 
-		expectedItem := []v1.DequeueItemResponse{
+		expectedItem := []v1willow.DequeueItemResponse{
 			{
-				BrokerInfo: v1.BrokerInfo{
+				BrokerInfo: v1willow.BrokerInfo{
 					Name: "queue1",
 					Tags: datatypes.StringMap{"some": datatypes.String("tag"), "another": datatypes.String("tag")},
 				},
 				Data: []byte(`some more data to find`),
 			},
 			{
-				BrokerInfo: v1.BrokerInfo{
+				BrokerInfo: v1willow.BrokerInfo{
 					Name: "queue1",
 					Tags: datatypes.StringMap{"the other unique tag": datatypes.String("ok")},
 				},
@@ -284,7 +284,7 @@ func Test_Dequeue(t *testing.T) {
 			notokString := datatypes.String("not ok")
 			twoKey := 2
 			trueValue := true
-			dequeueRequest := v1.DequeueItemRequest{
+			dequeueRequest := v1willow.DequeueItemRequest{
 				Name: "queue1",
 				Selection: query.Select{
 					Or: []query.Select{
@@ -328,7 +328,7 @@ func Test_Dequeue(t *testing.T) {
 			body, err := io.ReadAll(dequeueResponse.Body)
 			g.Expect(err).ToNot(HaveOccurred())
 
-			dequeueItem := v1.DequeueItemResponse{}
+			dequeueItem := v1willow.DequeueItemResponse{}
 			g.Expect(json.Unmarshal(body, &dequeueItem)).ToNot(HaveOccurred())
 
 			if reflect.DeepEqual(dequeueItem.BrokerInfo.Tags, expectedItem[0].BrokerInfo.Tags) {

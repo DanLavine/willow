@@ -12,7 +12,7 @@ import (
 	"github.com/DanLavine/willow/internal/brokers/queues"
 	"github.com/DanLavine/willow/internal/datastructures/btree"
 	"github.com/DanLavine/willow/internal/server/client"
-	"github.com/DanLavine/willow/internal/server/v1server"
+	"github.com/DanLavine/willow/internal/server/versions/v1willow"
 	"github.com/DanLavine/willow/pkg/config"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 	"go.uber.org/zap"
@@ -28,10 +28,10 @@ type willowTCP struct {
 
 	connTracker  btree.BTree
 	queueManager queues.QueueManager
-	queueHandler v1server.QueueHandler
+	queueHandler v1willow.QueueHandler
 }
 
-func NewWillowTCP(logger *zap.Logger, config *config.WillowConfig, queueManager queues.QueueManager, queueHandler v1server.QueueHandler) *willowTCP {
+func NewWillowTCP(logger *zap.Logger, config *config.WillowConfig, queueManager queues.QueueManager, queueHandler v1willow.QueueHandler) *willowTCP {
 	connTrackerTree, err := btree.NewThreadSafe(2)
 	if err != nil {
 		panic(err)

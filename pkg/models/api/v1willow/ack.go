@@ -1,9 +1,10 @@
-package v1
+package v1willow
 
 import (
 	"encoding/json"
 	"io"
-	"net/http"
+
+	"github.com/DanLavine/willow/pkg/models/api"
 )
 
 type RequeueLocation uint
@@ -26,15 +27,15 @@ type ACK struct {
 	RequeueLocation RequeueLocation // only used when set to false
 }
 
-func ParseACKRequest(reader io.ReadCloser) (*ACK, *Error) {
+func ParseACKRequest(reader io.ReadCloser) (*ACK, *api.Error) {
 	requestBody, err := io.ReadAll(reader)
 	if err != nil {
-		return nil, InvalidRequestBody.With("", err.Error())
+		return nil, api.ReadRequestBodyError.With("", err.Error())
 	}
 
 	obj := &ACK{}
 	if err := json.Unmarshal(requestBody, obj); err != nil {
-		return nil, ParseRequestBodyError.With("", err.Error())
+		return nil, api.ParseRequestBodyError.With("", err.Error())
 	}
 
 	if validateErr := obj.validate(); validateErr != nil {
@@ -44,13 +45,13 @@ func ParseACKRequest(reader io.ReadCloser) (*ACK, *Error) {
 	return obj, nil
 }
 
-func (ack *ACK) Validate() *Error {
+func (ack *ACK) Validate() *api.Error {
 	if err := ack.BrokerInfo.validate(); err != nil {
 		return err
 	}
 
 	if ack.ID == "" {
-		return &Error{Message: "ID cannot be an empty string", StatusCode: http.StatusBadRequest}
+		return api.InvalidRequestBody.With("ID cannot be an empty string", "")
 	}
 
 	return nil

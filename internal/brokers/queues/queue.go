@@ -3,8 +3,9 @@ package queues
 import (
 	"context"
 
+	"github.com/DanLavine/willow/pkg/models/api"
+	"github.com/DanLavine/willow/pkg/models/api/v1willow"
 	"github.com/DanLavine/willow/pkg/models/query"
-	v1 "github.com/DanLavine/willow/pkg/models/v1"
 	"go.uber.org/zap"
 )
 
@@ -19,8 +20,8 @@ type QueueManager interface {
 	// - create - parameters to create a queue
 	//
 	// RETURNs:
-	// - v1.Error - any errors encountered when creating the queue
-	Create(logger *zap.Logger, create *v1.Create) *v1.Error
+	// - api.Error - any errors encountered when creating the queue
+	Create(logger *zap.Logger, create *v1willow.Create) *api.Error
 
 	// Find a particular queue
 	//
@@ -30,14 +31,14 @@ type QueueManager interface {
 	//
 	// RETURNS:
 	// - Queue - queue if the queue is defined
-	// - v1.Error - any errors encountered when finding the queue, or an error that it does not exist
-	Find(logger *zap.Logger, queue string) (Queue, *v1.Error)
+	// - v1willow.Error - any errors encountered when finding the queue, or an error that it does not exist
+	Find(logger *zap.Logger, queue string) (Queue, *api.Error)
 
 	// Get Metrics for all Queues
 	//
 	// RETURNS:
-	// - v1.MettricsResponse - data for all queues and their tag groups
-	Metrics() *v1.MetricsResponse
+	// - v1willow.MettricsResponse - data for all queues and their tag groups
+	Metrics() *v1willow.MetricsResponse
 }
 
 // Managed queue defines all the managment functions that queue needs for its lifecycle.
@@ -56,14 +57,14 @@ type ManagedQueue interface {
 // available to any clients.
 type Queue interface {
 	// Enqueue an item onto the queue
-	Enqueue(logger *zap.Logger, enqueueItem *v1.EnqueueItemRequest) *v1.Error
+	Enqueue(logger *zap.Logger, enqueueItem *v1willow.EnqueueItemRequest) *api.Error
 
 	// Dequeue an item from the queue
-	Dequeue(logger *zap.Logger, cancelContext context.Context, selection query.Select) (*v1.DequeueItemResponse, func(), func(), *v1.Error)
+	Dequeue(logger *zap.Logger, cancelContext context.Context, selection query.Select) (*v1willow.DequeueItemResponse, func(), func(), *api.Error)
 
 	// ACK a message
-	ACK(logger *zap.Logger, ackItem *v1.ACK) *v1.Error
+	ACK(logger *zap.Logger, ackItem *v1willow.ACK) *api.Error
 
 	// Get Metrics info
-	Metrics() *v1.QueueMetricsResponse
+	Metrics() *v1willow.QueueMetricsResponse
 }

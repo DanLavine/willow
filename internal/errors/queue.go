@@ -3,23 +3,23 @@ package errors
 import (
 	"net/http"
 
-	v1 "github.com/DanLavine/willow/pkg/models/v1"
+	"github.com/DanLavine/willow/pkg/models/api"
 )
 
 var (
 	// queue setup errors
-	UnknownQueueStorage = &v1.Error{Message: "Unkown queue storage type.", StatusCode: http.StatusBadRequest}
-	NoCreateParams      = &v1.Error{Message: "No Create Params.", StatusCode: http.StatusInternalServerError}
-	NoEncoder           = &v1.Error{Message: "No encoder received.", StatusCode: http.StatusInternalServerError}
-	NoReaders           = &v1.Error{Message: "No readers received.", StatusCode: http.StatusInternalServerError}
-	NilReader           = &v1.Error{Message: "Null reader received.", StatusCode: http.StatusInternalServerError}
+	UnknownQueueStorage = &api.Error{Message: "Unkown queue storage type.", StatusCode: http.StatusBadRequest}
+	NoCreateParams      = &api.Error{Message: "No Create Params.", StatusCode: http.StatusInternalServerError}
+	NoEncoder           = &api.Error{Message: "No encoder received.", StatusCode: http.StatusInternalServerError}
+	NoReaders           = &api.Error{Message: "No readers received.", StatusCode: http.StatusInternalServerError}
+	NilReader           = &api.Error{Message: "Null reader received.", StatusCode: http.StatusInternalServerError}
 
 	// queue errors
-	QueueNotFound = &v1.Error{Message: "Queue not found.", StatusCode: http.StatusNotAcceptable}
+	QueueNotFound = &api.Error{Message: "Queue not found.", StatusCode: http.StatusNotAcceptable}
 
 	// queue item errors
-	ItemNotfound            = &v1.Error{Message: "Item not found.", StatusCode: http.StatusNotFound}
-	ItemNotProcessing       = &v1.Error{Message: "Item not processing.", StatusCode: http.StatusBadRequest}
-	MessageTypeNotSupported = &v1.Error{Message: "Message type not supported", StatusCode: http.StatusBadRequest}
-	MaxEnqueuedItems        = &v1.Error{Message: "Queue reached max number of in flight items. Cannot queue request", StatusCode: http.StatusTooManyRequests}
+	ItemNotfound            = &api.Error{Message: "Item not found.", StatusCode: http.StatusNotFound}
+	ItemNotProcessing       = &api.Error{Message: "Item not processing.", StatusCode: http.StatusBadRequest}
+	MessageTypeNotSupported = &api.Error{Message: "Message type not supported", StatusCode: http.StatusBadRequest}
+	MaxEnqueuedItems        = &api.Error{Message: "Queue reached max number of in flight items. Cannot queue request", StatusCode: http.StatusTooManyRequests}
 )

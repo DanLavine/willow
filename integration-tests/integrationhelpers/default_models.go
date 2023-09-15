@@ -1,28 +1,28 @@
 package integrationhelpers
 
 import (
+	"github.com/DanLavine/willow/pkg/models/api/v1willow"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 	"github.com/DanLavine/willow/pkg/models/query"
-	v1 "github.com/DanLavine/willow/pkg/models/v1"
 )
 
 var (
 	// some general queues
-	Queue1 = v1.Create{
+	Queue1 = v1willow.Create{
 		Name:                   "queue1",
 		QueueMaxSize:           5,
 		DeadLetterQueueMaxSize: 1,
 	}
 
-	Queue2 = v1.Create{
+	Queue2 = v1willow.Create{
 		Name:                   "queue2",
 		QueueMaxSize:           5,
 		DeadLetterQueueMaxSize: 1,
 	}
 
 	// some general enqueu message
-	Queue1UpdateableEnqueue = v1.EnqueueItemRequest{
-		BrokerInfo: v1.BrokerInfo{
+	Queue1UpdateableEnqueue = v1willow.EnqueueItemRequest{
+		BrokerInfo: v1willow.BrokerInfo{
 			Name: "queue1",
 			Tags: datatypes.StringMap{"some": datatypes.String("tag")},
 		},
@@ -30,8 +30,8 @@ var (
 		Updateable: true,
 	}
 
-	Queue1NotUpdateableEnqueue = v1.EnqueueItemRequest{
-		BrokerInfo: v1.BrokerInfo{
+	Queue1NotUpdateableEnqueue = v1willow.EnqueueItemRequest{
+		BrokerInfo: v1willow.BrokerInfo{
 			Name: "queue1",
 			Tags: datatypes.StringMap{"some": datatypes.String("tag")},
 		},
@@ -39,8 +39,8 @@ var (
 		Updateable: false,
 	}
 
-	Queue2UpdateableEnqueue = v1.EnqueueItemRequest{
-		BrokerInfo: v1.BrokerInfo{
+	Queue2UpdateableEnqueue = v1willow.EnqueueItemRequest{
+		BrokerInfo: v1willow.BrokerInfo{
 			Name: "queue2",
 			Tags: datatypes.StringMap{"some": datatypes.String("tag")},
 		},
@@ -50,7 +50,7 @@ var (
 
 	// some general dequeue messages
 	tagValue      = datatypes.String("tag")
-	Queue1Dequeue = v1.DequeueItemRequest{
+	Queue1Dequeue = v1willow.DequeueItemRequest{
 		Name: "queue1",
 		Selection: query.Select{
 			Where: &query.Query{

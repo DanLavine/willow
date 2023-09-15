@@ -12,7 +12,7 @@ import (
 	"github.com/DanLavine/willow/internal/brokers/queues"
 	"github.com/DanLavine/willow/internal/logger"
 	"github.com/DanLavine/willow/internal/server"
-	"github.com/DanLavine/willow/internal/server/v1server"
+	"github.com/DanLavine/willow/internal/server/versions/v1willow"
 	"github.com/DanLavine/willow/pkg/config"
 )
 
@@ -36,9 +36,9 @@ func main() {
 
 	// v1 api handlers
 	//// http2 server to handle all client requests
-	taskManager.AddTask("tcp_server", server.NewWillowTCP(logger, cfg, queueManager, v1server.NewQueueHandler(logger, queueManager)))
+	taskManager.AddTask("tcp_server", server.NewWillowTCP(logger, cfg, queueManager, v1willow.NewQueueHandler(logger, queueManager)))
 	//// http server to handle a dashboard's metrics requests
-	taskManager.AddTask("metrics_server", server.NewMetrics(logger, cfg, v1server.NewMetricsHandler(logger, queueManager)))
+	taskManager.AddTask("metrics_server", server.NewMetrics(logger, cfg, v1willow.NewMetricsHandler(logger, queueManager)))
 
 	// start all processes
 	shutdown, _ := signal.NotifyContext(context.Background(), syscall.SIGINT)

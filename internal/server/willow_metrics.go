@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/DanLavine/willow/internal/server/v1server"
+	"github.com/DanLavine/willow/internal/server/versions/v1willow"
 	"github.com/DanLavine/willow/pkg/config"
 	"go.uber.org/zap"
 )
@@ -15,10 +15,10 @@ type metrics struct {
 	logger *zap.Logger
 	config *config.WillowConfig
 
-	metricsHandler v1server.MetricsHandler
+	metricsHandler v1willow.MetricsHandler
 }
 
-func NewMetrics(logger *zap.Logger, config *config.WillowConfig, metricsHandler v1server.MetricsHandler) *metrics {
+func NewMetrics(logger *zap.Logger, config *config.WillowConfig, metricsHandler v1willow.MetricsHandler) *metrics {
 	return &metrics{
 		logger:         logger.Named("tcp_server"),
 		config:         config,

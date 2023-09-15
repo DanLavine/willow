@@ -1,11 +1,11 @@
-package v1server
+package v1willow
 
 import (
 	"net/http"
 
 	"github.com/DanLavine/willow/internal/logger"
 	"github.com/DanLavine/willow/internal/server/client"
-	v1 "github.com/DanLavine/willow/pkg/models/v1"
+	"github.com/DanLavine/willow/pkg/models/api/v1willow"
 )
 
 // Enqueue handler adds an item onto a message queue, or updates a message queue that is waiting to process
@@ -17,7 +17,7 @@ func (qh *queueHandler) Enqueue(w http.ResponseWriter, r *http.Request) {
 	case "POST":
 		logger.Debug("POST enqueue")
 
-		enqueueItem, err := v1.ParseEnqueueItemRequest(r.Body)
+		enqueueItem, err := v1willow.ParseEnqueueItemRequest(r.Body)
 		if err != nil {
 			w.WriteHeader(err.StatusCode)
 			w.Write(err.ToBytes())
@@ -55,7 +55,7 @@ func (qh *queueHandler) Dequeue(w http.ResponseWriter, r *http.Request) {
 	case "GET":
 		logger.Debug("GET")
 
-		dequeueItemRequest, err := v1.ParseDequeueItemRequest(r.Body)
+		dequeueItemRequest, err := v1willow.ParseDequeueItemRequest(r.Body)
 		if err != nil {
 			w.WriteHeader(err.StatusCode)
 			w.Write(err.ToBytes())
@@ -76,9 +76,16 @@ func (qh *queueHandler) Dequeue(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// TODO: on an error, we need to mark the message as failed?
+		data, err := dequeueItem.ToBytes()
+		if err != nil {
+			w.WriteHeader(err.StatusCode)
+			w.Write(err.ToBytes())
+			failure()
+			return
+		}
+
 		w.WriteHeader(http.StatusOK)
-		_, writeErr := w.Write(dequeueItem.ToBytes())
+		_, writeErr := w.Write(data)
 		if writeErr == nil {
 			// record which client is processing which item
 			clientTracker := r.Context().Value("clientTracker").(client.Tracker)
@@ -103,7 +110,7 @@ func (qh *queueHandler) ACK(w http.ResponseWriter, r *http.Request) {
 	case "POST":
 		logger.Debug("POST ACK")
 
-		ack, err := v1.ParseACKRequest(r.Body)
+		ack, err := v1willow.ParseACKRequest(r.Body)
 		if err != nil {
 			w.WriteHeader(err.StatusCode)
 			w.Write(err.ToBytes())

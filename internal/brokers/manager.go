@@ -7,8 +7,9 @@ import (
 	"github.com/DanLavine/willow/internal/brokers/queues"
 	"github.com/DanLavine/willow/internal/datastructures/btree"
 	"github.com/DanLavine/willow/internal/errors"
+	"github.com/DanLavine/willow/pkg/models/api"
+	"github.com/DanLavine/willow/pkg/models/api/v1willow"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
-	v1 "github.com/DanLavine/willow/pkg/models/v1"
 	"go.uber.org/zap"
 )
 
@@ -47,10 +48,10 @@ func (bm *brokerManager) Execute(ctx context.Context) error {
 	return nil
 }
 
-func (bm *brokerManager) Create(logger *zap.Logger, createRequest *v1.Create) *v1.Error {
+func (bm *brokerManager) Create(logger *zap.Logger, createRequest *v1willow.Create) *api.Error {
 	logger = logger.Named("Create")
 
-	var createFailure *v1.Error
+	var createFailure *api.Error
 	create := func() any {
 		queue, err := bm.queueConstructor.NewQueue(createRequest)
 		if err != nil {
@@ -74,7 +75,7 @@ func (bm *brokerManager) Create(logger *zap.Logger, createRequest *v1.Create) *v
 	return createFailure
 }
 
-func (bm *brokerManager) Find(logger *zap.Logger, queueName string) (queues.Queue, *v1.Error) {
+func (bm *brokerManager) Find(logger *zap.Logger, queueName string) (queues.Queue, *api.Error) {
 	logger = logger.Named("Find")
 
 	var queue queues.Queue
@@ -95,8 +96,8 @@ func (bm *brokerManager) Find(logger *zap.Logger, queueName string) (queues.Queu
 }
 
 // Metrics is currently a simple call that will report all metrics for all queues
-func (m *brokerManager) Metrics() *v1.MetricsResponse {
-	metrics := &v1.MetricsResponse{}
+func (m *brokerManager) Metrics() *v1willow.MetricsResponse {
+	metrics := &v1willow.MetricsResponse{}
 
 	iterator := func(value any) bool {
 		managedQueue := value.(queues.ManagedQueue)

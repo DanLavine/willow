@@ -8,11 +8,11 @@ import (
 	"net/http"
 	"time"
 
-	v1 "github.com/DanLavine/willow/pkg/models/v1"
+	"github.com/DanLavine/willow/pkg/models/api/v1willow"
 	. "github.com/onsi/gomega"
 )
 
-func (c *Client) WillowCreate(g *WithT, createBody v1.Create) *http.Response {
+func (c *Client) WillowCreate(g *WithT, createBody v1willow.Create) *http.Response {
 	body, err := json.Marshal(createBody)
 	g.Expect(err).ToNot(HaveOccurred())
 
@@ -26,7 +26,7 @@ func (c *Client) WillowCreate(g *WithT, createBody v1.Create) *http.Response {
 	return response
 }
 
-func (c *Client) WillowEnqueue(g *WithT, enqueueBody v1.EnqueueItemRequest) *http.Response {
+func (c *Client) WillowEnqueue(g *WithT, enqueueBody v1willow.EnqueueItemRequest) *http.Response {
 	body, err := json.Marshal(enqueueBody)
 	g.Expect(err).ToNot(HaveOccurred())
 
@@ -40,7 +40,7 @@ func (c *Client) WillowEnqueue(g *WithT, enqueueBody v1.EnqueueItemRequest) *htt
 	return response
 }
 
-func (c *Client) WillowDequeue(g *WithT, readerQuery v1.DequeueItemRequest) *http.Response {
+func (c *Client) WillowDequeue(g *WithT, readerQuery v1willow.DequeueItemRequest) *http.Response {
 	body, err := json.Marshal(readerQuery)
 	g.Expect(err).ToNot(HaveOccurred())
 
@@ -69,7 +69,7 @@ func (c *Client) WillowDequeue(g *WithT, readerQuery v1.DequeueItemRequest) *htt
 	}
 }
 
-func (c *Client) WillowACK(g *WithT, ackBody v1.ACK) *http.Response {
+func (c *Client) WillowACK(g *WithT, ackBody v1willow.ACK) *http.Response {
 	body, err := json.Marshal(ackBody)
 	g.Expect(err).ToNot(HaveOccurred())
 
@@ -83,7 +83,7 @@ func (c *Client) WillowACK(g *WithT, ackBody v1.ACK) *http.Response {
 	return response
 }
 
-func (c *Client) WillowMetrics(g *WithT) v1.MetricsResponse {
+func (c *Client) WillowMetrics(g *WithT) v1willow.MetricsResponse {
 	request, err := http.NewRequest("GET", fmt.Sprintf("%s/v1/metrics", c.metricsAddress), nil)
 	g.Expect(err).ToNot(HaveOccurred())
 
@@ -97,7 +97,7 @@ func (c *Client) WillowMetrics(g *WithT) v1.MetricsResponse {
 	metricsData, err := io.ReadAll(body)
 	g.Expect(err).ToNot(HaveOccurred())
 
-	metrics := v1.MetricsResponse{}
+	metrics := v1willow.MetricsResponse{}
 	g.Expect(json.Unmarshal(metricsData, &metrics)).ToNot(HaveOccurred())
 
 	return metrics

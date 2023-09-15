@@ -8,8 +8,9 @@ import (
 	context "context"
 	reflect "reflect"
 
+	api "github.com/DanLavine/willow/pkg/models/api"
+	v1willow "github.com/DanLavine/willow/pkg/models/api/v1willow"
 	query "github.com/DanLavine/willow/pkg/models/query"
-	v1 "github.com/DanLavine/willow/pkg/models/v1"
 	gomock "go.uber.org/mock/gomock"
 	zap "go.uber.org/zap"
 )
@@ -38,10 +39,10 @@ func (m *MockManagedQueue) EXPECT() *MockManagedQueueMockRecorder {
 }
 
 // ACK mocks base method.
-func (m *MockManagedQueue) ACK(arg0 *zap.Logger, arg1 *v1.ACK) *v1.Error {
+func (m *MockManagedQueue) ACK(arg0 *zap.Logger, arg1 *v1willow.ACK) *api.Error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ACK", arg0, arg1)
-	ret0, _ := ret[0].(*v1.Error)
+	ret0, _ := ret[0].(*api.Error)
 	return ret0
 }
 
@@ -52,13 +53,13 @@ func (mr *MockManagedQueueMockRecorder) ACK(arg0, arg1 interface{}) *gomock.Call
 }
 
 // Dequeue mocks base method.
-func (m *MockManagedQueue) Dequeue(arg0 *zap.Logger, arg1 context.Context, arg2 query.Select) (*v1.DequeueItemResponse, func(), func(), *v1.Error) {
+func (m *MockManagedQueue) Dequeue(arg0 *zap.Logger, arg1 context.Context, arg2 query.Select) (*v1willow.DequeueItemResponse, func(), func(), *api.Error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Dequeue", arg0, arg1, arg2)
-	ret0, _ := ret[0].(*v1.DequeueItemResponse)
+	ret0, _ := ret[0].(*v1willow.DequeueItemResponse)
 	ret1, _ := ret[1].(func())
 	ret2, _ := ret[2].(func())
-	ret3, _ := ret[3].(*v1.Error)
+	ret3, _ := ret[3].(*api.Error)
 	return ret0, ret1, ret2, ret3
 }
 
@@ -69,10 +70,10 @@ func (mr *MockManagedQueueMockRecorder) Dequeue(arg0, arg1, arg2 interface{}) *g
 }
 
 // Enqueue mocks base method.
-func (m *MockManagedQueue) Enqueue(arg0 *zap.Logger, arg1 *v1.EnqueueItemRequest) *v1.Error {
+func (m *MockManagedQueue) Enqueue(arg0 *zap.Logger, arg1 *v1willow.EnqueueItemRequest) *api.Error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Enqueue", arg0, arg1)
-	ret0, _ := ret[0].(*v1.Error)
+	ret0, _ := ret[0].(*api.Error)
 	return ret0
 }
 
@@ -97,10 +98,10 @@ func (mr *MockManagedQueueMockRecorder) Execute(arg0 interface{}) *gomock.Call {
 }
 
 // Metrics mocks base method.
-func (m *MockManagedQueue) Metrics() *v1.QueueMetricsResponse {
+func (m *MockManagedQueue) Metrics() *v1willow.QueueMetricsResponse {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Metrics")
-	ret0, _ := ret[0].(*v1.QueueMetricsResponse)
+	ret0, _ := ret[0].(*v1willow.QueueMetricsResponse)
 	return ret0
 }
 

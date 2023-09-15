@@ -6,13 +6,13 @@ import (
 	"sync"
 
 	"github.com/DanLavine/willow/internal/brokers/queues"
-	v1 "github.com/DanLavine/willow/pkg/models/v1"
+	"github.com/DanLavine/willow/pkg/models/api/v1willow"
 	"go.uber.org/zap"
 )
 
 type Tracker interface {
-	Add(id string, brokerInfo v1.BrokerInfo)
-	Remove(id string, brokerInfo v1.BrokerInfo)
+	Add(id string, brokerInfo v1willow.BrokerInfo)
+	Remove(id string, brokerInfo v1willow.BrokerInfo)
 
 	// don't keep track of this thing on each of our queues, just pass it in on the dissconnect
 	Disconnect(logger *zap.Logger, conn net.Conn, queueManager queues.QueueManager)
@@ -20,7 +20,7 @@ type Tracker interface {
 
 type processingID struct {
 	id         string
-	brokerInfo v1.BrokerInfo
+	brokerInfo v1willow.BrokerInfo
 }
 
 // tracker is used to keep track of messages being processed by a client.
@@ -37,14 +37,14 @@ func NewTracker() *tracker {
 	}
 }
 
-func (t *tracker) Add(id string, brokerInfo v1.BrokerInfo) {
+func (t *tracker) Add(id string, brokerInfo v1willow.BrokerInfo) {
 	t.lock.Lock()
 	defer t.lock.Unlock()
 
 	t.processingIDs = append(t.processingIDs, processingID{id: id, brokerInfo: brokerInfo})
 }
 
-func (t *tracker) Remove(id string, brokerInfo v1.BrokerInfo) {
+func (t *tracker) Remove(id string, brokerInfo v1willow.BrokerInfo) {
 	t.lock.Lock()
 	defer t.lock.Unlock()
 
@@ -68,7 +68,7 @@ func (t *tracker) Disconnect(logger *zap.Logger, conn net.Conn, queueManager que
 	for _, pID := range t.processingIDs {
 		queue, _ := queueManager.Find(logger, pID.brokerInfo.Name)
 		if queue != nil {
-			if err := queue.ACK(logger, &v1.ACK{BrokerInfo: pID.brokerInfo, ID: pID.id, Passed: false, RequeueLocation: v1.RequeueNone}); err != nil {
+			if err := queue.ACK(logger, &v1willow.ACK{BrokerInfo: pID.brokerInfo, ID: pID.id, Passed: false, RequeueLocation: v1willow.RequeueNone}); err != nil {
 				logger.Error("failed attempting to ack a closed client", zap.Error(err))
 			} else {
 				logger.Debug("successfully failed pending item", zap.Any("broker_info", pID.brokerInfo), zap.String("id", pID.id))

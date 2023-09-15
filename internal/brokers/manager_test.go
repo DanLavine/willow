@@ -7,8 +7,9 @@ import (
 	"github.com/DanLavine/willow/internal/brokers/queues"
 	"github.com/DanLavine/willow/internal/brokers/queues/queuesfakes"
 	"github.com/DanLavine/willow/pkg/config"
+	"github.com/DanLavine/willow/pkg/models/api"
+	"github.com/DanLavine/willow/pkg/models/api/v1willow"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
-	v1 "github.com/DanLavine/willow/pkg/models/v1"
 
 	. "github.com/onsi/gomega"
 	"go.uber.org/mock/gomock"
@@ -28,16 +29,16 @@ func TestQueueManager_Create(t *testing.T) {
 		mockController := gomock.NewController(t)
 		defer mockController.Finish()
 		fakeQueueConstructor := queuesfakes.NewMockQueueConstructor(mockController)
-		fakeQueueConstructor.EXPECT().NewQueue(gomock.Any()).DoAndReturn(func(createParams *v1.Create) (queues.ManagedQueue, *v1.Error) {
+		fakeQueueConstructor.EXPECT().NewQueue(gomock.Any()).DoAndReturn(func(createParams *v1willow.Create) (queues.ManagedQueue, *api.Error) {
 			fmt.Println("calling new queue")
-			return nil, &v1.Error{Message: "Failed to create queue"}
+			return nil, &api.Error{Message: "Failed to create queue"}
 		}).Times(1)
 
 		// queue manager
 		queueManager := NewBrokerManager(fakeQueueConstructor)
 		g.Expect(queueManager).ToNot(BeNil())
 
-		err := queueManager.Create(logger, &v1.Create{Name: "test", QueueMaxSize: 5, DeadLetterQueueMaxSize: 0})
+		err := queueManager.Create(logger, &v1willow.Create{Name: "test", QueueMaxSize: 5, DeadLetterQueueMaxSize: 0})
 		g.Expect(err).To(HaveOccurred())
 		g.Expect(err.Error()).To(Equal("Failed to create queue"))
 
@@ -49,7 +50,7 @@ func TestQueueManager_Create(t *testing.T) {
 		mockController := gomock.NewController(t)
 		defer mockController.Finish()
 		fakeQueueConstructor := queuesfakes.NewMockQueueConstructor(mockController)
-		fakeQueueConstructor.EXPECT().NewQueue(gomock.Any()).DoAndReturn(func(createParams *v1.Create) (queues.ManagedQueue, *v1.Error) {
+		fakeQueueConstructor.EXPECT().NewQueue(gomock.Any()).DoAndReturn(func(createParams *v1willow.Create) (queues.ManagedQueue, *api.Error) {
 			return queuesfakes.NewMockManagedQueue(mockController), nil
 		}).Times(1)
 
@@ -57,9 +58,9 @@ func TestQueueManager_Create(t *testing.T) {
 		queueManager := NewBrokerManager(fakeQueueConstructor)
 		g.Expect(queueManager).ToNot(BeNil())
 
-		err := queueManager.Create(zap.NewNop(), &v1.Create{Name: "test", QueueMaxSize: 5, DeadLetterQueueMaxSize: 0})
+		err := queueManager.Create(zap.NewNop(), &v1willow.Create{Name: "test", QueueMaxSize: 5, DeadLetterQueueMaxSize: 0})
 		g.Expect(err).ToNot(HaveOccurred())
-		err = queueManager.Create(zap.NewNop(), &v1.Create{Name: "test", QueueMaxSize: 5, DeadLetterQueueMaxSize: 0})
+		err = queueManager.Create(zap.NewNop(), &v1willow.Create{Name: "test", QueueMaxSize: 5, DeadLetterQueueMaxSize: 0})
 		g.Expect(err).ToNot(HaveOccurred())
 	})
 }
@@ -71,7 +72,7 @@ func TestQueueManager_Find(t *testing.T) {
 		mockController := gomock.NewController(t)
 		defer mockController.Finish()
 		fakeQueueConstructor := queuesfakes.NewMockQueueConstructor(mockController)
-		fakeQueueConstructor.EXPECT().NewQueue(gomock.Any()).DoAndReturn(func(createParams *v1.Create) (queues.ManagedQueue, *v1.Error) {
+		fakeQueueConstructor.EXPECT().NewQueue(gomock.Any()).DoAndReturn(func(createParams *v1willow.Create) (queues.ManagedQueue, *api.Error) {
 			return nil, nil
 		}).Times(0)
 
@@ -88,18 +89,18 @@ func TestQueueManager_Find(t *testing.T) {
 		mockController := gomock.NewController(t)
 		defer mockController.Finish()
 		fakeQueueConstructor := queuesfakes.NewMockQueueConstructor(mockController)
-		fakeQueueConstructor.EXPECT().NewQueue(gomock.Any()).DoAndReturn(func(createParams *v1.Create) (queues.ManagedQueue, *v1.Error) {
+		fakeQueueConstructor.EXPECT().NewQueue(gomock.Any()).DoAndReturn(func(createParams *v1willow.Create) (queues.ManagedQueue, *api.Error) {
 			return queuesfakes.NewMockManagedQueue(mockController), nil
 		}).Times(5)
 
 		queueManager := NewBrokerManager(fakeQueueConstructor)
 		g.Expect(queueManager).ToNot(BeNil())
 
-		g.Expect(queueManager.Create(zap.NewNop(), &v1.Create{Name: "test1", QueueMaxSize: 5, DeadLetterQueueMaxSize: 0})).ToNot(HaveOccurred())
-		g.Expect(queueManager.Create(zap.NewNop(), &v1.Create{Name: "test2", QueueMaxSize: 5, DeadLetterQueueMaxSize: 0})).ToNot(HaveOccurred())
-		g.Expect(queueManager.Create(zap.NewNop(), &v1.Create{Name: "test3", QueueMaxSize: 5, DeadLetterQueueMaxSize: 0})).ToNot(HaveOccurred())
-		g.Expect(queueManager.Create(zap.NewNop(), &v1.Create{Name: "test4", QueueMaxSize: 5, DeadLetterQueueMaxSize: 0})).ToNot(HaveOccurred())
-		g.Expect(queueManager.Create(zap.NewNop(), &v1.Create{Name: "test5", QueueMaxSize: 5, DeadLetterQueueMaxSize: 0})).ToNot(HaveOccurred())
+		g.Expect(queueManager.Create(zap.NewNop(), &v1willow.Create{Name: "test1", QueueMaxSize: 5, DeadLetterQueueMaxSize: 0})).ToNot(HaveOccurred())
+		g.Expect(queueManager.Create(zap.NewNop(), &v1willow.Create{Name: "test2", QueueMaxSize: 5, DeadLetterQueueMaxSize: 0})).ToNot(HaveOccurred())
+		g.Expect(queueManager.Create(zap.NewNop(), &v1willow.Create{Name: "test3", QueueMaxSize: 5, DeadLetterQueueMaxSize: 0})).ToNot(HaveOccurred())
+		g.Expect(queueManager.Create(zap.NewNop(), &v1willow.Create{Name: "test4", QueueMaxSize: 5, DeadLetterQueueMaxSize: 0})).ToNot(HaveOccurred())
+		g.Expect(queueManager.Create(zap.NewNop(), &v1willow.Create{Name: "test5", QueueMaxSize: 5, DeadLetterQueueMaxSize: 0})).ToNot(HaveOccurred())
 
 		queue1, err := queueManager.Find(zap.NewNop(), "test1")
 		g.Expect(err).ToNot(HaveOccurred())
@@ -122,17 +123,17 @@ func TestQueueManager_Metrics(t *testing.T) {
 		logger := zap.NewNop()
 
 		// create 3 queues
-		g.Expect(queueManager.Create(logger, &v1.Create{Name: "test1", QueueMaxSize: 5, DeadLetterQueueMaxSize: 0})).ToNot(HaveOccurred())
-		g.Expect(queueManager.Create(logger, &v1.Create{Name: "test2", QueueMaxSize: 5, DeadLetterQueueMaxSize: 0})).ToNot(HaveOccurred())
-		g.Expect(queueManager.Create(logger, &v1.Create{Name: "test3", QueueMaxSize: 5, DeadLetterQueueMaxSize: 0})).ToNot(HaveOccurred())
+		g.Expect(queueManager.Create(logger, &v1willow.Create{Name: "test1", QueueMaxSize: 5, DeadLetterQueueMaxSize: 0})).ToNot(HaveOccurred())
+		g.Expect(queueManager.Create(logger, &v1willow.Create{Name: "test2", QueueMaxSize: 5, DeadLetterQueueMaxSize: 0})).ToNot(HaveOccurred())
+		g.Expect(queueManager.Create(logger, &v1willow.Create{Name: "test3", QueueMaxSize: 5, DeadLetterQueueMaxSize: 0})).ToNot(HaveOccurred())
 
 		// check defaults
 		metrics := queueManager.Metrics()
 		g.Expect(metrics).ToNot(BeNil())
 		g.Expect(len(metrics.Queues)).To(Equal(3))
-		g.Expect(metrics.Queues).To(ContainElement(&v1.QueueMetricsResponse{Name: "test1", Total: 0, Max: 5, DeadLetterQueueMetrics: nil}))
-		g.Expect(metrics.Queues).To(ContainElement(&v1.QueueMetricsResponse{Name: "test2", Total: 0, Max: 5, DeadLetterQueueMetrics: nil}))
-		g.Expect(metrics.Queues).To(ContainElement(&v1.QueueMetricsResponse{Name: "test3", Total: 0, Max: 5, DeadLetterQueueMetrics: nil}))
+		g.Expect(metrics.Queues).To(ContainElement(&v1willow.QueueMetricsResponse{Name: "test1", Total: 0, Max: 5, DeadLetterQueueMetrics: nil}))
+		g.Expect(metrics.Queues).To(ContainElement(&v1willow.QueueMetricsResponse{Name: "test2", Total: 0, Max: 5, DeadLetterQueueMetrics: nil}))
+		g.Expect(metrics.Queues).To(ContainElement(&v1willow.QueueMetricsResponse{Name: "test3", Total: 0, Max: 5, DeadLetterQueueMetrics: nil}))
 
 		// publish a few messages
 		test1, err := queueManager.Find(logger, "test1")
@@ -142,14 +143,14 @@ func TestQueueManager_Metrics(t *testing.T) {
 		test3, err := queueManager.Find(logger, "test3")
 		g.Expect(err).ToNot(HaveOccurred())
 
-		g.Expect(test1.Enqueue(logger, &v1.EnqueueItemRequest{BrokerInfo: v1.BrokerInfo{Name: "test1", Tags: datatypes.StringMap{"": datatypes.String("")}}, Data: []byte(`hello`), Updateable: false})).ToNot(HaveOccurred())
-		g.Expect(test1.Enqueue(logger, &v1.EnqueueItemRequest{BrokerInfo: v1.BrokerInfo{Name: "test1", Tags: datatypes.StringMap{"other": datatypes.String("other")}}, Data: []byte(`hello`), Updateable: false})).ToNot(HaveOccurred())
+		g.Expect(test1.Enqueue(logger, &v1willow.EnqueueItemRequest{BrokerInfo: v1willow.BrokerInfo{Name: "test1", Tags: datatypes.StringMap{"": datatypes.String("")}}, Data: []byte(`hello`), Updateable: false})).ToNot(HaveOccurred())
+		g.Expect(test1.Enqueue(logger, &v1willow.EnqueueItemRequest{BrokerInfo: v1willow.BrokerInfo{Name: "test1", Tags: datatypes.StringMap{"other": datatypes.String("other")}}, Data: []byte(`hello`), Updateable: false})).ToNot(HaveOccurred())
 
-		g.Expect(test2.Enqueue(logger, &v1.EnqueueItemRequest{BrokerInfo: v1.BrokerInfo{Name: "test2", Tags: datatypes.StringMap{"": datatypes.String("")}}, Data: []byte(`hello`), Updateable: false})).ToNot(HaveOccurred())
+		g.Expect(test2.Enqueue(logger, &v1willow.EnqueueItemRequest{BrokerInfo: v1willow.BrokerInfo{Name: "test2", Tags: datatypes.StringMap{"": datatypes.String("")}}, Data: []byte(`hello`), Updateable: false})).ToNot(HaveOccurred())
 
-		g.Expect(test3.Enqueue(logger, &v1.EnqueueItemRequest{BrokerInfo: v1.BrokerInfo{Name: "test3", Tags: datatypes.StringMap{"one": datatypes.String("one")}}, Data: []byte(`hello1`), Updateable: false})).ToNot(HaveOccurred())
-		g.Expect(test3.Enqueue(logger, &v1.EnqueueItemRequest{BrokerInfo: v1.BrokerInfo{Name: "test3", Tags: datatypes.StringMap{"one": datatypes.String("one")}}, Data: []byte(`hello2`), Updateable: false})).ToNot(HaveOccurred())
-		g.Expect(test3.Enqueue(logger, &v1.EnqueueItemRequest{BrokerInfo: v1.BrokerInfo{Name: "test3", Tags: datatypes.StringMap{"one": datatypes.String("one"), "two": datatypes.String("two")}}, Data: []byte(`hello3`), Updateable: false})).ToNot(HaveOccurred())
+		g.Expect(test3.Enqueue(logger, &v1willow.EnqueueItemRequest{BrokerInfo: v1willow.BrokerInfo{Name: "test3", Tags: datatypes.StringMap{"one": datatypes.String("one")}}, Data: []byte(`hello1`), Updateable: false})).ToNot(HaveOccurred())
+		g.Expect(test3.Enqueue(logger, &v1willow.EnqueueItemRequest{BrokerInfo: v1willow.BrokerInfo{Name: "test3", Tags: datatypes.StringMap{"one": datatypes.String("one")}}, Data: []byte(`hello2`), Updateable: false})).ToNot(HaveOccurred())
+		g.Expect(test3.Enqueue(logger, &v1willow.EnqueueItemRequest{BrokerInfo: v1willow.BrokerInfo{Name: "test3", Tags: datatypes.StringMap{"one": datatypes.String("one"), "two": datatypes.String("two")}}, Data: []byte(`hello3`), Updateable: false})).ToNot(HaveOccurred())
 
 		// check the new ready counts
 		metrics = queueManager.Metrics()
@@ -159,16 +160,16 @@ func TestQueueManager_Metrics(t *testing.T) {
 		g.Expect(metrics.Queues[0].Name).To(Equal("test2"))
 		g.Expect(metrics.Queues[0].Total).To(Equal(uint64(1)))
 		g.Expect(metrics.Queues[0].Max).To(Equal(uint64(5)))
-		g.Expect(metrics.Queues[0].Tags).To(ContainElements([]*v1.TagMetricsResponse{{Tags: datatypes.StringMap{"": datatypes.String("")}, Ready: 1, Processing: 0}}))
+		g.Expect(metrics.Queues[0].Tags).To(ContainElements([]*v1willow.TagMetricsResponse{{Tags: datatypes.StringMap{"": datatypes.String("")}, Ready: 1, Processing: 0}}))
 
 		g.Expect(metrics.Queues[1].Name).To(Equal("test1"))
 		g.Expect(metrics.Queues[1].Total).To(Equal(uint64(2)))
 		g.Expect(metrics.Queues[1].Max).To(Equal(uint64(5)))
-		g.Expect(metrics.Queues[1].Tags).To(ContainElements([]*v1.TagMetricsResponse{{Tags: datatypes.StringMap{"": datatypes.String("")}, Ready: 1, Processing: 0}, {Tags: datatypes.StringMap{"other": datatypes.String("other")}, Ready: 1, Processing: 0}}))
+		g.Expect(metrics.Queues[1].Tags).To(ContainElements([]*v1willow.TagMetricsResponse{{Tags: datatypes.StringMap{"": datatypes.String("")}, Ready: 1, Processing: 0}, {Tags: datatypes.StringMap{"other": datatypes.String("other")}, Ready: 1, Processing: 0}}))
 
 		g.Expect(metrics.Queues[2].Name).To(Equal("test3"))
 		g.Expect(metrics.Queues[2].Total).To(Equal(uint64(3)))
 		g.Expect(metrics.Queues[2].Max).To(Equal(uint64(5)))
-		g.Expect(metrics.Queues[2].Tags).To(ContainElements([]*v1.TagMetricsResponse{{Tags: datatypes.StringMap{"one": datatypes.String("one")}, Ready: 2, Processing: 0}, {Tags: datatypes.StringMap{"one": datatypes.String("one"), "two": datatypes.String("two")}, Ready: 1, Processing: 0}}))
+		g.Expect(metrics.Queues[2].Tags).To(ContainElements([]*v1willow.TagMetricsResponse{{Tags: datatypes.StringMap{"one": datatypes.String("one")}, Ready: 2, Processing: 0}, {Tags: datatypes.StringMap{"one": datatypes.String("one"), "two": datatypes.String("two")}, Ready: 1, Processing: 0}}))
 	})
 }

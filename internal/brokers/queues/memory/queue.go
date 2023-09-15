@@ -7,9 +7,10 @@ import (
 
 	"github.com/DanLavine/channelops"
 	"github.com/DanLavine/goasync"
+	"github.com/DanLavine/willow/pkg/models/api"
+	"github.com/DanLavine/willow/pkg/models/api/v1willow"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 	"github.com/DanLavine/willow/pkg/models/query"
-	v1 "github.com/DanLavine/willow/pkg/models/v1"
 	"go.uber.org/zap"
 
 	btreeassociated "github.com/DanLavine/willow/internal/datastructures/btree_associated"
@@ -44,7 +45,7 @@ type Queue struct {
 	shutdownContextCancel context.CancelFunc
 }
 
-func NewQueue(create *v1.Create) *Queue {
+func NewQueue(create *v1willow.Create) *Queue {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	return &Queue{
@@ -80,9 +81,9 @@ func (q *Queue) Execute(ctx context.Context) error {
 }
 
 // Enqueue an item onto the message queue
-func (q *Queue) Enqueue(logger *zap.Logger, enqueueItemRequest *v1.EnqueueItemRequest) *v1.Error {
+func (q *Queue) Enqueue(logger *zap.Logger, enqueueItemRequest *v1willow.EnqueueItemRequest) *api.Error {
 	logger = logger.Named("Enqueue")
-	var returnErr *v1.Error
+	var returnErr *api.Error
 
 	// if a tag group already exists, enqueue an item
 	onFind := func(item any) {
@@ -122,10 +123,10 @@ func (q *Queue) Enqueue(logger *zap.Logger, enqueueItemRequest *v1.EnqueueItemRe
 //	- logger - logger to record any errors
 //	- cancelContext - context from the http client to indicate if a client disconnects
 //	- selection - query to use when searching for tag groups
-func (q *Queue) Dequeue(logger *zap.Logger, cancelContext context.Context, selection query.Select) (*v1.DequeueItemResponse, func(), func(), *v1.Error) {
+func (q *Queue) Dequeue(logger *zap.Logger, cancelContext context.Context, selection query.Select) (*v1willow.DequeueItemResponse, func(), func(), *api.Error) {
 	logger = logger.Named("DequeueItem")
 
-	var dequeueResponse func(logger *zap.Logger) (*v1.DequeueItemResponse, func(), func(), *v1.Error)
+	var dequeueResponse func(logger *zap.Logger) (*v1willow.DequeueItemResponse, func(), func(), *api.Error)
 	channelOperations, reader := channelops.NewMergeRead(cancelContext, q.shutdownContext)
 
 	// add the channel operations if we don't find any values, or a new tag group is added during iteration
@@ -139,7 +140,7 @@ func (q *Queue) Dequeue(logger *zap.Logger, cancelContext context.Context, selec
 		select {
 		case response := <-tagGroup.dequeueChannel:
 			if response != nil {
-				dequeueResponse = response.(func(logger *zap.Logger) (*v1.DequeueItemResponse, func(), func(), *v1.Error))
+				dequeueResponse = response.(func(logger *zap.Logger) (*v1willow.DequeueItemResponse, func(), func(), *api.Error))
 				return false
 			}
 		// Could add this optimization but its hard to test right here. So is there a better way to set evereything up?
@@ -166,15 +167,15 @@ func (q *Queue) Dequeue(logger *zap.Logger, cancelContext context.Context, selec
 	readerVal := <-reader
 	if readerVal != nil {
 		// something was found
-		return readerVal.(func(logger *zap.Logger) (*v1.DequeueItemResponse, func(), func(), *v1.Error))(logger)
+		return readerVal.(func(logger *zap.Logger) (*v1willow.DequeueItemResponse, func(), func(), *api.Error))(logger)
 	}
 
 	return nil, nil, nil, errors.QueueClosed
 }
 
-func (q *Queue) ACK(logger *zap.Logger, ackItem *v1.ACK) *v1.Error {
+func (q *Queue) ACK(logger *zap.Logger, ackItem *v1willow.ACK) *api.Error {
 	logger = logger.Named("ACK")
-	var ackError *v1.Error
+	var ackError *api.Error
 
 	called := false
 	ack := func(item any) bool {
@@ -197,14 +198,14 @@ func (q *Queue) ACK(logger *zap.Logger, ackItem *v1.ACK) *v1.Error {
 	if err := q.tagGroups.Delete(ackItem.Tags, ack); err != nil {
 		return errors.InternalServerError.With("", err.Error())
 	} else if !called {
-		return &v1.Error{Message: "tag group not found", StatusCode: http.StatusBadRequest}
+		return &api.Error{Message: "tag group not found", StatusCode: http.StatusBadRequest}
 	}
 
 	return ackError
 }
 
-func (q *Queue) Metrics() *v1.QueueMetricsResponse {
-	metrics := &v1.QueueMetricsResponse{
+func (q *Queue) Metrics() *v1willow.QueueMetricsResponse {
+	metrics := &v1willow.QueueMetricsResponse{
 		Name:                   q.name,
 		Max:                    q.counter.max,
 		Total:                  q.counter.Total(),
