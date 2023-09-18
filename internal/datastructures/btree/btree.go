@@ -62,6 +62,10 @@ type BTree interface {
 	// - error - any errors encontered. I.E. key is not valid
 	CreateOrFind(key datatypes.EncapsulatedData, onCreate datastructures.OnCreate, onFind datastructures.OnFind) error
 
+	// TODO DSL
+	// add an update function, similiar to onFind, but uses an exclusive lock. might make things easier for clients to not need locks all over the place
+	// Update(key datatypes.EncapsulatedData, onUpdate datastructures.OnFind)
+
 	// Iterate over the tree and for each value found invoke the callback with the node's value
 	//
 	// PARAMS:

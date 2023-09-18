@@ -1,27 +1,15 @@
-Rules are a far off feature, but I think are a necessaty of a complex feature for this project. So it is
-worth spending some time to make sure that these features can fit into the data structures I'm currently
-creating.
+Limiter Rules
+-------------
 
+The limiter provides general record keeping of in progess work for any possible key value pairs. 
 
-0. General setup for rules
-```
-Groupings: (might not be needed. Just makes logical sense to view)
-  1. Multiples rules that are all similar
-    - groups // multiple Select clauses, all together
-  2. An order is needed to know which rules take precident over others
-    - order // this way we know which rules to act on. With the most restrictive rules being last
+Feature Goals for the Limiter:
+1. Be able to create a "general" rule that can be applied to any number of different tag groupings
+2. the "general rule" should be able to query a set of tags to know if they apply to the rule
+3. a rule can have a "tag grouping" overide where the key+value pairs match the "grouping"
 
-Select:
-  1. Grouping of keys
-    - group by - [key0, key1, key2, ...] // group any arbitrary tag groups by their keys
-
-Where Clause:
-  1. should be able to provide specific filters with [and, or]?
-    - key value pairs // explicit key value tag to search for
-    - key exists      // does this make sense? it should be in the where clause I think
-    - exclusion       // ignore cases
-
-Rule:
-  1. Limits
-    - max - max number of entries that can be using a rule
-```
+Initail design to be acounted for:
+1. There are a bunch of "rules" where the "name" of the rules provides as the btree key
+2. Each rule has a "default" key limit, but the rule itself can be overriden
+3. a rule can be provided an overide where the key+value pairs match the "grouping". Otherwise, all other groupings are assumed to be the default.
+4. The "counter" for what is running is independent of the rule set as those are only for the limits. The values for what is actually running is a "combination" of all possible key+value pairs that make up a grouping

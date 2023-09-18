@@ -256,8 +256,6 @@ func (tsat *threadsafeAssociatedTree) queryWhere(selection query.Select) set.Set
 				}
 			}
 
-			fmt.Println("intersecting ids:", possibleIDs)
-
 			if possibleIDs != nil {
 				validIDs.Intersection(possibleIDs.Values())
 			}

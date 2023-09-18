@@ -48,7 +48,7 @@ func (s *Select) Validate() error {
 	return nil
 }
 
-// used to know if arbitrary tags, match a query
+// used to know if arbitrary tags, would be found from a query
 func (s *Select) MatchTags(tags datatypes.StringMap) bool {
 	matched := true
 

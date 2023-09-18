@@ -92,6 +92,8 @@ func (tg *tagGroup) Execute(ctx context.Context) error {
 			return nil
 		}
 
+		// DSL: We cannot check here since there is a lot in flight before this is actually pulled
+
 		_, _, shutdown := reflect.Select(cases)
 		if shutdown {
 			return nil
@@ -131,6 +133,9 @@ func (tg *tagGroup) dequeue(logger *zap.Logger) (*v1willow.DequeueItemResponse, 
 	var dequeueItem *v1willow.DequeueItemResponse
 	onFind := func(item any) {
 		enqueuedItem := item.(*v1willow.EnqueueItemRequest)
+
+		// DSLL On this find, do we have to check the rules set if it canbe processed?
+		// What happens if that is false, we woould want the client to still know to check other tag groups
 
 		dequeueItem = &v1willow.DequeueItemResponse{
 			BrokerInfo: v1willow.BrokerInfo{

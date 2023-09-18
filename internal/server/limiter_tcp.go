@@ -8,25 +8,11 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/DanLavine/willow/internal/server/versions/v1limiter"
 	"github.com/DanLavine/willow/pkg/config"
 	"go.uber.org/zap"
 	"golang.org/x/net/http2"
 )
-
-//go:generate mockgen -destination=serverfakes/lmite_handler_mock.go -package=serverfakes github.com/DanLavine/willow/internal/server LimiterHandler
-type LimiterHandler interface {
-	// group rule operations
-	CreateGroupRule(w http.ResponseWriter, r *http.Request)
-	FindGroupRule(w http.ResponseWriter, r *http.Request)
-	UpdateGroupRule(w http.ResponseWriter, r *http.Request)
-	DeleteGroupRule(w http.ResponseWriter, r *http.Request)
-
-	// item operations
-	IncrementItem(w http.ResponseWriter, r *http.Request)
-	DecrementItem(w http.ResponseWriter, r *http.Request)
-
-	// client operations?
-}
 
 type limiterTCP struct {
 	closed bool
@@ -35,15 +21,15 @@ type limiterTCP struct {
 	config *config.LimiterConfig
 	server *http.Server
 
-	limiterHandler LimiterHandler
+	v1ruleHandler v1limiter.LimitRuleHandler
 }
 
-func NewLimiterTCP(logger *zap.Logger, config *config.LimiterConfig, limiterHandler LimiterHandler) *limiterTCP {
+func NewLimiterTCP(logger *zap.Logger, config *config.LimiterConfig, v1ruleHandler v1limiter.LimitRuleHandler) *limiterTCP {
 	return &limiterTCP{
-		closed:         false,
-		logger:         logger.Named("limiterTCP_server"),
-		config:         config,
-		limiterHandler: limiterHandler,
+		closed:        false,
+		logger:        logger.Named("limiterTCP_server"),
+		config:        config,
+		v1ruleHandler: v1ruleHandler,
 	}
 }
 
@@ -96,14 +82,16 @@ func (limiter *limiterTCP) Execute(ctx context.Context) error {
 
 	// crud operations for group rules
 	// These operations seem more like a normal DB that I want to do...
-	mux.HandleFunc("/v1/group_rules/create", limiter.limiterHandler.CreateGroupRule)
-	mux.HandleFunc("/v1/group_rules/find", limiter.limiterHandler.FindGroupRule)
-	mux.HandleFunc("/v1/group_rules/update", limiter.limiterHandler.UpdateGroupRule)
-	mux.HandleFunc("/v1/group_rules/delete", limiter.limiterHandler.DeleteGroupRule)
+	mux.HandleFunc("/v1/group_rules/create", limiter.v1ruleHandler.Create)
+	mux.HandleFunc("/v1/group_rules/set_override", limiter.v1ruleHandler.SetOverride)
+
+	mux.HandleFunc("/v1/group_rules/find", limiter.v1ruleHandler.Find)
+	mux.HandleFunc("/v1/group_rules/update", limiter.v1ruleHandler.Update)
+	mux.HandleFunc("/v1/group_rules/delete", limiter.v1ruleHandler.Delete)
 
 	// operations to check items against arbitrary rules
-	mux.HandleFunc("/v1/items/increment", limiter.limiterHandler.IncrementItem)
-	mux.HandleFunc("/v1/items/decrement", limiter.limiterHandler.DecrementItem)
+	mux.HandleFunc("/v1/items/increment", limiter.v1ruleHandler.Increment)
+	mux.HandleFunc("/v1/items/decrement", limiter.v1ruleHandler.Decrement)
 	// delete all items, or a collection of gruped tags?
 	// seems like something I would want to do...
 	//mux.HandleFunc("/v1/items/delete", nil)

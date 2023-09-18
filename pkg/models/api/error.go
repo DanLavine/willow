@@ -9,8 +9,9 @@ import (
 var (
 	MarshelModelFailed = &Error{Message: "Failed to encode response.", StatusCode: http.StatusInternalServerError}
 
+	NotAcceptable         = &Error{Message: "Invalid request.", StatusCode: http.StatusNotAcceptable}
 	InvalidRequestBody    = &Error{Message: "Invalid request body.", StatusCode: http.StatusBadRequest}
-	ReadRequestBodyError  = &Error{Message: "Failed to read request body", StatusCode: http.StatusInternalServerError}
+	ReadRequestBodyError  = &Error{Message: "Failed to read request body.", StatusCode: http.StatusInternalServerError}
 	ParseRequestBodyError = &Error{Message: "Failed to parse request body.", StatusCode: http.StatusBadRequest}
 )
 
