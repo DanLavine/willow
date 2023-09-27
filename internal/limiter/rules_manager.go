@@ -121,43 +121,97 @@ func (rm *rulesManger) DeleteGroupRule(logger *zap.Logger, name string) {
 }
 
 // Increment trys to add to a group of key value pairs, and blocks if any rules have hit the limit
+//
+// NOTE: This is a stupid hard Horizontaly scaling issue without a 3rd party lock on things. How do we quickly know if a limit would succeed.
+//
+// This is NOT THREAD SAFE! There is some odd logic around needing to update the iterator + locking values that might already exist
+//
+// Adding a "Sorted [asc|dec]" in the BTreeAssociated I don't think fixes this, because we loop through values as soon as we find
+// them, not after we grab all the IDs... This is also a stupid hard problem in how I am thinking about Horizontal Scaling
 func (rm *rulesManger) Increment(logger *zap.Logger, increment *v1limiter.RuleCounterRequest) *api.Error {
 	logger = logger.Named("Increment")
-	var rules []Rule
-	defer func() {
-		// unlock all the rules
-		for _, rule := range rules {
-			rule.Unlock()
-		}
-	}()
 
+	// This is better since there are no locks, but there is still an issue, where 2+ different requests trying to update different values
+	// cause any number of requests to fail when some should succeed.
+	//
+	// I.E. have a "group_by = 'key1'"
+	// * in parallel 20 requests all add a different 'key = [index]' value.
+	// * the searches on the 'OnFindPagination' will all fail if all inserts succeed before any queryes are made.
+	//
+	// This is why I initialy had the lock on the 'rule'. But unless all the rule's IDs are found at the same time,
+	// doing any sorting is pointless. This problem will come back around when trying to make any number of tag groups that
+	// are split across different nodes and we want to limit the # of items in a single queue.
+	//
+	// What I had actually would work before since I'm locking on the "iterate"  operation for "rules" which is in a guranteed order
+	// But it is slow as shit since we do an exlusive lock for all updates which is insane... This needs to be thought about more
+
+	/*
+		Rule 1: Group_By ["key1"], Limit: 1
+		Rule 2: Group_By ["key3"], Limit: 5
+
+		if a request has ["key1", "key2", "key3"] -> both rules
+		if a request has ["key1"] -> first rule
+		if a request has ["key2", "key3"] -> 2nd rule
+
+		Issue is I don't know what rules a key value grouping belongs to.
+
+		.... Solutions"
+
+		I could grab "locks" for all possible key value combination? This would gurantess that any other possible rules for the
+		same tags are waiting till one collection goes through?
+
+	*/
+
+	// 1. always perform an insert/update to the counter
+	var initialCount uint64
+	var initialCounter *atomic.Uint64
+
+	// there are no rules, so just record the value incrementation
+	onCreate := func() any {
+		counter := new(atomic.Uint64)
+		initialCounter = counter
+		initialCount = counter.Add(1)
+
+		return counter
+	}
+
+	// update the counter
+	onFind := func(item any) {
+		counter := item.(*atomic.Uint64)
+		initialCounter = counter
+		initialCount = counter.Add(1)
+	}
+
+	_ = rm.counters.CreateOrFind(increment.KeyValues, onCreate, onFind)
+
+	// 2. sort through all the rules to know if we are at the limit
 	limitReached := false
 	OnFindPagination := func(item any) bool {
 		rule := item.(Rule)
-		ruleLimit := rule.FindLimit(logger, increment.KeyValues)
-		var totalCount uint64
+		totalCount := initialCount
 
 		// if the rule matches the tags we are incrementing, we need to check that the limits are not already reached
 		if rule.TagsMatch(logger, increment.KeyValues) {
-			rule.Lock()
-			rules = append(rules, rule)
+			ruleLimit := rule.FindLimit(logger, increment.KeyValues)
 
 			// callback to count all known values
 			countPagination := func(item any) bool {
 				counter := item.(*atomic.Uint64)
-				totalCount += counter.Load()
+				if initialCounter != counter {
+					totalCount += counter.Load()
+				}
 
 				// chek if we reached the rule limit
 				return totalCount <= ruleLimit
 			}
 
 			_ = rm.counters.Query(rule.GenerateQuery(increment.KeyValues), countPagination)
-		}
 
-		// the rule we are on has failed, need to setup a trigger for the decrement case
-		if totalCount >= ruleLimit {
-			limitReached = true
-			return false
+			// the rule we are on has failed, need to setup a trigger for the decrement case
+			if totalCount >= ruleLimit {
+				limitReached = true
+				return false
+			}
 		}
 
 		return true
@@ -167,23 +221,18 @@ func (rm *rulesManger) Increment(logger *zap.Logger, increment *v1limiter.RuleCo
 
 	// at this point, the last rule is blocking because the limit has been reached
 	if limitReached {
+		// need to decrement the inital value since we failed
+		canDelete := func(item any) bool {
+			counter := item.(*atomic.Uint64)
+			counter.Add(^uint64(0))
+
+			return counter.Load() == 0
+		}
+
+		_ = rm.counters.Delete(increment.KeyValues, canDelete)
+
 		return &api.Error{Message: "Unable to process limit request. The limits are already reached", StatusCode: http.StatusLocked}
 	}
-
-	// there are no rules, so just record the value incrementation
-	onCreate := func() any {
-		counter := new(atomic.Uint64)
-		counter.Add(1)
-		return counter
-	}
-
-	// update the counter
-	onFind := func(item any) {
-		counter := item.(*atomic.Uint64)
-		counter.Add(1)
-	}
-
-	_ = rm.counters.CreateOrFind(increment.KeyValues, onCreate, onFind)
 
 	return nil
 }

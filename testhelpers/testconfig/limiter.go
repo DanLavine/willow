@@ -4,8 +4,7 @@ import (
 	"path/filepath"
 	"runtime"
 
-	"github.com/DanLavine/willow/pkg/config"
-
+	"github.com/DanLavine/willow/internal/config"
 	. "github.com/onsi/gomega"
 )
 

@@ -117,11 +117,11 @@ func (r *rule) TagsMatch(logger *zap.Logger, keyValues datatypes.StringMap) bool
 }
 
 func (r *rule) Lock() {
-	r.ruleModelLock.Lock()
+	r.ruleModelLock.RLock()
 }
 
 func (r *rule) Unlock() {
-	r.ruleModelLock.Unlock()
+	r.ruleModelLock.RLock()
 }
 
 func (r *rule) GenerateQuery(keyValues datatypes.StringMap) query.Select {

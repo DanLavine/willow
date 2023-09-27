@@ -1,6 +1,14 @@
 package set
 
-type Set[T comparable] interface {
+import (
+	"sort"
+)
+
+type SetType interface {
+	~int | ~int16 | ~int32 | ~int64 | ~uint | ~uint16 | ~uint32 | ~uint64 | ~float32 | ~float64 | ~string
+}
+
+type Set[T SetType] interface {
 	// Clear out the entire set by removing all elements
 	Clear()
 
@@ -23,11 +31,11 @@ type Set[T comparable] interface {
 	Size() int
 }
 
-type set[T comparable] struct {
+type set[T SetType] struct {
 	values map[T]struct{}
 }
 
-func New[T comparable](initValues ...T) *set[T] {
+func New[T SetType](initValues ...T) *set[T] {
 	initMap := map[T]struct{}{}
 	for _, value := range initValues {
 		initMap[value] = struct{}{}
@@ -71,6 +79,16 @@ func (s *set[T]) Values() []T {
 	for key, _ := range s.values {
 		values = append(values, key)
 	}
+
+	return values
+}
+
+func (s *set[T]) SortedValues() []T {
+	values := []T{}
+
+	sort.Slice(values, func(i, j int) bool {
+		return values[i] < values[j]
+	})
 
 	return values
 }

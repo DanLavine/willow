@@ -47,6 +47,8 @@ import (
 // if that is how we decided to store the data.
 //
 // With this flexibility, we can find any type of unique groupings, and query a generalized key value data set
+//
+//go:generate mockgen -destination=btree_associated_fakes/mbtree_associated_mock.go -package=btreeassociatedfakes github.com/DanLavine/willow/internal/datastructures/btree_associated BTreeAssociated
 type BTreeAssociated interface {
 	// Find an item in the assoociation tree
 	Find(keyValuePairs datatypes.StringMap, onFind datastructures.OnFind) error

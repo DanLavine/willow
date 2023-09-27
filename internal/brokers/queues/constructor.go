@@ -2,8 +2,8 @@ package queues
 
 import (
 	"github.com/DanLavine/willow/internal/brokers/queues/memory"
+	"github.com/DanLavine/willow/internal/config"
 	"github.com/DanLavine/willow/internal/errors"
-	"github.com/DanLavine/willow/pkg/config"
 	"github.com/DanLavine/willow/pkg/models/api"
 	"github.com/DanLavine/willow/pkg/models/api/v1willow"
 )

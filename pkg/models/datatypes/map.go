@@ -1,6 +1,8 @@
 package datatypes
 
-import "sort"
+import (
+	"sort"
+)
 
 type StringMap map[string]EncapsulatedData
 
@@ -17,7 +19,7 @@ func (sm StringMap) Keys() []string {
 func (sm StringMap) SoretedKeys() []string {
 	keys := []string{}
 
-	for key, _ := range sm {
+	for key := range sm {
 		keys = append(keys, key)
 	}
 
@@ -33,8 +35,28 @@ func (sm StringMap) SoretedKeys() []string {
 func (sm StringMap) GenerateTagPairs() []StringMap {
 	groupPairs := sm.generateTagPairs(sm.Keys())
 
-	sort.Slice(groupPairs, func(i, j int) bool {
-		return len(groupPairs[i]) < len(groupPairs[j])
+	sort.SliceStable(groupPairs, func(i, j int) bool {
+		if len(groupPairs[i]) < len(groupPairs[j]) {
+			return true
+		}
+
+		if len(groupPairs[i]) == len(groupPairs[j]) {
+			sortedKeysI := groupPairs[i].SoretedKeys()
+			sortedKeysJ := groupPairs[j].SoretedKeys()
+
+			for index, value := range sortedKeysI {
+				if value < sortedKeysJ[index] {
+					return true
+				} else if sortedKeysJ[index] < value {
+					return false
+				}
+			}
+
+			// at this point, all values must be in the proper order
+			return true
+		}
+
+		return false
 	})
 
 	return groupPairs

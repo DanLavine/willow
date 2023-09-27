@@ -8,8 +8,8 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/DanLavine/willow/internal/config"
 	"github.com/DanLavine/willow/internal/server/versions/v1limiter"
-	"github.com/DanLavine/willow/pkg/config"
 	"go.uber.org/zap"
 	"golang.org/x/net/http2"
 )

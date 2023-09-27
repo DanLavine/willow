@@ -154,4 +154,48 @@ func TestStringMap_GenerateTagPairs(t *testing.T) {
 		// also matches total number of tests above
 		g.Expect(len(generatedTagGroups)).To(Equal(31))
 	})
+
+	t.Run("it returns all elements in a sorted order", func(t *testing.T) {
+		stringMap := setupStringMap(g)
+		generatedTagGroups := stringMap.GenerateTagPairs()
+
+		expectedTags := []StringMap{
+			{"a": String("1")},
+			{"b": String("2")},
+			{"c": String("3")},
+			{"d": String("4")},
+			{"e": String("5")},
+			{"a": String("1"), "b": String("2")},
+			{"a": String("1"), "c": String("3")},
+			{"a": String("1"), "d": String("4")},
+			{"a": String("1"), "e": String("5")},
+			{"b": String("2"), "c": String("3")},
+			{"b": String("2"), "d": String("4")},
+			{"b": String("2"), "e": String("5")},
+			{"c": String("3"), "d": String("4")},
+			{"c": String("3"), "e": String("5")},
+			{"d": String("4"), "e": String("5")},
+			{"a": String("1"), "b": String("2"), "c": String("3")},
+			{"a": String("1"), "b": String("2"), "d": String("4")},
+			{"a": String("1"), "b": String("2"), "e": String("5")},
+			{"a": String("1"), "c": String("3"), "d": String("4")},
+			{"a": String("1"), "c": String("3"), "e": String("5")},
+			{"a": String("1"), "d": String("4"), "e": String("5")},
+			{"b": String("2"), "c": String("3"), "d": String("4")},
+			{"b": String("2"), "c": String("3"), "e": String("5")},
+			{"b": String("2"), "d": String("4"), "e": String("5")},
+			{"c": String("3"), "d": String("4"), "e": String("5")},
+			{"a": String("1"), "b": String("2"), "c": String("3"), "d": String("4")},
+			{"a": String("1"), "b": String("2"), "c": String("3"), "e": String("5")},
+			{"a": String("1"), "b": String("2"), "d": String("4"), "e": String("5")},
+			{"a": String("1"), "c": String("3"), "d": String("4"), "e": String("5")},
+			{"b": String("2"), "c": String("3"), "d": String("4"), "e": String("5")},
+			{"a": String("1"), "b": String("2"), "c": String("3"), "d": String("4"), "e": String("5")},
+		}
+
+		// also matches total number of tests above
+		for index, value := range expectedTags {
+			g.Expect(generatedTagGroups[index]).To(Equal(value), fmt.Sprintf("index: %d", index))
+		}
+	})
 }

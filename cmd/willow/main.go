@@ -10,10 +10,10 @@ import (
 	"github.com/DanLavine/goasync"
 	"github.com/DanLavine/willow/internal/brokers"
 	"github.com/DanLavine/willow/internal/brokers/queues"
+	"github.com/DanLavine/willow/internal/config"
 	"github.com/DanLavine/willow/internal/logger"
 	"github.com/DanLavine/willow/internal/server"
 	"github.com/DanLavine/willow/internal/server/versions/v1willow"
-	"github.com/DanLavine/willow/pkg/config"
 )
 
 func main() {

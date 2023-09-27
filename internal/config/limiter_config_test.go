@@ -1,7 +1,6 @@
 package config
 
 import (
-	"io/ioutil"
 	"os"
 	"testing"
 
@@ -12,19 +11,19 @@ func TestLimiterConfig(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	// global ca certificate
-	caCrt, err := ioutil.TempFile("", "")
+	caCrt, err := os.CreateTemp("", "")
 	g.Expect(err).ToNot(HaveOccurred())
 	g.Expect(caCrt.Close()).ToNot(HaveOccurred())
 	defer os.RemoveAll(caCrt.Name())
 
 	// global test key
-	serverKey, err := ioutil.TempFile("", "")
+	serverKey, err := os.CreateTemp("", "")
 	g.Expect(err).ToNot(HaveOccurred())
 	g.Expect(serverKey.Close()).ToNot(HaveOccurred())
 	defer os.RemoveAll(serverKey.Name())
 
 	// global test cert
-	serverCRT, err := ioutil.TempFile("", "")
+	serverCRT, err := os.CreateTemp("", "")
 	g.Expect(err).ToNot(HaveOccurred())
 	g.Expect(serverCRT.Close()).ToNot(HaveOccurred())
 	defer os.RemoveAll(serverCRT.Name())

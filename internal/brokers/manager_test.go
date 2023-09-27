@@ -6,7 +6,7 @@ import (
 
 	"github.com/DanLavine/willow/internal/brokers/queues"
 	"github.com/DanLavine/willow/internal/brokers/queues/queuesfakes"
-	"github.com/DanLavine/willow/pkg/config"
+	"github.com/DanLavine/willow/internal/config"
 	"github.com/DanLavine/willow/pkg/models/api"
 	"github.com/DanLavine/willow/pkg/models/api/v1willow"
 	"github.com/DanLavine/willow/pkg/models/datatypes"

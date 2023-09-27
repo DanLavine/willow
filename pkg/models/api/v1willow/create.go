@@ -2,10 +2,8 @@ package v1willow
 
 import (
 	"encoding/json"
-	"fmt"
 	"io"
 
-	"github.com/DanLavine/willow/pkg/config"
 	"github.com/DanLavine/willow/pkg/models/api"
 )
 
@@ -36,23 +34,23 @@ func ParseCreateRequest(reader io.ReadCloser) (*Create, *api.Error) {
 	return create, nil
 }
 
-func (c *Create) SetDefaults(queueConfig *config.QueueConfig) *api.Error {
-	// check max size
-	if c.QueueMaxSize > *queueConfig.MaxSize {
-		return api.InvalidRequestBody.With("QueueMaxSize is larger than allowed max", fmt.Sprintf("allowed max: %d", queueConfig.MaxSize))
-	}
+// func (c *Create) SetDefaults(queueConfig *config.QueueConfig) *api.Error {
+// 	// check max size
+// 	if c.QueueMaxSize > *queueConfig.MaxSize {
+// 		return api.InvalidRequestBody.With("QueueMaxSize is larger than allowed max", fmt.Sprintf("allowed max: %d", queueConfig.MaxSize))
+// 	}
 
-	// set default
-	if c.QueueMaxSize == 0 {
-		return api.InvalidRequestBody.With("QueueMaxSize is set to 0. The queue won't allow any items", "to be at least 1")
-	}
+// 	// set default
+// 	if c.QueueMaxSize == 0 {
+// 		return api.InvalidRequestBody.With("QueueMaxSize is set to 0. The queue won't allow any items", "to be at least 1")
+// 	}
 
-	if c.DeadLetterQueueMaxSize > *queueConfig.DeadLetterMaxSize {
-		return api.InvalidRequestBody.With("QueueParams.DeadLetterQueueMaxSize is larger than allowed max", fmt.Sprintf("max allowed %d", queueConfig.DeadLetterMaxSize))
-	}
+// 	if c.DeadLetterQueueMaxSize > *queueConfig.DeadLetterMaxSize {
+// 		return api.InvalidRequestBody.With("QueueParams.DeadLetterQueueMaxSize is larger than allowed max", fmt.Sprintf("max allowed %d", queueConfig.DeadLetterMaxSize))
+// 	}
 
-	return nil
-}
+// 	return nil
+// }
 
 func (c *Create) ToBytes() ([]byte, *api.Error) {
 	data, err := json.Marshal(c)

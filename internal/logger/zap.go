@@ -4,7 +4,7 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/DanLavine/willow/pkg/config"
+	"github.com/DanLavine/willow/internal/config"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 )
