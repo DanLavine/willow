@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/DanLavine/goasync"
-	"github.com/DanLavine/willow/internal/server/versions/v1limiter/v1limiterfakes"
+	"github.com/DanLavine/willow/internal/server/versions/v1server/v1serverfakes"
 	"github.com/DanLavine/willow/testhelpers/testclient"
 	"github.com/DanLavine/willow/testhelpers/testconfig"
 	. "github.com/onsi/gomega"
@@ -29,7 +29,7 @@ func TestLimiterTCP_ShutdownBehavior(t *testing.T) {
 	t.Run("It shuts down if there are no processing clients", func(t *testing.T) {
 		mockController := gomock.NewController(t)
 		defer mockController.Finish()
-		fakeLimitHandler := v1limiterfakes.NewMockLimitRuleHandler(mockController)
+		fakeLimitHandler := v1serverfakes.NewMockLimitRuleHandler(mockController)
 
 		logger, logObserver := setupLogger()
 		server := NewLimiterTCP(logger, limiterConfig, fakeLimitHandler)
@@ -61,7 +61,7 @@ func TestLimiterTCP_ShutdownBehavior(t *testing.T) {
 
 		mockController := gomock.NewController(t)
 		defer mockController.Finish()
-		fakeLimitHandler := v1limiterfakes.NewMockLimitRuleHandler(mockController)
+		fakeLimitHandler := v1serverfakes.NewMockLimitRuleHandler(mockController)
 		fakeLimitHandler.EXPECT().Create(gomock.Any(), gomock.Any()).Do(func(w http.ResponseWriter, r *http.Request) {
 			handlerChan <- struct{}{}
 			handlerChan <- struct{}{}

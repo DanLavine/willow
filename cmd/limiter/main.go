@@ -12,7 +12,7 @@ import (
 	"github.com/DanLavine/willow/internal/limiter"
 	"github.com/DanLavine/willow/internal/logger"
 	"github.com/DanLavine/willow/internal/server"
-	"github.com/DanLavine/willow/internal/server/versions/v1limiter"
+	"github.com/DanLavine/willow/internal/server/versions/v1server"
 )
 
 func main() {
@@ -30,7 +30,7 @@ func main() {
 
 	// v1 api handlers
 	//// http2 server to handle all client requests
-	taskManager.AddTask("tcp_server", server.NewLimiterTCP(logger, cfg, v1limiter.NewGroupRuleHandler(logger, limiter.NewRulesManger())))
+	taskManager.AddTask("tcp_server", server.NewLimiterTCP(logger, cfg, v1server.NewGroupRuleHandler(logger, limiter.NewRulesManger())))
 
 	// start all processes
 	shutdown, _ := signal.NotifyContext(context.Background(), syscall.SIGINT)

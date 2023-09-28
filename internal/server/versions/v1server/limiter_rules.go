@@ -1,4 +1,4 @@
-package v1limiter
+package v1server
 
 import (
 	"encoding/json"
@@ -14,7 +14,7 @@ import (
 
 // Handles CRUD operations for Limit operations
 //
-//go:generate mockgen -destination=v1limiterfakes/limit_rule_api_mock.go -package=v1limiterfakes github.com/DanLavine/willow/internal/server/versions/v1limiter LimitRuleHandler
+//go:generate mockgen -destination=v1serverfakes/limiter_rules_mock.go -package=v1serverfakes github.com/DanLavine/willow/internal/server/versions/v1server LimitRuleHandler
 type LimitRuleHandler interface {
 	// create a group rule
 	Create(w http.ResponseWriter, r *http.Request)

@@ -9,7 +9,7 @@ import (
 	"os"
 
 	"github.com/DanLavine/willow/internal/config"
-	"github.com/DanLavine/willow/internal/server/versions/v1limiter"
+	"github.com/DanLavine/willow/internal/server/versions/v1server"
 	"go.uber.org/zap"
 	"golang.org/x/net/http2"
 )
@@ -21,10 +21,10 @@ type limiterTCP struct {
 	config *config.LimiterConfig
 	server *http.Server
 
-	v1ruleHandler v1limiter.LimitRuleHandler
+	v1ruleHandler v1server.LimitRuleHandler
 }
 
-func NewLimiterTCP(logger *zap.Logger, config *config.LimiterConfig, v1ruleHandler v1limiter.LimitRuleHandler) *limiterTCP {
+func NewLimiterTCP(logger *zap.Logger, config *config.LimiterConfig, v1ruleHandler v1server.LimitRuleHandler) *limiterTCP {
 	return &limiterTCP{
 		closed:        false,
 		logger:        logger.Named("limiterTCP_server"),
