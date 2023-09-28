@@ -202,13 +202,13 @@ func (rm *rulesManger) Increment(logger *zap.Logger, increment *v1limiter.RuleCo
 				}
 
 				// chek if we reached the rule limit
-				return totalCount <= ruleLimit
+				return totalCount < ruleLimit
 			}
 
 			_ = rm.counters.Query(rule.GenerateQuery(increment.KeyValues), countPagination)
 
 			// the rule we are on has failed, need to setup a trigger for the decrement case
-			if totalCount >= ruleLimit {
+			if totalCount > ruleLimit {
 				limitReached = true
 				return false
 			}
