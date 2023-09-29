@@ -18,7 +18,7 @@ func Test_Enqueue(t *testing.T) {
 	defer testConstruct.Cleanup(g)
 
 	t.Run("returns an error if the queue does not exist", func(t *testing.T) {
-		testConstruct.Start(g)
+		testConstruct.StartWillow(g)
 		defer testConstruct.Shutdown(g)
 
 		enqueueBody := v1willow.EnqueueItemRequest{
@@ -35,7 +35,7 @@ func Test_Enqueue(t *testing.T) {
 	})
 
 	t.Run("enqueus a message on the matching tags", func(t *testing.T) {
-		testConstruct.Start(g)
+		testConstruct.StartWillow(g)
 		defer testConstruct.Shutdown(g)
 
 		createBody := v1willow.Create{
@@ -69,7 +69,7 @@ func Test_Enqueue(t *testing.T) {
 	})
 
 	t.Run("enqueus multiple messages with the same tags", func(t *testing.T) {
-		testConstruct.Start(g)
+		testConstruct.StartWillow(g)
 		defer testConstruct.Shutdown(g)
 
 		createResponse := testConstruct.ServerClient.WillowCreate(g, Queue1)
@@ -100,7 +100,7 @@ func Test_Enqueue(t *testing.T) {
 	})
 
 	t.Run("enqueus multiple messages with the different tags", func(t *testing.T) {
-		testConstruct.Start(g)
+		testConstruct.StartWillow(g)
 		defer testConstruct.Shutdown(g)
 
 		createResponse := testConstruct.ServerClient.WillowCreate(g, Queue1)
@@ -127,7 +127,7 @@ func Test_Enqueue(t *testing.T) {
 	})
 
 	t.Run("updateable messages can collapse", func(t *testing.T) {
-		testConstruct.Start(g)
+		testConstruct.StartWillow(g)
 		defer testConstruct.Shutdown(g)
 
 		createResponse := testConstruct.ServerClient.WillowCreate(g, Queue1)
@@ -159,7 +159,7 @@ func Test_Enqueue(t *testing.T) {
 
 	t.Run("limit guards", func(t *testing.T) {
 		t.Run("it returns an error when trying to enqueue an item on a full queue", func(t *testing.T) {
-			testConstruct.Start(g)
+			testConstruct.StartWillow(g)
 			defer testConstruct.Shutdown(g)
 
 			createBody := Queue1

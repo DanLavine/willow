@@ -24,6 +24,7 @@ type IntegrationTestConstruct struct {
 	ServerStderr *bytes.Buffer
 
 	ServerClient *testclient.Client
+	LockerClient *testclient.LockerClient
 }
 
 func NewIntrgrationTestConstruct(g *WithT) *IntegrationTestConstruct {
@@ -36,7 +37,17 @@ func NewIntrgrationTestConstruct(g *WithT) *IntegrationTestConstruct {
 	}
 }
 
-func (itc *IntegrationTestConstruct) Start(g *WithT) {
+func NewIntrgrationLockerTestConstruct(g *WithT) *IntegrationTestConstruct {
+	lockerPath, err := gexec.Build("github.com/DanLavine/willow/cmd/locker")
+	g.Expect(err).ToNot(HaveOccurred())
+
+	return &IntegrationTestConstruct{
+		ServerPath:   lockerPath,
+		LockerClient: testclient.NewLockerClient(g, "https://127.0.0.1:8083"),
+	}
+}
+
+func (itc *IntegrationTestConstruct) StartWillow(g *WithT) {
 	tmpDir, err := os.MkdirTemp("", "")
 	g.Expect(err).ToNot(HaveOccurred())
 	itc.dataDir = tmpDir
@@ -57,6 +68,32 @@ func (itc *IntegrationTestConstruct) Start(g *WithT) {
 	session, err := gexec.Start(willowExe, itc.ServerStdout, itc.ServerStderr)
 	g.Expect(err).ToNot(HaveOccurred())
 	g.Eventually(session.Out).Should(gbytes.Say("Willow TCP server running"))
+
+	// record start configuration
+	itc.Session = session
+}
+
+func (itc *IntegrationTestConstruct) StartLocker(g *WithT) {
+	tmpDir, err := os.MkdirTemp("", "")
+	g.Expect(err).ToNot(HaveOccurred())
+	itc.dataDir = tmpDir
+
+	_, currentDir, _, _ := runtime.Caller(0)
+
+	cmdLineFlags := []string{
+		"-log-level", "debug",
+		"-locker-ca", filepath.Join(currentDir, "..", "..", "..", "testhelpers", "tls-keys", "ca.crt"),
+		"-locker-server-key", filepath.Join(currentDir, "..", "..", "..", "testhelpers", "tls-keys", "server.key"),
+		"-locker-server-crt", filepath.Join(currentDir, "..", "..", "..", "testhelpers", "tls-keys", "server.crt"),
+	}
+
+	lockerExe := exec.Command(itc.ServerPath, cmdLineFlags...)
+
+	itc.ServerStdout = new(bytes.Buffer)
+	itc.ServerStderr = new(bytes.Buffer)
+	session, err := gexec.Start(lockerExe, itc.ServerStdout, itc.ServerStderr)
+	g.Expect(err).ToNot(HaveOccurred())
+	g.Eventually(session.Out).Should(gbytes.Say("Locker TCP server running"))
 
 	// record start configuration
 	itc.Session = session

@@ -130,6 +130,10 @@ func (qh *queueHandler) ACK(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		// remove the record from the client tracker
+		clientTracker := r.Context().Value("clientTracker").(client.Tracker)
+		clientTracker.Remove(ack.ID, ack.BrokerInfo)
+
 		w.WriteHeader(http.StatusOK)
 	default:
 		w.WriteHeader(http.StatusNotFound)

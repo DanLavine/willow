@@ -13,15 +13,13 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-type Client struct {
-	address        string
-	metricsAddress string
+type LockerClient struct {
+	address string
 
-	httpClient    *http.Client
-	metricsClient *http.Client
+	httpClient *http.Client
 }
 
-func New(g *WithT, address, metricsAddress string) *Client {
+func NewLockerClient(g *WithT, address string) *LockerClient {
 	_, currentDir, _, _ := runtime.Caller(0)
 
 	// parse root ca
@@ -36,9 +34,8 @@ func New(g *WithT, address, metricsAddress string) *Client {
 	g.Expect(err).ToNot(HaveOccurred())
 
 	// make a request to the server
-	return &Client{
-		address:        address,
-		metricsAddress: metricsAddress,
+	return &LockerClient{
+		address: address,
 		httpClient: &http.Client{
 			Transport: &http2.Transport{
 				TLSClientConfig: &tls.Config{
@@ -47,10 +44,21 @@ func New(g *WithT, address, metricsAddress string) *Client {
 				},
 			},
 		},
-		metricsClient: &http.Client{},
 	}
 }
 
-func (c *Client) Do(request *http.Request) (*http.Response, error) {
-	return c.httpClient.Do(request)
+func (lc *LockerClient) Do(request *http.Request) (*http.Response, error) {
+	return lc.httpClient.Do(request)
+}
+
+func (lc *LockerClient) Address() string {
+	return lc.address
+}
+
+func (lc *LockerClient) Transport() *tls.Config {
+	return lc.httpClient.Transport.(*http2.Transport).TLSClientConfig
+}
+
+func (lc *LockerClient) Disconnect() {
+	lc.httpClient.CloseIdleConnections()
 }

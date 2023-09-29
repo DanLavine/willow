@@ -1,10 +1,13 @@
 package v1server
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/DanLavine/willow/internal/locker"
 	"github.com/DanLavine/willow/internal/logger"
+	"github.com/DanLavine/willow/internal/server/client"
+	"github.com/DanLavine/willow/pkg/models/api"
 	"github.com/DanLavine/willow/pkg/models/api/v1locker"
 	"go.uber.org/zap"
 )
@@ -14,13 +17,13 @@ import (
 //go:generate mockgen -destination=v1serverfakes/locker_mock.go -package=v1serverfakes github.com/DanLavine/willow/internal/server/versions/v1server LockerHandler
 type LockerHandler interface {
 	// create a group rule
-	Create(w http.ResponseWriter, r *http.Request)
+	Create(context context.Context) func(w http.ResponseWriter, r *http.Request)
 
 	// read group rules
-	List(w http.ResponseWriter, r *http.Request)
+	List(context context.Context) func(w http.ResponseWriter, r *http.Request)
 
 	// delete a group rule
-	Delete(w http.ResponseWriter, r *http.Request)
+	Delete(context context.Context) func(w http.ResponseWriter, r *http.Request)
 }
 
 type lockerHandler struct {
@@ -36,59 +39,91 @@ func NewLockHandler(logger *zap.Logger) *lockerHandler {
 	}
 }
 
-func (lh *lockerHandler) Create(w http.ResponseWriter, r *http.Request) {
-	logger := logger.AddRequestID(lh.logger.Named("Create"), r)
-	logger.Debug("starting request")
-	defer logger.Debug("processed request")
+func (lh *lockerHandler) Create(ctx context.Context) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		logger := logger.AddRequestID(lh.logger.Named("Create"), r)
+		logger.Debug("starting request")
+		defer logger.Debug("processed request")
 
-	switch method := r.Method; method {
-	case "POST":
-		lockerRequest, err := v1locker.ParseLockRequest(r.Body)
-		if err != nil {
-			w.WriteHeader(err.StatusCode)
-			w.Write(err.ToBytes())
-			return
+		switch method := r.Method; method {
+		case "POST":
+			lockerRequest, err := v1locker.ParseLockRequest(r.Body)
+			if err != nil {
+
+				w.WriteHeader(err.StatusCode)
+				w.Write(err.ToBytes())
+				return
+			}
+
+			if disconnectCallback := lh.generalLocker.ObtainLocks(ctx, r.Context(), lockerRequest.KeyValues); disconnectCallback != nil {
+				clientTracker := r.Context().Value("clientTracker").(client.LockerTracker)
+				clientTracker.AddReleaseCallback(lockerRequest.KeyValues, disconnectCallback)
+
+				logger.Debug("ok")
+
+				w.WriteHeader(http.StatusOK)
+			} else {
+				logger.Debug("not ok")
+
+				// nothing to do here, remote client was closed
+				w.WriteHeader(http.StatusBadGateway)
+			}
+		default:
+			w.WriteHeader(http.StatusNotFound)
 		}
 
-		// create the lock rules, and wait until they are obtained
-		// TODO: need to make use of the callback for disconnects to free up locks
-		//disconnectCallback := lh.generalLocker.ObtainLocks(r.Context(), lockerRequest.KeyValues)
-		_ = lh.generalLocker.ObtainLocks(r.Context(), lockerRequest.KeyValues)
-
-		w.WriteHeader(http.StatusOK)
-	default:
-		w.WriteHeader(http.StatusNotFound)
+		logger.Debug("method", zap.String("method", r.Method))
 	}
 }
 
-func (lh *lockerHandler) List(w http.ResponseWriter, r *http.Request) {
-	logger := logger.AddRequestID(lh.logger.Named("List"), r)
-	logger.Debug("starting request")
-	defer logger.Debug("processed request")
+func (lh *lockerHandler) List(ctx context.Context) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		logger := logger.AddRequestID(lh.logger.Named("List"), r)
+		logger.Debug("starting request")
+		defer logger.Debug("processed request")
 
-	w.WriteHeader(http.StatusNotImplemented)
+		switch method := r.Method; method {
+		case "GET":
+			lockResponse := &v1locker.LockResponse{
+				Locks: lh.generalLocker.ListLocks(),
+			}
+
+			w.WriteHeader(http.StatusOK)
+			w.Write(lockResponse.ToBytes())
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}
 }
 
-func (lh *lockerHandler) Delete(w http.ResponseWriter, r *http.Request) {
-	logger := logger.AddRequestID(lh.logger.Named("Delete"), r)
-	logger.Debug("starting request")
-	defer logger.Debug("processed request")
+func (lh *lockerHandler) Delete(ctx context.Context) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		logger := logger.AddRequestID(lh.logger.Named("Delete"), r)
+		logger.Debug("starting request")
+		defer logger.Debug("processed request")
 
-	switch method := r.Method; method {
-	case "DELETE":
-		lockerRequest, err := v1locker.ParseLockRequest(r.Body)
-		if err != nil {
-			w.WriteHeader(err.StatusCode)
-			w.Write(err.ToBytes())
-			return
+		switch method := r.Method; method {
+		case "DELETE":
+			lockerRequest, err := v1locker.ParseLockRequest(r.Body)
+			if err != nil {
+				w.WriteHeader(err.StatusCode)
+				w.Write(err.ToBytes())
+				return
+			}
+
+			// only remove the items if the client has the locks for the desired key values
+			clientTracker := r.Context().Value("clientTracker").(client.LockerTracker)
+			if clientTracker.HasLocks(lockerRequest.KeyValues) {
+				clientTracker.ClearLocks(lockerRequest.KeyValues)
+
+				w.WriteHeader(http.StatusNoContent)
+			} else {
+				err := &api.Error{Message: "client does not have the lock for key values group", StatusCode: http.StatusBadRequest}
+				w.WriteHeader(err.StatusCode)
+				w.Write(err.ToBytes())
+			}
+		default:
+			w.WriteHeader(http.StatusNotFound)
 		}
-
-		lh.generalLocker.FreeLocks(lockerRequest.KeyValues)
-
-		// TODO: clear out the value in the client being tracked.
-
-		w.WriteHeader(http.StatusNoContent)
-	default:
-		w.WriteHeader(http.StatusNotFound)
 	}
 }

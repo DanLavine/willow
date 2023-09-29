@@ -5,11 +5,15 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 
 	"github.com/DanLavine/willow/internal/config"
+	"github.com/DanLavine/willow/internal/datastructures/btree"
+	"github.com/DanLavine/willow/internal/server/client"
 	"github.com/DanLavine/willow/internal/server/versions/v1server"
+	"github.com/DanLavine/willow/pkg/models/datatypes"
 	"go.uber.org/zap"
 	"golang.org/x/net/http2"
 )
@@ -21,15 +25,23 @@ type LockerTCP struct {
 	config *config.LockerConfig
 	server *http.Server
 
+	connTracker btree.BTree
+
 	v1Handler v1server.LockerHandler
 }
 
 func NewLockerTCP(logger *zap.Logger, config *config.LockerConfig, v1Handler v1server.LockerHandler) *LockerTCP {
+	tree, err := btree.NewThreadSafe(2)
+	if err != nil {
+		panic(err)
+	}
+
 	return &LockerTCP{
-		closed:    false,
-		logger:    logger.Named("LockerTCP_server"),
-		config:    config,
-		v1Handler: v1Handler,
+		closed:      false,
+		logger:      logger.Named("LockerTCP_server"),
+		config:      config,
+		connTracker: tree,
+		v1Handler:   v1Handler,
 	}
 }
 
@@ -71,8 +83,8 @@ func (locker *LockerTCP) Initialize() error {
 	return nil
 }
 
-func (Locker *LockerTCP) Execute(ctx context.Context) error {
-	logger := Locker.logger
+func (locker *LockerTCP) Execute(ctx context.Context) error {
+	logger := locker.logger
 
 	// capture any errors from the server
 	errChan := make(chan error, 1)
@@ -82,23 +94,47 @@ func (Locker *LockerTCP) Execute(ctx context.Context) error {
 
 	// crud operations for group rules
 	// These operations seem more like a normal DB that I want to do...
-	mux.HandleFunc("/v1/locker/create", Locker.v1Handler.Create)
-	mux.HandleFunc("/v1/locker/list", Locker.v1Handler.List)
-	mux.HandleFunc("/v1/locker/list", Locker.v1Handler.Delete)
+	mux.HandleFunc("/v1/locker/create", locker.v1Handler.Create(ctx)) // pass the ctx here so clients can clean up when the server shutsdown
+	mux.HandleFunc("/v1/locker/list", locker.v1Handler.List(ctx))
+	mux.HandleFunc("/v1/locker/delete", locker.v1Handler.Delete(ctx))
 
-	// set the server mux
-	Locker.server.Handler = mux
-	http2.ConfigureServer(Locker.server, &http2.Server{})
+	// first call to server that sets up the the tracker for any requests for a conn
+	locker.server.ConnContext = func(ctx context.Context, conn net.Conn) context.Context {
+		clientTracker := client.NewLockerClientTracker()
+		if err := locker.connTracker.CreateOrFind(datatypes.String(conn.RemoteAddr().String()), func() any { return clientTracker }, func(item any) {}); err != nil {
+			panic(err)
+		}
+
+		return context.WithValue(ctx, "clientTracker", clientTracker)
+	}
+
+	// setup for when a client disconnects, need to cleanup the client tracker
+	locker.server.ConnState = func(conn net.Conn, state http.ConnState) {
+		switch state {
+		case http.StateClosed:
+			logger.Debug("conn closed")
+			locker.connTracker.Delete(datatypes.String(conn.RemoteAddr().String()), func(item any) bool {
+				clientTracker := item.(client.LockerTracker)
+				clientTracker.Disconnect()
+
+				return true
+			})
+		}
+	}
+
+	locker.server.Handler = mux
+	http2.ConfigureServer(locker.server, &http2.Server{})
 
 	// handle shutdown
 	shutdownErr := make(chan error)
 	go func() {
 		<-ctx.Done()
-		shutdownErr <- Locker.server.Shutdown(context.Background())
+		shutdownErr <- locker.server.Shutdown(context.Background())
 	}()
+
 	// return any error other than the server closed
 	logger.Info("Locker TCP server running")
-	if err := Locker.server.ListenAndServeTLS("", ""); err != nil {
+	if err := locker.server.ListenAndServeTLS("", ""); err != nil {
 		select {
 		case <-ctx.Done():
 			if err != http.ErrServerClosed {

@@ -24,7 +24,7 @@ func Test_Dequeue(t *testing.T) {
 	defer testConstruct.Cleanup(g)
 
 	t.Run("it returns an error if the queue does not exist", func(t *testing.T) {
-		testConstruct.Start(g)
+		testConstruct.StartWillow(g)
 		defer testConstruct.Shutdown(g)
 
 		// dequeue item request
@@ -45,7 +45,7 @@ func Test_Dequeue(t *testing.T) {
 	})
 
 	t.Run("it returns a message that is waiting to be processed if they are available", func(t *testing.T) {
-		testConstruct.Start(g)
+		testConstruct.StartWillow(g)
 		defer testConstruct.Shutdown(g)
 
 		// create the queue
@@ -90,7 +90,7 @@ func Test_Dequeue(t *testing.T) {
 	})
 
 	t.Run("it can recieve a message enqueued after the dequeue request", func(t *testing.T) {
-		testConstruct.Start(g)
+		testConstruct.StartWillow(g)
 		defer testConstruct.Shutdown(g)
 
 		// create the queue
@@ -156,7 +156,7 @@ func Test_Dequeue(t *testing.T) {
 	})
 
 	t.Run("it dequeues TagGroup messages in the proper order", func(t *testing.T) {
-		testConstruct.Start(g)
+		testConstruct.StartWillow(g)
 		defer testConstruct.Shutdown(g)
 
 		// create the queue
@@ -233,7 +233,7 @@ func Test_Dequeue(t *testing.T) {
 	})
 
 	t.Run("it respects the query criterian and pulls from the proper tag groups", func(t *testing.T) {
-		testConstruct.Start(g)
+		testConstruct.StartWillow(g)
 		defer testConstruct.Shutdown(g)
 
 		defer func() {

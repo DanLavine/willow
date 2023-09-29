@@ -8,6 +8,7 @@ import (
 
 	btreeassociatedfakes "github.com/DanLavine/willow/internal/datastructures/btree_associated/btree_associated_fakes"
 
+	"github.com/DanLavine/willow/pkg/models/api/v1locker"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 	"github.com/DanLavine/willow/pkg/models/query"
 	. "github.com/onsi/gomega"
@@ -46,7 +47,7 @@ func TestGeneralLocker_ObtainLocks(t *testing.T) {
 	t.Run("It creates a lock for all possible key value combinations", func(t *testing.T) {
 		generalLocker := NewGeneralLocker(nil)
 
-		disconnectCallback := generalLocker.ObtainLocks(context.Background(), defaultKeyValues())
+		disconnectCallback := generalLocker.ObtainLocks(context.Background(), context.Background(), defaultKeyValues())
 		g.Expect(disconnectCallback).ToNot(BeNil())
 
 		counter := 0
@@ -67,7 +68,7 @@ func TestGeneralLocker_ObtainLocks(t *testing.T) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				disconnectCallback := generalLocker.ObtainLocks(context.Background(), defaultKeyValues())
+				disconnectCallback := generalLocker.ObtainLocks(context.Background(), context.Background(), defaultKeyValues())
 				disconnectCallback()
 			}()
 		}
@@ -97,7 +98,7 @@ func TestGeneralLocker_ObtainLocks(t *testing.T) {
 	t.Run("It returns a disconnect callback that can be used to release all locks", func(t *testing.T) {
 		generalLocker := NewGeneralLocker(nil)
 
-		disconnectCallback := generalLocker.ObtainLocks(context.Background(), defaultKeyValues())
+		disconnectCallback := generalLocker.ObtainLocks(context.Background(), context.Background(), defaultKeyValues())
 		g.Expect(disconnectCallback).ToNot(BeNil())
 		disconnectCallback()
 
@@ -111,7 +112,7 @@ func TestGeneralLocker_ObtainLocks(t *testing.T) {
 		g.Expect(counter).To(Equal(0))
 	})
 
-	t.Run("Context when cancel is closed with creates", func(t *testing.T) {
+	t.Run("Context when server context is closed", func(t *testing.T) {
 		t.Run("It exists early and does not try to lock all entries", func(t *testing.T) {
 			mockController := gomock.NewController(t)
 			defer mockController.Finish()
@@ -123,17 +124,53 @@ func TestGeneralLocker_ObtainLocks(t *testing.T) {
 			cancel()
 
 			generalLocker := NewGeneralLocker(fakeTree)
-			disconnectCallback := generalLocker.ObtainLocks(ctx, defaultKeyValues())
+			disconnectCallback := generalLocker.ObtainLocks(ctx, context.Background(), defaultKeyValues())
 			g.Expect(disconnectCallback).To(BeNil())
 		})
 
-		t.Run("Create cleans up any newly created locks", func(t *testing.T) {
+		t.Run("It cleans up any newly created locks", func(t *testing.T) {
 			generalLocker := NewGeneralLocker(nil)
 
 			ctx, cancel := context.WithCancel(context.Background())
 			cancel()
 
-			disconnectCallback := generalLocker.ObtainLocks(ctx, defaultKeyValues())
+			disconnectCallback := generalLocker.ObtainLocks(ctx, context.Background(), defaultKeyValues())
+			g.Expect(disconnectCallback).To(BeNil())
+
+			counter := 0
+			lockCounter := func(_ any) bool {
+				counter++
+				return true
+			}
+
+			g.Expect(generalLocker.locks.Query(query.Select{}, lockCounter)).ToNot(HaveOccurred())
+			g.Expect(counter).To(Equal(0))
+		})
+	})
+
+	t.Run("Context when client context is closed", func(t *testing.T) {
+		t.Run("It exists early and does not try to lock all entries", func(t *testing.T) {
+			mockController := gomock.NewController(t)
+			defer mockController.Finish()
+			fakeTree := btreeassociatedfakes.NewMockBTreeAssociated(mockController)
+			fakeTree.EXPECT().CreateOrFind(gomock.Any(), gomock.Any(), gomock.Any()).Times(1)
+			fakeTree.EXPECT().Delete(gomock.Any(), gomock.Any()).Times(1)
+
+			ctx, cancel := context.WithCancel(context.Background())
+			cancel()
+
+			generalLocker := NewGeneralLocker(fakeTree)
+			disconnectCallback := generalLocker.ObtainLocks(context.Background(), ctx, defaultKeyValues())
+			g.Expect(disconnectCallback).To(BeNil())
+		})
+
+		t.Run("It cleans up any newly created locks", func(t *testing.T) {
+			generalLocker := NewGeneralLocker(nil)
+
+			ctx, cancel := context.WithCancel(context.Background())
+			cancel()
+
+			disconnectCallback := generalLocker.ObtainLocks(context.Background(), ctx, defaultKeyValues())
 			g.Expect(disconnectCallback).To(BeNil())
 
 			counter := 0
@@ -148,44 +185,24 @@ func TestGeneralLocker_ObtainLocks(t *testing.T) {
 	})
 }
 
-func TestGeneralLocker_FreeLocks(t *testing.T) {
-	g := NewGomegaWithT(t)
-
-	t.Run("It deletes all possible key value pairs", func(t *testing.T) {
-		generalLocker := NewGeneralLocker(nil)
-
-		_ = generalLocker.ObtainLocks(context.Background(), defaultKeyValues())
-		generalLocker.FreeLocks(defaultKeyValues())
-
-		counter := 0
-		lockCounter := func(_ any) bool {
-			counter++
-			return true
-		}
-
-		g.Expect(generalLocker.locks.Query(query.Select{}, lockCounter)).ToNot(HaveOccurred())
-		g.Expect(counter).To(Equal(0))
-	})
-}
-
 func TestGeneralLocker_LockWaitingLogic(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	t.Run("It blocks any requests for a shared key untill the original locks are released", func(t *testing.T) {
 		generalLocker := NewGeneralLocker(nil)
 
-		disconnectCallback := generalLocker.ObtainLocks(context.Background(), defaultKeyValues())
+		disconnectCallback := generalLocker.ObtainLocks(context.Background(), context.Background(), defaultKeyValues())
 		g.Expect(disconnectCallback).ToNot(BeNil())
 
 		locked := make(chan struct{})
 		go func() {
-			generalLocker.ObtainLocks(context.Background(), overlapOneKeyValue())
+			generalLocker.ObtainLocks(context.Background(), context.Background(), overlapOneKeyValue())
 			close(locked)
 		}()
 
 		g.Consistently(locked).ShouldNot(Receive())
 
-		generalLocker.FreeLocks(defaultKeyValues())
+		disconnectCallback()
 		g.Eventually(locked).Should(BeClosed())
 	})
 
@@ -194,13 +211,13 @@ func TestGeneralLocker_LockWaitingLogic(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
-		disconnectCallback := generalLocker.ObtainLocks(ctx, defaultKeyValues())
+		disconnectCallback := generalLocker.ObtainLocks(ctx, context.Background(), defaultKeyValues())
 		g.Expect(disconnectCallback).ToNot(BeNil())
 
 		locked := make(chan struct{})
 		for i := 0; i < 10; i++ {
 			go func() {
-				generalLocker.ObtainLocks(ctx, overlapOneKeyValue())
+				generalLocker.ObtainLocks(ctx, context.Background(), overlapOneKeyValue())
 				select {
 				case locked <- struct{}{}:
 				case <-ctx.Done():
@@ -210,9 +227,30 @@ func TestGeneralLocker_LockWaitingLogic(t *testing.T) {
 
 		g.Consistently(locked).ShouldNot(Receive())
 
-		generalLocker.FreeLocks(defaultKeyValues())
+		disconnectCallback()
 		g.Eventually(locked).Should(Receive())
 		g.Consistently(locked).ShouldNot(Receive())
 	})
+}
 
+func TestGeneralLocker_ListLocks(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	t.Run("It lists all locks that have been created", func(t *testing.T) {
+		generalLocker := NewGeneralLocker(nil)
+
+		disconnectCallback := generalLocker.ObtainLocks(context.Background(), context.Background(), defaultKeyValues())
+		g.Expect(disconnectCallback).ToNot(BeNil())
+
+		locks := generalLocker.ListLocks()
+		g.Expect(len(locks)).To(Equal(7))
+
+		g.Expect(locks).To(ContainElement(v1locker.Lock{KeyValues: datatypes.StringMap{"1": datatypes.String("one")}, GeneratedFromKeyValues: defaultKeyValues()}))
+		g.Expect(locks).To(ContainElement(v1locker.Lock{KeyValues: datatypes.StringMap{"2": datatypes.Int(2)}, GeneratedFromKeyValues: defaultKeyValues()}))
+		g.Expect(locks).To(ContainElement(v1locker.Lock{KeyValues: datatypes.StringMap{"3": datatypes.Uint64(3)}, GeneratedFromKeyValues: defaultKeyValues()}))
+		g.Expect(locks).To(ContainElement(v1locker.Lock{KeyValues: datatypes.StringMap{"1": datatypes.String("one"), "2": datatypes.Int(2)}, GeneratedFromKeyValues: defaultKeyValues()}))
+		g.Expect(locks).To(ContainElement(v1locker.Lock{KeyValues: datatypes.StringMap{"1": datatypes.String("one"), "3": datatypes.Uint64(3)}, GeneratedFromKeyValues: defaultKeyValues()}))
+		g.Expect(locks).To(ContainElement(v1locker.Lock{KeyValues: datatypes.StringMap{"2": datatypes.Int(2), "3": datatypes.Uint64(3)}, GeneratedFromKeyValues: defaultKeyValues()}))
+		g.Expect(locks).To(ContainElement(v1locker.Lock{KeyValues: datatypes.StringMap{"1": datatypes.String("one"), "2": datatypes.Int(2), "3": datatypes.Uint64(3)}, GeneratedFromKeyValues: defaultKeyValues()}))
+	})
 }

@@ -37,3 +37,24 @@ func (lr *LockRequest) Validate() *api.Error {
 
 	return nil
 }
+
+type Lock struct {
+	KeyValues              datatypes.StringMap
+	GeneratedFromKeyValues datatypes.StringMap
+}
+
+func NewLock(keyValues, generatedFromKeyValues datatypes.StringMap) Lock {
+	return Lock{
+		KeyValues:              keyValues,
+		GeneratedFromKeyValues: generatedFromKeyValues,
+	}
+}
+
+type LockResponse struct {
+	Locks []Lock
+}
+
+func (lr LockResponse) ToBytes() []byte {
+	data, _ := json.Marshal(lr)
+	return data
+}

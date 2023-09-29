@@ -20,7 +20,7 @@ func Test_ACK(t *testing.T) {
 	defer testConstruct.Cleanup(g)
 
 	t.Run("it returns an error if the queue does not exist", func(t *testing.T) {
-		testConstruct.Start(g)
+		testConstruct.StartWillow(g)
 		defer testConstruct.Shutdown(g)
 
 		ackRequest := v1willow.ACK{
@@ -37,7 +37,7 @@ func Test_ACK(t *testing.T) {
 	})
 
 	t.Run("it returns an error if the tags don't exist", func(t *testing.T) {
-		testConstruct.Start(g)
+		testConstruct.StartWillow(g)
 		defer testConstruct.Shutdown(g)
 
 		// create the queue
@@ -92,7 +92,7 @@ func Test_ACK(t *testing.T) {
 
 	t.Run("when setting 'processed = true'", func(t *testing.T) {
 		t.Run("it deletes the item", func(t *testing.T) {
-			testConstruct.Start(g)
+			testConstruct.StartWillow(g)
 			defer testConstruct.Shutdown(g)
 
 			defer func() {
@@ -153,7 +153,7 @@ func Test_ACK(t *testing.T) {
 
 	t.Run("when the client disconnects", func(t *testing.T) {
 		t.Run("it fails a pending item", func(t *testing.T) {
-			testConstruct.Start(g)
+			testConstruct.StartWillow(g)
 			defer testConstruct.Shutdown(g)
 
 			defer func() {

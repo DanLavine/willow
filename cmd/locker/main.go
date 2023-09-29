@@ -29,7 +29,7 @@ func main() {
 
 	// v1 api handlers
 	//// http2 server to handle all client requests
-	taskManager.AddTask("tcp_server", server.NewLockerTCP(logger, cfg, v1server.NewLockHandler(logger)))
+	taskManager.AddTask("locker_tcp_server", server.NewLockerTCP(logger, cfg, v1server.NewLockHandler(logger)))
 
 	// start all processes
 	shutdown, _ := signal.NotifyContext(context.Background(), syscall.SIGINT)

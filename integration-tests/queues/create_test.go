@@ -17,7 +17,7 @@ func Test_Create(t *testing.T) {
 	defer testConstruct.Cleanup(g)
 
 	t.Run("can create a queue with proper name", func(t *testing.T) {
-		testConstruct.Start(g)
+		testConstruct.StartWillow(g)
 		defer testConstruct.Shutdown(g)
 
 		createBody := v1willow.Create{
@@ -39,7 +39,7 @@ func Test_Create(t *testing.T) {
 	})
 
 	t.Run("can create a multiple queues", func(t *testing.T) {
-		testConstruct.Start(g)
+		testConstruct.StartWillow(g)
 		defer testConstruct.Shutdown(g)
 
 		createBody := v1willow.Create{
@@ -67,7 +67,7 @@ func Test_Create(t *testing.T) {
 	})
 
 	t.Run("can create the same queue multple times", func(t *testing.T) {
-		testConstruct.Start(g)
+		testConstruct.StartWillow(g)
 		defer testConstruct.Shutdown(g)
 
 		createBody := v1willow.Create{
