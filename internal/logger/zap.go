@@ -14,6 +14,7 @@ func NewZapLogger(config config.Config) *zap.Logger {
 	zapCfg.OutputPaths = []string{"stdout"}
 	zapCfg.DisableCaller = true
 	zapCfg.DisableStacktrace = true
+	zapCfg.Sampling = nil
 
 	switch config.LogLevel() {
 	case "debug":

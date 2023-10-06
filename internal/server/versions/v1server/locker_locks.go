@@ -49,7 +49,6 @@ func (lh *lockerHandler) Create(ctx context.Context) func(w http.ResponseWriter,
 		case "POST":
 			lockerRequest, err := v1locker.ParseLockRequest(r.Body)
 			if err != nil {
-
 				w.WriteHeader(err.StatusCode)
 				w.Write(err.ToBytes())
 				return
@@ -59,20 +58,20 @@ func (lh *lockerHandler) Create(ctx context.Context) func(w http.ResponseWriter,
 				clientTracker := r.Context().Value("clientTracker").(client.LockerTracker)
 				clientTracker.AddReleaseCallback(lockerRequest.KeyValues, disconnectCallback)
 
-				logger.Debug("ok")
-
 				w.WriteHeader(http.StatusOK)
 			} else {
-				logger.Debug("not ok")
-
-				// nothing to do here, remote client was closed
-				w.WriteHeader(http.StatusBadGateway)
+				select {
+				case <-ctx.Done():
+					// in this case the server is restarting
+					w.WriteHeader(http.StatusServiceUnavailable)
+				default:
+					// in this case, the client should be disconnected, but try to send something anyways
+					w.WriteHeader(http.StatusBadGateway)
+				}
 			}
 		default:
 			w.WriteHeader(http.StatusNotFound)
 		}
-
-		logger.Debug("method", zap.String("method", r.Method))
 	}
 }
 

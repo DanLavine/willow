@@ -28,7 +28,7 @@ type IntegrationTestConstruct struct {
 }
 
 func NewIntrgrationTestConstruct(g *WithT) *IntegrationTestConstruct {
-	willowPath, err := gexec.Build("github.com/DanLavine/willow/cmd/willow")
+	willowPath, err := gexec.Build("github.com/DanLavine/willow/cmd/willow", "--race")
 	g.Expect(err).ToNot(HaveOccurred())
 
 	return &IntegrationTestConstruct{
@@ -38,7 +38,7 @@ func NewIntrgrationTestConstruct(g *WithT) *IntegrationTestConstruct {
 }
 
 func NewIntrgrationLockerTestConstruct(g *WithT) *IntegrationTestConstruct {
-	lockerPath, err := gexec.Build("github.com/DanLavine/willow/cmd/locker")
+	lockerPath, err := gexec.Build("github.com/DanLavine/willow/cmd/locker", "--race")
 	g.Expect(err).ToNot(HaveOccurred())
 
 	return &IntegrationTestConstruct{

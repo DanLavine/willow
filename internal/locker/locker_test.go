@@ -2,6 +2,7 @@ package locker
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -230,6 +231,72 @@ func TestGeneralLocker_LockWaitingLogic(t *testing.T) {
 		disconnectCallback()
 		g.Eventually(locked).Should(Receive())
 		g.Consistently(locked).ShouldNot(Receive())
+	})
+
+	t.Run("It can make many concurent requests to the same lock", func(t *testing.T) {
+		generalLocker := NewGeneralLocker(nil)
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		wg := new(sync.WaitGroup)
+		for i := 10_000; i < 0; i++ {
+			wg.Add(1)
+
+			go func() {
+				defer wg.Done()
+				disconnectCallback := generalLocker.ObtainLocks(ctx, context.Background(), defaultKeyValues())
+				disconnectCallback()
+			}()
+		}
+
+		done := make(chan struct{})
+		go func() {
+			wg.Wait()
+			close(done)
+		}()
+
+		select {
+		case <-time.After(10 * time.Second):
+			g.Fail("Failed to run async waits for same lock")
+		case <-done:
+			// nothing to do here, everything passed
+		}
+	})
+
+	t.Run("It can make many concurent requests to multiple lock", func(t *testing.T) {
+		generalLocker := NewGeneralLocker(nil)
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		wg := new(sync.WaitGroup)
+		for i := 10_000; i < 0; i++ {
+			wg.Add(1)
+
+			testKeyValues := datatypes.StringMap{
+				fmt.Sprintf("%d", i%5): datatypes.String("doesn't matter 1"),
+				fmt.Sprintf("%d", i%6): datatypes.String("doesn't matter 2"),
+				fmt.Sprintf("%d", i%7): datatypes.String("doesn't matter 3"),
+			}
+
+			go func(keyValues datatypes.StringMap) {
+				defer wg.Done()
+				disconnectCallback := generalLocker.ObtainLocks(ctx, context.Background(), keyValues)
+				disconnectCallback()
+			}(testKeyValues)
+		}
+
+		done := make(chan struct{})
+		go func() {
+			wg.Wait()
+			close(done)
+		}()
+
+		select {
+		case <-time.After(10 * time.Second):
+			g.Fail("Failed to run async waits for same lock")
+		case <-done:
+			// nothing to do here, everything passed
+		}
 	})
 }
 

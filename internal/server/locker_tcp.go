@@ -101,6 +101,9 @@ func (locker *LockerTCP) Execute(ctx context.Context) error {
 	// first call to server that sets up the the tracker for any requests for a conn
 	locker.server.ConnContext = func(ctx context.Context, conn net.Conn) context.Context {
 		clientTracker := client.NewLockerClientTracker()
+
+		// 1 client can create multiple conns! which is not what I expected. Since golang then will make any requests
+		// go through any of the conns. so this suck because I need the disconnect logic...
 		if err := locker.connTracker.CreateOrFind(datatypes.String(conn.RemoteAddr().String()), func() any { return clientTracker }, func(item any) {}); err != nil {
 			panic(err)
 		}

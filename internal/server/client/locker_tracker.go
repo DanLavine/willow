@@ -65,7 +65,6 @@ func (lockerClientTracker *lockerClientTracker) HasLocks(keyValues datatypes.Str
 	}
 
 	_ = lockerClientTracker.callbacks.Find(keyValues, onFind)
-
 	return found
 }
 
