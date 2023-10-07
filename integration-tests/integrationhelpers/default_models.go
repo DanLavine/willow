@@ -52,8 +52,8 @@ var (
 	tagValue      = datatypes.String("tag")
 	Queue1Dequeue = v1willow.DequeueItemRequest{
 		Name: "queue1",
-		Selection: query.Select{
-			Where: &query.Query{
+		Query: query.AssociatedKeyValuesQuery{
+			KeyValueSelection: &query.KeyValueSelection{
 				KeyValues: map[string]query.Value{
 					"some": query.Value{Value: &tagValue, ValueComparison: query.EqualsPtr()},
 				},

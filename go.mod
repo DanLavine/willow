@@ -4,7 +4,7 @@ go 1.19
 
 require (
 	github.com/DanLavine/channelops v0.0.0-20230914213205-26fbb4f14586
-	github.com/DanLavine/goasync v1.0.0
+	github.com/DanLavine/goasync v1.0.2
 	github.com/DanLavine/gonotify v0.0.0-20221228000906-77ad21d2336e
 	github.com/google/uuid v1.3.0
 	github.com/onsi/gomega v1.27.10
@@ -25,3 +25,5 @@ require (
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
+
+replace github.com/DanLavine/goasync => ../goasync

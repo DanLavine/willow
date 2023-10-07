@@ -31,8 +31,8 @@ func Test_Dequeue(t *testing.T) {
 		tagString := datatypes.String("tag")
 		dequeueRequest := v1willow.DequeueItemRequest{
 			Name: "queue1",
-			Selection: query.Select{
-				Where: &query.Query{
+			Query: query.AssociatedKeyValuesQuery{
+				KeyValueSelection: &query.KeyValueSelection{
 					KeyValues: map[string]query.Value{
 						"some": query.Value{Value: &tagString, ValueComparison: query.EqualsPtr()},
 					},
@@ -61,8 +61,8 @@ func Test_Dequeue(t *testing.T) {
 		oneKey := 1
 		dequeueRequest := v1willow.DequeueItemRequest{
 			Name: "queue1",
-			Selection: query.Select{
-				Where: &query.Query{
+			Query: query.AssociatedKeyValuesQuery{
+				KeyValueSelection: &query.KeyValueSelection{
 					KeyValues: map[string]query.Value{
 						"some": query.Value{Value: &tagString, ValueComparison: query.EqualsPtr()},
 					},
@@ -102,8 +102,8 @@ func Test_Dequeue(t *testing.T) {
 		oneKey := 1
 		dequeueRequest := v1willow.DequeueItemRequest{
 			Name: "queue1",
-			Selection: query.Select{
-				Where: &query.Query{
+			Query: query.AssociatedKeyValuesQuery{
+				KeyValueSelection: &query.KeyValueSelection{
 					KeyValues: map[string]query.Value{
 						"some": query.Value{Value: &tagString, ValueComparison: query.EqualsPtr()},
 					},
@@ -180,8 +180,8 @@ func Test_Dequeue(t *testing.T) {
 		oneKey := 1
 		dequeueRequest := v1willow.DequeueItemRequest{
 			Name: "queue1",
-			Selection: query.Select{
-				Where: &query.Query{
+			Query: query.AssociatedKeyValuesQuery{
+				KeyValueSelection: &query.KeyValueSelection{
 					KeyValues: map[string]query.Value{
 						"some": query.Value{Value: &tagString, ValueComparison: query.EqualsPtr()},
 					},
@@ -286,10 +286,10 @@ func Test_Dequeue(t *testing.T) {
 			trueValue := true
 			dequeueRequest := v1willow.DequeueItemRequest{
 				Name: "queue1",
-				Selection: query.Select{
-					Or: []query.Select{
+				Query: query.AssociatedKeyValuesQuery{
+					Or: []query.AssociatedKeyValuesQuery{
 						{
-							Where: &query.Query{
+							KeyValueSelection: &query.KeyValueSelection{
 								KeyValues: map[string]query.Value{
 									"some":    query.Value{Value: &tagString, ValueComparison: query.EqualsPtr()},
 									"another": query.Value{Value: &tagString, ValueComparison: query.EqualsPtr()},
@@ -300,16 +300,16 @@ func Test_Dequeue(t *testing.T) {
 							},
 						},
 						{
-							And: []query.Select{
+							And: []query.AssociatedKeyValuesQuery{
 								{
-									Where: &query.Query{
+									KeyValueSelection: &query.KeyValueSelection{
 										KeyValues: map[string]query.Value{
 											"the other unique tag": query.Value{Value: &notokString, ValueComparison: query.NotEqualsPtr()},
 										},
 									},
 								},
 								{
-									Where: &query.Query{
+									KeyValueSelection: &query.KeyValueSelection{
 										KeyValues: map[string]query.Value{
 											"the other unique tag": query.Value{Exists: &trueValue},
 										},

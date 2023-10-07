@@ -9,44 +9,60 @@ import (
 type Comparison string
 
 var (
-	equals             Comparison = "="
-	notEquals          Comparison = "!="
-	lessThan           Comparison = "<"
-	lessThanOrEqual    Comparison = "<="
-	greaterThan        Comparison = ">"
-	greaterThanOrEqual Comparison = ">="
+	// I think this makes sense for a smarter query operation where a user wants to enforce the type of a specific key
+	// With other NoSQL dbs like MongoDB, I only ever see a feature for type assertion by making 2 statements joined by 'and'.
+	// 1 for the comparions (i.e. <)
+	// 1 for the type assertion (I.E string)
+	// But that seems like unecessary work and slower
+	equals                      Comparison = "="
+	notEquals                   Comparison = "!="
+	lessThan                    Comparison = "<"
+	lessThanMatchType           Comparison = "< MATCH"
+	lessThanOrEqual             Comparison = "<="
+	lessThanOrEqualMatchType    Comparison = "<= MATCH"
+	greaterThan                 Comparison = ">"
+	greaterThanMatchType        Comparison = "> MATCH"
+	greaterThanOrEqual          Comparison = ">="
+	greaterThanOrEqualMatchType Comparison = ">= MATCH"
 )
 
-func Equals() Comparison             { return equals }
-func NotEquals() Comparison          { return notEquals }
-func LessThan() Comparison           { return lessThan }
-func LessThanOrEqual() Comparison    { return lessThanOrEqual }
-func GreaterThan() Comparison        { return greaterThan }
-func GreaterThanOrEqual() Comparison { return greaterThanOrEqual }
+func Equals() Comparison    { return equals }
+func NotEquals() Comparison { return notEquals }
 
-func EqualsPtr() *Comparison             { return &equals }
-func NotEqualsPtr() *Comparison          { return &notEquals }
-func LessThanPtr() *Comparison           { return &lessThan }
-func LessThanOrEqualPtr() *Comparison    { return &lessThanOrEqual }
-func GreaterThanPtr() *Comparison        { return &greaterThan }
-func GreaterThanOrEqualPtr() *Comparison { return &greaterThanOrEqual }
+func EqualsPtr() *Comparison    { return &equals }
+func NotEqualsPtr() *Comparison { return &notEquals }
+
+func LessThan() Comparison                    { return lessThan }
+func LessThanMatchType() Comparison           { return lessThanMatchType }
+func LessThanOrEqual() Comparison             { return lessThanOrEqual }
+func LessThanOrEqualMatchType() Comparison    { return lessThanOrEqualMatchType }
+func GreaterThan() Comparison                 { return greaterThan }
+func GreaterThanMatchType() Comparison        { return greaterThanMatchType }
+func GreaterThanOrEqual() Comparison          { return greaterThanOrEqual }
+func GreaterThanOrEqualMatchType() Comparison { return greaterThanOrEqualMatchType }
+
+func LessThanPtr() *Comparison                    { return &lessThan }
+func LessThanMatchTypePtr() *Comparison           { return &lessThanMatchType }
+func LessThanOrEqualPtr() *Comparison             { return &lessThanOrEqual }
+func LessThanOrEqualMatchTypePtr() *Comparison    { return &lessThanOrEqualMatchType }
+func GreaterThanPtr() *Comparison                 { return &greaterThan }
+func GreaterThanMatchTypePtr() *Comparison        { return &greaterThanMatchType }
+func GreaterThanOrEqualPtr() *Comparison          { return &greaterThanOrEqual }
+func GreaterThanOrEqualMatchTypePtr() *Comparison { return &greaterThanOrEqualMatchType }
 
 type Value struct {
-	Exists     *bool
+	// check to see if a key exists
+	Exists *bool
+	// check to use for a particualr type
 	ExistsType *datatypes.DataType
 
-	Value           *datatypes.EncapsulatedData
+	// specific value for a particular key
+	Value *datatypes.EncapsulatedData
+	// what type of comparison to run on a particualr value [=, !=, <, < MATCH, <=, <= MATCH, >, > MATCH, >=, >= MATCH]
 	ValueComparison *Comparison
-
-	// Only in use for ranged operations [!=, <, <=, >, >=]
-	// When set to true, will ensure that we select only values that match
-	// the data type ov 'Value'
-	//
-	// TODO: change from *bool -> bool
-	ValueTypeMatch *bool
 }
 
-func (v *Value) Validate() error {
+func (v *Value) validate() error {
 	if v.Exists == nil && v.Value == nil {
 		return fmt.Errorf(": Requires an Exists or Value check")
 	}
@@ -59,10 +75,6 @@ func (v *Value) Validate() error {
 
 		if v.ValueComparison != nil {
 			return fmt.Errorf(": ValueComparison is provided, but is incompatible with Exists check")
-		}
-
-		if v.ValueTypeMatch != nil {
-			return fmt.Errorf(": ValueTypeMatch is provided, but is incompatible with Exists check")
 		}
 
 		if v.ExistsType != nil {
@@ -82,11 +94,35 @@ func (v *Value) Validate() error {
 		}
 
 		switch *v.ValueComparison {
-		case equals, notEquals, lessThan, lessThanOrEqual, greaterThan, greaterThanOrEqual:
+		case equals, notEquals, lessThan, lessThanMatchType, lessThanOrEqual, lessThanOrEqualMatchType, greaterThan, greaterThanMatchType, greaterThanOrEqual, greaterThanOrEqualMatchType:
 			// nothing to do here. These are all the valid cases
 		default:
 			return fmt.Errorf(".ValueComparison: received an unexpected key")
 		}
+	}
+
+	return nil
+}
+
+func (v *Value) validateReservedKey() error {
+	if v.Exists != nil {
+		return fmt.Errorf(": cannot be an existence check. It can only mach an exact string")
+	}
+
+	if v.ExistsType != nil {
+		return fmt.Errorf(": cannot check an existence type. It can only mach an exact string")
+	}
+
+	if v.Value == nil {
+		return fmt.Errorf(": requires a string Value to match against")
+	}
+
+	if v.Value.DataType != datatypes.T_string {
+		return fmt.Errorf(": requires a string Value to match against")
+	}
+
+	if v.ValueComparison != EqualsPtr() {
+		return fmt.Errorf(": requires an Equals ValueComparison")
 	}
 
 	return nil

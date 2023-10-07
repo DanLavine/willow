@@ -9,6 +9,7 @@ import (
 
 	"github.com/DanLavine/goasync"
 	"github.com/DanLavine/willow/internal/config"
+	"github.com/DanLavine/willow/internal/locker"
 	"github.com/DanLavine/willow/internal/logger"
 	"github.com/DanLavine/willow/internal/server"
 	"github.com/DanLavine/willow/internal/server/versions/v1server"
@@ -27,9 +28,13 @@ func main() {
 	//// using strict config ensures that if any process fails, the server will ty and shutdown gracefully
 	taskManager := goasync.NewTaskManager(goasync.StrictConfig())
 
+	// general locker
+	generalLocker := locker.NewGeneralLocker(nil)
+	taskManager.AddTask("general Locker", generalLocker)
+
 	// v1 api handlers
 	//// http2 server to handle all client requests
-	taskManager.AddTask("locker_tcp_server", server.NewLockerTCP(logger, cfg, v1server.NewLockHandler(logger)))
+	taskManager.AddTask("locker_tcp_server", server.NewLockerTCP(logger, cfg, v1server.NewLockHandler(logger, generalLocker)))
 
 	// start all processes
 	shutdown, _ := signal.NotifyContext(context.Background(), syscall.SIGINT)

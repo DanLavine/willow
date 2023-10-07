@@ -18,25 +18,37 @@ func TestAssociatedTree_CreateOrFind_ParamCheck(t *testing.T) {
 	t.Run("it returns an error with nil keyValues", func(t *testing.T) {
 		associatedTree := NewThreadSafe()
 
-		err := associatedTree.CreateOrFind(nil, onCreate, onFind)
+		id, err := associatedTree.CreateOrFind(nil, onCreate, onFind)
 		g.Expect(err).To(HaveOccurred())
 		g.Expect(err.Error()).To(ContainSubstring("keyValuePairs cannot be empty"))
+		g.Expect(id).To(Equal(""))
+	})
+
+	t.Run("it returns an error if the keyValuePairs contains '_associated_id' key", func(t *testing.T) {
+		associatedTree := NewThreadSafe()
+
+		id, err := associatedTree.CreateOrFind(datatypes.StringMap{"_associated_id": datatypes.Int(1)}, onCreate, onFind)
+		g.Expect(err).To(HaveOccurred())
+		g.Expect(err.Error()).To(ContainSubstring("reserved keyword '_associated_id' cannot be used in the keyValuePairs"))
+		g.Expect(id).To(Equal(""))
 	})
 
 	t.Run("it returns an error with nil onCreate", func(t *testing.T) {
 		associatedTree := NewThreadSafe()
 
-		err := associatedTree.CreateOrFind(keys, nil, onFind)
+		id, err := associatedTree.CreateOrFind(keys, nil, onFind)
 		g.Expect(err).To(HaveOccurred())
 		g.Expect(err.Error()).To(ContainSubstring("onCreate cannot be nil"))
+		g.Expect(id).To(Equal(""))
 	})
 
 	t.Run("it returns an error with nil onFind", func(t *testing.T) {
 		associatedTree := NewThreadSafe()
 
-		err := associatedTree.CreateOrFind(keys, onCreate, nil)
+		id, err := associatedTree.CreateOrFind(keys, onCreate, nil)
 		g.Expect(err).To(HaveOccurred())
 		g.Expect(err.Error()).To(ContainSubstring("onFind cannot be nil"))
+		g.Expect(id).To(Equal(""))
 	})
 }
 
@@ -56,10 +68,11 @@ func TestAssociatedTree_CreateOrFind_FailedToCreate(t *testing.T) {
 			return nil
 		}
 
-		err := associatedTree.CreateOrFind(keyValues, onCreate, noOpOnFind)
+		id, err := associatedTree.CreateOrFind(keyValues, onCreate, noOpOnFind)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(called).To(BeTrue())
 		g.Expect(associatedTree.keys.Empty()).To(BeTrue())
+		g.Expect(id).ToNot(Equal(""))
 	})
 
 	t.Run("it does not remove any IDs that might already exist", func(t *testing.T) {
@@ -73,9 +86,9 @@ func TestAssociatedTree_CreateOrFind_FailedToCreate(t *testing.T) {
 			return nil
 		}
 
-		g.Expect(associatedTree.CreateOrFind(goodKeyValues1, noOpOnCreate, noOpOnFind)).ToNot(HaveOccurred())
-		g.Expect(associatedTree.CreateOrFind(goodKeyValues2, noOpOnCreate, noOpOnFind)).ToNot(HaveOccurred())
-		g.Expect(associatedTree.CreateOrFind(badKeyValues, badCreate, noOpOnFind)).ToNot(HaveOccurred())
+		_, _ = associatedTree.CreateOrFind(goodKeyValues1, noOpOnCreate, noOpOnFind)
+		_, _ = associatedTree.CreateOrFind(goodKeyValues2, noOpOnCreate, noOpOnFind)
+		_, _ = associatedTree.CreateOrFind(badKeyValues, badCreate, noOpOnFind)
 		g.Expect(associatedTree.keys.Empty()).To(BeFalse())
 
 		foundCounter := 0
@@ -165,9 +178,10 @@ func TestAssociatedTree_CreateOrFind_SingleKeyValue(t *testing.T) {
 			return true
 		}
 
-		err := associatedTree.CreateOrFind(keyValues, onCreate, noOpOnFind)
+		id, err := associatedTree.CreateOrFind(keyValues, onCreate, noOpOnFind)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(called).To(BeTrue())
+		g.Expect(id).ToNot(Equal(""))
 	})
 
 	t.Run("it finds an item that already exists", func(t *testing.T) {
@@ -176,15 +190,16 @@ func TestAssociatedTree_CreateOrFind_SingleKeyValue(t *testing.T) {
 		called := false
 		onFind := func(item any) {
 			called = true
-			g.Expect(item).To(Equal("found me"))
+			g.Expect(item.(*AssociatedKeyValues).Value()).To(Equal("found me"))
 		}
 
-		err := associatedTree.CreateOrFind(keyValues, noOpOnCreate, noOpOnFind)
+		id1, err := associatedTree.CreateOrFind(keyValues, noOpOnCreate, noOpOnFind)
 		g.Expect(err).ToNot(HaveOccurred())
 
-		err = associatedTree.CreateOrFind(keyValues, noOpOnCreate, onFind)
+		id2, err := associatedTree.CreateOrFind(keyValues, noOpOnCreate, onFind)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(called).To(BeTrue())
+		g.Expect(id1).To(Equal(id2))
 	})
 
 	t.Run("it properly saves multiple key values", func(t *testing.T) {
@@ -200,14 +215,34 @@ func TestAssociatedTree_CreateOrFind_SingleKeyValue(t *testing.T) {
 			return true
 		}
 
-		err := associatedTree.CreateOrFind(keyValues1, onCreate, noOpOnFind)
+		id1, err := associatedTree.CreateOrFind(keyValues1, onCreate, noOpOnFind)
 		g.Expect(err).ToNot(HaveOccurred())
-		err = associatedTree.CreateOrFind(keyValues2, onCreate, noOpOnFind)
+		id2, err := associatedTree.CreateOrFind(keyValues2, onCreate, noOpOnFind)
 		g.Expect(err).ToNot(HaveOccurred())
-		err = associatedTree.CreateOrFind(keyValues3, onCreate, noOpOnFind)
+		id3, err := associatedTree.CreateOrFind(keyValues3, onCreate, noOpOnFind)
 		g.Expect(err).ToNot(HaveOccurred())
 
+		g.Expect(id1).ToNot(And(Equal(id2), Equal(id3)))
+		g.Expect(id2).ToNot(Equal(id3))
 		g.Expect(createCount).To(Equal(3))
+	})
+
+	t.Run("It returns the ID for the saved item in the tree", func(t *testing.T) {
+		associatedTree := NewThreadSafe()
+
+		var foundItem any
+		onFind := func(item any) {
+			foundItem = item
+		}
+
+		id, err := associatedTree.CreateOrFind(keyValues, noOpOnCreate, noOpOnFind)
+		g.Expect(err).ToNot(HaveOccurred())
+
+		// ensure that the value is whats actually saved as the tree's id
+		foundItem = nil
+		err = associatedTree.ids.Find(datatypes.String(id), onFind)
+		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(foundItem).ToNot(BeNil())
 	})
 }
 
@@ -227,9 +262,10 @@ func TestAssociatedTree_CreateOrFind_MultiKeyValue(t *testing.T) {
 			return true
 		}
 
-		err := associatedTree.CreateOrFind(keyValues, onCreate, noOpOnFind)
+		id, err := associatedTree.CreateOrFind(keyValues, onCreate, noOpOnFind)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(called).To(BeTrue())
+		g.Expect(id).ToNot(Equal(""))
 	})
 
 	t.Run("it finds an item that already exists", func(t *testing.T) {
@@ -238,11 +274,11 @@ func TestAssociatedTree_CreateOrFind_MultiKeyValue(t *testing.T) {
 		called := false
 		onFind := func(item any) {
 			called = true
-			g.Expect(item).To(Equal("find me"))
+			g.Expect(item.(*AssociatedKeyValues).Value()).To(Equal("find me"))
 		}
 
-		g.Expect(associatedTree.CreateOrFind(keyValues, noOpOnCreate, noOpOnFind)).ToNot(HaveOccurred())
-		g.Expect(associatedTree.CreateOrFind(keyValues, noOpOnCreate, onFind)).ToNot(HaveOccurred())
+		associatedTree.CreateOrFind(keyValues, noOpOnCreate, noOpOnFind)
+		associatedTree.CreateOrFind(keyValues, noOpOnCreate, onFind)
 		g.Expect(called).To(BeTrue())
 	})
 
@@ -260,19 +296,19 @@ func TestAssociatedTree_CreateOrFind_MultiKeyValue(t *testing.T) {
 			return createCount
 		}
 
-		g.Expect(associatedTree.CreateOrFind(keyValues1, onCreate, noOpOnFind)).ToNot(HaveOccurred())
-		g.Expect(associatedTree.CreateOrFind(keyValues2, onCreate, noOpOnFind)).ToNot(HaveOccurred())
-		g.Expect(associatedTree.CreateOrFind(keyValues3, onCreate, noOpOnFind)).ToNot(HaveOccurred())
-		g.Expect(associatedTree.CreateOrFind(keyValues4, onCreate, noOpOnFind)).ToNot(HaveOccurred())
+		associatedTree.CreateOrFind(keyValues1, onCreate, noOpOnFind)
+		associatedTree.CreateOrFind(keyValues2, onCreate, noOpOnFind)
+		associatedTree.CreateOrFind(keyValues3, onCreate, noOpOnFind)
+		associatedTree.CreateOrFind(keyValues4, onCreate, noOpOnFind)
 		g.Expect(createCount).To(Equal(4))
 
 		found := false
 		onFind := func(item any) {
 			found = true
-			g.Expect(item).To(Equal(2))
+			g.Expect(item.(*AssociatedKeyValues).Value()).To(Equal(2))
 		}
 
-		g.Expect(associatedTree.CreateOrFind(keyValues2, onCreate, onFind)).ToNot(HaveOccurred())
+		associatedTree.CreateOrFind(keyValues2, onCreate, onFind)
 		g.Expect(found).To(BeTrue())
 	})
 }

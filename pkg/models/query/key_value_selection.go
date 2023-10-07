@@ -7,7 +7,9 @@ import (
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 )
 
-type Query struct {
+const ReservedID = "_associated_id"
+
+type KeyValueSelection struct {
 	// Key Values ensures that all key values exist
 	KeyValues map[string]Value
 
@@ -20,9 +22,9 @@ type KeyLimits struct {
 	NumberOfKeys *int
 }
 
-func (q *Query) SortedKeys() []string {
+func (kvs *KeyValueSelection) SortedKeys() []string {
 	keys := []string{}
-	for key, _ := range q.KeyValues {
+	for key, _ := range kvs.KeyValues {
 		keys = append(keys, key)
 	}
 
@@ -30,19 +32,31 @@ func (q *Query) SortedKeys() []string {
 	return keys
 }
 
-func (q *Query) Validate() error {
-	if len(q.KeyValues) == 0 && q.Limits == nil {
+func (kvs *KeyValueSelection) Validate() error {
+	if len(kvs.KeyValues) == 0 && kvs.Limits == nil {
 		return fmt.Errorf(": requires KeyValues or Limits parameters")
 	}
 
-	if q.Limits != nil {
-		if err := q.Limits.Validate(len(q.KeyValues)); err != nil {
-			return fmt.Errorf(".Limits.%s", err.Error())
+	if kvs.Limits != nil {
+		if _, ok := kvs.KeyValues[ReservedID]; ok {
+			if err := kvs.Limits.Validate(len(kvs.KeyValues) - 1); err != nil {
+				return fmt.Errorf(".Limits.%s", err.Error())
+			}
+		} else {
+			if err := kvs.Limits.Validate(len(kvs.KeyValues)); err != nil {
+				return fmt.Errorf(".Limits.%s", err.Error())
+			}
 		}
 	}
 
-	for key, value := range q.KeyValues {
-		if err := value.Validate(); err != nil {
+	for key, value := range kvs.KeyValues {
+		if key == ReservedID {
+			if err := value.validateReservedKey(); err != nil {
+				return fmt.Errorf(".KeyValues[%s]%s", key, err.Error())
+			}
+		}
+
+		if err := value.validate(); err != nil {
 			return fmt.Errorf(".KeyValues[%s]%s", key, err.Error())
 		}
 	}
@@ -66,13 +80,13 @@ func (kl *KeyLimits) Validate(keys int) error {
 	return nil
 }
 
-func (q *Query) MatchTags(tags datatypes.StringMap) bool {
+func (kvs *KeyValueSelection) MatchTags(tags datatypes.StringMap) bool {
 	// quick checek to reject on the number of keys
-	if q.Limits != nil && *q.Limits.NumberOfKeys < len(tags) {
+	if kvs.Limits != nil && *kvs.Limits.NumberOfKeys < len(tags) {
 		return false
 	}
 
-	for key, keysValue := range q.KeyValues {
+	for key, keysValue := range kvs.KeyValues {
 		// existenc checks
 		if keysValue.Exists != nil {
 			switch *keysValue.Exists {
@@ -117,15 +131,6 @@ func (q *Query) MatchTags(tags datatypes.StringMap) bool {
 					return false
 				}
 			default:
-				if keysValue.ValueTypeMatch != nil {
-					switch *keysValue.ValueTypeMatch {
-					case true:
-						if tagValue.DataType != keysValue.Value.DataType {
-							// data types don't match so fail
-							return false
-						}
-					}
-				}
 				switch *keysValue.ValueComparison {
 				case notEquals:
 					if !tagValue.Less(*keysValue.Value) && !(*keysValue.Value).Less(tagValue) {
@@ -133,6 +138,14 @@ func (q *Query) MatchTags(tags datatypes.StringMap) bool {
 					}
 				case lessThan:
 					if !tagValue.Less(*keysValue.Value) {
+						return false
+					}
+				case lessThanMatchType:
+					if !tagValue.LessType(*keysValue.Value) && !keysValue.Value.LessType(tagValue) {
+						if !tagValue.Less(*keysValue.Value) {
+							return false
+						}
+					} else {
 						return false
 					}
 				case lessThanOrEqual:
@@ -144,8 +157,30 @@ func (q *Query) MatchTags(tags datatypes.StringMap) bool {
 
 						// this is the equals case
 					}
+				case lessThanOrEqualMatchType:
+					if !tagValue.LessType(*keysValue.Value) && !keysValue.Value.LessType(tagValue) {
+						if !tagValue.Less(*keysValue.Value) {
+							// the tag value is greater than the query value
+							if (*keysValue.Value).Less(tagValue) {
+								return false
+							}
+
+							// this is the equals case
+						}
+					} else {
+						return false
+
+					}
 				case greaterThan:
 					if !(*keysValue.Value).Less(tagValue) {
+						return false
+					}
+				case greaterThanMatchType:
+					if !tagValue.LessType(*keysValue.Value) && !keysValue.Value.LessType(tagValue) {
+						if !(*keysValue.Value).Less(tagValue) {
+							return false
+						}
+					} else {
 						return false
 					}
 				case greaterThanOrEqual:
@@ -157,6 +192,20 @@ func (q *Query) MatchTags(tags datatypes.StringMap) bool {
 
 						// this is the equals case
 					}
+				case greaterThanOrEqualMatchType:
+					if !tagValue.LessType(*keysValue.Value) && !keysValue.Value.LessType(tagValue) {
+						if !(*keysValue.Value).Less(tagValue) {
+							// the query value is greater than the tag value
+							if (tagValue).Less(*keysValue.Value) {
+								return false
+							}
+
+							// this is the equals case
+						}
+					} else {
+						return false
+					}
+
 				}
 			}
 		}

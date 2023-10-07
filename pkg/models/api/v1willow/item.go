@@ -59,7 +59,7 @@ type DequeueItemRequest struct {
 	Name string
 
 	// query for what readeers to select
-	Selection query.Select
+	Query query.AssociatedKeyValuesQuery
 }
 
 func ParseDequeueItemRequest(reader io.ReadCloser) (*DequeueItemRequest, *api.Error) {
@@ -86,7 +86,7 @@ func (dir *DequeueItemRequest) Validate() *api.Error {
 		return api.InvalidRequestBody.With("Name to be provided", "Name is the empty string")
 	}
 
-	if err := dir.Selection.Validate(); err != nil {
+	if err := dir.Query.Validate(); err != nil {
 		return api.InvalidRequestBody.With("", err.Error())
 	}
 

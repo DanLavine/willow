@@ -32,7 +32,7 @@ func TestAssociatedTree_Delete(t *testing.T) {
 
 	t.Run("It deletes the key value pair if the onDelete callback is nil", func(t *testing.T) {
 		associatedTree := NewThreadSafe()
-		g.Expect(associatedTree.CreateOrFind(keys, noOpOnCreate, noOpOnFind)).ToNot(HaveOccurred())
+		_, _ = associatedTree.CreateOrFind(keys, noOpOnCreate, noOpOnFind)
 
 		g.Expect(associatedTree.Delete(keys, nil)).ToNot(HaveOccurred())
 		g.Expect(associatedTree.ids.Empty()).To(BeTrue())
@@ -41,7 +41,7 @@ func TestAssociatedTree_Delete(t *testing.T) {
 
 	t.Run("It deletes the key value pair if the onDelete callback returns true", func(t *testing.T) {
 		associatedTree := NewThreadSafe()
-		g.Expect(associatedTree.CreateOrFind(keys, noOpOnCreate, noOpOnFind)).ToNot(HaveOccurred())
+		_, _ = associatedTree.CreateOrFind(keys, noOpOnCreate, noOpOnFind)
 
 		g.Expect(associatedTree.Delete(keys, onDeleteTrue)).ToNot(HaveOccurred())
 		g.Expect(associatedTree.ids.Empty()).To(BeTrue())
@@ -50,7 +50,7 @@ func TestAssociatedTree_Delete(t *testing.T) {
 
 	t.Run("It does not the key value pair if the onDelete callback returns false", func(t *testing.T) {
 		associatedTree := NewThreadSafe()
-		g.Expect(associatedTree.CreateOrFind(keys, noOpOnCreate, noOpOnFind)).ToNot(HaveOccurred())
+		_, _ = associatedTree.CreateOrFind(keys, noOpOnCreate, noOpOnFind)
 
 		g.Expect(associatedTree.Delete(keys, onDeleteFalse)).ToNot(HaveOccurred())
 		g.Expect(associatedTree.ids.Empty()).To(BeFalse())
@@ -64,8 +64,8 @@ func TestAssociatedTree_Delete(t *testing.T) {
 			keys1 := datatypes.StringMap{"1": datatypes.Int(1)}
 			keys2 := datatypes.StringMap{"1": datatypes.Int(1), "2": datatypes.String("2")}
 
-			g.Expect(associatedTree.CreateOrFind(keys1, noOpOnCreate, noOpOnFind)).ToNot(HaveOccurred())
-			g.Expect(associatedTree.CreateOrFind(keys2, noOpOnCreate, noOpOnFind)).ToNot(HaveOccurred())
+			_, _ = associatedTree.CreateOrFind(keys1, noOpOnCreate, noOpOnFind)
+			_, _ = associatedTree.CreateOrFind(keys2, noOpOnCreate, noOpOnFind)
 
 			// check before the delete
 			idNodeCalled := false

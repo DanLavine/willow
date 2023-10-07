@@ -12,10 +12,10 @@ import (
 
 func defaultLimiterTestRule(g *GomegaWithT) *v1limiter.RuleRequest {
 	rule := &v1limiter.RuleRequest{
-		Name:     "test",
-		GroupBy:  []string{"key1", "key2"},
-		Seletion: query.Select{},
-		Limit:    5,
+		Name:    "test",
+		GroupBy: []string{"key1", "key2"},
+		Query:   query.AssociatedKeyValuesQuery{},
+		Limit:   5,
 	}
 
 	g.Expect(rule.Validate()).ToNot(HaveOccurred())
@@ -63,8 +63,8 @@ func TestRule_SetOverride(t *testing.T) {
 	t.Run("It returns an errpd of the tags don't match", func(t *testing.T) {
 		defaultLimiterRule := defaultLimiterTestRule(g)
 		stringKey := datatypes.String("2")
-		defaultLimiterRule.Seletion = query.Select{
-			Where: &query.Query{
+		defaultLimiterRule.Query = query.AssociatedKeyValuesQuery{
+			KeyValueSelection: &query.KeyValueSelection{
 				KeyValues: map[string]query.Value{
 					"key1": query.Value{Value: &stringKey, ValueComparison: query.EqualsPtr()},
 				},
@@ -208,10 +208,10 @@ func TestRule_TagsMatch(t *testing.T) {
 	t.Run("It returns false the rule's selection filters out a group of tags", func(t *testing.T) {
 		defaultLimiterRule := defaultLimiterTestRule(g)
 		falsePtr := false
-		defaultLimiterRule.Seletion = query.Select{
-			And: []query.Select{
+		defaultLimiterRule.Query = query.AssociatedKeyValuesQuery{
+			And: []query.AssociatedKeyValuesQuery{
 				{
-					Where: &query.Query{
+					KeyValueSelection: &query.KeyValueSelection{
 						KeyValues: map[string]query.Value{
 							"key3": query.Value{Exists: &falsePtr},
 						},
@@ -240,9 +240,9 @@ func TestRule_Generate(t *testing.T) {
 		testKeyValues["key3"] = datatypes.String("other") // this should not be in the final query
 
 		query := rule.GenerateQuery(testKeyValues)
-		g.Expect(query.Where).ToNot(BeNil())
-		g.Expect(len(query.Where.KeyValues)).To(Equal(2))
-		g.Expect(*(query.Where.KeyValues["key1"].Value)).To(Equal(testKeyValues["key1"]))
-		g.Expect(*(query.Where.KeyValues["key2"].Value)).To(Equal(testKeyValues["key2"]))
+		g.Expect(query.KeyValueSelection).ToNot(BeNil())
+		g.Expect(len(query.KeyValueSelection.KeyValues)).To(Equal(2))
+		g.Expect(*(query.KeyValueSelection.KeyValues["key1"].Value)).To(Equal(testKeyValues["key1"]))
+		g.Expect(*(query.KeyValueSelection.KeyValues["key2"].Value)).To(Equal(testKeyValues["key2"]))
 	})
 }

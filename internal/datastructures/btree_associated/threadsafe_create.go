@@ -11,22 +11,28 @@ import (
 // CreateOrFind inserts or finds the value in the assoociation tree. This is thread safe to call with
 // any other functions on the same object.
 //
+// NOTE: The keyValuePairs cannot contain the reserve key '_associated_id'
+//
 // PARAMS:
-// - keyValuePair - is a map of key value pairs that compose an object's identity
+// - keyValuePairs - is a map of key value pairs that compose an object's identity
 // - onCreate - is the callback used to create the value if it doesn't already exist in the tree. This must return nil, if creatiing the object failed.
 // - onFind - is the callback used when an item is found in the tree. It will recive the object's value saved in the tree (what was originally provided)
 //
 // RETURNS:
+// - string - the _associatted_id when an object is created or found. Will be the empty string if an error returns
 // - error - any errors encountered with the parameters
-func (tsat *threadsafeAssociatedTree) CreateOrFind(keyValuePairs datatypes.StringMap, onCreate datastructures.OnCreate, onFind datastructures.OnFind) error {
+func (tsat *threadsafeAssociatedTree) CreateOrFind(keyValuePairs datatypes.StringMap, onCreate datastructures.OnCreate, onFind datastructures.OnFind) (string, error) {
 	if len(keyValuePairs) == 0 {
-		return fmt.Errorf("keyValuePairs cannot be empty")
+		return "", fmt.Errorf("keyValuePairs cannot be empty")
 	}
 	if onCreate == nil {
-		return fmt.Errorf("onCreate cannot be nil")
+		return "", fmt.Errorf("onCreate cannot be nil")
 	}
 	if onFind == nil {
-		return fmt.Errorf("onFind cannot be nil")
+		return "", fmt.Errorf("onFind cannot be nil")
+	}
+	if _, ok := keyValuePairs[ReservedID]; ok {
+		return "", fmt.Errorf("reserved keyword '%s' cannot be used in the keyValuePairs", ReservedID)
 	}
 
 	// always attempt a find first so we only need read locks
@@ -35,11 +41,12 @@ func (tsat *threadsafeAssociatedTree) CreateOrFind(keyValuePairs datatypes.Strin
 		found = true
 		onFind(item)
 	}
-	if err := tsat.Find(keyValuePairs, wrappedOnFind); err != nil {
-		return err
+	associatedID, err := tsat.Find(keyValuePairs, wrappedOnFind)
+	if err != nil {
+		return "", err
 	}
 	if found {
-		return nil
+		return associatedID, nil
 	}
 
 	// At this point we are 99%+ going to create the values, so our IDNodes need to use a write lock
@@ -130,7 +137,7 @@ func (tsat *threadsafeAssociatedTree) CreateOrFind(keyValuePairs datatypes.Strin
 			idNode.lock.Unlock()
 		}
 
-		return nil
+		return idSet.Values()[0], nil
 	}
 
 	// always save the new IDs so we can unlock the IDNodes
@@ -140,7 +147,21 @@ func (tsat *threadsafeAssociatedTree) CreateOrFind(keyValuePairs datatypes.Strin
 	}
 
 	if newValue := onCreate(); newValue != nil {
-		tsat.ids.CreateOrFind(datatypes.String(newID), func() any { return newValue }, func(item any) {
+		onCreate := func() any {
+			newKeyValuesPair := datatypes.StringMap{}
+
+			for key, value := range keyValuePairs {
+				newKeyValuesPair[key] = value
+			}
+
+			newKeyValuesPair[ReservedID] = datatypes.String(newID)
+			return &AssociatedKeyValues{
+				keyValues: newKeyValuesPair,
+				value:     newValue,
+			}
+		}
+
+		tsat.ids.CreateOrFind(datatypes.String(newID), onCreate, func(item any) {
 			panic(fmt.Errorf("found an id that already exists. Globaly unique ID failure: %s", newID))
 		})
 
@@ -162,5 +183,5 @@ func (tsat *threadsafeAssociatedTree) CreateOrFind(keyValuePairs datatypes.Strin
 		tsat.Delete(keyValuePairs, nil)
 	}
 
-	return nil
+	return newID, nil
 }

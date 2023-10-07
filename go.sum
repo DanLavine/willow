@@ -2,6 +2,8 @@ github.com/DanLavine/channelops v0.0.0-20230914213205-26fbb4f14586 h1:ySsH+Vk/FW
 github.com/DanLavine/channelops v0.0.0-20230914213205-26fbb4f14586/go.mod h1:wgViuoEjca7ugJj/z7FfQ07D+hEoTjkLj7iFPw96rQo=
 github.com/DanLavine/goasync v1.0.0 h1:3QlVIJA23C6iPiNXUSFqdxDdsXi3RfYSSw1EPWY5BgM=
 github.com/DanLavine/goasync v1.0.0/go.mod h1:nR7mV8TA1RT5d6nVgsHEqonPB5GxuNJU1WArc9gUilA=
+github.com/DanLavine/goasync v1.0.1 h1:x+qoeXwHzLDs9rHa3QENNX0sfd4b168i0lz4fOy/4tY=
+github.com/DanLavine/goasync v1.0.1/go.mod h1:nR7mV8TA1RT5d6nVgsHEqonPB5GxuNJU1WArc9gUilA=
 github.com/DanLavine/gonotify v0.0.0-20221228000906-77ad21d2336e h1:zX/Z3tg0w5ud4FvftnE/laSyZez5zqRiOvTJRJFbtH8=
 github.com/DanLavine/gonotify v0.0.0-20221228000906-77ad21d2336e/go.mod h1:tttaLcWwHu0QzpydfjBNfEWBVcWFiYmlOHdjbntf8iQ=
 github.com/benbjohnson/clock v1.1.0 h1:Q92kusRqC1XV2MjkWETPvjJVqKetz1OzxZB7mHJLju8=

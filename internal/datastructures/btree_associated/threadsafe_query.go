@@ -9,9 +9,6 @@ import (
 	"github.com/DanLavine/willow/pkg/models/query"
 )
 
-// This is totally broken atm!
-// needs a refactor after the pagination change rather than bulk
-
 // Query can be used to find a single or collection of items that match specific criteria. This
 // is thread safe to call with any of the other functions ono this object
 //
@@ -21,93 +18,30 @@ import (
 //
 // RETURNS:
 // - error - any errors encountered with the parameters
-func (tsat *threadsafeAssociatedTree) Query(selection query.Select, onFindPagination datastructures.OnFindPagination) error {
-	if err := selection.Validate(); err != nil {
+func (tsat *threadsafeAssociatedTree) Query(query query.AssociatedKeyValuesQuery, onFindPagination datastructures.OnFindPagination) error {
+	if err := query.Validate(); err != nil {
 		return err
 	}
 	if onFindPagination == nil {
 		return fmt.Errorf("onFindPagination cannot be nil")
 	}
 
-	if selection.Where == nil && selection.And == nil && selection.Or == nil {
+	if query.KeyValueSelection == nil && query.And == nil && query.Or == nil {
 		// select all
 		tsat.ids.Iterate(onFindPagination)
 	} else {
-		// need to recurse through everything
+		// need to filter for key values
+		validIDs := tsat.query(query)
 
-		var validIDs set.Set[string]
-		validCounter := 0
-
-		// find the first where
-		if selection.Where != nil {
-			validIDs = tsat.queryWhere(selection)
-			validCounter++
-		}
-
-		// intersect all the ANDs together
-		for _, andSelection := range selection.And {
-			// can exit early if we know that there are 0 ids. Don't need to search
-			if validCounter >= 1 && validIDs.Size() == 0 {
-				// must not have any ids, so can exit early and stop selecting everything
-				break
-			}
-
-			subsetValidIDs := tsat.queryAnd(andSelection)
-
-			switch validCounter {
-			case 0:
-				validIDs = subsetValidIDs
-				validCounter++
-			default:
-				validIDs.Intersection(subsetValidIDs.Values())
-			}
-		}
-
-		// have first set of valid IDs to lookup
 		shouldContinue := true
-		if validCounter >= 1 {
-			for _, id := range validIDs.Values() {
-				tsat.ids.Find(datatypes.String(id), func(item any) {
-					shouldContinue = onFindPagination(item)
-				})
+		for _, id := range validIDs.Values() {
+			tsat.ids.Find(datatypes.String(id), func(item any) {
+				shouldContinue = onFindPagination(item)
+			})
 
-				// break querying more items
-				if !shouldContinue {
-					return nil
-				}
-			}
-		}
-
-		// check the OR cases as well
-		for _, orSelection := range selection.Or {
-			subsetValidIDs := tsat.queryOr(orSelection)
-
-			// Need to interset our OR's with the current values
-			switch validCounter {
-			case 0:
-				validIDs = subsetValidIDs
-				validCounter++
-			default:
-				validIDs.Intersection(subsetValidIDs.Values())
-
-				// remve the values we already checked
-				for _, alreadyFoundID := range validIDs.Values() {
-					subsetValidIDs.Remove(alreadyFoundID)
-				}
-
-				// add the subset to know values that we are about to check
-				validIDs.AddBulk(subsetValidIDs.Values())
-			}
-
-			for _, id := range subsetValidIDs.Values() {
-				tsat.ids.Find(datatypes.String(id), func(item any) {
-					shouldContinue = onFindPagination(item)
-				})
-
-				// break querying more items
-				if !shouldContinue {
-					return nil
-				}
+			// break querying more items
+			if !shouldContinue {
+				break
 			}
 		}
 	}
@@ -115,25 +49,27 @@ func (tsat *threadsafeAssociatedTree) Query(selection query.Select, onFindPagina
 	return nil
 }
 
-func (tsat *threadsafeAssociatedTree) queryAnd(selection query.Select) set.Set[string] {
+func (tsat *threadsafeAssociatedTree) query(query query.AssociatedKeyValuesQuery) set.Set[string] {
+	// need to filter for key values
 	var validIDs set.Set[string]
 	validCounter := 0
 
 	// find the first where
-	if selection.Where != nil {
-		validIDs = tsat.queryWhere(selection)
+	if query.KeyValueSelection != nil {
+		validIDs = tsat.findIDs(query)
 		validCounter++
 	}
 
 	// intersect all the ANDs together
-	for _, andSelection := range selection.And {
+	for _, andSelection := range query.And {
 		// can exit early if we know that there are 0 ids. Don't need to search
 		if validCounter >= 1 && validIDs.Size() == 0 {
 			// must not have any ids, so can exit early and stop selecting everything
 			break
 		}
 
-		subsetValidIDs := tsat.queryAnd(andSelection)
+		subsetValidIDs := tsat.query(andSelection)
+
 		switch validCounter {
 		case 0:
 			validIDs = subsetValidIDs
@@ -143,51 +79,25 @@ func (tsat *threadsafeAssociatedTree) queryAnd(selection query.Select) set.Set[s
 		}
 	}
 
-	// add all the OR IDs that we find as well
-	for _, orSelection := range selection.Or {
-		validIDs.AddBulk(tsat.queryOr(orSelection).Values())
-	}
+	// check the OR cases as well
+	for _, orSelection := range query.Or {
+		subsetValidIDs := tsat.query(orSelection)
 
-	return validIDs
-}
-
-func (tsat *threadsafeAssociatedTree) queryOr(selection query.Select) set.Set[string] {
-	var validIDs set.Set[string]
-	validCounter := 0
-
-	// find the first where
-	if selection.Where != nil {
-		validIDs = tsat.queryWhere(selection)
-		validCounter++
-	}
-
-	// intersect all the ANDs together
-	for _, andSelection := range selection.And {
-		// can exit early if we know that there are 0 ids. Don't need to search
-		if validCounter >= 1 && validIDs.Size() == 0 {
-			// must not have any ids, so can exit early and stop selecting everything
-			break
-		}
-
-		subsetValidIDs := tsat.queryAnd(andSelection)
+		// Need to interset our OR's with the current values
 		switch validCounter {
 		case 0:
 			validIDs = subsetValidIDs
 			validCounter++
 		default:
-			validIDs.Intersection(subsetValidIDs.Values())
+			// add the subset to know values that we are about to check
+			validIDs.AddBulk(subsetValidIDs.Values())
 		}
-	}
-
-	// add all the OR IDs that we find as well
-	for _, orSelection := range selection.Or {
-		validIDs.AddBulk(tsat.queryOr(orSelection).Values())
 	}
 
 	return validIDs
 }
 
-func (tsat *threadsafeAssociatedTree) queryWhere(selection query.Select) set.Set[string] {
+func (tsat *threadsafeAssociatedTree) findIDs(dbQuery query.AssociatedKeyValuesQuery) set.Set[string] {
 	validCounter := 0
 	validIDs := set.New[string]()
 
@@ -196,8 +106,8 @@ func (tsat *threadsafeAssociatedTree) queryWhere(selection query.Select) set.Set
 
 	// parse the where clause
 	inclusive := false
-	if selection.Where != nil {
-		where := selection.Where
+	if dbQuery.KeyValueSelection != nil {
+		keyValuesSelection := dbQuery.KeyValueSelection
 
 		getAllIDs := func(allIDs *[]string) func(item any) bool {
 			return func(item any) bool {
@@ -208,8 +118,8 @@ func (tsat *threadsafeAssociatedTree) queryWhere(selection query.Select) set.Set
 
 				for index, ids := range idNode.ids {
 					// break if we reach a key count that has more than the requested length
-					if where.Limits != nil {
-						if index >= *where.Limits.NumberOfKeys {
+					if keyValuesSelection.Limits != nil {
+						if index >= *keyValuesSelection.Limits.NumberOfKeys {
 							//return false
 							break
 						}
@@ -224,11 +134,6 @@ func (tsat *threadsafeAssociatedTree) queryWhere(selection query.Select) set.Set
 		}
 
 		addValidIDs := func(item any) bool {
-			// quick check to know if we hit a query where there are no possible valid IDs
-			if validCounter >= 1 && validIDs.Size() == 0 {
-				return false
-			}
-
 			// always casting to an ID node when finding possible indexes
 			idNode := item.(*threadsafeIDNode)
 			idNode.lock.RLock()
@@ -237,8 +142,8 @@ func (tsat *threadsafeAssociatedTree) queryWhere(selection query.Select) set.Set
 			var possibleIDs set.Set[string]
 			for index, ids := range idNode.ids {
 				// break if we reach a key count that has more than the requested length
-				if where.Limits != nil {
-					if index >= *where.Limits.NumberOfKeys {
+				if keyValuesSelection.Limits != nil {
+					if index >= *keyValuesSelection.Limits.NumberOfKeys {
 						return false
 					}
 				}
@@ -260,26 +165,24 @@ func (tsat *threadsafeAssociatedTree) queryWhere(selection query.Select) set.Set
 				validIDs.Intersection(possibleIDs.Values())
 			}
 
-			validCounter++
 			return true
 		}
 
 		addInvalidIDs := func(item any) bool {
-			// quick check to know if we hit a query where there are no possible invalid IDs
-			if invalidCounter >= 1 && invalidIDs.Size() == 0 {
-				return false
-			}
-
 			// always casting to an ID node when finding possible indexes
 			idNode := item.(*threadsafeIDNode)
 			idNode.lock.RLock()
 			defer idNode.lock.RUnlock()
 
+			if invalidCounter >= 1 && invalidIDs.Size() == 0 {
+				return true
+			}
+
 			var possibleInvalidIDs set.Set[string]
 			for index, ids := range idNode.ids {
 				// break if we reach a key count that has more than the requested length
-				if where.Limits != nil {
-					if index >= *where.Limits.NumberOfKeys {
+				if keyValuesSelection.Limits != nil {
+					if index >= *keyValuesSelection.Limits.NumberOfKeys {
 						return false
 					}
 				}
@@ -301,14 +204,48 @@ func (tsat *threadsafeAssociatedTree) queryWhere(selection query.Select) set.Set
 				invalidIDs.Intersection(possibleInvalidIDs.Values())
 			}
 
-			invalidCounter++
 			return true
 		}
 
-		sortedKeys := where.SortedKeys()
+		sortedKeys := keyValuesSelection.SortedKeys()
 		for _, key := range sortedKeys {
-			value := where.KeyValues[key]
+			value := keyValuesSelection.KeyValues[key]
 			allIDS := []string{}
+
+			// special case for the _reserved_id
+			if key == ReservedID {
+				onFind := func(item any) {
+					strValue := value.Value.Value.(string)
+
+					switch validCounter {
+					case 0:
+						if keyValuesSelection.Limits != nil {
+							if len(item.(*AssociatedKeyValues).keyValues) <= *keyValuesSelection.Limits.NumberOfKeys+1 {
+								validIDs.Add(strValue)
+							}
+						} else {
+							validIDs.Add(strValue)
+						}
+					default:
+						if keyValuesSelection.Limits != nil {
+							if len(item.(*AssociatedKeyValues).keyValues) <= *keyValuesSelection.Limits.NumberOfKeys+1 {
+								validIDs.Intersection([]string{strValue})
+							} else {
+								validIDs.Remove(strValue)
+							}
+						} else {
+							validIDs.Intersection([]string{strValue})
+						}
+					}
+
+					inclusive = true
+					validCounter++
+				}
+
+				_ = tsat.ids.Find(*value.Value, onFind)
+
+				continue
+			}
 
 			// existence check
 			if value.Exists != nil {
@@ -330,11 +267,12 @@ func (tsat *threadsafeAssociatedTree) queryWhere(selection query.Select) set.Set
 						switch validCounter {
 						case 0:
 							validIDs.AddBulk(allIDS)
-							validCounter++
 						default:
 							validIDs.Intersection(allIDS)
 						}
 					})
+
+					validCounter++
 				case false:
 					tsat.keys.Find(datatypes.String(key), func(item any) {
 						valuesNode := item.(*threadsafeValuesNode)
@@ -348,11 +286,12 @@ func (tsat *threadsafeAssociatedTree) queryWhere(selection query.Select) set.Set
 						switch invalidCounter {
 						case 0:
 							invalidIDs.AddBulk(allIDS)
-							invalidCounter++
 						default:
 							invalidIDs.Intersection(allIDS)
 						}
 					})
+
+					invalidCounter++
 				}
 
 				continue
@@ -362,116 +301,176 @@ func (tsat *threadsafeAssociatedTree) queryWhere(selection query.Select) set.Set
 			switch *value.ValueComparison {
 			case query.Equals():
 				inclusive = true
+				found := false
 
 				// only need to match one key
 				tsat.keys.Find(datatypes.String(key), func(item any) {
 					valuesNode := item.(*threadsafeValuesNode)
 
 					// only need to match the one value
-					valuesNode.values.Find(*value.Value, func(item any) { addValidIDs(item) })
+					valuesNode.values.Find(*value.Value, func(item any) {
+						found = true
+						addValidIDs(item)
+					})
 				})
+
+				validCounter++
+
+				// didn't find an expected key, so clear out the results
+				if !found {
+					validIDs.Clear()
+				}
 			case query.NotEquals():
+				// if this is the first request to come through, then we need to record an invalid ID.
+				// if it is the n+ request tto ome through, then I think we can use the "invalid id" lookups...
+				// if it is only != requests, then we still need to iterate over all values...
+				found := false
+
 				// find the key to strip all values
 				tsat.keys.Find(datatypes.String(key), func(item any) {
 					valuesNode := item.(*threadsafeValuesNode)
 
-					// find the value to remove everything
-					if value.ValueTypeMatch != nil && *value.ValueTypeMatch {
-						inclusive = true
-						valuesNode.values.FindNotEqualMatchType(*value.Value, getAllIDs(&allIDS))
-
-						switch validCounter {
-						case 0:
-							validIDs.AddBulk(allIDS)
-							validCounter++
-						default:
-							validIDs.Intersection(allIDS)
-						}
-					} else {
-						valuesNode.values.Find(*value.Value, func(item any) { addInvalidIDs(item) })
-					}
+					valuesNode.values.Find(*value.Value, func(item any) {
+						found = true
+						addInvalidIDs(item)
+					})
 				})
+
+				invalidCounter++
+
+				if !found {
+					// if this is the case, then we can increate the invalid counters. AKA everything is valid
+					invalidIDs.Clear()
+				}
+
 			case query.LessThan():
 				inclusive = true
 
-				// only need to match one key
 				tsat.keys.Find(datatypes.String(key), func(item any) {
 					valuesNode := item.(*threadsafeValuesNode)
-
-					if value.ValueTypeMatch != nil && *value.ValueTypeMatch {
-						valuesNode.values.FindLessThanMatchType(*value.Value, getAllIDs(&allIDS))
-					} else {
-						valuesNode.values.FindLessThan(*value.Value, getAllIDs(&allIDS))
-					}
+					valuesNode.values.FindLessThan(*value.Value, getAllIDs(&allIDS))
 
 					switch validCounter {
 					case 0:
 						validIDs.AddBulk(allIDS)
-						validCounter++
 					default:
 						validIDs.Intersection(allIDS)
 					}
 				})
+
+				validCounter++
+			case query.LessThanMatchType():
+				inclusive = true
+
+				tsat.keys.Find(datatypes.String(key), func(item any) {
+					valuesNode := item.(*threadsafeValuesNode)
+					valuesNode.values.FindLessThanMatchType(*value.Value, getAllIDs(&allIDS))
+
+					switch validCounter {
+					case 0:
+						validIDs.AddBulk(allIDS)
+					default:
+						validIDs.Intersection(allIDS)
+					}
+				})
+
+				validCounter++
 			case query.LessThanOrEqual():
 				inclusive = true
 
 				tsat.keys.Find(datatypes.String(key), func(item any) {
 					valuesNode := item.(*threadsafeValuesNode)
-
-					if value.ValueTypeMatch != nil && *value.ValueTypeMatch {
-						valuesNode.values.FindLessThanOrEqualMatchType(*value.Value, getAllIDs(&allIDS))
-					} else {
-						valuesNode.values.FindLessThanOrEqual(*value.Value, getAllIDs(&allIDS))
-					}
+					valuesNode.values.FindLessThanOrEqual(*value.Value, getAllIDs(&allIDS))
 
 					switch validCounter {
 					case 0:
 						validIDs.AddBulk(allIDS)
-						validCounter++
 					default:
 						validIDs.Intersection(allIDS)
 					}
 				})
+
+				validCounter++
+			case query.LessThanOrEqualMatchType():
+				inclusive = true
+
+				tsat.keys.Find(datatypes.String(key), func(item any) {
+					valuesNode := item.(*threadsafeValuesNode)
+					valuesNode.values.FindLessThanOrEqualMatchType(*value.Value, getAllIDs(&allIDS))
+
+					switch validCounter {
+					case 0:
+						validIDs.AddBulk(allIDS)
+					default:
+						validIDs.Intersection(allIDS)
+					}
+				})
+
+				validCounter++
 			case query.GreaterThan():
 				inclusive = true
 
 				tsat.keys.Find(datatypes.String(key), func(item any) {
 					valuesNode := item.(*threadsafeValuesNode)
-
-					if value.ValueTypeMatch != nil && *value.ValueTypeMatch {
-						valuesNode.values.FindGreaterThanMatchType(*value.Value, getAllIDs(&allIDS))
-					} else {
-						valuesNode.values.FindGreaterThan(*value.Value, getAllIDs(&allIDS))
-					}
+					valuesNode.values.FindGreaterThan(*value.Value, getAllIDs(&allIDS))
 
 					switch validCounter {
 					case 0:
 						validIDs.AddBulk(allIDS)
-						validCounter++
 					default:
 						validIDs.Intersection(allIDS)
 					}
 				})
+
+				validCounter++
+			case query.GreaterThanMatchType():
+				inclusive = true
+
+				tsat.keys.Find(datatypes.String(key), func(item any) {
+					valuesNode := item.(*threadsafeValuesNode)
+					valuesNode.values.FindGreaterThanMatchType(*value.Value, getAllIDs(&allIDS))
+
+					switch validCounter {
+					case 0:
+						validIDs.AddBulk(allIDS)
+					default:
+						validIDs.Intersection(allIDS)
+					}
+				})
+
+				validCounter++
 			case query.GreaterThanOrEqual():
 				inclusive = true
 
 				tsat.keys.Find(datatypes.String(key), func(item any) {
 					valuesNode := item.(*threadsafeValuesNode)
-
-					if value.ValueTypeMatch != nil && *value.ValueTypeMatch {
-						valuesNode.values.FindGreaterThanOrEqualMatchType(*value.Value, getAllIDs(&allIDS))
-					} else {
-						valuesNode.values.FindGreaterThanOrEqual(*value.Value, getAllIDs(&allIDS))
-					}
+					valuesNode.values.FindGreaterThanOrEqual(*value.Value, getAllIDs(&allIDS))
 
 					switch validCounter {
 					case 0:
 						validIDs.AddBulk(allIDS)
-						validCounter++
 					default:
 						validIDs.Intersection(allIDS)
 					}
 				})
+
+				validCounter++
+			case query.GreaterThanOrEqualMatchType():
+				inclusive = true
+
+				tsat.keys.Find(datatypes.String(key), func(item any) {
+					valuesNode := item.(*threadsafeValuesNode)
+					valuesNode.values.FindGreaterThanOrEqualMatchType(*value.Value, getAllIDs(&allIDS))
+
+					switch validCounter {
+					case 0:
+						validIDs.AddBulk(allIDS)
+					default:
+						validIDs.Intersection(allIDS)
+					}
+				})
+
+				validCounter++
 			}
 
 			// stop querying when we know that there are 0 ids we are interessted in

@@ -51,14 +51,21 @@ import (
 //go:generate mockgen -destination=btree_associated_fakes/mbtree_associated_mock.go -package=btreeassociatedfakes github.com/DanLavine/willow/internal/datastructures/btree_associated BTreeAssociated
 type BTreeAssociated interface {
 	// Find an item in the assoociation tree
-	Find(keyValuePairs datatypes.StringMap, onFind datastructures.OnFind) error
+	// TOOD: Remove this
+	Find(keyValuePairs datatypes.StringMap, onFind datastructures.OnFind) (string, error)
 
-	// Serch for any number of items in the assoociation tree
-	Query(selection query.Select, onFindPagination datastructures.OnFindPagination) error
+	// Find an item in the assoociation tree by the assocaited id
+	// TOOD: Remove this
+	FindByAssociatedID(associatedID string, onFind datastructures.OnFind) error
 
 	// Create or Find an item in the assoociation tree
-	CreateOrFind(keyValuePairs datatypes.StringMap, onCreate datastructures.OnCreate, onFind datastructures.OnFind) error
+	CreateOrFind(keyValuePairs datatypes.StringMap, onCreate datastructures.OnCreate, onFind datastructures.OnFind) (string, error)
 
-	// Delete an item in the assoociation tree
+	// Serch for any number of items in the assoociation tree
+	// todo: should be able to ad _associated_id to the queries as well
+	Query(query query.AssociatedKeyValuesQuery, onFindPagination datastructures.OnFindPagination) error
+
+	// Delete an item in the association tree
 	Delete(keyValuePairs datatypes.StringMap, canDelete datastructures.CanDelete) error
+	//Delete(query query.Query, canDelete datastructures.CanDelete) error
 }

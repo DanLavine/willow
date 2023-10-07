@@ -39,7 +39,7 @@ type Rule interface {
 	Unlock()
 
 	// Need to generate a query on what to search for
-	GenerateQuery(keyValues datatypes.StringMap) query.Select
+	GenerateQuery(keyValues datatypes.StringMap) query.AssociatedKeyValuesQuery
 
 	// Get a rule response for Read operations
 	GetRuleResponse(includeOverrides bool) *v1limiter.RuleResponse

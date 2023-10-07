@@ -10,7 +10,10 @@ import (
 
 type threadsafeAssociatedTree struct {
 	// the actual saved values in the tree
-	ids         btree.BTree
+	// each value in here is a AssociatedKeyValues node
+	ids btree.BTree // change this to just be another key _associated_id -> which saves the actual value
+
+	// generator for the IDs saved to the id tree
 	idGenerator idgenerator.UniqueIDs
 
 	// each value here is a threadSafeValuesNode
@@ -29,7 +32,7 @@ type threadsafeIDNode struct {
 	// being created when the delete thread ran.
 	creating *atomic.Int64
 
-	// each value in here is an threadsafeIDNode
+	// each value in here is a threadsafeIDNode
 	// which are saved in the threadsafefAssociatedTree.ids
 	ids [][]string
 }

@@ -46,7 +46,7 @@ func (r *rule) SetOverride(logger *zap.Logger, override *v1limiter.RuleOverride)
 	logger = logger.Named("SetOverride")
 
 	// set an override iff the tags aare valid
-	if !r.ruleModel.Seletion.MatchTags(override.KeyValues) {
+	if !r.ruleModel.Query.MatchTags(override.KeyValues) {
 		return api.NotAcceptable.With("the provided keys values to match the rule query", "provided will never be found by the rule query")
 	}
 
@@ -59,14 +59,14 @@ func (r *rule) SetOverride(logger *zap.Logger, override *v1limiter.RuleOverride)
 	}
 
 	onFind := func(item any) {
-		ruleOverride := item.(*ruleOverride)
+		ruleOverride := item.(*btreeassociated.AssociatedKeyValues).Value().(*ruleOverride)
 		ruleOverride.lock.Lock()
 		defer ruleOverride.lock.Unlock()
 
 		ruleOverride.limit = override.Limit
 	}
 
-	if err := r.overrides.CreateOrFind(override.KeyValues, onCreate, onFind); err != nil {
+	if _, err := r.overrides.CreateOrFind(override.KeyValues, onCreate, onFind); err != nil {
 		logger.Error("failed to CreateOrFind a rule override", zap.Error(err))
 		return errors.InternalServerError.With("", err.Error())
 	}
@@ -91,7 +91,7 @@ func (r *rule) FindLimit(logger *zap.Logger, keyValues datatypes.StringMap) uint
 	r.ruleModelLock.RUnlock()
 
 	onFind := func(item any) {
-		ruleOverride := item.(*ruleOverride)
+		ruleOverride := item.(*btreeassociated.AssociatedKeyValues).Value().(*ruleOverride)
 		ruleOverride.lock.RLock()
 		defer ruleOverride.lock.RUnlock()
 
@@ -99,7 +99,7 @@ func (r *rule) FindLimit(logger *zap.Logger, keyValues datatypes.StringMap) uint
 	}
 
 	// ignore these errors... should make it so it just panics
-	_ = r.overrides.Find(keyValues, onFind)
+	_, _ = r.overrides.Find(keyValues, onFind)
 
 	return limit
 }
@@ -113,7 +113,7 @@ func (r *rule) TagsMatch(logger *zap.Logger, keyValues datatypes.StringMap) bool
 	}
 
 	// ensure that the selection doesn't filter out the request
-	return r.ruleModel.Seletion.MatchTags(keyValues)
+	return r.ruleModel.Query.MatchTags(keyValues)
 }
 
 func (r *rule) Lock() {
@@ -124,16 +124,16 @@ func (r *rule) Unlock() {
 	r.ruleModelLock.RLock()
 }
 
-func (r *rule) GenerateQuery(keyValues datatypes.StringMap) query.Select {
-	selectQuery := query.Select{
-		Where: &query.Query{
+func (r *rule) GenerateQuery(keyValues datatypes.StringMap) query.AssociatedKeyValuesQuery {
+	selectQuery := query.AssociatedKeyValuesQuery{
+		KeyValueSelection: &query.KeyValueSelection{
 			KeyValues: map[string]query.Value{},
 		},
 	}
 
 	for _, key := range r.ruleModel.GroupBy {
 		value := keyValues[key]
-		selectQuery.Where.KeyValues[key] = query.Value{Value: &value, ValueComparison: query.EqualsPtr()}
+		selectQuery.KeyValueSelection.KeyValues[key] = query.Value{Value: &value, ValueComparison: query.EqualsPtr()}
 	}
 
 	return selectQuery
@@ -146,7 +146,7 @@ func (r *rule) GetRuleResponse(includeOverrides bool) *v1limiter.RuleResponse {
 	var overrides []v1limiter.RuleOverrideResponse
 	if includeOverrides {
 		onPagiination := func(item any) bool {
-			ruleOverride := item.(*ruleOverride)
+			ruleOverride := item.(*btreeassociated.AssociatedKeyValues).Value().(*ruleOverride)
 			ruleOverride.lock.Lock()
 			defer ruleOverride.lock.Unlock()
 
@@ -159,7 +159,7 @@ func (r *rule) GetRuleResponse(includeOverrides bool) *v1limiter.RuleResponse {
 			return true
 		}
 
-		_ = r.overrides.Query(query.Select{}, onPagiination)
+		_ = r.overrides.Query(query.AssociatedKeyValuesQuery{}, onPagiination)
 	}
 
 	ruleResponse := &v1limiter.RuleResponse{

@@ -157,10 +157,10 @@ func TestMemoryQueue_Enqueue(t *testing.T) {
 func TestMemoryQueue_Dequeue(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	globalSelect := query.Select{}
+	globalSelect := query.AssociatedKeyValuesQuery{}
 	bValue := datatypes.String("b")
-	bSelection := query.Select{
-		Where: &query.Query{
+	bSelection := query.AssociatedKeyValuesQuery{
+		KeyValueSelection: &query.KeyValueSelection{
 			KeyValues: map[string]query.Value{
 				"b": {Value: &bValue, ValueComparison: query.EqualsPtr()},
 			},
@@ -658,8 +658,8 @@ func TestMemoryQueue_ACK(t *testing.T) {
 
 			// setup reader
 			dequeuRequest := &v1willow.DequeueItemRequest{
-				Name:      "test",
-				Selection: query.Select{},
+				Name:  "test",
+				Query: query.AssociatedKeyValuesQuery{},
 			}
 			g.Expect(dequeuRequest.Validate()).ToNot(HaveOccurred())
 
@@ -667,7 +667,7 @@ func TestMemoryQueue_ACK(t *testing.T) {
 			g.Expect(queue.Enqueue(zap.NewNop(), &enqueueItem1)).ToNot(HaveOccurred())
 
 			// dequeue the item like a client so its processing
-			dequeueItem, success, _, err := queue.Dequeue(zap.NewNop(), context.Background(), dequeuRequest.Selection)
+			dequeueItem, success, _, err := queue.Dequeue(zap.NewNop(), context.Background(), dequeuRequest.Query)
 			g.Expect(err).ToNot(HaveOccurred())
 			g.Expect(dequeueItem).ToNot(BeNil())
 			success()

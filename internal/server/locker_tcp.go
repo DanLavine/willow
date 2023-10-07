@@ -5,15 +5,12 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"net"
 	"net/http"
 	"os"
 
 	"github.com/DanLavine/willow/internal/config"
 	"github.com/DanLavine/willow/internal/datastructures/btree"
-	"github.com/DanLavine/willow/internal/server/client"
 	"github.com/DanLavine/willow/internal/server/versions/v1server"
-	"github.com/DanLavine/willow/pkg/models/datatypes"
 	"go.uber.org/zap"
 	"golang.org/x/net/http2"
 )
@@ -94,36 +91,10 @@ func (locker *LockerTCP) Execute(ctx context.Context) error {
 
 	// crud operations for group rules
 	// These operations seem more like a normal DB that I want to do...
-	mux.HandleFunc("/v1/locker/create", locker.v1Handler.Create(ctx)) // pass the ctx here so clients can clean up when the server shutsdown
-	mux.HandleFunc("/v1/locker/list", locker.v1Handler.List(ctx))
-	mux.HandleFunc("/v1/locker/delete", locker.v1Handler.Delete(ctx))
-
-	// first call to server that sets up the the tracker for any requests for a conn
-	locker.server.ConnContext = func(ctx context.Context, conn net.Conn) context.Context {
-		clientTracker := client.NewLockerClientTracker()
-
-		// 1 client can create multiple conns! which is not what I expected. Since golang then will make any requests
-		// go through any of the conns. so this suck because I need the disconnect logic...
-		if err := locker.connTracker.CreateOrFind(datatypes.String(conn.RemoteAddr().String()), func() any { return clientTracker }, func(item any) {}); err != nil {
-			panic(err)
-		}
-
-		return context.WithValue(ctx, "clientTracker", clientTracker)
-	}
-
-	// setup for when a client disconnects, need to cleanup the client tracker
-	locker.server.ConnState = func(conn net.Conn, state http.ConnState) {
-		switch state {
-		case http.StateClosed:
-			logger.Debug("conn closed")
-			locker.connTracker.Delete(datatypes.String(conn.RemoteAddr().String()), func(item any) bool {
-				clientTracker := item.(client.LockerTracker)
-				clientTracker.Disconnect()
-
-				return true
-			})
-		}
-	}
+	mux.HandleFunc("/v1/locker/create", locker.v1Handler.Create) // pass the ctx here so clients can clean up when the server shutsdown
+	mux.HandleFunc("/v1/locker/heartbeat", locker.v1Handler.Heartbeat)
+	mux.HandleFunc("/v1/locker/list", locker.v1Handler.List)
+	mux.HandleFunc("/v1/locker/delete", locker.v1Handler.Delete)
 
 	locker.server.Handler = mux
 	http2.ConfigureServer(locker.server, &http2.Server{})

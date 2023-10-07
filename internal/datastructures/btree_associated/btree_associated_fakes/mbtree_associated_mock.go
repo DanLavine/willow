@@ -37,11 +37,12 @@ func (m *MockBTreeAssociated) EXPECT() *MockBTreeAssociatedMockRecorder {
 }
 
 // CreateOrFind mocks base method.
-func (m *MockBTreeAssociated) CreateOrFind(arg0 datatypes.StringMap, arg1 datastructures.OnCreate, arg2 datastructures.OnFind) error {
+func (m *MockBTreeAssociated) CreateOrFind(arg0 datatypes.StringMap, arg1 datastructures.OnCreate, arg2 datastructures.OnFind) (string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateOrFind", arg0, arg1, arg2)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // CreateOrFind indicates an expected call of CreateOrFind.
@@ -65,11 +66,12 @@ func (mr *MockBTreeAssociatedMockRecorder) Delete(arg0, arg1 interface{}) *gomoc
 }
 
 // Find mocks base method.
-func (m *MockBTreeAssociated) Find(arg0 datatypes.StringMap, arg1 datastructures.OnFind) error {
+func (m *MockBTreeAssociated) Find(arg0 datatypes.StringMap, arg1 datastructures.OnFind) (string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Find", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // Find indicates an expected call of Find.
@@ -78,8 +80,22 @@ func (mr *MockBTreeAssociatedMockRecorder) Find(arg0, arg1 interface{}) *gomock.
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Find", reflect.TypeOf((*MockBTreeAssociated)(nil).Find), arg0, arg1)
 }
 
+// FindByAssociatedID mocks base method.
+func (m *MockBTreeAssociated) FindByAssociatedID(arg0 string, arg1 datastructures.OnFind) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "FindByAssociatedID", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// FindByAssociatedID indicates an expected call of FindByAssociatedID.
+func (mr *MockBTreeAssociatedMockRecorder) FindByAssociatedID(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindByAssociatedID", reflect.TypeOf((*MockBTreeAssociated)(nil).FindByAssociatedID), arg0, arg1)
+}
+
 // Query mocks base method.
-func (m *MockBTreeAssociated) Query(arg0 query.Select, arg1 datastructures.OnFindPagination) error {
+func (m *MockBTreeAssociated) Query(arg0 query.AssociatedKeyValuesQuery, arg1 datastructures.OnFindPagination) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Query", arg0, arg1)
 	ret0, _ := ret[0].(error)

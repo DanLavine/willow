@@ -155,7 +155,9 @@ func (rm *rulesManger) Increment(logger *zap.Logger, increment *v1limiter.RuleCo
 
 		Issue is I don't know what rules a key value grouping belongs to.
 
-		.... Solutions"
+		...
+
+		Solutions
 
 		I could grab "locks" for all possible key value combination? This would gurantess that any other possible rules for the
 		same tags are waiting till one collection goes through?
@@ -177,12 +179,12 @@ func (rm *rulesManger) Increment(logger *zap.Logger, increment *v1limiter.RuleCo
 
 	// update the counter
 	onFind := func(item any) {
-		counter := item.(*atomic.Uint64)
+		counter := item.(*btreeassociated.AssociatedKeyValues).Value().(*atomic.Uint64)
 		initialCounter = counter
 		initialCount = counter.Add(1)
 	}
 
-	_ = rm.counters.CreateOrFind(increment.KeyValues, onCreate, onFind)
+	_, _ = rm.counters.CreateOrFind(increment.KeyValues, onCreate, onFind)
 
 	// 2. sort through all the rules to know if we are at the limit
 	limitReached := false
@@ -196,7 +198,7 @@ func (rm *rulesManger) Increment(logger *zap.Logger, increment *v1limiter.RuleCo
 
 			// callback to count all known values
 			countPagination := func(item any) bool {
-				counter := item.(*atomic.Uint64)
+				counter := item.(*btreeassociated.AssociatedKeyValues).Value().(*atomic.Uint64)
 				if initialCounter != counter {
 					totalCount += counter.Load()
 				}
@@ -223,7 +225,7 @@ func (rm *rulesManger) Increment(logger *zap.Logger, increment *v1limiter.RuleCo
 	if limitReached {
 		// need to decrement the inital value since we failed
 		canDelete := func(item any) bool {
-			counter := item.(*atomic.Uint64)
+			counter := item.(*btreeassociated.AssociatedKeyValues).Value().(*atomic.Uint64)
 			counter.Add(^uint64(0))
 
 			return counter.Load() == 0
@@ -241,7 +243,7 @@ func (rm *rulesManger) Increment(logger *zap.Logger, increment *v1limiter.RuleCo
 func (rm *rulesManger) Decrement(logger *zap.Logger, decrement *v1limiter.RuleCounterRequest) {
 	//logger = logger.Named("Decrement")
 	canDelete := func(item any) bool {
-		counter := item.(*atomic.Uint64)
+		counter := item.(*btreeassociated.AssociatedKeyValues).Value().(*atomic.Uint64)
 		counter.Add(^uint64(0))
 
 		return counter.Load() == 0

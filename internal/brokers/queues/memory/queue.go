@@ -18,7 +18,7 @@ import (
 )
 
 type clientWaiting struct {
-	selection  query.Select
+	selection  query.AssociatedKeyValuesQuery
 	channelOPS channelops.MergeReadChannelOps
 }
 
@@ -87,7 +87,7 @@ func (q *Queue) Enqueue(logger *zap.Logger, enqueueItemRequest *v1willow.Enqueue
 
 	// if a tag group already exists, enqueue an item
 	onFind := func(item any) {
-		tagGroup := item.(*tagGroup)
+		tagGroup := item.(*btreeassociated.AssociatedKeyValues).Value().(*tagGroup)
 		returnErr = tagGroup.Enqueue(logger, q.counter, enqueueItemRequest)
 	}
 
@@ -97,7 +97,7 @@ func (q *Queue) Enqueue(logger *zap.Logger, enqueueItemRequest *v1willow.Enqueue
 		tagGroup := newTagGroup(enqueueItemRequest.Tags)
 
 		// Enqueue the item
-		onFind(tagGroup)
+		returnErr = tagGroup.Enqueue(logger, q.counter, enqueueItemRequest)
 
 		// start processing the tag group, if there is an error here, we are shutting down so who cares
 		_ = q.taskManager.AddExecuteTask("", tagGroup)
@@ -109,7 +109,7 @@ func (q *Queue) Enqueue(logger *zap.Logger, enqueueItemRequest *v1willow.Enqueue
 		return tagGroup
 	}
 
-	if err := q.tagGroups.CreateOrFind(enqueueItemRequest.Tags, onCreate, onFind); err != nil {
+	if _, err := q.tagGroups.CreateOrFind(enqueueItemRequest.Tags, onCreate, onFind); err != nil {
 		logger.Error("failed to create or find the tag group", zap.Error(err))
 		return errors.InternalServerError.With("", err.Error())
 	}
@@ -123,7 +123,7 @@ func (q *Queue) Enqueue(logger *zap.Logger, enqueueItemRequest *v1willow.Enqueue
 //	- logger - logger to record any errors
 //	- cancelContext - context from the http client to indicate if a client disconnects
 //	- selection - query to use when searching for tag groups
-func (q *Queue) Dequeue(logger *zap.Logger, cancelContext context.Context, selection query.Select) (*v1willow.DequeueItemResponse, func(), func(), *api.Error) {
+func (q *Queue) Dequeue(logger *zap.Logger, cancelContext context.Context, selection query.AssociatedKeyValuesQuery) (*v1willow.DequeueItemResponse, func(), func(), *api.Error) {
 	logger = logger.Named("DequeueItem")
 
 	var dequeueResponse func(logger *zap.Logger) (*v1willow.DequeueItemResponse, func(), func(), *api.Error)
@@ -135,7 +135,7 @@ func (q *Queue) Dequeue(logger *zap.Logger, cancelContext context.Context, selec
 	defer q.removeClientWaiting(channelOperations)
 
 	onFindPagination := func(item any) bool {
-		tagGroup := item.(*tagGroup)
+		tagGroup := item.(*btreeassociated.AssociatedKeyValues).Value().(*tagGroup)
 
 		select {
 		case response := <-tagGroup.dequeueChannel:
@@ -180,7 +180,7 @@ func (q *Queue) ACK(logger *zap.Logger, ackItem *v1willow.ACK) *api.Error {
 	called := false
 	ack := func(item any) bool {
 		defer func() { called = true }()
-		tagGroup := item.(*tagGroup)
+		tagGroup := item.(*btreeassociated.AssociatedKeyValues).Value().(*tagGroup)
 
 		if err := tagGroup.ACK(logger, q.counter, ackItem); err != nil {
 			ackError = err
@@ -212,15 +212,15 @@ func (q *Queue) Metrics() *v1willow.QueueMetricsResponse {
 		DeadLetterQueueMetrics: nil,
 	}
 
-	metricsFunc := func(value any) bool {
-		tagGroup := value.(*tagGroup)
+	metricsFunc := func(item any) bool {
+		tagGroup := item.(*btreeassociated.AssociatedKeyValues).Value().(*tagGroup)
 		metrics.Tags = append(metrics.Tags, tagGroup.Metrics())
 
 		return true
 	}
 
 	// find all items in the tree
-	q.tagGroups.Query(query.Select{}, metricsFunc)
+	q.tagGroups.Query(query.AssociatedKeyValuesQuery{}, metricsFunc)
 
 	return metrics
 }
@@ -231,7 +231,7 @@ func (q *Queue) Stop() {
 	})
 }
 
-func (q *Queue) addClientWaiting(selection query.Select, channelOps channelops.MergeReadChannelOps) {
+func (q *Queue) addClientWaiting(selection query.AssociatedKeyValuesQuery, channelOps channelops.MergeReadChannelOps) {
 	q.clientsLock.Lock()
 	defer q.clientsLock.Unlock()
 

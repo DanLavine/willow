@@ -69,7 +69,7 @@ func (qh *queueHandler) Dequeue(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		dequeueItem, success, failure, err := queue.Dequeue(logger, r.Context(), dequeueItemRequest.Selection)
+		dequeueItem, success, failure, err := queue.Dequeue(logger, r.Context(), dequeueItemRequest.Query)
 		if err != nil {
 			w.WriteHeader(err.StatusCode)
 			w.Write(err.ToBytes())

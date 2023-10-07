@@ -90,7 +90,7 @@ func (lc *LockerConfig) validate() error {
 	//// server port
 	LockerPort, err := strconv.Atoi(*lc.LockerPort)
 	if err != nil {
-		return fmt.Errorf("error parsing 'Locker-port': %w", err)
+		return fmt.Errorf("error parsing 'locker-port': %w", err)
 	} else if LockerPort > 65535 {
 		return fmt.Errorf("param 'locker-port' is invalid: '%d'. Must be set to a proper port below 65536", LockerPort)
 	}

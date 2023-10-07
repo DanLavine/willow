@@ -4,6 +4,7 @@ import (
 	"sync/atomic"
 	"testing"
 
+	btreeassociated "github.com/DanLavine/willow/internal/datastructures/btree_associated"
 	"github.com/DanLavine/willow/pkg/models/api/v1limiter"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 	"github.com/DanLavine/willow/pkg/models/query"
@@ -18,10 +19,10 @@ func TestRulesManager_CreateGroupRule(t *testing.T) {
 		rulesManager := NewRulesManger()
 
 		createRequest := &v1limiter.RuleRequest{
-			Name:     "test",
-			GroupBy:  []string{"key1", "key2"},
-			Seletion: query.Select{},
-			Limit:    5,
+			Name:    "test",
+			GroupBy: []string{"key1", "key2"},
+			Query:   query.AssociatedKeyValuesQuery{},
+			Limit:   5,
 		}
 		g.Expect(createRequest.Validate()).ToNot(HaveOccurred())
 
@@ -33,10 +34,10 @@ func TestRulesManager_CreateGroupRule(t *testing.T) {
 		rulesManager := NewRulesManger()
 
 		createRequest := &v1limiter.RuleRequest{
-			Name:     "test",
-			GroupBy:  []string{"key1", "key2"},
-			Seletion: query.Select{},
-			Limit:    5,
+			Name:    "test",
+			GroupBy: []string{"key1", "key2"},
+			Query:   query.AssociatedKeyValuesQuery{},
+			Limit:   5,
 		}
 		g.Expect(createRequest.Validate()).ToNot(HaveOccurred())
 
@@ -63,10 +64,10 @@ func TestRulesManager_FindRule(t *testing.T) {
 		rulesManager := NewRulesManger()
 
 		createRequest := &v1limiter.RuleRequest{
-			Name:     "test",
-			GroupBy:  []string{"key1", "key2"},
-			Seletion: query.Select{},
-			Limit:    5,
+			Name:    "test",
+			GroupBy: []string{"key1", "key2"},
+			Query:   query.AssociatedKeyValuesQuery{},
+			Limit:   5,
 		}
 		g.Expect(createRequest.Validate()).ToNot(HaveOccurred())
 
@@ -92,10 +93,10 @@ func TestRulesManager_ListRules(t *testing.T) {
 		rulesManager := NewRulesManger()
 
 		createRequest := &v1limiter.RuleRequest{
-			Name:     "test",
-			GroupBy:  []string{"key1", "key2"},
-			Seletion: query.Select{},
-			Limit:    5,
+			Name:    "test",
+			GroupBy: []string{"key1", "key2"},
+			Query:   query.AssociatedKeyValuesQuery{},
+			Limit:   5,
 		}
 		g.Expect(createRequest.Validate()).ToNot(HaveOccurred())
 
@@ -114,10 +115,10 @@ func TestRulesManager_DeleteGroupRule(t *testing.T) {
 		rulesManager := NewRulesManger()
 
 		createRequest := &v1limiter.RuleRequest{
-			Name:     "test",
-			GroupBy:  []string{"key1", "key2"},
-			Seletion: query.Select{},
-			Limit:    5,
+			Name:    "test",
+			GroupBy: []string{"key1", "key2"},
+			Query:   query.AssociatedKeyValuesQuery{},
+			Limit:   5,
 		}
 		g.Expect(createRequest.Validate()).ToNot(HaveOccurred())
 		g.Expect(rulesManager.CreateGroupRule(zap.NewNop(), createRequest)).ToNot(HaveOccurred())
@@ -150,10 +151,10 @@ func TestRulesManager_Increment(t *testing.T) {
 		rulesManager := NewRulesManger()
 
 		createRequest := &v1limiter.RuleRequest{
-			Name:     "test",
-			GroupBy:  []string{"key1", "key2"},
-			Seletion: query.Select{},
-			Limit:    5,
+			Name:    "test",
+			GroupBy: []string{"key1", "key2"},
+			Query:   query.AssociatedKeyValuesQuery{},
+			Limit:   5,
 		}
 		g.Expect(createRequest.Validate()).ToNot(HaveOccurred())
 		g.Expect(rulesManager.CreateGroupRule(zap.NewNop(), createRequest)).ToNot(HaveOccurred())
@@ -179,19 +180,19 @@ func TestRulesManager_Increment(t *testing.T) {
 		rulesManager := NewRulesManger()
 
 		createRequest1 := &v1limiter.RuleRequest{
-			Name:     "test",
-			GroupBy:  []string{"key1", "key2"},
-			Seletion: query.Select{},
-			Limit:    5,
+			Name:    "test",
+			GroupBy: []string{"key1", "key2"},
+			Query:   query.AssociatedKeyValuesQuery{},
+			Limit:   5,
 		}
 		g.Expect(createRequest1.Validate()).ToNot(HaveOccurred())
 		g.Expect(rulesManager.CreateGroupRule(zap.NewNop(), createRequest1)).ToNot(HaveOccurred())
 
 		createRequest2 := &v1limiter.RuleRequest{
-			Name:     "test2",
-			GroupBy:  []string{"key1"},
-			Seletion: query.Select{},
-			Limit:    1,
+			Name:    "test2",
+			GroupBy: []string{"key1"},
+			Query:   query.AssociatedKeyValuesQuery{},
+			Limit:   1,
 		}
 		g.Expect(createRequest2.Validate()).ToNot(HaveOccurred())
 		g.Expect(rulesManager.CreateGroupRule(zap.NewNop(), createRequest2)).ToNot(HaveOccurred())
@@ -225,10 +226,10 @@ func TestRulesManager_Increment(t *testing.T) {
 
 		// create the rule
 		createRequest := &v1limiter.RuleRequest{
-			Name:     "test",
-			GroupBy:  []string{"key1", "key2"},
-			Seletion: query.Select{},
-			Limit:    5,
+			Name:    "test",
+			GroupBy: []string{"key1", "key2"},
+			Query:   query.AssociatedKeyValuesQuery{},
+			Limit:   5,
 		}
 		g.Expect(createRequest.Validate()).ToNot(HaveOccurred())
 		g.Expect(rulesManager.CreateGroupRule(zap.NewNop(), createRequest)).ToNot(HaveOccurred())
@@ -254,24 +255,23 @@ func TestRulesManager_Decrement(t *testing.T) {
 
 		var counterValue uint64
 		onFind := func(item any) bool {
-			counterValue = item.(*atomic.Uint64).Load()
+			counterValue = item.(*btreeassociated.AssociatedKeyValues).Value().(*atomic.Uint64).Load()
 			return true
 		}
 
 		// ensure we have a counter of 2
-		rulesManager.counters.Query(query.Select{}, onFind)
+		rulesManager.counters.Query(query.AssociatedKeyValuesQuery{}, onFind)
 		g.Expect(counterValue).To(Equal(uint64(2)))
 
 		rulesManager.Decrement(zap.NewNop(), counter)
 		// ensure we have a counter of 1
-		rulesManager.counters.Query(query.Select{}, onFind)
+		rulesManager.counters.Query(query.AssociatedKeyValuesQuery{}, onFind)
 		g.Expect(counterValue).To(Equal(uint64(1)))
 
 		rulesManager.Decrement(zap.NewNop(), counter)
 		// ensure we have a counter of 0
 		counterValue = 0
-		rulesManager.counters.Query(query.Select{}, onFind)
+		rulesManager.counters.Query(query.AssociatedKeyValuesQuery{}, onFind)
 		g.Expect(counterValue).To(Equal(uint64(0)))
-
 	})
 }

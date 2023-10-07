@@ -8,17 +8,38 @@ import (
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 )
 
-type LockRequest struct {
+// create request
+type CreateLockRequest struct {
 	KeyValues datatypes.StringMap
 }
+type CreateLockResponse struct {
+	SessionID string
+}
 
-func ParseLockRequest(reader io.ReadCloser) (*LockRequest, *api.Error) {
+// List request
+type Lock struct {
+	KeyValues          datatypes.StringMap
+	LocksHeldOrWaiting int
+}
+type ListLockResponse struct {
+	Locks []Lock
+}
+
+// Delete request
+
+func NewListLockResponse(listLocks []Lock) ListLockResponse {
+	return ListLockResponse{
+		Locks: listLocks,
+	}
+}
+
+func ParseLockRequest(reader io.ReadCloser) (*CreateLockRequest, *api.Error) {
 	requestBody, err := io.ReadAll(reader)
 	if err != nil {
 		return nil, api.ReadRequestBodyError.With("", err.Error())
 	}
 
-	obj := &LockRequest{}
+	obj := &CreateLockRequest{}
 	if err := json.Unmarshal(requestBody, obj); err != nil {
 		return nil, api.ParseRequestBodyError.With("", err.Error())
 	}
@@ -30,7 +51,7 @@ func ParseLockRequest(reader io.ReadCloser) (*LockRequest, *api.Error) {
 	return obj, nil
 }
 
-func (lr *LockRequest) Validate() *api.Error {
+func (lr *CreateLockRequest) Validate() *api.Error {
 	if len(lr.KeyValues) == 0 {
 		return api.InvalidRequestBody.With("KeyValues to be provided", "recieved empty KeyValues")
 	}
@@ -38,23 +59,12 @@ func (lr *LockRequest) Validate() *api.Error {
 	return nil
 }
 
-type Lock struct {
-	KeyValues              datatypes.StringMap
-	GeneratedFromKeyValues datatypes.StringMap
+func (lr CreateLockResponse) ToBytes() []byte {
+	data, _ := json.Marshal(lr)
+	return data
 }
 
-func NewLock(keyValues, generatedFromKeyValues datatypes.StringMap) Lock {
-	return Lock{
-		KeyValues:              keyValues,
-		GeneratedFromKeyValues: generatedFromKeyValues,
-	}
-}
-
-type LockResponse struct {
-	Locks []Lock
-}
-
-func (lr LockResponse) ToBytes() []byte {
+func (lr ListLockResponse) ToBytes() []byte {
 	data, _ := json.Marshal(lr)
 	return data
 }

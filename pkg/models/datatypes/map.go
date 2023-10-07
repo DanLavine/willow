@@ -27,6 +27,18 @@ func (sm StringMap) SoretedKeys() []string {
 	return keys
 }
 
+func (sm StringMap) StripKey(removeKey string) StringMap {
+	returnMap := StringMap{}
+
+	for key, value := range sm {
+		if key != removeKey {
+			returnMap[key] = value
+		}
+	}
+
+	return returnMap
+}
+
 // GenerateGroupPairs can be used to go through a list of strings and create all unique ordered groupings.
 // The returned slice is sorted on length of key value pairs with the longest value always last
 //

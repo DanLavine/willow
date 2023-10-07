@@ -197,8 +197,11 @@ func TestAssociated_Random_Create(t *testing.T) {
 					}
 				}
 
-				g.Expect(associatedTree.CreateOrFind(keys, noOpOnCreate, noOpOnFind)).ToNot(HaveOccurred())
-				g.Expect(associatedTree.CreateOrFind(repeatKeys, noOpOnCreate, noOpOnFind)).ToNot(HaveOccurred())
+				_, err := associatedTree.CreateOrFind(keys, noOpOnCreate, noOpOnFind)
+				g.Expect(err).ToNot(HaveOccurred())
+
+				_, err = associatedTree.CreateOrFind(repeatKeys, noOpOnCreate, noOpOnFind)
+				g.Expect(err).ToNot(HaveOccurred())
 			}(i)
 		}
 
@@ -235,7 +238,8 @@ func TestAssociated_Random_Find(t *testing.T) {
 					}
 				}
 
-				g.Expect(associatedTree.CreateOrFind(keys, func() any { return tNum }, noOpOnFind)).ToNot(HaveOccurred())
+				_, err := associatedTree.CreateOrFind(keys, func() any { return tNum }, noOpOnFind)
+				g.Expect(err).ToNot(HaveOccurred())
 			}(i)
 		}
 		wg.Wait()
@@ -261,10 +265,11 @@ func TestAssociated_Random_Find(t *testing.T) {
 				}
 
 				findCounter := 0
-				g.Expect(associatedTree.Find(keys, func(item any) {
+				_, err := associatedTree.Find(keys, func(item any) {
 					findCounter++
-					g.Expect(item).To(Equal(tNum))
-				})).ToNot(HaveOccurred())
+					g.Expect(item.(*AssociatedKeyValues).Value()).To(Equal(tNum))
+				})
+				g.Expect(err).ToNot(HaveOccurred())
 
 				g.Expect(findCounter).To(Equal(1), fmt.Sprintf("Index %d has an invalid find counter", tNum))
 			}(i)
@@ -303,7 +308,8 @@ func TestAssociated_Random_Query(t *testing.T) {
 					}
 				}
 
-				g.Expect(associatedTree.CreateOrFind(keys, func() any { return tNum }, noOpOnFind)).ToNot(HaveOccurred())
+				_, err := associatedTree.CreateOrFind(keys, func() any { return tNum }, noOpOnFind)
+				g.Expect(err).ToNot(HaveOccurred())
 			}(i)
 		}
 		wg.Wait()
@@ -318,24 +324,24 @@ func TestAssociated_Random_Query(t *testing.T) {
 				modInt++
 
 				// generate a key with a few different types
-				selection := query.Select{}
+				queryDB := query.AssociatedKeyValuesQuery{}
 				for i := 0; i < modInt; i++ {
-					whereSelection := query.Select{}
+					asociatedKeyValuesQuery := query.AssociatedKeyValuesQuery{}
 					switch tNum % 2 {
 					case 0:
 						strValue := datatypes.String(fmt.Sprintf("%d", tNum))
-						whereSelection.Where = &query.Query{KeyValues: map[string]query.Value{fmt.Sprintf("%d", i): {Value: &strValue, ValueComparison: query.EqualsPtr()}}}
-						selection.And = append(selection.And, whereSelection)
+						asociatedKeyValuesQuery.KeyValueSelection = &query.KeyValueSelection{KeyValues: map[string]query.Value{fmt.Sprintf("%d", i): {Value: &strValue, ValueComparison: query.EqualsPtr()}}}
+						queryDB.And = append(queryDB.And, asociatedKeyValuesQuery)
 					default:
 						intValue := datatypes.Int(tNum)
-						whereSelection.Where = &query.Query{KeyValues: map[string]query.Value{fmt.Sprintf("%d", i): {Value: &intValue, ValueComparison: query.EqualsPtr()}}}
-						selection.Or = append(selection.Or, whereSelection)
+						asociatedKeyValuesQuery.KeyValueSelection = &query.KeyValueSelection{KeyValues: map[string]query.Value{fmt.Sprintf("%d", i): {Value: &intValue, ValueComparison: query.EqualsPtr()}}}
+						queryDB.Or = append(queryDB.Or, asociatedKeyValuesQuery)
 					}
 				}
-				g.Expect(selection.Validate()).ToNot(HaveOccurred())
+				g.Expect(queryDB.Validate()).ToNot(HaveOccurred())
 
 				findCounter := 0
-				g.Expect(associatedTree.Query(selection, func(item any) bool {
+				g.Expect(associatedTree.Query(queryDB, func(item any) bool {
 					findCounter++
 					return true
 				})).ToNot(HaveOccurred())
@@ -376,7 +382,8 @@ func TestAssociated_Random_Delete(t *testing.T) {
 					}
 				}
 
-				g.Expect(associatedTree.CreateOrFind(keys, func() any { return tNum }, noOpOnFind)).ToNot(HaveOccurred())
+				_, err := associatedTree.CreateOrFind(keys, func() any { return tNum }, noOpOnFind)
+				g.Expect(err).ToNot(HaveOccurred())
 			}(i)
 		}
 		wg.Wait()
@@ -440,7 +447,8 @@ func TestAssociated_Random_AllActions(t *testing.T) {
 					}
 				}
 
-				g.Expect(associatedTree.CreateOrFind(keys, func() any { return tNum }, noOpOnFind)).ToNot(HaveOccurred())
+				_, err := associatedTree.CreateOrFind(keys, func() any { return tNum }, noOpOnFind)
+				g.Expect(err).ToNot(HaveOccurred())
 			}(i)
 
 			// delete
@@ -482,7 +490,8 @@ func TestAssociated_Random_AllActions(t *testing.T) {
 					}
 				}
 
-				g.Expect(associatedTree.Find(keys, func(item any) { g.Expect(item).To(Equal(tNum)) })).ToNot(HaveOccurred())
+				_, err := associatedTree.Find(keys, func(item any) { g.Expect(item.(*AssociatedKeyValues).Value()).To(Equal(tNum)) })
+				g.Expect(err).ToNot(HaveOccurred())
 			}(i)
 
 			// query
@@ -493,22 +502,22 @@ func TestAssociated_Random_AllActions(t *testing.T) {
 				modInt++
 
 				// generate a key with a few different types
-				selection := query.Select{}
+				queryDB := query.AssociatedKeyValuesQuery{}
 				for i := 0; i < modInt; i++ {
-					whereSelection := query.Select{}
+					asociatedKeyValuesQuery := query.AssociatedKeyValuesQuery{}
 					switch tNum % 2 {
 					case 0:
 						strValue := datatypes.String(fmt.Sprintf("%d", tNum))
-						whereSelection.Where = &query.Query{KeyValues: map[string]query.Value{fmt.Sprintf("%d", i): {Value: &strValue, ValueComparison: query.EqualsPtr()}}}
-						selection.And = append(selection.And, whereSelection)
+						asociatedKeyValuesQuery.KeyValueSelection = &query.KeyValueSelection{KeyValues: map[string]query.Value{fmt.Sprintf("%d", i): {Value: &strValue, ValueComparison: query.EqualsPtr()}}}
+						queryDB.And = append(queryDB.And, asociatedKeyValuesQuery)
 					default:
 						intValue := datatypes.Int(tNum)
-						whereSelection.Where = &query.Query{KeyValues: map[string]query.Value{fmt.Sprintf("%d", i): {Value: &intValue, ValueComparison: query.EqualsPtr()}}}
-						selection.Or = append(selection.Or, whereSelection)
+						asociatedKeyValuesQuery.KeyValueSelection = &query.KeyValueSelection{KeyValues: map[string]query.Value{fmt.Sprintf("%d", i): {Value: &intValue, ValueComparison: query.EqualsPtr()}}}
+						queryDB.Or = append(queryDB.Or, asociatedKeyValuesQuery)
 					}
 				}
-				g.Expect(selection.Validate()).ToNot(HaveOccurred())
-				g.Expect(associatedTree.Query(selection, func(item any) bool {
+				g.Expect(queryDB.Validate()).ToNot(HaveOccurred())
+				g.Expect(associatedTree.Query(queryDB, func(item any) bool {
 					return true
 				})).ToNot(HaveOccurred())
 			}(i)

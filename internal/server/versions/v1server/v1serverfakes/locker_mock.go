@@ -58,6 +58,18 @@ func (mr *MockLockerHandlerMockRecorder) Delete(arg0, arg1 interface{}) *gomock.
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockLockerHandler)(nil).Delete), arg0, arg1)
 }
 
+// Heartbeat mocks base method.
+func (m *MockLockerHandler) Heartbeat(arg0 http.ResponseWriter, arg1 *http.Request) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "Heartbeat", arg0, arg1)
+}
+
+// Heartbeat indicates an expected call of Heartbeat.
+func (mr *MockLockerHandlerMockRecorder) Heartbeat(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Heartbeat", reflect.TypeOf((*MockLockerHandler)(nil).Heartbeat), arg0, arg1)
+}
+
 // List mocks base method.
 func (m *MockLockerHandler) List(arg0 http.ResponseWriter, arg1 *http.Request) {
 	m.ctrl.T.Helper()

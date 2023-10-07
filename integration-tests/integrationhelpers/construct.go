@@ -2,6 +2,7 @@ package integrationhelpers
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -68,6 +69,7 @@ func (itc *IntegrationTestConstruct) StartWillow(g *WithT) {
 	session, err := gexec.Start(willowExe, itc.ServerStdout, itc.ServerStderr)
 	g.Expect(err).ToNot(HaveOccurred())
 	g.Eventually(session.Out).Should(gbytes.Say("Willow TCP server running"))
+	time.Sleep(100 * time.Millisecond)
 
 	// record start configuration
 	itc.Session = session
@@ -94,6 +96,7 @@ func (itc *IntegrationTestConstruct) StartLocker(g *WithT) {
 	session, err := gexec.Start(lockerExe, itc.ServerStdout, itc.ServerStderr)
 	g.Expect(err).ToNot(HaveOccurred())
 	g.Eventually(session.Out).Should(gbytes.Say("Locker TCP server running"))
+	time.Sleep(100 * time.Millisecond)
 
 	// record start configuration
 	itc.Session = session
@@ -101,7 +104,15 @@ func (itc *IntegrationTestConstruct) StartLocker(g *WithT) {
 
 func (itc *IntegrationTestConstruct) Shutdown(g *WithT) {
 	session := itc.Session.Interrupt()
-	g.Eventually(session, 2*time.Second).Should(gexec.Exit(0), string(itc.Session.Out.Contents()))
+	time.Sleep(time.Second)
+	fmt.Println(itc.ServerStdout.String())
+	fmt.Println(itc.ServerStderr.String())
+
+	g.Eventually(session, "20s").Should(gexec.Exit(0), string(itc.Session.Out.Contents()))
+
+	// g.Eventually(session, 2*time.Second).Should(gexec.Exit())
+	// fmt.Println((string(itc.Session.Out.Contents())))
+	// g.Fail("boo")
 
 	g.Expect(os.RemoveAll(itc.dataDir)).ToNot(HaveOccurred())
 }

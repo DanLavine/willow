@@ -60,7 +60,7 @@ type Queue interface {
 	Enqueue(logger *zap.Logger, enqueueItem *v1willow.EnqueueItemRequest) *api.Error
 
 	// Dequeue an item from the queue
-	Dequeue(logger *zap.Logger, cancelContext context.Context, selection query.Select) (*v1willow.DequeueItemResponse, func(), func(), *api.Error)
+	Dequeue(logger *zap.Logger, cancelContext context.Context, selection query.AssociatedKeyValuesQuery) (*v1willow.DequeueItemResponse, func(), func(), *api.Error)
 
 	// ACK a message
 	ACK(logger *zap.Logger, ackItem *v1willow.ACK) *api.Error

@@ -17,7 +17,7 @@ type RuleRequest struct {
 	GroupBy []string
 
 	// When comparing tags, use this selection to figure out if a rule applies to them
-	Seletion query.Select
+	Query query.AssociatedKeyValuesQuery
 
 	// Limit Key is an optional param that can be used to dictate what value of the tags to use as a limiter
 	Limit uint64
@@ -50,7 +50,7 @@ func (rreq *RuleRequest) Validate() *api.Error {
 		return api.InvalidRequestBody.With("GroupBy tags to be provided", "recieved empty tag grouping")
 	}
 
-	if err := rreq.Seletion.Validate(); err != nil {
+	if err := rreq.Query.Validate(); err != nil {
 		return api.InvalidRequestBody.With("Selection query to be a valid expression", err.Error())
 	}
 
@@ -65,7 +65,7 @@ type RuleResponse struct {
 	GroupBy []string
 
 	// When comparing tags, use this selection to figure out if a rule applies to them
-	Seletion query.Select
+	Query query.AssociatedKeyValuesQuery
 
 	// Limit Key is an optional param that can be used to dictate what value of the tags to use as a limiter
 	Limit uint64

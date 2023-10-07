@@ -5,16 +5,6 @@ import (
 	"reflect"
 )
 
-// when trees require a slice of tree keys
-type EnumerableCompareType interface {
-	// pop the first index off of the Enumerable list and return it.
-	// When there are no more Values in the list, return nil
-	Pop() (ComparableDataType, EnumerableCompareType)
-
-	// return the len(...) call of underlying type
-	Len() int
-}
-
 // user defined interface that needs to implemented for each custom data type
 type ComparableDataType interface {
 	// compare the objects including type and value
@@ -32,11 +22,7 @@ type DataType int
 
 func (dt DataType) Less(dataType DataType) bool {
 	// know data type is less
-	if dt < dataType {
-		return true
-	}
-
-	return false
+	return dt < dataType
 }
 
 var (

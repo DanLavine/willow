@@ -7,39 +7,39 @@ import (
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 )
 
-type Select struct {
-	Where *Query
+type AssociatedKeyValuesQuery struct {
+	KeyValueSelection *KeyValueSelection
 
-	Or  []Select
-	And []Select
+	Or  []AssociatedKeyValuesQuery
+	And []AssociatedKeyValuesQuery
 }
 
-func ParseSelect(data []byte) (*Select, error) {
-	selection := &Select{}
-	if err := json.Unmarshal(data, selection); err != nil {
+func ParseAssociatedKeyValuesQuery(data []byte) (*AssociatedKeyValuesQuery, error) {
+	Queryion := &AssociatedKeyValuesQuery{}
+	if err := json.Unmarshal(data, Queryion); err != nil {
 		return nil, err
 	}
 
-	return selection, nil
+	return Queryion, nil
 }
 
-func (s *Select) Validate() error {
+func (q *AssociatedKeyValuesQuery) Validate() error {
 	// validate single query
-	if s.Where != nil {
-		if err := s.Where.Validate(); err != nil {
-			return fmt.Errorf("Where%s", err.Error())
+	if q.KeyValueSelection != nil {
+		if err := q.KeyValueSelection.Validate(); err != nil {
+			return fmt.Errorf("KeyValueSelection%s", err.Error())
 		}
 	}
 
 	// validate all or joins
-	for index, or := range s.Or {
+	for index, or := range q.Or {
 		if err := or.Validate(); err != nil {
 			return fmt.Errorf("Or[%d].%s", index, err.Error())
 		}
 	}
 
 	// validate all and joins
-	for index, and := range s.And {
+	for index, and := range q.And {
 		if err := and.Validate(); err != nil {
 			return fmt.Errorf("And[%d].%s", index, err.Error())
 		}
@@ -49,19 +49,19 @@ func (s *Select) Validate() error {
 }
 
 // used to know if arbitrary tags, would be found from a query
-func (s *Select) MatchTags(tags datatypes.StringMap) bool {
+func (q *AssociatedKeyValuesQuery) MatchTags(tags datatypes.StringMap) bool {
 	matched := true
 
-	// if Where is not nil, check the tags
-	if s.Where != nil {
+	// if Query is not nil, check the tags
+	if q.KeyValueSelection != nil {
 		// for each item in the tag, check to see if there is a key value guard
 		// need to check the query as the source of truth...
-		matched = s.Where.MatchTags(tags)
+		matched = q.KeyValueSelection.MatchTags(tags)
 	}
 
 	// for each and, need to intersect that all those values match as well
-	if matched && s.And != nil {
-		for _, andCheck := range s.And {
+	if matched && q.And != nil {
+		for _, andCheck := range q.And {
 			if !andCheck.MatchTags(tags) {
 				matched = false
 				break
@@ -75,7 +75,7 @@ func (s *Select) MatchTags(tags datatypes.StringMap) bool {
 		return true
 	}
 
-	for _, orValue := range s.Or {
+	for _, orValue := range q.Or {
 		// if any of these match, can return true
 		if orValue.MatchTags(tags) {
 			return true
