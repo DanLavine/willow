@@ -10,6 +10,7 @@ type generalLock struct {
 	lockChan chan struct{}
 	hertbeat chan struct{}
 
+	timeout time.Duration
 	cleanup func() bool
 
 	counterLock *sync.RWMutex
@@ -20,6 +21,7 @@ func newGeneralLock(timeout time.Duration, cleanup func() bool) *generalLock {
 	return &generalLock{
 		lockChan:    make(chan struct{}),
 		hertbeat:    make(chan struct{}),
+		timeout:     timeout,
 		cleanup:     cleanup,
 		counterLock: new(sync.RWMutex),
 		counter:     1,
@@ -27,7 +29,7 @@ func newGeneralLock(timeout time.Duration, cleanup func() bool) *generalLock {
 }
 
 func (generalLock *generalLock) Execute(ctx context.Context) error {
-	timer := time.NewTicker(15 * time.Second)
+	timer := time.NewTicker(generalLock.timeout)
 
 	for {
 		select {

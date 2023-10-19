@@ -263,22 +263,19 @@ func TestLocker_Heartbeat_API(t *testing.T) {
 
 		lockerClient := testConstruct.LockerClient
 
-		lockRequest := v1locker.CreateLockRequest{
-			KeyValues: datatypes.StringMap{
-				"key1": datatypes.String("key one"),
-				"key2": datatypes.String("key two"),
-			},
+		heartbeatRequest := v1locker.HeartbeatLocksRequst{
+			LockSessions: []string{"nope"},
 		}
 
-		data, err := json.Marshal(lockRequest)
+		data, err := json.Marshal(heartbeatRequest)
 		g.Expect(err).ToNot(HaveOccurred())
 
-		obtainLock, err := http.NewRequest("POST", fmt.Sprintf("%s/v1/locker/create", testConstruct.LockerClient.Address()), bytes.NewBuffer(data))
+		obtainLock, err := http.NewRequest("POST", fmt.Sprintf("%s/v1/locker/heartbeat", testConstruct.LockerClient.Address()), bytes.NewBuffer(data))
 		g.Expect(err).ToNot(HaveOccurred())
 
 		resp, err := lockerClient.Do(obtainLock)
 		g.Expect(err).ToNot(HaveOccurred())
-		g.Expect(resp.StatusCode).To(Equal(http.StatusOK))
+		g.Expect(resp.StatusCode).To(Equal(http.StatusConflict))
 	})
 
 	t.Run("It heartbeat a lock to keep the lock", func(t *testing.T) {
@@ -287,11 +284,13 @@ func TestLocker_Heartbeat_API(t *testing.T) {
 
 		lockerClient := testConstruct.LockerClient
 
+		// create the lock
 		lockRequest := v1locker.CreateLockRequest{
 			KeyValues: datatypes.StringMap{
 				"key1": datatypes.String("key one"),
 				"key2": datatypes.String("key two"),
 			},
+			Timeout: time.Second,
 		}
 
 		data, err := json.Marshal(lockRequest)
@@ -303,10 +302,94 @@ func TestLocker_Heartbeat_API(t *testing.T) {
 		resp, err := lockerClient.Do(obtainLock)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(resp.StatusCode).To(Equal(http.StatusOK))
+
+		obtainLockResp := v1locker.DeleteLockRequest{}
+		respData, err := io.ReadAll(resp.Body)
+		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(json.Unmarshal(respData, &obtainLockResp)).ToNot(HaveOccurred())
+		g.Expect(obtainLockResp.SessionID).ToNot(Equal(""))
+
+		// continueoously heartbeat for longer than the time expiration
+		for i := 0; i < 10; i++ {
+			heartbeatRequest := v1locker.HeartbeatLocksRequst{
+				LockSessions: []string{string(obtainLockResp.SessionID)},
+			}
+
+			data, err := json.Marshal(heartbeatRequest)
+			g.Expect(err).ToNot(HaveOccurred())
+
+			heartbeatReq, err := http.NewRequest("POST", fmt.Sprintf("%s/v1/locker/heartbeat", testConstruct.LockerClient.Address()), bytes.NewBuffer(data))
+			g.Expect(err).ToNot(HaveOccurred())
+
+			resp, err = lockerClient.Do(heartbeatReq)
+			g.Expect(err).ToNot(HaveOccurred())
+			g.Expect(resp.StatusCode).To(Equal(http.StatusOK))
+		}
+
+		// ensure the lock still exists
+		listLocks, err := http.NewRequest("GET", fmt.Sprintf("%s/v1/locker/list", testConstruct.LockerClient.Address()), nil)
+		g.Expect(err).ToNot(HaveOccurred())
+
+		resp, err = lockerClient.Do(listLocks)
+		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(resp.StatusCode).To(Equal(http.StatusOK))
+
+		data, err = io.ReadAll(resp.Body)
+		g.Expect(err).ToNot(HaveOccurred())
+
+		locks := v1locker.ListLockResponse{}
+		g.Expect(json.Unmarshal(data, &locks)).ToNot(HaveOccurred())
+		g.Expect(len(locks.Locks)).To(Equal(1))
 	})
 
 	t.Run("It releases a lock if the heartbeats do not happen often enough", func(t *testing.T) {
+		testConstruct.StartLocker(g)
+		defer testConstruct.Shutdown(g)
 
+		lockerClient := testConstruct.LockerClient
+
+		// create the lock
+		lockRequest := v1locker.CreateLockRequest{
+			KeyValues: datatypes.StringMap{
+				"key1": datatypes.String("key one"),
+				"key2": datatypes.String("key two"),
+			},
+			Timeout: 100 * time.Millisecond,
+		}
+
+		data, err := json.Marshal(lockRequest)
+		g.Expect(err).ToNot(HaveOccurred())
+
+		obtainLock, err := http.NewRequest("POST", fmt.Sprintf("%s/v1/locker/create", testConstruct.LockerClient.Address()), bytes.NewBuffer(data))
+		g.Expect(err).ToNot(HaveOccurred())
+
+		resp, err := lockerClient.Do(obtainLock)
+		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(resp.StatusCode).To(Equal(http.StatusOK))
+
+		obtainLockResp := v1locker.DeleteLockRequest{}
+		respData, err := io.ReadAll(resp.Body)
+		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(json.Unmarshal(respData, &obtainLockResp)).ToNot(HaveOccurred())
+		g.Expect(obtainLockResp.SessionID).ToNot(Equal(""))
+
+		// sleep to let the lock expire
+		time.Sleep(200 * time.Millisecond)
+
+		// ensure the lock still exists
+		listLocks, err := http.NewRequest("GET", fmt.Sprintf("%s/v1/locker/list", testConstruct.LockerClient.Address()), nil)
+		g.Expect(err).ToNot(HaveOccurred())
+
+		resp, err = lockerClient.Do(listLocks)
+		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(resp.StatusCode).To(Equal(http.StatusOK))
+
+		data, err = io.ReadAll(resp.Body)
+		g.Expect(err).ToNot(HaveOccurred())
+
+		locks := v1locker.ListLockResponse{}
+		g.Expect(json.Unmarshal(data, &locks)).ToNot(HaveOccurred())
+		g.Expect(len(locks.Locks)).To(Equal(0))
 	})
 }
 

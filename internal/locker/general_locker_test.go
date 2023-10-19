@@ -15,20 +15,26 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func defaultKeyValues() datatypes.StringMap {
-	return datatypes.StringMap{
-		"1": datatypes.String("one"),
-		"2": datatypes.Int(2),
-		"3": datatypes.Uint64(3),
+func defaultCreateLockRequest() *v1locker.CreateLockRequest {
+	return &v1locker.CreateLockRequest{
+		KeyValues: datatypes.StringMap{
+			"1": datatypes.String("one"),
+			"2": datatypes.Int(2),
+			"3": datatypes.Uint64(3),
+		},
+		Timeout: 15 * time.Second,
 	}
 }
 
 // the keys "1" overlap
-func overlapOneKeyValue() datatypes.StringMap {
-	return datatypes.StringMap{
-		"1": datatypes.String("one"),
-		"4": datatypes.Int(2),
-		"5": datatypes.Uint64(3),
+func overlapOneKeyValue() *v1locker.CreateLockRequest {
+	return &v1locker.CreateLockRequest{
+		KeyValues: datatypes.StringMap{
+			"1": datatypes.String("one"),
+			"4": datatypes.Int(2),
+			"5": datatypes.Uint64(3),
+		},
+		Timeout: 15 * time.Second,
 	}
 }
 
@@ -57,7 +63,7 @@ func TestGeneralLocker_ObtainLocks(t *testing.T) {
 		generalLocker := NewGeneralLocker(nil)
 		taskManager.AddExecuteTask("teset", generalLocker)
 
-		lockID := generalLocker.ObtainLock(context.Background(), defaultKeyValues())
+		lockID := generalLocker.ObtainLock(context.Background(), defaultCreateLockRequest())
 		g.Expect(lockID).ToNot(Equal(""))
 
 		counter := 0
@@ -88,7 +94,7 @@ func TestGeneralLocker_ObtainLocks(t *testing.T) {
 				cancel()
 				g.Eventually(done).Should(BeClosed())
 
-				lockID := generalLocker.ObtainLock(ctx, defaultKeyValues())
+				lockID := generalLocker.ObtainLock(ctx, defaultCreateLockRequest())
 				g.Expect(lockID).ToNot(Equal(""))
 
 				counter := 0
@@ -120,7 +126,7 @@ func TestGeneralLocker_ObtainLocks(t *testing.T) {
 				clientCtx, clientCancel := context.WithCancel(context.Background())
 				clientCancel()
 
-				lockID := generalLocker.ObtainLock(clientCtx, defaultKeyValues())
+				lockID := generalLocker.ObtainLock(clientCtx, defaultCreateLockRequest())
 				g.Expect(lockID).ToNot(Equal(""))
 
 				counter := 0
@@ -148,13 +154,13 @@ func TestGeneralLocker_ObtainLocks(t *testing.T) {
 			generalLocker := NewGeneralLocker(nil)
 			taskManager.AddExecuteTask("teset", generalLocker)
 
-			lockID := generalLocker.ObtainLock(context.Background(), defaultKeyValues())
+			lockID := generalLocker.ObtainLock(context.Background(), defaultCreateLockRequest())
 			g.Expect(lockID).ToNot(Equal(""))
 
 			locked := make(chan struct{})
 			for i := 0; i < 10; i++ {
 				go func() {
-					_ = generalLocker.ObtainLock(context.Background(), defaultKeyValues())
+					_ = generalLocker.ObtainLock(context.Background(), defaultCreateLockRequest())
 					select {
 					case locked <- struct{}{}:
 					case <-ctx.Done():
@@ -189,7 +195,7 @@ func TestGeneralLocker_ObtainLocks(t *testing.T) {
 
 				go func() {
 					defer wg.Done()
-					lockID := generalLocker.ObtainLock(context.Background(), defaultKeyValues())
+					lockID := generalLocker.ObtainLock(context.Background(), defaultCreateLockRequest())
 					generalLocker.ReleaseLock(lockID)
 				}()
 			}
@@ -224,17 +230,21 @@ func TestGeneralLocker_ObtainLocks(t *testing.T) {
 			for i := 10_000; i < 0; i++ {
 				wg.Add(1)
 
-				testKeyValues := datatypes.StringMap{
-					fmt.Sprintf("%d", i%5): datatypes.String("doesn't matter 1"),
-					fmt.Sprintf("%d", i%6): datatypes.String("doesn't matter 2"),
-					fmt.Sprintf("%d", i%7): datatypes.String("doesn't matter 3"),
+				testReq := &v1locker.CreateLockRequest{
+					KeyValues: datatypes.StringMap{
+						fmt.Sprintf("%d", i%5): datatypes.String("doesn't matter 1"),
+						fmt.Sprintf("%d", i%6): datatypes.String("doesn't matter 2"),
+						fmt.Sprintf("%d", i%7): datatypes.String("doesn't matter 3"),
+					},
+					Timeout: 15 * time.Second,
 				}
+				g.Expect(testReq.Validate()).ToNot(HaveOccurred())
 
-				go func(keyValues datatypes.StringMap) {
+				go func(req *v1locker.CreateLockRequest) {
 					defer wg.Done()
-					lockID := generalLocker.ObtainLock(context.Background(), keyValues)
+					lockID := generalLocker.ObtainLock(context.Background(), req)
 					generalLocker.ReleaseLock(lockID)
-				}(testKeyValues)
+				}(testReq)
 			}
 
 			done := make(chan struct{})
@@ -265,13 +275,13 @@ func TestGeneralLocker_ObtainLocks(t *testing.T) {
 				wg := new(sync.WaitGroup)
 				for i := 10; i < 0; i++ {
 					if i == 0 {
-						_ = generalLocker.ObtainLock(context.Background(), defaultKeyValues())
+						_ = generalLocker.ObtainLock(context.Background(), defaultCreateLockRequest())
 					} else {
 						wg.Add(1)
 
 						go func() {
 							defer wg.Done()
-							_ = generalLocker.ObtainLock(context.Background(), defaultKeyValues())
+							_ = generalLocker.ObtainLock(context.Background(), defaultCreateLockRequest())
 						}()
 					}
 				}
@@ -307,13 +317,13 @@ func TestGeneralLocker_ObtainLocks(t *testing.T) {
 				wg := new(sync.WaitGroup)
 				for i := 10; i < 0; i++ {
 					if i == 0 {
-						_ = generalLocker.ObtainLock(ctx, defaultKeyValues())
+						_ = generalLocker.ObtainLock(ctx, defaultCreateLockRequest())
 					} else {
 						wg.Add(1)
 
 						go func() {
 							defer wg.Done()
-							_ = generalLocker.ObtainLock(ctx, defaultKeyValues())
+							_ = generalLocker.ObtainLock(ctx, defaultCreateLockRequest())
 						}()
 					}
 				}
@@ -352,7 +362,7 @@ func TestGeneralLocker_ListLocks(t *testing.T) {
 		generalLocker := NewGeneralLocker(nil)
 		taskManager.AddExecuteTask("teset", generalLocker)
 
-		g.Expect(generalLocker.ObtainLock(context.Background(), defaultKeyValues())).ToNot(BeNil())
+		g.Expect(generalLocker.ObtainLock(context.Background(), defaultCreateLockRequest())).ToNot(BeNil())
 		g.Expect(generalLocker.ObtainLock(context.Background(), overlapOneKeyValue())).ToNot(BeNil())
 
 		locks := generalLocker.ListLocks()
@@ -360,5 +370,145 @@ func TestGeneralLocker_ListLocks(t *testing.T) {
 
 		g.Expect(locks).To(ContainElement(v1locker.Lock{LocksHeldOrWaiting: 1, KeyValues: datatypes.StringMap{"1": datatypes.String("one"), "4": datatypes.Int(2), "5": datatypes.Uint64(3)}}))
 		g.Expect(locks).To(ContainElement(v1locker.Lock{LocksHeldOrWaiting: 1, KeyValues: datatypes.StringMap{"1": datatypes.String("one"), "2": datatypes.Int(2), "3": datatypes.Uint64(3)}}))
+	})
+}
+
+func TestGeneralLocker_Heartbeat(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	t.Run("It returns an error if the session ID does not exist", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		taskManager := goasync.NewTaskManager(goasync.RelaxedConfig())
+		go func() {
+			taskManager.Run(ctx)
+		}()
+
+		generalLocker := NewGeneralLocker(nil)
+		taskManager.AddExecuteTask("teset", generalLocker)
+
+		errors := generalLocker.Heartbeat([]string{"bad id"})
+		g.Expect(len(errors)).To(Equal(1))
+		g.Expect(errors[0].Error).To(ContainSubstring("session could not be found"))
+	})
+
+	t.Run("It keeps the lock around as long as the heartbeats are received", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		taskManager := goasync.NewTaskManager(goasync.RelaxedConfig())
+		go func() {
+			taskManager.Run(ctx)
+		}()
+
+		generalLocker := NewGeneralLocker(nil)
+		taskManager.AddExecuteTask("teset", generalLocker)
+
+		lockRequest := defaultCreateLockRequest()
+		lockRequest.Timeout = 100 * time.Millisecond
+
+		sessionID := generalLocker.ObtainLock(context.Background(), lockRequest)
+		g.Expect(sessionID).ToNot(BeNil())
+
+		// this timer is longer than the heartbeat timeout
+		for i := 0; i < 3; i++ {
+			time.Sleep(60 * time.Millisecond)
+			g.Expect(generalLocker.Heartbeat([]string{sessionID})).To(BeNil())
+		}
+
+		locks := generalLocker.ListLocks()
+		g.Expect(len(locks)).To(Equal(1))
+	})
+
+	t.Run("It can heartbeat multiple sessions", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		taskManager := goasync.NewTaskManager(goasync.RelaxedConfig())
+		go func() {
+			taskManager.Run(ctx)
+		}()
+
+		generalLocker := NewGeneralLocker(nil)
+		taskManager.AddExecuteTask("teset", generalLocker)
+
+		lockRequest1 := defaultCreateLockRequest()
+		lockRequest1.Timeout = 100 * time.Millisecond
+
+		lockRequest2 := defaultCreateLockRequest()
+		lockRequest2.KeyValues["foo"] = datatypes.Float32(3.5)
+		lockRequest2.Timeout = 100 * time.Millisecond
+
+		sessionID1 := generalLocker.ObtainLock(context.Background(), lockRequest1)
+		g.Expect(sessionID1).ToNot(BeNil())
+
+		sessionID2 := generalLocker.ObtainLock(context.Background(), lockRequest2)
+		g.Expect(sessionID2).ToNot(BeNil())
+
+		// this timer is longer than the heartbeat timeout
+		for i := 0; i < 3; i++ {
+			time.Sleep(60 * time.Millisecond)
+			g.Expect(generalLocker.Heartbeat([]string{sessionID1, sessionID2})).To(BeNil())
+		}
+
+		locks := generalLocker.ListLocks()
+		g.Expect(len(locks)).To(Equal(2))
+	})
+
+	t.Run("It removes the lock if no heartbeats are received", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		// start the task manager with the locker
+		generalLocker := NewGeneralLocker(nil)
+		taskManager := goasync.NewTaskManager(goasync.RelaxedConfig())
+		taskManager.AddExecuteTask("teset", generalLocker)
+		go func() {
+			taskManager.Run(ctx)
+		}()
+
+		lockRequest := defaultCreateLockRequest()
+		lockRequest.Timeout = 100 * time.Millisecond
+
+		sessionID := generalLocker.ObtainLock(context.Background(), lockRequest)
+		g.Expect(sessionID).ToNot(BeNil())
+
+		g.Eventually(func() int {
+			return len(generalLocker.ListLocks())
+		}).Should(Equal(0))
+	})
+
+	t.Run("Context when multiple clients are waiting for the same lock", func(t *testing.T) {
+		t.Run("It allows a new client to obtain the lock", func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+
+			taskManager := goasync.NewTaskManager(goasync.RelaxedConfig())
+			go func() {
+				taskManager.Run(ctx)
+			}()
+
+			generalLocker := NewGeneralLocker(nil)
+			taskManager.AddExecuteTask("teset", generalLocker)
+
+			lockRequest := defaultCreateLockRequest()
+			lockRequest.Timeout = 100 * time.Millisecond
+
+			sessionID := generalLocker.ObtainLock(context.Background(), lockRequest)
+			g.Expect(sessionID).ToNot(BeNil())
+
+			sessionIDChan := make(chan string)
+			go func() {
+				sessionIDChan <- generalLocker.ObtainLock(context.Background(), lockRequest)
+			}()
+
+			// ensure that the channel eventually recieves for the next request
+			g.Eventually(sessionIDChan).Should(Receive(Not(Equal(""))))
+
+			// the locks should still be listed
+			locks := generalLocker.ListLocks()
+			g.Expect(len(locks)).To(Equal(1))
+		})
 	})
 }

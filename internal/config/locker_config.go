@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"time"
 )
 
 type LockerConfig struct {
@@ -12,10 +13,11 @@ type LockerConfig struct {
 	logLevel *string
 
 	// server config
-	LockerPort      *string
-	LockerCA        *string
-	LockerServerKey *string
-	LockerServerCRT *string
+	LockerPort         *string
+	LockerCA           *string
+	LockerServerKey    *string
+	LockerServerCRT    *string
+	LockDefaultTimeout *time.Duration
 }
 
 func Locker(args []string) (*LockerConfig, error) {
@@ -29,18 +31,21 @@ All flags will use the env vars if they are set instead of command line paramete
 	}
 
 	LockerConfig := &LockerConfig{
-		logLevel:        LockerFlagSet.String("log-level", "info", "log level [debug | info]. Can be set by env var LOG_LEVEL"),
-		LockerPort:      LockerFlagSet.String("locker-port", "8083", "default port for the limitter server to run on. Can be set by env var Locker_PORT"),
-		LockerCA:        LockerFlagSet.String("locker-ca", "", "CA file used to generate server certs iff one was used. Can be set by env var Locker_CA"),
-		LockerServerKey: LockerFlagSet.String("locker-server-key", "", "Server private key location on disk. Can be set by env var Locker_SERVER_KEY"),
-		LockerServerCRT: LockerFlagSet.String("locker-server-crt", "", "Server ssl certificate location on disk. Can be st by env var Locker_SERVER_CRT"),
+		logLevel:           LockerFlagSet.String("log-level", "info", "log level [debug | info]. Can be set by env var LOG_LEVEL"),
+		LockerPort:         LockerFlagSet.String("locker-port", "8083", "default port for the limitter server to run on. Can be set by env var LOCKER_PORT"),
+		LockerCA:           LockerFlagSet.String("locker-ca", "", "CA file used to generate server certs iff one was used. Can be set by env var LOCKER_CA"),
+		LockerServerKey:    LockerFlagSet.String("locker-server-key", "", "Server private key location on disk. Can be set by env var LOCKER_SERVER_KEY"),
+		LockerServerCRT:    LockerFlagSet.String("locker-server-crt", "", "Server ssl certificate location on disk. Can be st by env var LOCKER_SERVER_CRT"),
+		LockDefaultTimeout: LockerFlagSet.Duration("locker-default-timeout", 5*time.Second, "default timeout for locks if it is not provided by the api. Default is 5 seconds. Can be set by env var LOCKER_DEFAULT_TIMEOUT"),
 	}
 
 	if err := LockerFlagSet.Parse(args); err != nil {
 		return nil, err
 	}
 
-	LockerConfig.parseEnv()
+	if err := LockerConfig.parseEnv(); err != nil {
+		return nil, err
+	}
 
 	if err := LockerConfig.validate(); err != nil {
 		return nil, err
@@ -49,7 +54,7 @@ All flags will use the env vars if they are set instead of command line paramete
 	return LockerConfig, nil
 }
 
-func (lc *LockerConfig) parseEnv() {
+func (lc *LockerConfig) parseEnv() error {
 	// logs
 	//// logLevel
 	if logLevel := os.Getenv("LOG_LEVEL"); logLevel != "" {
@@ -74,6 +79,19 @@ func (lc *LockerConfig) parseEnv() {
 	if LockerServerCRT := os.Getenv("Locker_SERVER_CRT"); LockerServerCRT != "" {
 		lc.LockerServerCRT = &LockerServerCRT
 	}
+
+	// defaults
+	// lock timeout
+	if LockerDefaultTimeout := os.Getenv("LOCKER_DEFAULT_TIMEOUT"); LockerDefaultTimeout != "" {
+		lockDefaultTimeout, err := time.ParseDuration(LockerDefaultTimeout)
+		if err != nil {
+			return fmt.Errorf("error parsing 'LOCKER_DEFAULT_TIMEOUT': %v", err)
+		}
+
+		lc.LockDefaultTimeout = &lockDefaultTimeout
+	}
+
+	return nil
 }
 
 func (lc *LockerConfig) validate() error {
@@ -103,6 +121,11 @@ func (lc *LockerConfig) validate() error {
 	// tls certificate
 	if *lc.LockerServerCRT == "" {
 		return fmt.Errorf("param 'locker-server-crt' is not set")
+	}
+
+	// default timeout
+	if *lc.LockDefaultTimeout <= 0 {
+		return fmt.Errorf("error parsing 'LOCKER_DEFAULT_TIMEOUT', time must be greater than 0")
 	}
 
 	return nil

@@ -2,7 +2,7 @@ package locker
 
 import (
 	"context"
-	"time"
+	"fmt"
 
 	"github.com/DanLavine/goasync"
 	btreeassociated "github.com/DanLavine/willow/internal/datastructures/btree_associated"
@@ -13,7 +13,7 @@ import (
 
 type GeneralLocker interface {
 	// obtain all the locks that make up a collection
-	ObtainLock(clientCtx context.Context, keyValues datatypes.StringMap) string
+	ObtainLock(clientCtx context.Context, createRequest *v1locker.CreateLockRequest) string
 
 	// Heartbeat any number of locks so we know they are still running properly
 	Heartbeat(sessions []string) []v1locker.HeartbeatError
@@ -90,12 +90,12 @@ func (generalLocker *generalLocker) ListLocks() []v1locker.Lock {
 
 // Obtain a lock for the given key values.
 // This blocks until one of of the contexts is canceled, or the lock is obtained
-func (generalLocker *generalLocker) ObtainLock(clientCtx context.Context, keyValues datatypes.StringMap) string {
+func (generalLocker *generalLocker) ObtainLock(clientCtx context.Context, createLockRequest *v1locker.CreateLockRequest) string {
 	var sessionID string
 	var lockChan chan struct{}
 
 	onCreate := func() any {
-		generalLock := newGeneralLock(15*time.Second, func() bool { return generalLocker.freeLock(keyValues) })
+		generalLock := newGeneralLock(createLockRequest.Timeout, func() bool { return generalLocker.freeLock(createLockRequest.KeyValues) })
 
 		// start running the heartbeat timer in the background
 		_ = generalLocker.taskManager.AddExecuteTask("lock timer", generalLock)
@@ -116,7 +116,7 @@ func (generalLocker *generalLocker) ObtainLock(clientCtx context.Context, keyVal
 	}
 
 	// lock every single possible tag combination we might be using
-	sessionID, _ = generalLocker.locks.CreateOrFind(keyValues, onCreate, onFind)
+	sessionID, _ = generalLocker.locks.CreateOrFind(createLockRequest.KeyValues, onCreate, onFind)
 
 	switch lockChan {
 	case nil:
@@ -128,11 +128,11 @@ func (generalLocker *generalLocker) ObtainLock(clientCtx context.Context, keyVal
 			// a lock has been freed and we were able to claim it
 		case <-clientCtx.Done():
 			// now we need to try and cleanup any locks we currently have recored a counter on
-			generalLocker.freeLock(keyValues)
+			generalLocker.freeLock(createLockRequest.KeyValues)
 			return ""
 		case <-generalLocker.done:
 			// now we need to try and cleanup any locks we currently have recored a counter on
-			generalLocker.freeLock(keyValues)
+			generalLocker.freeLock(createLockRequest.KeyValues)
 			return ""
 		}
 	}
@@ -147,7 +147,8 @@ func (generalLocker *generalLocker) Heartbeat(sessions []string) []v1locker.Hear
 
 	found := false
 	onFind := func(item any) {
-		generalLock := item.(*generalLock)
+		generalLock := item.(*btreeassociated.AssociatedKeyValues).Value().(*generalLock)
+
 		select {
 		case generalLock.hertbeat <- struct{}{}:
 			// set a heartbeat to the lock
@@ -197,6 +198,8 @@ func (generalLocker *generalLocker) ReleaseLock(lockID string) {
 
 func (generalLocker *generalLocker) freeLock(keyValues datatypes.StringMap) bool {
 	removed := false
+
+	fmt.Println("Calling free lock")
 
 	canDelete := func(item any) bool {
 		generalLock := item.(*btreeassociated.AssociatedKeyValues).Value().(*generalLock)

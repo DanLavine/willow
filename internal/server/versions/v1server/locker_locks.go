@@ -3,6 +3,7 @@ package v1server
 import (
 	"net/http"
 
+	"github.com/DanLavine/willow/internal/config"
 	"github.com/DanLavine/willow/internal/locker"
 	"github.com/DanLavine/willow/internal/logger"
 	"github.com/DanLavine/willow/pkg/models/api/v1locker"
@@ -28,13 +29,15 @@ type LockerHandler interface {
 
 type lockerHandler struct {
 	logger *zap.Logger
+	cfg    *config.LockerConfig
 
 	generalLocker locker.GeneralLocker
 }
 
-func NewLockHandler(logger *zap.Logger, locker locker.GeneralLocker) *lockerHandler {
+func NewLockHandler(logger *zap.Logger, cfg *config.LockerConfig, locker locker.GeneralLocker) *lockerHandler {
 	return &lockerHandler{
 		logger:        logger.Named("LockHandler"),
+		cfg:           cfg,
 		generalLocker: locker,
 	}
 }
@@ -46,14 +49,14 @@ func (lh *lockerHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	switch method := r.Method; method {
 	case "POST":
-		lockerRequest, err := v1locker.ParseLockRequest(r.Body)
+		lockerRequest, err := v1locker.ParseLockRequest(r.Body, *lh.cfg.LockDefaultTimeout)
 		if err != nil {
 			w.WriteHeader(err.StatusCode)
 			w.Write(err.ToBytes())
 			return
 		}
 
-		if sessionID := lh.generalLocker.ObtainLock(r.Context(), lockerRequest.KeyValues); sessionID != "" {
+		if sessionID := lh.generalLocker.ObtainLock(r.Context(), lockerRequest); sessionID != "" {
 			// obtained lock, send response to the client
 
 			lockResponse := v1locker.CreateLockResponse{

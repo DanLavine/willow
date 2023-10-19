@@ -3,6 +3,7 @@ package v1locker
 import (
 	"encoding/json"
 	"io"
+	"time"
 
 	"github.com/DanLavine/willow/pkg/models/api"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
@@ -10,10 +11,19 @@ import (
 
 // create request
 type CreateLockRequest struct {
+	// the key values to create a lock for
 	KeyValues datatypes.StringMap
+
+	// how long it takes for the lock to timeout
+	// heartbeats should send 3 requests per timeout just to acount for network disruptions
+	//
+	// Open Question. Should there be a min Timeout?
+	Timeout time.Duration
 }
 type CreateLockResponse struct {
 	SessionID string
+
+	Timeout time.Duration
 }
 
 // List request
@@ -33,7 +43,7 @@ func NewListLockResponse(listLocks []Lock) ListLockResponse {
 	}
 }
 
-func ParseLockRequest(reader io.ReadCloser) (*CreateLockRequest, *api.Error) {
+func ParseLockRequest(reader io.ReadCloser, defaultTimeout time.Duration) (*CreateLockRequest, *api.Error) {
 	requestBody, err := io.ReadAll(reader)
 	if err != nil {
 		return nil, api.ReadRequestBodyError.With("", err.Error())
@@ -42,6 +52,10 @@ func ParseLockRequest(reader io.ReadCloser) (*CreateLockRequest, *api.Error) {
 	obj := &CreateLockRequest{}
 	if err := json.Unmarshal(requestBody, obj); err != nil {
 		return nil, api.ParseRequestBodyError.With("", err.Error())
+	}
+
+	if obj.Timeout == 0 {
+		obj.Timeout = defaultTimeout
 	}
 
 	if validateErr := obj.Validate(); validateErr != nil {

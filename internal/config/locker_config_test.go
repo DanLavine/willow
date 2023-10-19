@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"testing"
+	"time"
 
 	. "github.com/onsi/gomega"
 )
@@ -137,6 +138,49 @@ func TestLockerConfig(t *testing.T) {
 				g.Expect(err).To(HaveOccurred())
 				g.Expect(err.Error()).To(Equal("param 'locker-port' is invalid: '100000'. Must be set to a proper port below 65536"))
 			})
+		})
+	})
+
+	t.Run("Describe default lock timeout", func(t *testing.T) {
+		t.Run("It can be set via command line params", func(t *testing.T) {
+			cfg, err := Locker(append(baseArgs, "-locker-default-timeout", "12s"))
+			g.Expect(err).ToNot(HaveOccurred())
+			g.Expect(*cfg.LockDefaultTimeout).To(Equal(12 * time.Second))
+		})
+
+		t.Run("It can be set via an env var", func(t *testing.T) {
+			os.Setenv("LOCKER_DEFAULT_TIMEOUT", "8s")
+			defer func() {
+				os.Unsetenv("LOCKER_DEFAULT_TIMEOUT")
+			}()
+
+			cfg, err := Locker(baseArgs)
+			g.Expect(err).ToNot(HaveOccurred())
+			g.Expect(*cfg.LockDefaultTimeout).To(Equal(8 * time.Second))
+		})
+
+		t.Run("It returns an error if the value cannot be parsed via env var", func(t *testing.T) {
+			os.Setenv("LOCKER_DEFAULT_TIMEOUT", "bad")
+			defer func() {
+				os.Unsetenv("LOCKER_DEFAULT_TIMEOUT")
+			}()
+
+			cfg, err := Locker(baseArgs)
+			g.Expect(cfg).To(BeNil())
+			g.Expect(err).To(HaveOccurred())
+			g.Expect(err.Error()).To(ContainSubstring(`error parsing 'LOCKER_DEFAULT_TIMEOUT'`))
+		})
+
+		t.Run("It returns an error if the value is to small via env var", func(t *testing.T) {
+			os.Setenv("LOCKER_DEFAULT_TIMEOUT", "-8s")
+			defer func() {
+				os.Unsetenv("LOCKER_DEFAULT_TIMEOUT")
+			}()
+
+			cfg, err := Locker(baseArgs)
+			g.Expect(cfg).To(BeNil())
+			g.Expect(err).To(HaveOccurred())
+			g.Expect(err.Error()).To(ContainSubstring(`error parsing 'LOCKER_DEFAULT_TIMEOUT'`))
 		})
 	})
 }
