@@ -3,6 +3,7 @@ package locker
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/DanLavine/goasync"
 	btreeassociated "github.com/DanLavine/willow/internal/datastructures/btree_associated"
@@ -13,7 +14,7 @@ import (
 
 type GeneralLocker interface {
 	// obtain all the locks that make up a collection
-	ObtainLock(clientCtx context.Context, createRequest *v1locker.CreateLockRequest) string
+	ObtainLock(clientCtx context.Context, createRequest *v1locker.CreateLockRequest) *v1locker.CreateLockResponse
 
 	// Heartbeat any number of locks so we know they are still running properly
 	Heartbeat(sessions []string) []v1locker.HeartbeatError
@@ -90,12 +91,14 @@ func (generalLocker *generalLocker) ListLocks() []v1locker.Lock {
 
 // Obtain a lock for the given key values.
 // This blocks until one of of the contexts is canceled, or the lock is obtained
-func (generalLocker *generalLocker) ObtainLock(clientCtx context.Context, createLockRequest *v1locker.CreateLockRequest) string {
+func (generalLocker *generalLocker) ObtainLock(clientCtx context.Context, createLockRequest *v1locker.CreateLockRequest) *v1locker.CreateLockResponse {
 	var sessionID string
+	var timeout time.Duration
 	var lockChan chan struct{}
 
 	onCreate := func() any {
 		generalLock := newGeneralLock(createLockRequest.Timeout, func() bool { return generalLocker.freeLock(createLockRequest.KeyValues) })
+		timeout = createLockRequest.Timeout
 
 		// start running the heartbeat timer in the background
 		_ = generalLocker.taskManager.AddExecuteTask("lock timer", generalLock)
@@ -110,6 +113,7 @@ func (generalLocker *generalLocker) ObtainLock(clientCtx context.Context, create
 		defer generalLock.counterLock.Unlock()
 
 		generalLock.counter++
+		timeout = generalLock.timeout
 
 		// set the channel to wait for
 		lockChan = generalLock.lockChan
@@ -129,16 +133,19 @@ func (generalLocker *generalLocker) ObtainLock(clientCtx context.Context, create
 		case <-clientCtx.Done():
 			// now we need to try and cleanup any locks we currently have recored a counter on
 			generalLocker.freeLock(createLockRequest.KeyValues)
-			return ""
+			return nil
 		case <-generalLocker.done:
 			// now we need to try and cleanup any locks we currently have recored a counter on
 			generalLocker.freeLock(createLockRequest.KeyValues)
-			return ""
+			return nil
 		}
 	}
 
 	// at this point, we have obtained the "locks" for all tag groups
-	return sessionID
+	return &v1locker.CreateLockResponse{
+		SessionID: sessionID,
+		Timeout:   timeout,
+	}
 }
 
 // heartbeat any number of key values

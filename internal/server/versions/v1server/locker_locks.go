@@ -56,19 +56,15 @@ func (lh *lockerHandler) Create(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if sessionID := lh.generalLocker.ObtainLock(r.Context(), lockerRequest); sessionID != "" {
+		if lockResponse := lh.generalLocker.ObtainLock(r.Context(), lockerRequest); lockResponse != nil {
 			// obtained lock, send response to the client
-
-			lockResponse := v1locker.CreateLockResponse{
-				SessionID: sessionID,
-			}
 
 			w.WriteHeader(http.StatusOK)
 			if _, err := w.Write(lockResponse.ToBytes()); err != nil {
 				// failing to write the response to the client means we should free the lock
 
 				logger.Error("Failed to write lock response to client", zap.Error(err))
-				lh.generalLocker.ReleaseLock(sessionID)
+				lh.generalLocker.ReleaseLock(lockResponse.SessionID)
 			}
 		} else {
 			// in this case, the client should be disconnected or we are shutting down and they need to retry

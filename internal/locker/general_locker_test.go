@@ -63,8 +63,10 @@ func TestGeneralLocker_ObtainLocks(t *testing.T) {
 		generalLocker := NewGeneralLocker(nil)
 		taskManager.AddExecuteTask("teset", generalLocker)
 
-		lockID := generalLocker.ObtainLock(context.Background(), defaultCreateLockRequest())
-		g.Expect(lockID).ToNot(Equal(""))
+		lockResp := generalLocker.ObtainLock(context.Background(), defaultCreateLockRequest())
+		g.Expect(lockResp).ToNot(BeNil())
+		g.Expect(lockResp.SessionID).ToNot(Equal(""))
+		g.Expect(lockResp.Timeout).To(Equal(15 * time.Second)) // default values
 
 		counter := 0
 		lockCounter := func(_ any) bool {
@@ -94,8 +96,8 @@ func TestGeneralLocker_ObtainLocks(t *testing.T) {
 				cancel()
 				g.Eventually(done).Should(BeClosed())
 
-				lockID := generalLocker.ObtainLock(ctx, defaultCreateLockRequest())
-				g.Expect(lockID).ToNot(Equal(""))
+				lockResp := generalLocker.ObtainLock(ctx, defaultCreateLockRequest())
+				g.Expect(lockResp).ToNot(BeNil())
 
 				counter := 0
 				lockCounter := func(_ any) bool {
@@ -126,8 +128,8 @@ func TestGeneralLocker_ObtainLocks(t *testing.T) {
 				clientCtx, clientCancel := context.WithCancel(context.Background())
 				clientCancel()
 
-				lockID := generalLocker.ObtainLock(clientCtx, defaultCreateLockRequest())
-				g.Expect(lockID).ToNot(Equal(""))
+				lockResp := generalLocker.ObtainLock(clientCtx, defaultCreateLockRequest())
+				g.Expect(lockResp).ToNot(BeNil())
 
 				counter := 0
 				lockCounter := func(_ any) bool {
@@ -154,8 +156,8 @@ func TestGeneralLocker_ObtainLocks(t *testing.T) {
 			generalLocker := NewGeneralLocker(nil)
 			taskManager.AddExecuteTask("teset", generalLocker)
 
-			lockID := generalLocker.ObtainLock(context.Background(), defaultCreateLockRequest())
-			g.Expect(lockID).ToNot(Equal(""))
+			lockResp := generalLocker.ObtainLock(context.Background(), defaultCreateLockRequest())
+			g.Expect(lockResp).ToNot(BeNil())
 
 			locked := make(chan struct{})
 			for i := 0; i < 10; i++ {
@@ -171,7 +173,7 @@ func TestGeneralLocker_ObtainLocks(t *testing.T) {
 			g.Consistently(locked).ShouldNot(Receive())
 
 			// perform an unlock
-			generalLocker.ReleaseLock(lockID)
+			generalLocker.ReleaseLock(lockResp.SessionID)
 
 			g.Eventually(locked).Should(Receive())
 			g.Consistently(locked).ShouldNot(Receive())
@@ -195,8 +197,8 @@ func TestGeneralLocker_ObtainLocks(t *testing.T) {
 
 				go func() {
 					defer wg.Done()
-					lockID := generalLocker.ObtainLock(context.Background(), defaultCreateLockRequest())
-					generalLocker.ReleaseLock(lockID)
+					lockResp := generalLocker.ObtainLock(context.Background(), defaultCreateLockRequest())
+					generalLocker.ReleaseLock(lockResp.SessionID)
 				}()
 			}
 
@@ -242,8 +244,8 @@ func TestGeneralLocker_ObtainLocks(t *testing.T) {
 
 				go func(req *v1locker.CreateLockRequest) {
 					defer wg.Done()
-					lockID := generalLocker.ObtainLock(context.Background(), req)
-					generalLocker.ReleaseLock(lockID)
+					lockResp := generalLocker.ObtainLock(context.Background(), req)
+					generalLocker.ReleaseLock(lockResp.SessionID)
 				}(testReq)
 			}
 
@@ -408,13 +410,13 @@ func TestGeneralLocker_Heartbeat(t *testing.T) {
 		lockRequest := defaultCreateLockRequest()
 		lockRequest.Timeout = 100 * time.Millisecond
 
-		sessionID := generalLocker.ObtainLock(context.Background(), lockRequest)
-		g.Expect(sessionID).ToNot(BeNil())
+		lockResp := generalLocker.ObtainLock(context.Background(), lockRequest)
+		g.Expect(lockResp).ToNot(BeNil())
 
 		// this timer is longer than the heartbeat timeout
 		for i := 0; i < 3; i++ {
 			time.Sleep(60 * time.Millisecond)
-			g.Expect(generalLocker.Heartbeat([]string{sessionID})).To(BeNil())
+			g.Expect(generalLocker.Heartbeat([]string{lockResp.SessionID})).To(BeNil())
 		}
 
 		locks := generalLocker.ListLocks()
@@ -440,16 +442,16 @@ func TestGeneralLocker_Heartbeat(t *testing.T) {
 		lockRequest2.KeyValues["foo"] = datatypes.Float32(3.5)
 		lockRequest2.Timeout = 100 * time.Millisecond
 
-		sessionID1 := generalLocker.ObtainLock(context.Background(), lockRequest1)
-		g.Expect(sessionID1).ToNot(BeNil())
+		lockResp1 := generalLocker.ObtainLock(context.Background(), lockRequest1)
+		g.Expect(lockResp1).ToNot(BeNil())
 
-		sessionID2 := generalLocker.ObtainLock(context.Background(), lockRequest2)
-		g.Expect(sessionID2).ToNot(BeNil())
+		lockResp2 := generalLocker.ObtainLock(context.Background(), lockRequest2)
+		g.Expect(lockResp2).ToNot(BeNil())
 
 		// this timer is longer than the heartbeat timeout
 		for i := 0; i < 3; i++ {
 			time.Sleep(60 * time.Millisecond)
-			g.Expect(generalLocker.Heartbeat([]string{sessionID1, sessionID2})).To(BeNil())
+			g.Expect(generalLocker.Heartbeat([]string{lockResp1.SessionID, lockResp2.SessionID})).To(BeNil())
 		}
 
 		locks := generalLocker.ListLocks()
@@ -471,8 +473,8 @@ func TestGeneralLocker_Heartbeat(t *testing.T) {
 		lockRequest := defaultCreateLockRequest()
 		lockRequest.Timeout = 100 * time.Millisecond
 
-		sessionID := generalLocker.ObtainLock(context.Background(), lockRequest)
-		g.Expect(sessionID).ToNot(BeNil())
+		lockResp := generalLocker.ObtainLock(context.Background(), lockRequest)
+		g.Expect(lockResp).ToNot(BeNil())
 
 		g.Eventually(func() int {
 			return len(generalLocker.ListLocks())
@@ -495,16 +497,16 @@ func TestGeneralLocker_Heartbeat(t *testing.T) {
 			lockRequest := defaultCreateLockRequest()
 			lockRequest.Timeout = 100 * time.Millisecond
 
-			sessionID := generalLocker.ObtainLock(context.Background(), lockRequest)
-			g.Expect(sessionID).ToNot(BeNil())
+			lockResp := generalLocker.ObtainLock(context.Background(), lockRequest)
+			g.Expect(lockResp).ToNot(BeNil())
 
-			sessionIDChan := make(chan string)
+			sessionIDChan := make(chan *v1locker.CreateLockResponse)
 			go func() {
 				sessionIDChan <- generalLocker.ObtainLock(context.Background(), lockRequest)
 			}()
 
 			// ensure that the channel eventually recieves for the next request
-			g.Eventually(sessionIDChan).Should(Receive(Not(Equal(""))))
+			g.Eventually(sessionIDChan).Should(Receive(Not(BeNil())))
 
 			// the locks should still be listed
 			locks := generalLocker.ListLocks()

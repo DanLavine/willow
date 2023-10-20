@@ -21,8 +21,10 @@ type CreateLockRequest struct {
 	Timeout time.Duration
 }
 type CreateLockResponse struct {
+	// The session to Delete or heartbeat a lock with
 	SessionID string
 
+	// How long it takes for a lock to timeout. Heartbeats should be done 3x per timeout to account occassional network issues
 	Timeout time.Duration
 }
 
