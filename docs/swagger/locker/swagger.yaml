@@ -1,0 +1,34 @@
+swagger: "2.0"
+
+info:
+    description: Locker API
+    title: Locker
+    version: a1.0.0
+
+paths:
+    /v1/locker/crerate:
+        put:
+            produces:
+                - appplication/json
+            parameters:
+                - name: Timeout
+                  in: body
+                  schema:
+                      type: integer
+                      format: int64
+                      default: 0
+                      description: "If set to 0, then the server's configuration will be used"
+                - name: KeyValues
+                  in: body
+                  required: true
+                  schema:
+                      minLength: 1
+                      $ref: "#/definitions/StringMap"
+            responses:
+                201:
+                    description: created
+definitions:
+    EncapsulatedData:
+        $ref: "v1_definitions.yaml#/v1_definitions/EncapsulatedData"
+    StringMap:
+        $ref: "v1_definitions.yaml#/v1_definitions/StringMap"

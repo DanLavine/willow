@@ -40,8 +40,8 @@ var (
 	T_float64 DataType = 11
 	T_string  DataType = 12
 	T_nil     DataType = 13 // there is no "value". Used when we only care about keys all pointing to the same thing
-	T_any     DataType = 14 // the value is a complex user defined struct
 
+	// T_any might make sense, but for now I am not using it, so ignore that case
 	// T_bool doesn't make much sense since it can oonly ever be true or false
 )
 
@@ -140,7 +140,7 @@ func (edt EncapsulatedData) LessValue(comparableObj EncapsulatedData) bool {
 		return edt.Value.(float64) < comparableObj.Value.(float64)
 	case T_string:
 		return edt.Value.(string) < comparableObj.Value.(string)
-	case T_nil:
+	default: // T_nil
 		// NOTE: This is important to always return false. This way on a btree when doing the lookup, we will always
 		// find 1 copy of this item. The check is !item1.Less(item2) && !item2.Less(item1) -> returns true
 		if comparableObj.DataType != T_nil {
@@ -148,11 +148,6 @@ func (edt EncapsulatedData) LessValue(comparableObj EncapsulatedData) bool {
 		}
 
 		return false
-	default: // T_any
-		// In this case the user defined both Values and should know how to compare their own data types
-		//
-		// NOTE: we know these casts are safe since the end user created these from the `Any(...)` function
-		return edt.Value.(ComparableDataType).Less(comparableObj.Value.(ComparableDataType))
 	}
 }
 
@@ -223,11 +218,7 @@ func (edt EncapsulatedData) Validate() error {
 		if edt.Value != nil {
 			return fmt.Errorf("EncapsulatedData has a 'nil' data type and requires the Value to be nil")
 		}
-	case T_any:
-		if _, ok := edt.Value.(ComparableDataType); !ok {
-			return fmt.Errorf("EncapsulatedData has an 'any' data type and requires the Value to be a ComparableDataType interface")
-		}
-	default: // T_any
+	default:
 		return fmt.Errorf("EncapsulatedData has an unkown data type")
 	}
 

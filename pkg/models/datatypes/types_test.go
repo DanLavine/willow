@@ -50,9 +50,6 @@ func TestComparable_Less(t *testing.T) {
 	// nil
 	tNil := Nil()
 
-	// any
-	tAny := Any(AnyTest{value: "a"})
-
 	t.Run("keys of the same values are always equal", func(t *testing.T) {
 		// ints
 		//// int
@@ -103,10 +100,6 @@ func TestComparable_Less(t *testing.T) {
 		// nil
 		g.Expect(tNil.Less(Nil())).To(BeFalse())
 		g.Expect(Nil().Less(tNil)).To(BeFalse())
-
-		// any
-		g.Expect(tAny.Less(Any(AnyTest{value: "a"}))).To(BeFalse())
-		g.Expect(Any(AnyTest{value: "a"}).Less(tAny)).To(BeFalse())
 	})
 
 	t.Run("keys of the same type have proper Less than values", func(t *testing.T) {
@@ -145,9 +138,6 @@ func TestComparable_Less(t *testing.T) {
 
 		// nil
 		g.Expect(tNil.Less(Nil())).To(BeFalse())
-
-		// any
-		g.Expect(tAny.Less(Any(AnyTest{value: "b"}))).To(BeTrue())
 	})
 
 	t.Run("keys of the same type respect greater than values", func(t *testing.T) {
@@ -186,9 +176,6 @@ func TestComparable_Less(t *testing.T) {
 
 		// nil
 		g.Expect(tNil.Less(Nil())).To(BeFalse())
-
-		// any
-		g.Expect(tAny.Less(Any(AnyTest{value: "0"}))).To(BeFalse())
 	})
 }
 
@@ -218,9 +205,6 @@ func TestComparable_LessType(t *testing.T) {
 
 	// nil
 	tNil := Nil()
-
-	// any
-	tAny := Any(AnyTest{value: "a"})
 
 	t.Run("type of the same values are always equal", func(t *testing.T) {
 		// ints
@@ -272,10 +256,6 @@ func TestComparable_LessType(t *testing.T) {
 		// nil
 		g.Expect(tNil.LessType(Nil())).To(BeFalse())
 		g.Expect(Nil().LessType(tNil)).To(BeFalse())
-
-		// any
-		g.Expect(tAny.LessType(Any(AnyTest{value: "a"}))).To(BeFalse())
-		g.Expect(Any(AnyTest{value: "a"}).LessType(tAny)).To(BeFalse())
 	})
 }
 
@@ -305,9 +285,6 @@ func TestComparable_LessValue(t *testing.T) {
 
 	// nil
 	tNil := Nil()
-
-	// any
-	tAny := Any(AnyTest{value: "a"})
 
 	t.Run("panics if they types are not the same", func(t *testing.T) {
 		// ints
@@ -342,9 +319,6 @@ func TestComparable_LessValue(t *testing.T) {
 
 		// nil
 		g.Expect(func() { tNil.LessValue(Int(1)) }).To(Panic())
-
-		// any
-		g.Expect(func() { tAny.LessValue(Int(1)) }).To(Panic())
 	})
 
 	t.Run("compares values properly when they are the same type", func(t *testing.T) {
@@ -397,10 +371,6 @@ func TestComparable_LessValue(t *testing.T) {
 		// nil
 		g.Expect(tNil.LessValue(Nil())).To(BeFalse())
 		g.Expect(Nil().LessValue(tNil)).To(BeFalse())
-
-		// any
-		g.Expect(tAny.LessValue(Any(AnyTest{value: "a"}))).To(BeFalse())
-		g.Expect(Any(AnyTest{value: "a"}).LessValue(tAny)).To(BeFalse())
 	})
 }
 
@@ -487,11 +457,5 @@ func TestComparable_Validate(t *testing.T) {
 		err = EncapsulatedData{DataType: T_nil, Value: int(42)}.Validate()
 		g.Expect(err).To(HaveOccurred())
 		g.Expect(err.Error()).To(Equal("EncapsulatedData has a 'nil' data type and requires the Value to be nil"))
-
-		// any
-		//// check that it is a proper castable interface
-		err = EncapsulatedData{DataType: T_any, Value: int(42)}.Validate()
-		g.Expect(err).To(HaveOccurred())
-		g.Expect(err.Error()).To(Equal("EncapsulatedData has an 'any' data type and requires the Value to be a ComparableDataType interface"))
 	})
 }

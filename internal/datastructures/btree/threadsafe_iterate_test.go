@@ -101,7 +101,7 @@ func TestBTree_IterateMatchType(t *testing.T) {
 			panic("should not call")
 		}
 
-		g.Expect(func() { bTree.IterateMatchType(datatypes.T_any, iterate) }).ToNot(Panic())
+		g.Expect(func() { bTree.IterateMatchType(datatypes.T_nil, iterate) }).ToNot(Panic())
 	})
 
 	t.Run("it calls the iterative function on each tree item with a value where the datatypes match", func(t *testing.T) {
