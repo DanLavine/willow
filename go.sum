@@ -1,6 +1,8 @@
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
 github.com/DanLavine/channelops v0.0.0-20230914213205-26fbb4f14586 h1:ySsH+Vk/FWtKKPpZVWyJeeSbiKjAHdopScGvuhce/xc=
 github.com/DanLavine/channelops v0.0.0-20230914213205-26fbb4f14586/go.mod h1:wgViuoEjca7ugJj/z7FfQ07D+hEoTjkLj7iFPw96rQo=
+github.com/DanLavine/goasync v1.0.2 h1:GUnkNv9p7l5lhpD+Or9HrM6ZBbH9OEoqEtvTufivmGo=
+github.com/DanLavine/goasync v1.0.2/go.mod h1:nR7mV8TA1RT5d6nVgsHEqonPB5GxuNJU1WArc9gUilA=
 github.com/DanLavine/gonotify v0.0.0-20221228000906-77ad21d2336e h1:zX/Z3tg0w5ud4FvftnE/laSyZez5zqRiOvTJRJFbtH8=
 github.com/DanLavine/gonotify v0.0.0-20221228000906-77ad21d2336e/go.mod h1:tttaLcWwHu0QzpydfjBNfEWBVcWFiYmlOHdjbntf8iQ=
 github.com/PuerkitoBio/purell v1.1.1/go.mod h1:c11w/QuzBsJSee3cPx9rAFu61PvFxuPbtSwDGJws/X0=
