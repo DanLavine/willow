@@ -21,7 +21,7 @@ import (
 // RETURNS:
 // - string - the _associatted_id when an object is created or found. Will be the empty string if an error returns
 // - error - any errors encountered with the parameters
-func (tsat *threadsafeAssociatedTree) CreateOrFind(keyValuePairs datatypes.StringMap, onCreate datastructures.OnCreate, onFind datastructures.OnFind) (string, error) {
+func (tsat *threadsafeAssociatedTree) CreateOrFind(keyValuePairs datatypes.KeyValues, onCreate datastructures.OnCreate, onFind datastructures.OnFind) (string, error) {
 	if len(keyValuePairs) == 0 {
 		return "", fmt.Errorf("keyValuePairs cannot be empty")
 	}
@@ -148,7 +148,7 @@ func (tsat *threadsafeAssociatedTree) CreateOrFind(keyValuePairs datatypes.Strin
 
 	if newValue := onCreate(); newValue != nil {
 		onCreate := func() any {
-			newKeyValuesPair := datatypes.StringMap{}
+			newKeyValuesPair := datatypes.KeyValues{}
 
 			for key, value := range keyValuePairs {
 				newKeyValuesPair[key] = value

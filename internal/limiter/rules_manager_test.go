@@ -140,7 +140,7 @@ func TestRulesManager_Increment(t *testing.T) {
 		rulesManager := NewRulesManger()
 
 		increment := &v1limiter.RuleCounterRequest{
-			KeyValues: datatypes.StringMap{"key1": datatypes.String("first")},
+			KeyValues: datatypes.KeyValues{"key1": datatypes.String("first")},
 		}
 
 		err := rulesManager.Increment(zap.NewNop(), increment)
@@ -160,7 +160,7 @@ func TestRulesManager_Increment(t *testing.T) {
 		g.Expect(rulesManager.CreateGroupRule(zap.NewNop(), createRequest)).ToNot(HaveOccurred())
 
 		increment := &v1limiter.RuleCounterRequest{
-			KeyValues: datatypes.StringMap{"key1": datatypes.String("first"), "key2": datatypes.Float64(3.4)},
+			KeyValues: datatypes.KeyValues{"key1": datatypes.String("first"), "key2": datatypes.Float64(3.4)},
 		}
 
 		// setup to reach the limit of 5
@@ -198,7 +198,7 @@ func TestRulesManager_Increment(t *testing.T) {
 		g.Expect(rulesManager.CreateGroupRule(zap.NewNop(), createRequest2)).ToNot(HaveOccurred())
 
 		increment := &v1limiter.RuleCounterRequest{
-			KeyValues: datatypes.StringMap{"key1": datatypes.String("first"), "key2": datatypes.Float64(3.4)},
+			KeyValues: datatypes.KeyValues{"key1": datatypes.String("first"), "key2": datatypes.Float64(3.4)},
 		}
 
 		// setup to reach the limit of 1 from rule 2 with the stricter set of keys
@@ -214,7 +214,7 @@ func TestRulesManager_Increment(t *testing.T) {
 		rulesManager := NewRulesManger()
 
 		increment := &v1limiter.RuleCounterRequest{
-			KeyValues: datatypes.StringMap{"key1": datatypes.String("first"), "key2": datatypes.Float64(3.4), "key3": datatypes.Int(2)},
+			KeyValues: datatypes.KeyValues{"key1": datatypes.String("first"), "key2": datatypes.Float64(3.4), "key3": datatypes.Int(2)},
 		}
 
 		// setup to reach the limit of 5
@@ -248,7 +248,7 @@ func TestRulesManager_Decrement(t *testing.T) {
 		rulesManager := NewRulesManger()
 
 		counter := &v1limiter.RuleCounterRequest{
-			KeyValues: datatypes.StringMap{"key1": datatypes.String("first"), "key2": datatypes.Float64(3.4)},
+			KeyValues: datatypes.KeyValues{"key1": datatypes.String("first"), "key2": datatypes.Float64(3.4)},
 		}
 		g.Expect(rulesManager.Increment(zap.NewNop(), counter)).ToNot(HaveOccurred())
 		g.Expect(rulesManager.Increment(zap.NewNop(), counter)).ToNot(HaveOccurred())

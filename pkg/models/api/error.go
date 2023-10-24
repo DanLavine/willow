@@ -20,7 +20,7 @@ type Error struct {
 	expected string
 	actual   string
 
-	StatusCode int
+	StatusCode int `json:"-"` // ignore this as part of the response
 }
 
 func (e *Error) With(expected, actual string) *Error {
@@ -46,6 +46,10 @@ func (e *Error) Error() string {
 	}
 
 	return err
+}
+
+func (e *Error) MarshalJSON() ([]byte, error) {
+	return []byte(fmt.Sprintf(`{"Error": "%s"}`, e.Error())), nil
 }
 
 func (e *Error) ToBytes() []byte {

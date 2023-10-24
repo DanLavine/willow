@@ -17,7 +17,7 @@ import (
 //
 // RETURNS:
 // - error - any errors encountered with parameters
-func (tsat *threadsafeAssociatedTree) Delete(keyValuePairs datatypes.StringMap, canDelete datastructures.CanDelete) error {
+func (tsat *threadsafeAssociatedTree) Delete(keyValuePairs datatypes.KeyValues, canDelete datastructures.CanDelete) error {
 	if len(keyValuePairs) == 0 {
 		return fmt.Errorf("keyValuePairs cannot be empty")
 	}

@@ -143,14 +143,14 @@ func TestQueueManager_Metrics(t *testing.T) {
 		test3, err := queueManager.Find(logger, "test3")
 		g.Expect(err).ToNot(HaveOccurred())
 
-		g.Expect(test1.Enqueue(logger, &v1willow.EnqueueItemRequest{BrokerInfo: v1willow.BrokerInfo{Name: "test1", Tags: datatypes.StringMap{"": datatypes.String("")}}, Data: []byte(`hello`), Updateable: false})).ToNot(HaveOccurred())
-		g.Expect(test1.Enqueue(logger, &v1willow.EnqueueItemRequest{BrokerInfo: v1willow.BrokerInfo{Name: "test1", Tags: datatypes.StringMap{"other": datatypes.String("other")}}, Data: []byte(`hello`), Updateable: false})).ToNot(HaveOccurred())
+		g.Expect(test1.Enqueue(logger, &v1willow.EnqueueItemRequest{BrokerInfo: v1willow.BrokerInfo{Name: "test1", Tags: datatypes.KeyValues{"": datatypes.String("")}}, Data: []byte(`hello`), Updateable: false})).ToNot(HaveOccurred())
+		g.Expect(test1.Enqueue(logger, &v1willow.EnqueueItemRequest{BrokerInfo: v1willow.BrokerInfo{Name: "test1", Tags: datatypes.KeyValues{"other": datatypes.String("other")}}, Data: []byte(`hello`), Updateable: false})).ToNot(HaveOccurred())
 
-		g.Expect(test2.Enqueue(logger, &v1willow.EnqueueItemRequest{BrokerInfo: v1willow.BrokerInfo{Name: "test2", Tags: datatypes.StringMap{"": datatypes.String("")}}, Data: []byte(`hello`), Updateable: false})).ToNot(HaveOccurred())
+		g.Expect(test2.Enqueue(logger, &v1willow.EnqueueItemRequest{BrokerInfo: v1willow.BrokerInfo{Name: "test2", Tags: datatypes.KeyValues{"": datatypes.String("")}}, Data: []byte(`hello`), Updateable: false})).ToNot(HaveOccurred())
 
-		g.Expect(test3.Enqueue(logger, &v1willow.EnqueueItemRequest{BrokerInfo: v1willow.BrokerInfo{Name: "test3", Tags: datatypes.StringMap{"one": datatypes.String("one")}}, Data: []byte(`hello1`), Updateable: false})).ToNot(HaveOccurred())
-		g.Expect(test3.Enqueue(logger, &v1willow.EnqueueItemRequest{BrokerInfo: v1willow.BrokerInfo{Name: "test3", Tags: datatypes.StringMap{"one": datatypes.String("one")}}, Data: []byte(`hello2`), Updateable: false})).ToNot(HaveOccurred())
-		g.Expect(test3.Enqueue(logger, &v1willow.EnqueueItemRequest{BrokerInfo: v1willow.BrokerInfo{Name: "test3", Tags: datatypes.StringMap{"one": datatypes.String("one"), "two": datatypes.String("two")}}, Data: []byte(`hello3`), Updateable: false})).ToNot(HaveOccurred())
+		g.Expect(test3.Enqueue(logger, &v1willow.EnqueueItemRequest{BrokerInfo: v1willow.BrokerInfo{Name: "test3", Tags: datatypes.KeyValues{"one": datatypes.String("one")}}, Data: []byte(`hello1`), Updateable: false})).ToNot(HaveOccurred())
+		g.Expect(test3.Enqueue(logger, &v1willow.EnqueueItemRequest{BrokerInfo: v1willow.BrokerInfo{Name: "test3", Tags: datatypes.KeyValues{"one": datatypes.String("one")}}, Data: []byte(`hello2`), Updateable: false})).ToNot(HaveOccurred())
+		g.Expect(test3.Enqueue(logger, &v1willow.EnqueueItemRequest{BrokerInfo: v1willow.BrokerInfo{Name: "test3", Tags: datatypes.KeyValues{"one": datatypes.String("one"), "two": datatypes.String("two")}}, Data: []byte(`hello3`), Updateable: false})).ToNot(HaveOccurred())
 
 		// check the new ready counts
 		metrics = queueManager.Metrics()
@@ -160,16 +160,16 @@ func TestQueueManager_Metrics(t *testing.T) {
 		g.Expect(metrics.Queues[0].Name).To(Equal("test2"))
 		g.Expect(metrics.Queues[0].Total).To(Equal(uint64(1)))
 		g.Expect(metrics.Queues[0].Max).To(Equal(uint64(5)))
-		g.Expect(metrics.Queues[0].Tags).To(ContainElements([]*v1willow.TagMetricsResponse{{Tags: datatypes.StringMap{"": datatypes.String("")}, Ready: 1, Processing: 0}}))
+		g.Expect(metrics.Queues[0].Tags).To(ContainElements([]*v1willow.TagMetricsResponse{{Tags: datatypes.KeyValues{"": datatypes.String("")}, Ready: 1, Processing: 0}}))
 
 		g.Expect(metrics.Queues[1].Name).To(Equal("test1"))
 		g.Expect(metrics.Queues[1].Total).To(Equal(uint64(2)))
 		g.Expect(metrics.Queues[1].Max).To(Equal(uint64(5)))
-		g.Expect(metrics.Queues[1].Tags).To(ContainElements([]*v1willow.TagMetricsResponse{{Tags: datatypes.StringMap{"": datatypes.String("")}, Ready: 1, Processing: 0}, {Tags: datatypes.StringMap{"other": datatypes.String("other")}, Ready: 1, Processing: 0}}))
+		g.Expect(metrics.Queues[1].Tags).To(ContainElements([]*v1willow.TagMetricsResponse{{Tags: datatypes.KeyValues{"": datatypes.String("")}, Ready: 1, Processing: 0}, {Tags: datatypes.KeyValues{"other": datatypes.String("other")}, Ready: 1, Processing: 0}}))
 
 		g.Expect(metrics.Queues[2].Name).To(Equal("test3"))
 		g.Expect(metrics.Queues[2].Total).To(Equal(uint64(3)))
 		g.Expect(metrics.Queues[2].Max).To(Equal(uint64(5)))
-		g.Expect(metrics.Queues[2].Tags).To(ContainElements([]*v1willow.TagMetricsResponse{{Tags: datatypes.StringMap{"one": datatypes.String("one")}, Ready: 2, Processing: 0}, {Tags: datatypes.StringMap{"one": datatypes.String("one"), "two": datatypes.String("two")}, Ready: 1, Processing: 0}}))
+		g.Expect(metrics.Queues[2].Tags).To(ContainElements([]*v1willow.TagMetricsResponse{{Tags: datatypes.KeyValues{"one": datatypes.String("one")}, Ready: 2, Processing: 0}, {Tags: datatypes.KeyValues{"one": datatypes.String("one"), "two": datatypes.String("two")}, Ready: 1, Processing: 0}}))
 	})
 }

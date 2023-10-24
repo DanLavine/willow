@@ -12,7 +12,7 @@ import (
 // create request
 type CreateLockRequest struct {
 	// the key values to create a lock for
-	KeyValues datatypes.StringMap
+	KeyValues datatypes.KeyValues
 
 	// how long it takes for the lock to timeout
 	// heartbeats should send 3 requests per timeout just to acount for network disruptions
@@ -30,7 +30,7 @@ type CreateLockResponse struct {
 
 // List request
 type Lock struct {
-	KeyValues          datatypes.StringMap
+	KeyValues          datatypes.KeyValues
 	LocksHeldOrWaiting int
 }
 type ListLockResponse struct {

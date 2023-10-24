@@ -26,7 +26,7 @@ func Test_ACK(t *testing.T) {
 		ackRequest := v1willow.ACK{
 			BrokerInfo: v1willow.BrokerInfo{
 				Name: "queue1",
-				Tags: datatypes.StringMap{"not": datatypes.String("found")},
+				Tags: datatypes.KeyValues{"not": datatypes.String("found")},
 			},
 			ID:     "nope",
 			Passed: true,
@@ -47,7 +47,7 @@ func Test_ACK(t *testing.T) {
 		ackRequest := v1willow.ACK{
 			BrokerInfo: v1willow.BrokerInfo{
 				Name: "queue1",
-				Tags: datatypes.StringMap{"not": datatypes.String("found")},
+				Tags: datatypes.KeyValues{"not": datatypes.String("found")},
 			},
 			ID:     "nope",
 			Passed: true,
@@ -76,7 +76,7 @@ func Test_ACK(t *testing.T) {
 	// 	ackRequest := v1.ACK{
 	// 		BrokerInfo: v1.BrokerInfo{
 	// 			Name: "queue1",
-	// 			Tags: datatypes.StringMap{"some": datatypes.String("tag")},
+	// 			Tags: datatypes.KeyValues{"some": datatypes.String("tag")},
 	// 		},
 	// 		ID:     1,
 	// 		Passed: true,
@@ -124,7 +124,7 @@ func Test_ACK(t *testing.T) {
 			g.Expect(metrics.Queues[0].Max).To(Equal(uint64(5)))
 			g.Expect(metrics.Queues[0].Total).To(Equal(uint64(1)))
 			g.Expect(len(metrics.Queues[0].Tags)).To(Equal(1))
-			g.Expect(metrics.Queues[0].Tags[0].Tags).To(Equal(datatypes.StringMap{"some": datatypes.String("tag")}))
+			g.Expect(metrics.Queues[0].Tags[0].Tags).To(Equal(datatypes.KeyValues{"some": datatypes.String("tag")}))
 			g.Expect(metrics.Queues[0].Tags[0].Ready).To(Equal(uint64(0)))
 			g.Expect(metrics.Queues[0].Tags[0].Processing).To(Equal(uint64(1)))
 
@@ -132,7 +132,7 @@ func Test_ACK(t *testing.T) {
 			ackRequest := v1willow.ACK{
 				BrokerInfo: v1willow.BrokerInfo{
 					Name: "queue1",
-					Tags: datatypes.StringMap{"some": datatypes.String("tag")},
+					Tags: datatypes.KeyValues{"some": datatypes.String("tag")},
 				},
 				ID:     dequeueItem.ID,
 				Passed: true,
@@ -180,7 +180,7 @@ func Test_ACK(t *testing.T) {
 			g.Expect(metrics.Queues[0].Max).To(Equal(uint64(5)))
 			g.Expect(metrics.Queues[0].Total).To(Equal(uint64(1)))
 			g.Expect(len(metrics.Queues[0].Tags)).To(Equal(1))
-			g.Expect(metrics.Queues[0].Tags[0].Tags).To(Equal(datatypes.StringMap{"some": datatypes.String("tag")}))
+			g.Expect(metrics.Queues[0].Tags[0].Tags).To(Equal(datatypes.KeyValues{"some": datatypes.String("tag")}))
 			g.Expect(metrics.Queues[0].Tags[0].Ready).To(Equal(uint64(0)))
 			g.Expect(metrics.Queues[0].Tags[0].Processing).To(Equal(uint64(1)))
 

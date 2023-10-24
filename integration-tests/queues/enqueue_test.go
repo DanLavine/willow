@@ -24,7 +24,7 @@ func Test_Enqueue(t *testing.T) {
 		enqueueBody := v1willow.EnqueueItemRequest{
 			BrokerInfo: v1willow.BrokerInfo{
 				Name: "test queue",
-				Tags: datatypes.StringMap{"some": datatypes.String("tag")},
+				Tags: datatypes.KeyValues{"some": datatypes.String("tag")},
 			},
 			Data:       []byte(`hello world`),
 			Updateable: false,
@@ -49,7 +49,7 @@ func Test_Enqueue(t *testing.T) {
 		enqueueBody := v1willow.EnqueueItemRequest{
 			BrokerInfo: v1willow.BrokerInfo{
 				Name: "test queue",
-				Tags: datatypes.StringMap{"some": datatypes.String("tag")},
+				Tags: datatypes.KeyValues{"some": datatypes.String("tag")},
 			},
 			Data:       []byte(`hello world`),
 			Updateable: false,
@@ -63,7 +63,7 @@ func Test_Enqueue(t *testing.T) {
 		g.Expect(metrics.Queues[0].Max).To(Equal(uint64(5)))
 		g.Expect(metrics.Queues[0].Total).To(Equal(uint64(1)))
 		g.Expect(len(metrics.Queues[0].Tags)).To(Equal(1))
-		g.Expect(metrics.Queues[0].Tags[0].Tags).To(Equal(datatypes.StringMap{"some": datatypes.String("tag")}))
+		g.Expect(metrics.Queues[0].Tags[0].Tags).To(Equal(datatypes.KeyValues{"some": datatypes.String("tag")}))
 		g.Expect(metrics.Queues[0].Tags[0].Ready).To(Equal(uint64(1)))
 		g.Expect(metrics.Queues[0].Tags[0].Processing).To(Equal(uint64(0)))
 	})
@@ -94,7 +94,7 @@ func Test_Enqueue(t *testing.T) {
 		g.Expect(metrics.Queues[0].Max).To(Equal(uint64(5)))
 		g.Expect(metrics.Queues[0].Total).To(Equal(uint64(4)))
 		g.Expect(len(metrics.Queues[0].Tags)).To(Equal(1))
-		g.Expect(metrics.Queues[0].Tags[0].Tags).To(Equal(datatypes.StringMap{"some": datatypes.String("tag")}))
+		g.Expect(metrics.Queues[0].Tags[0].Tags).To(Equal(datatypes.KeyValues{"some": datatypes.String("tag")}))
 		g.Expect(metrics.Queues[0].Tags[0].Ready).To(Equal(uint64(4)))
 		g.Expect(metrics.Queues[0].Tags[0].Processing).To(Equal(uint64(0)))
 	})
@@ -111,7 +111,7 @@ func Test_Enqueue(t *testing.T) {
 		enqueueResponse := testConstruct.ServerClient.WillowEnqueue(g, item)
 		g.Expect(enqueueResponse.StatusCode).To(Equal(http.StatusOK))
 
-		item.BrokerInfo.Tags = datatypes.StringMap{"new": datatypes.String("tag"), "of": datatypes.String("course")}
+		item.BrokerInfo.Tags = datatypes.KeyValues{"new": datatypes.String("tag"), "of": datatypes.String("course")}
 		enqueueResponse = testConstruct.ServerClient.WillowEnqueue(g, item)
 		g.Expect(enqueueResponse.StatusCode).To(Equal(http.StatusOK))
 
@@ -122,8 +122,8 @@ func Test_Enqueue(t *testing.T) {
 		g.Expect(metrics.Queues[0].Max).To(Equal(uint64(5)))
 		g.Expect(metrics.Queues[0].Total).To(Equal(uint64(2)))
 		g.Expect(len(metrics.Queues[0].Tags)).To(Equal(2))
-		g.Expect(metrics.Queues[0].Tags).To(ContainElement(&v1willow.TagMetricsResponse{Tags: datatypes.StringMap{"some": datatypes.String("tag")}, Ready: 1, Processing: 0}))
-		g.Expect(metrics.Queues[0].Tags).To(ContainElement(&v1willow.TagMetricsResponse{Tags: datatypes.StringMap{"new": datatypes.String("tag"), "of": datatypes.String("course")}, Ready: 1, Processing: 0}))
+		g.Expect(metrics.Queues[0].Tags).To(ContainElement(&v1willow.TagMetricsResponse{Tags: datatypes.KeyValues{"some": datatypes.String("tag")}, Ready: 1, Processing: 0}))
+		g.Expect(metrics.Queues[0].Tags).To(ContainElement(&v1willow.TagMetricsResponse{Tags: datatypes.KeyValues{"new": datatypes.String("tag"), "of": datatypes.String("course")}, Ready: 1, Processing: 0}))
 	})
 
 	t.Run("updateable messages can collapse", func(t *testing.T) {
@@ -152,7 +152,7 @@ func Test_Enqueue(t *testing.T) {
 		g.Expect(metrics.Queues[0].Max).To(Equal(uint64(5)))
 		g.Expect(metrics.Queues[0].Total).To(Equal(uint64(1)))
 		g.Expect(len(metrics.Queues[0].Tags)).To(Equal(1))
-		g.Expect(metrics.Queues[0].Tags[0].Tags).To(Equal(datatypes.StringMap{"some": datatypes.String("tag")}))
+		g.Expect(metrics.Queues[0].Tags[0].Tags).To(Equal(datatypes.KeyValues{"some": datatypes.String("tag")}))
 		g.Expect(metrics.Queues[0].Tags[0].Ready).To(Equal(uint64(1)))
 		g.Expect(metrics.Queues[0].Tags[0].Processing).To(Equal(uint64(0)))
 	})

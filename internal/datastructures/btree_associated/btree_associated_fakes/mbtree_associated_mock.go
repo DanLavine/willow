@@ -37,7 +37,7 @@ func (m *MockBTreeAssociated) EXPECT() *MockBTreeAssociatedMockRecorder {
 }
 
 // CreateOrFind mocks base method.
-func (m *MockBTreeAssociated) CreateOrFind(arg0 datatypes.StringMap, arg1 datastructures.OnCreate, arg2 datastructures.OnFind) (string, error) {
+func (m *MockBTreeAssociated) CreateOrFind(arg0 datatypes.KeyValues, arg1 datastructures.OnCreate, arg2 datastructures.OnFind) (string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateOrFind", arg0, arg1, arg2)
 	ret0, _ := ret[0].(string)
@@ -52,7 +52,7 @@ func (mr *MockBTreeAssociatedMockRecorder) CreateOrFind(arg0, arg1, arg2 interfa
 }
 
 // Delete mocks base method.
-func (m *MockBTreeAssociated) Delete(arg0 datatypes.StringMap, arg1 datastructures.CanDelete) error {
+func (m *MockBTreeAssociated) Delete(arg0 datatypes.KeyValues, arg1 datastructures.CanDelete) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Delete", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -66,7 +66,7 @@ func (mr *MockBTreeAssociatedMockRecorder) Delete(arg0, arg1 interface{}) *gomoc
 }
 
 // Find mocks base method.
-func (m *MockBTreeAssociated) Find(arg0 datatypes.StringMap, arg1 datastructures.OnFind) (string, error) {
+func (m *MockBTreeAssociated) Find(arg0 datatypes.KeyValues, arg1 datastructures.OnFind) (string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Find", arg0, arg1)
 	ret0, _ := ret[0].(string)

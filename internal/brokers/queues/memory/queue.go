@@ -252,7 +252,7 @@ func (q *Queue) removeClientWaiting(channelOps channelops.MergeReadChannelOps) {
 	}
 }
 
-func (q *Queue) updateClientWating(tags datatypes.StringMap, channel chan any) {
+func (q *Queue) updateClientWating(tags datatypes.KeyValues, channel chan any) {
 	q.clientsLock.RLock()
 	defer q.clientsLock.RUnlock()
 

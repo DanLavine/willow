@@ -23,7 +23,7 @@ func TestAssociatedTree_Delete_ParamCheck(t *testing.T) {
 func TestAssociatedTree_Delete(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	keys := datatypes.StringMap{"1": datatypes.Int(1)}
+	keys := datatypes.KeyValues{"1": datatypes.Int(1)}
 	noOpOnCreate := func() any { return "find me" }
 	noOpOnFind := func(item any) {}
 
@@ -61,8 +61,8 @@ func TestAssociatedTree_Delete(t *testing.T) {
 		t.Run("It truncates the ID Node to the smallest size", func(t *testing.T) {
 			associatedTree := NewThreadSafe()
 
-			keys1 := datatypes.StringMap{"1": datatypes.Int(1)}
-			keys2 := datatypes.StringMap{"1": datatypes.Int(1), "2": datatypes.String("2")}
+			keys1 := datatypes.KeyValues{"1": datatypes.Int(1)}
+			keys2 := datatypes.KeyValues{"1": datatypes.Int(1), "2": datatypes.String("2")}
 
 			_, _ = associatedTree.CreateOrFind(keys1, noOpOnCreate, noOpOnFind)
 			_, _ = associatedTree.CreateOrFind(keys2, noOpOnCreate, noOpOnFind)

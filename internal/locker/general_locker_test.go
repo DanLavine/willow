@@ -17,7 +17,7 @@ import (
 
 func defaultCreateLockRequest() *v1locker.CreateLockRequest {
 	return &v1locker.CreateLockRequest{
-		KeyValues: datatypes.StringMap{
+		KeyValues: datatypes.KeyValues{
 			"1": datatypes.String("one"),
 			"2": datatypes.Int(2),
 			"3": datatypes.Uint64(3),
@@ -29,7 +29,7 @@ func defaultCreateLockRequest() *v1locker.CreateLockRequest {
 // the keys "1" overlap
 func overlapOneKeyValue() *v1locker.CreateLockRequest {
 	return &v1locker.CreateLockRequest{
-		KeyValues: datatypes.StringMap{
+		KeyValues: datatypes.KeyValues{
 			"1": datatypes.String("one"),
 			"4": datatypes.Int(2),
 			"5": datatypes.Uint64(3),
@@ -233,7 +233,7 @@ func TestGeneralLocker_ObtainLocks(t *testing.T) {
 				wg.Add(1)
 
 				testReq := &v1locker.CreateLockRequest{
-					KeyValues: datatypes.StringMap{
+					KeyValues: datatypes.KeyValues{
 						fmt.Sprintf("%d", i%5): datatypes.String("doesn't matter 1"),
 						fmt.Sprintf("%d", i%6): datatypes.String("doesn't matter 2"),
 						fmt.Sprintf("%d", i%7): datatypes.String("doesn't matter 3"),
@@ -370,8 +370,8 @@ func TestGeneralLocker_ListLocks(t *testing.T) {
 		locks := generalLocker.ListLocks()
 		g.Expect(len(locks)).To(Equal(2))
 
-		g.Expect(locks).To(ContainElement(v1locker.Lock{LocksHeldOrWaiting: 1, KeyValues: datatypes.StringMap{"1": datatypes.String("one"), "4": datatypes.Int(2), "5": datatypes.Uint64(3)}}))
-		g.Expect(locks).To(ContainElement(v1locker.Lock{LocksHeldOrWaiting: 1, KeyValues: datatypes.StringMap{"1": datatypes.String("one"), "2": datatypes.Int(2), "3": datatypes.Uint64(3)}}))
+		g.Expect(locks).To(ContainElement(v1locker.Lock{LocksHeldOrWaiting: 1, KeyValues: datatypes.KeyValues{"1": datatypes.String("one"), "4": datatypes.Int(2), "5": datatypes.Uint64(3)}}))
+		g.Expect(locks).To(ContainElement(v1locker.Lock{LocksHeldOrWaiting: 1, KeyValues: datatypes.KeyValues{"1": datatypes.String("one"), "2": datatypes.Int(2), "3": datatypes.Uint64(3)}}))
 	})
 }
 

@@ -58,8 +58,7 @@ func (lh *lockerHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 		if lockResponse := lh.generalLocker.ObtainLock(r.Context(), lockerRequest); lockResponse != nil {
 			// obtained lock, send response to the client
-
-			w.WriteHeader(http.StatusOK)
+			w.WriteHeader(http.StatusCreated)
 			if _, err := w.Write(lockResponse.ToBytes()); err != nil {
 				// failing to write the response to the client means we should free the lock
 
@@ -89,15 +88,14 @@ func (lh *lockerHandler) Heartbeat(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		heartbeatResponse := v1locker.NewHeartbeatLocksResponse(lh.generalLocker.Heartbeat(heartbeatRequest.LockSessions))
+		heartbeatResponse := v1locker.NewHeartbeatLocksResponse(lh.generalLocker.Heartbeat(heartbeatRequest.SessionIDs))
 
 		if len(heartbeatResponse.HeartbeatErrors) == 0 {
 			w.WriteHeader(http.StatusOK)
 		} else {
 			w.WriteHeader(http.StatusConflict)
+			w.Write(heartbeatResponse.ToBytes())
 		}
-
-		w.Write(heartbeatResponse.ToBytes())
 	default:
 		w.WriteHeader(http.StatusNotFound)
 	}

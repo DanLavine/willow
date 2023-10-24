@@ -23,8 +23,8 @@ func defaultLimiterTestRule(g *GomegaWithT) *v1limiter.RuleRequest {
 	return rule
 }
 
-func defaultValidKeyValues(g *GomegaWithT) datatypes.StringMap {
-	return datatypes.StringMap{
+func defaultValidKeyValues(g *GomegaWithT) datatypes.KeyValues {
+	return datatypes.KeyValues{
 		"key1": datatypes.String("key1 value"),
 		"key2": datatypes.String("key2 value"),
 	}
@@ -74,7 +74,7 @@ func TestRule_SetOverride(t *testing.T) {
 
 		override := &v1limiter.RuleOverride{
 			RuleName: "test",
-			KeyValues: datatypes.StringMap{
+			KeyValues: datatypes.KeyValues{
 				"key1": datatypes.Int(3),
 			},
 			Limit: 32,
@@ -140,7 +140,7 @@ func TestRule_DeleteOverride(t *testing.T) {
 
 		override := &v1limiter.RuleOverride{
 			RuleName: "test",
-			KeyValues: datatypes.StringMap{
+			KeyValues: datatypes.KeyValues{
 				"key1": datatypes.Int(3),
 			},
 			Limit: 32,
@@ -182,7 +182,7 @@ func TestRule_TagsMatch(t *testing.T) {
 		defaultLimiterRule := defaultLimiterTestRule(g)
 		rule := NewRule(defaultLimiterRule)
 
-		matched := rule.TagsMatch(zap.NewNop(), datatypes.StringMap{"key1": datatypes.Float64(3.2)})
+		matched := rule.TagsMatch(zap.NewNop(), datatypes.KeyValues{"key1": datatypes.Float64(3.2)})
 		g.Expect(matched).To(BeFalse())
 	})
 

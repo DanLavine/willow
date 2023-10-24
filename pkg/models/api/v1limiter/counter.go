@@ -10,7 +10,7 @@ import (
 
 type RuleCounterRequest struct {
 	// Specific key values to add or remove a counter from
-	KeyValues datatypes.StringMap
+	KeyValues datatypes.KeyValues
 }
 
 func ParseRuleCounterRequest(reader io.ReadCloser) (*RuleCounterRequest, *api.Error) {

@@ -85,7 +85,7 @@ func Test_Dequeue(t *testing.T) {
 
 		// check item returned
 		g.Expect(dequeueItem.BrokerInfo.Name).To(Equal("queue1"))
-		g.Expect(dequeueItem.BrokerInfo.Tags).To(Equal(datatypes.StringMap{"some": datatypes.String("tag")}))
+		g.Expect(dequeueItem.BrokerInfo.Tags).To(Equal(datatypes.KeyValues{"some": datatypes.String("tag")}))
 		g.Expect(dequeueItem.Data).To(Equal([]byte(`hello world`)))
 	})
 
@@ -151,7 +151,7 @@ func Test_Dequeue(t *testing.T) {
 
 		// check item returned
 		g.Expect(dequeueItem.BrokerInfo.Name).To(Equal("queue1"))
-		g.Expect(dequeueItem.BrokerInfo.Tags).To(Equal(datatypes.StringMap{"some": datatypes.String("tag")}))
+		g.Expect(dequeueItem.BrokerInfo.Tags).To(Equal(datatypes.KeyValues{"some": datatypes.String("tag")}))
 		g.Expect(dequeueItem.Data).To(Equal([]byte(`hello world`)))
 	})
 
@@ -202,7 +202,7 @@ func Test_Dequeue(t *testing.T) {
 		dequeueItem1 := v1willow.DequeueItemResponse{}
 		g.Expect(json.Unmarshal(body, &dequeueItem1)).ToNot(HaveOccurred())
 		g.Expect(dequeueItem1.BrokerInfo.Name).To(Equal("queue1"))
-		g.Expect(dequeueItem1.BrokerInfo.Tags).To(Equal(datatypes.StringMap{"some": datatypes.String("tag")}))
+		g.Expect(dequeueItem1.BrokerInfo.Tags).To(Equal(datatypes.KeyValues{"some": datatypes.String("tag")}))
 		g.Expect(dequeueItem1.Data).To(Equal([]byte(`first`)))
 
 		// 2nd response check
@@ -215,7 +215,7 @@ func Test_Dequeue(t *testing.T) {
 		dequeueItem2 := v1willow.DequeueItemResponse{}
 		g.Expect(json.Unmarshal(body, &dequeueItem2)).ToNot(HaveOccurred())
 		g.Expect(dequeueItem2.BrokerInfo.Name).To(Equal("queue1"))
-		g.Expect(dequeueItem2.BrokerInfo.Tags).To(Equal(datatypes.StringMap{"some": datatypes.String("tag")}))
+		g.Expect(dequeueItem2.BrokerInfo.Tags).To(Equal(datatypes.KeyValues{"some": datatypes.String("tag")}))
 		g.Expect(dequeueItem2.Data).To(Equal([]byte(`second`)))
 
 		// 3rd response check
@@ -228,7 +228,7 @@ func Test_Dequeue(t *testing.T) {
 		dequeueItem3 := v1willow.DequeueItemResponse{}
 		g.Expect(json.Unmarshal(body, &dequeueItem3)).ToNot(HaveOccurred())
 		g.Expect(dequeueItem3.BrokerInfo.Name).To(Equal("queue1"))
-		g.Expect(dequeueItem3.BrokerInfo.Tags).To(Equal(datatypes.StringMap{"some": datatypes.String("tag")}))
+		g.Expect(dequeueItem3.BrokerInfo.Tags).To(Equal(datatypes.KeyValues{"some": datatypes.String("tag")}))
 		g.Expect(dequeueItem3.Data).To(Equal([]byte(`third`)))
 	})
 
@@ -250,13 +250,13 @@ func Test_Dequeue(t *testing.T) {
 		g.Expect(enqueueResponse.StatusCode).To(Equal(http.StatusOK))
 
 		enqueueCopy := Queue1UpdateableEnqueue
-		enqueueCopy.BrokerInfo.Tags = datatypes.StringMap{"some": datatypes.String("tag"), "another": datatypes.String("tag")}
+		enqueueCopy.BrokerInfo.Tags = datatypes.KeyValues{"some": datatypes.String("tag"), "another": datatypes.String("tag")}
 		enqueueCopy.Data = []byte(`some more data to find`)
 		enqueueResponse = testConstruct.ServerClient.WillowEnqueue(g, enqueueCopy)
 		g.Expect(enqueueResponse.StatusCode).To(Equal(http.StatusOK))
 
 		enqueueMatchesFound := Queue1UpdateableEnqueue
-		enqueueMatchesFound.BrokerInfo.Tags = datatypes.StringMap{"the other unique tag": datatypes.String("ok")}
+		enqueueMatchesFound.BrokerInfo.Tags = datatypes.KeyValues{"the other unique tag": datatypes.String("ok")}
 		enqueueMatchesFound.Data = []byte(`this should be found`)
 		enqueueResponse = testConstruct.ServerClient.WillowEnqueue(g, enqueueMatchesFound)
 		g.Expect(enqueueResponse.StatusCode).To(Equal(http.StatusOK))
@@ -265,14 +265,14 @@ func Test_Dequeue(t *testing.T) {
 			{
 				BrokerInfo: v1willow.BrokerInfo{
 					Name: "queue1",
-					Tags: datatypes.StringMap{"some": datatypes.String("tag"), "another": datatypes.String("tag")},
+					Tags: datatypes.KeyValues{"some": datatypes.String("tag"), "another": datatypes.String("tag")},
 				},
 				Data: []byte(`some more data to find`),
 			},
 			{
 				BrokerInfo: v1willow.BrokerInfo{
 					Name: "queue1",
-					Tags: datatypes.StringMap{"the other unique tag": datatypes.String("ok")},
+					Tags: datatypes.KeyValues{"the other unique tag": datatypes.String("ok")},
 				},
 				Data: []byte(`this should be found`),
 			},

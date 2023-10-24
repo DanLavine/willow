@@ -80,7 +80,7 @@ func (kl *KeyLimits) Validate(keys int) error {
 	return nil
 }
 
-func (kvs *KeyValueSelection) MatchTags(tags datatypes.StringMap) bool {
+func (kvs *KeyValueSelection) MatchTags(tags datatypes.KeyValues) bool {
 	// quick checek to reject on the number of keys
 	if kvs.Limits != nil && *kvs.Limits.NumberOfKeys < len(tags) {
 		return false

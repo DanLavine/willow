@@ -181,7 +181,7 @@ func (generalLocker *generalLocker) Heartbeat(sessions []string) []v1locker.Hear
 
 // delete a lock from the
 func (generalLocker *generalLocker) ReleaseLock(lockID string) {
-	var keyValues datatypes.StringMap
+	var keyValues datatypes.KeyValues
 
 	// only need to find the 1 item
 	onQuery := func(item any) bool {
@@ -203,7 +203,7 @@ func (generalLocker *generalLocker) ReleaseLock(lockID string) {
 	}
 }
 
-func (generalLocker *generalLocker) freeLock(keyValues datatypes.StringMap) bool {
+func (generalLocker *generalLocker) freeLock(keyValues datatypes.KeyValues) bool {
 	removed := false
 
 	fmt.Println("Calling free lock")

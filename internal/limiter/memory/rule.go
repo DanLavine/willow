@@ -23,7 +23,7 @@ type rule struct {
 type ruleOverride struct {
 	lock *sync.RWMutex
 
-	keyValues datatypes.StringMap
+	keyValues datatypes.KeyValues
 	limit     uint64
 }
 
@@ -85,7 +85,7 @@ func (r *rule) DeleteOverride(logger *zap.Logger, override *v1limiter.RuleOverri
 	return nil
 }
 
-func (r *rule) FindLimit(logger *zap.Logger, keyValues datatypes.StringMap) uint64 {
+func (r *rule) FindLimit(logger *zap.Logger, keyValues datatypes.KeyValues) uint64 {
 	r.ruleModelLock.RLock()
 	limit := r.ruleModel.Limit
 	r.ruleModelLock.RUnlock()
@@ -104,7 +104,7 @@ func (r *rule) FindLimit(logger *zap.Logger, keyValues datatypes.StringMap) uint
 	return limit
 }
 
-func (r *rule) TagsMatch(logger *zap.Logger, keyValues datatypes.StringMap) bool {
+func (r *rule) TagsMatch(logger *zap.Logger, keyValues datatypes.KeyValues) bool {
 	// ensure that all the "group by" keys exists
 	for _, key := range r.ruleModel.GroupBy {
 		if _, ok := keyValues[key]; !ok {
@@ -124,7 +124,7 @@ func (r *rule) Unlock() {
 	r.ruleModelLock.RLock()
 }
 
-func (r *rule) GenerateQuery(keyValues datatypes.StringMap) query.AssociatedKeyValuesQuery {
+func (r *rule) GenerateQuery(keyValues datatypes.KeyValues) query.AssociatedKeyValuesQuery {
 	selectQuery := query.AssociatedKeyValuesQuery{
 		KeyValueSelection: &query.KeyValueSelection{
 			KeyValues: map[string]query.Value{},

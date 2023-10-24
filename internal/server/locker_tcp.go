@@ -104,7 +104,7 @@ func (locker *LockerTCP) Execute(ctx context.Context) error {
 	mux.Handle("/docs", middleware.Redoc(middleware.RedocOpts{
 		BasePath: "/",
 		Path:     "docs",
-		SpecURL:  "/docs/openapi/swagger.yaml",
+		SpecURL:  "/docs/openapi/openapi.yaml",
 		Title:    "Locker API Documentation",
 	}, nil))
 

@@ -10,7 +10,7 @@ import (
 
 // heartbeat request
 type HeartbeatLocksRequst struct {
-	LockSessions []string
+	SessionIDs []string
 }
 
 type HeartbeatError struct {
@@ -47,11 +47,11 @@ func ParseHeartbeatRequest(reader io.ReadCloser) (*HeartbeatLocksRequst, *api.Er
 }
 
 func (hlr *HeartbeatLocksRequst) Validate() *api.Error {
-	if len(hlr.LockSessions) == 0 {
+	if len(hlr.SessionIDs) == 0 {
 		return api.InvalidRequestBody.With("LockSessions to be provided", "recieved empty LockSessions")
 	}
 
-	for index, sessionID := range hlr.LockSessions {
+	for index, sessionID := range hlr.SessionIDs {
 		if sessionID == "" {
 			return api.InvalidRequestBody.With(fmt.Sprintf("LockSessions at index '%d' to not be an empty string", index), "received an empty string")
 		}

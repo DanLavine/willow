@@ -184,8 +184,8 @@ func TestAssociated_Random_Create(t *testing.T) {
 				modInt++
 
 				// generate a key with a few different types
-				keys := datatypes.StringMap{}
-				repeatKeys := datatypes.StringMap{}
+				keys := datatypes.KeyValues{}
+				repeatKeys := datatypes.KeyValues{}
 				for i := 0; i < modInt; i++ {
 					switch tNum % 2 {
 					case 0:
@@ -228,7 +228,7 @@ func TestAssociated_Random_Find(t *testing.T) {
 				modInt++
 
 				// generate a key with a few different types
-				keys := datatypes.StringMap{}
+				keys := datatypes.KeyValues{}
 				for i := 0; i < modInt; i++ {
 					switch tNum % 2 {
 					case 0:
@@ -254,7 +254,7 @@ func TestAssociated_Random_Find(t *testing.T) {
 				modInt++
 
 				// generate a key with a few different types
-				keys := datatypes.StringMap{}
+				keys := datatypes.KeyValues{}
 				for i := 0; i < modInt; i++ {
 					switch tNum % 2 {
 					case 0:
@@ -298,7 +298,7 @@ func TestAssociated_Random_Query(t *testing.T) {
 				modInt++
 
 				// generate a key with a few different types
-				keys := datatypes.StringMap{}
+				keys := datatypes.KeyValues{}
 				for i := 0; i < modInt; i++ {
 					switch tNum % 2 {
 					case 0:
@@ -372,7 +372,7 @@ func TestAssociated_Random_Delete(t *testing.T) {
 				modInt++
 
 				// generate a key with a few different types
-				keys := datatypes.StringMap{}
+				keys := datatypes.KeyValues{}
 				for i := 0; i < modInt; i++ {
 					switch tNum % 2 {
 					case 0:
@@ -398,7 +398,7 @@ func TestAssociated_Random_Delete(t *testing.T) {
 				modInt++
 
 				// generate a key with a few different types
-				keys := datatypes.StringMap{}
+				keys := datatypes.KeyValues{}
 				for i := 0; i < modInt; i++ {
 					switch tNum % 2 {
 					case 0:
@@ -437,7 +437,7 @@ func TestAssociated_Random_AllActions(t *testing.T) {
 				modInt++
 
 				// generate a key with a few different types
-				keys := datatypes.StringMap{}
+				keys := datatypes.KeyValues{}
 				for i := 0; i < modInt; i++ {
 					switch tNum % 2 {
 					case 0:
@@ -459,7 +459,7 @@ func TestAssociated_Random_AllActions(t *testing.T) {
 				modInt++
 
 				// generate a key with a few different types
-				keys := datatypes.StringMap{}
+				keys := datatypes.KeyValues{}
 				for i := 0; i < modInt; i++ {
 					switch tNum % 2 {
 					case 0:
@@ -480,7 +480,7 @@ func TestAssociated_Random_AllActions(t *testing.T) {
 				modInt++
 
 				// generate a key with a few different types
-				keys := datatypes.StringMap{}
+				keys := datatypes.KeyValues{}
 				for i := 0; i < modInt; i++ {
 					switch tNum % 2 {
 					case 0:

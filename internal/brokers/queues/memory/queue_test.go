@@ -17,8 +17,8 @@ import (
 
 var (
 	createParams             = &v1willow.Create{Name: "test", QueueMaxSize: 5, DeadLetterQueueMaxSize: 0}
-	enqueueItemUpdateable    = &v1willow.EnqueueItemRequest{BrokerInfo: v1willow.BrokerInfo{Name: "test", Tags: datatypes.StringMap{"updateable": datatypes.String("true")}}, Data: []byte(`squash me!`), Updateable: true}
-	enqueueItemNotUpdateable = &v1willow.EnqueueItemRequest{BrokerInfo: v1willow.BrokerInfo{Name: "test", Tags: datatypes.StringMap{"updateable": datatypes.String("false")}}, Data: []byte(`hello world`), Updateable: false}
+	enqueueItemUpdateable    = &v1willow.EnqueueItemRequest{BrokerInfo: v1willow.BrokerInfo{Name: "test", Tags: datatypes.KeyValues{"updateable": datatypes.String("true")}}, Data: []byte(`squash me!`), Updateable: true}
+	enqueueItemNotUpdateable = &v1willow.EnqueueItemRequest{BrokerInfo: v1willow.BrokerInfo{Name: "test", Tags: datatypes.KeyValues{"updateable": datatypes.String("false")}}, Data: []byte(`hello world`), Updateable: false}
 )
 
 func TestMemoryQueue_Metrics(t *testing.T) {
@@ -66,7 +66,7 @@ func TestMemoryQueue_Enqueue(t *testing.T) {
 		g.Expect(len(metrics.Tags)).To(Equal(1))
 		g.Expect(metrics.Tags[0].Processing).To(Equal(uint64(0)))
 		g.Expect(metrics.Tags[0].Ready).To(Equal(uint64(1)))
-		g.Expect(metrics.Tags[0].Tags).To(Equal(datatypes.StringMap{"updateable": datatypes.String("true")}))
+		g.Expect(metrics.Tags[0].Tags).To(Equal(datatypes.KeyValues{"updateable": datatypes.String("true")}))
 	})
 
 	t.Run("it can enqueu multiple messages", func(t *testing.T) {
@@ -88,7 +88,7 @@ func TestMemoryQueue_Enqueue(t *testing.T) {
 		g.Expect(len(metrics.Tags)).To(Equal(1))
 		g.Expect(metrics.Tags[0].Processing).To(Equal(uint64(0)))
 		g.Expect(metrics.Tags[0].Ready).To(Equal(uint64(4)))
-		g.Expect(metrics.Tags[0].Tags).To(Equal(datatypes.StringMap{"updateable": datatypes.String("false")}))
+		g.Expect(metrics.Tags[0].Tags).To(Equal(datatypes.KeyValues{"updateable": datatypes.String("false")}))
 	})
 
 	t.Run("it can squash multiple messages", func(t *testing.T) {
@@ -110,20 +110,20 @@ func TestMemoryQueue_Enqueue(t *testing.T) {
 		g.Expect(len(metrics.Tags)).To(Equal(1))
 		g.Expect(metrics.Tags[0].Processing).To(Equal(uint64(0)))
 		g.Expect(metrics.Tags[0].Ready).To(Equal(uint64(1)))
-		g.Expect(metrics.Tags[0].Tags).To(Equal(datatypes.StringMap{"updateable": datatypes.String("true")}))
+		g.Expect(metrics.Tags[0].Tags).To(Equal(datatypes.KeyValues{"updateable": datatypes.String("true")}))
 	})
 
 	t.Run("it can create a queue if child tags already exist", func(t *testing.T) {
 		queue := NewQueue(createParams)
 		defer queue.Stop()
 
-		enqueue1 := &v1willow.EnqueueItemRequest{BrokerInfo: v1willow.BrokerInfo{Name: "test", Tags: datatypes.StringMap{"a": datatypes.String("a"), "b": datatypes.String("b")}}, Data: []byte(`squash me!`), Updateable: true}
-		enqueue2 := &v1willow.EnqueueItemRequest{BrokerInfo: v1willow.BrokerInfo{Name: "test", Tags: datatypes.StringMap{"a": datatypes.String("a")}}, Data: []byte(`squash me!`), Updateable: true}
+		enqueue1 := &v1willow.EnqueueItemRequest{BrokerInfo: v1willow.BrokerInfo{Name: "test", Tags: datatypes.KeyValues{"a": datatypes.String("a"), "b": datatypes.String("b")}}, Data: []byte(`squash me!`), Updateable: true}
+		enqueue2 := &v1willow.EnqueueItemRequest{BrokerInfo: v1willow.BrokerInfo{Name: "test", Tags: datatypes.KeyValues{"a": datatypes.String("a")}}, Data: []byte(`squash me!`), Updateable: true}
 
 		g.Expect(queue.Enqueue(zap.NewNop(), enqueue1)).ToNot(HaveOccurred())
 		metrics := queue.Metrics()
 		g.Expect(len(metrics.Tags)).To(Equal(1))
-		g.Expect(metrics.Tags[0].Tags).To(Equal(datatypes.StringMap{"a": datatypes.String("a"), "b": datatypes.String("b")}))
+		g.Expect(metrics.Tags[0].Tags).To(Equal(datatypes.KeyValues{"a": datatypes.String("a"), "b": datatypes.String("b")}))
 
 		g.Expect(queue.Enqueue(zap.NewNop(), enqueue2)).ToNot(HaveOccurred())
 		metrics = queue.Metrics()
@@ -132,12 +132,12 @@ func TestMemoryQueue_Enqueue(t *testing.T) {
 			{
 				Ready:      1,
 				Processing: 0,
-				Tags:       datatypes.StringMap{"a": datatypes.String("a")},
+				Tags:       datatypes.KeyValues{"a": datatypes.String("a")},
 			},
 			{
 				Ready:      1,
 				Processing: 0,
-				Tags:       datatypes.StringMap{"a": datatypes.String("a"), "b": datatypes.String("b")},
+				Tags:       datatypes.KeyValues{"a": datatypes.String("a"), "b": datatypes.String("b")},
 			},
 		}))
 	})
@@ -258,7 +258,7 @@ func TestMemoryQueue_Dequeue(t *testing.T) {
 		enqueueItemRequest := &v1willow.EnqueueItemRequest{
 			BrokerInfo: v1willow.BrokerInfo{
 				Name: "test",
-				Tags: datatypes.StringMap{
+				Tags: datatypes.KeyValues{
 					"a": datatypes.String("a"),
 				},
 			},
@@ -276,7 +276,7 @@ func TestMemoryQueue_Dequeue(t *testing.T) {
 
 		g.Expect(dequeue.ID).ToNot(Equal(""))
 		g.Expect(dequeue.BrokerInfo.Name).To(Equal("test"))
-		g.Expect(dequeue.BrokerInfo.Tags).To(Equal(datatypes.StringMap{"a": datatypes.String("a")}))
+		g.Expect(dequeue.BrokerInfo.Tags).To(Equal(datatypes.KeyValues{"a": datatypes.String("a")}))
 		g.Expect(dequeue.Data).To(Equal([]byte(`squash me!`)))
 		onSuccess()
 	})
@@ -289,7 +289,7 @@ func TestMemoryQueue_Dequeue(t *testing.T) {
 		enqueueItemRequest := &v1willow.EnqueueItemRequest{
 			BrokerInfo: v1willow.BrokerInfo{
 				Name: "test",
-				Tags: datatypes.StringMap{
+				Tags: datatypes.KeyValues{
 					"a": datatypes.String("a"),
 				},
 			},
@@ -317,7 +317,7 @@ func TestMemoryQueue_Dequeue(t *testing.T) {
 
 		g.Expect(dequeue.ID).ToNot(Equal(""))
 		g.Expect(dequeue.BrokerInfo.Name).To(Equal("test"))
-		g.Expect(dequeue.BrokerInfo.Tags).To(Equal(datatypes.StringMap{"a": datatypes.String("a")}))
+		g.Expect(dequeue.BrokerInfo.Tags).To(Equal(datatypes.KeyValues{"a": datatypes.String("a")}))
 		g.Expect(dequeue.Data).To(Equal([]byte(`squash me!`)))
 		onSuccess()
 	})
@@ -331,7 +331,7 @@ func TestMemoryQueue_Dequeue(t *testing.T) {
 			enqueueItemRequest := &v1willow.EnqueueItemRequest{
 				BrokerInfo: v1willow.BrokerInfo{
 					Name: "test",
-					Tags: datatypes.StringMap{
+					Tags: datatypes.KeyValues{
 						"a": datatypes.String("a"),
 					},
 				},
@@ -365,7 +365,7 @@ func TestMemoryQueue_Dequeue(t *testing.T) {
 			enqueueItemRequest := &v1willow.EnqueueItemRequest{
 				BrokerInfo: v1willow.BrokerInfo{
 					Name: "test",
-					Tags: datatypes.StringMap{
+					Tags: datatypes.KeyValues{
 						"a": datatypes.String("a"),
 					},
 				},
@@ -388,7 +388,7 @@ func TestMemoryQueue_Dequeue(t *testing.T) {
 			enqueueItemRequest := &v1willow.EnqueueItemRequest{
 				BrokerInfo: v1willow.BrokerInfo{
 					Name: "test",
-					Tags: datatypes.StringMap{
+					Tags: datatypes.KeyValues{
 						"a": datatypes.String("a"),
 					},
 				},
@@ -425,7 +425,7 @@ func TestMemoryQueue_Dequeue(t *testing.T) {
 			enqueueItemRequest := &v1willow.EnqueueItemRequest{
 				BrokerInfo: v1willow.BrokerInfo{
 					Name: "test",
-					Tags: datatypes.StringMap{
+					Tags: datatypes.KeyValues{
 						"a": datatypes.String("a"),
 					},
 				},
@@ -461,7 +461,7 @@ func TestMemoryQueue_Dequeue(t *testing.T) {
 			enqueueItemRequest := &v1willow.EnqueueItemRequest{
 				BrokerInfo: v1willow.BrokerInfo{
 					Name: "test",
-					Tags: datatypes.StringMap{
+					Tags: datatypes.KeyValues{
 						"a": datatypes.String("a"),
 					},
 				},
@@ -501,7 +501,7 @@ func TestMemoryQueue_Dequeue(t *testing.T) {
 			enqueueItemRequest := &v1willow.EnqueueItemRequest{
 				BrokerInfo: v1willow.BrokerInfo{
 					Name: "test",
-					Tags: datatypes.StringMap{
+					Tags: datatypes.KeyValues{
 						"a": datatypes.String("a"),
 					},
 				},
@@ -524,7 +524,7 @@ func TestMemoryQueue_Dequeue(t *testing.T) {
 			enqueueItemRequest = &v1willow.EnqueueItemRequest{
 				BrokerInfo: v1willow.BrokerInfo{
 					Name: "test",
-					Tags: datatypes.StringMap{
+					Tags: datatypes.KeyValues{
 						"a": datatypes.String("a"),
 					},
 				},
@@ -558,7 +558,7 @@ func TestMemoryQueue_Dequeue(t *testing.T) {
 			enqueueItemRequest := &v1willow.EnqueueItemRequest{
 				BrokerInfo: v1willow.BrokerInfo{
 					Name: "test",
-					Tags: datatypes.StringMap{
+					Tags: datatypes.KeyValues{
 						"a": datatypes.String("a"),
 					},
 				},
@@ -592,7 +592,7 @@ func TestMemoryQueue_ACK(t *testing.T) {
 	enqueueItem1 := v1willow.EnqueueItemRequest{
 		BrokerInfo: v1willow.BrokerInfo{
 			Name: "test",
-			Tags: datatypes.StringMap{"a": datatypes.String("a"), "b": datatypes.String("b"), "c": datatypes.String("c")},
+			Tags: datatypes.KeyValues{"a": datatypes.String("a"), "b": datatypes.String("b"), "c": datatypes.String("c")},
 		},
 		Data:       []byte(`first`),
 		Updateable: false,
@@ -621,7 +621,7 @@ func TestMemoryQueue_ACK(t *testing.T) {
 		ack := &v1willow.ACK{
 			BrokerInfo: v1willow.BrokerInfo{
 				Name: "test",
-				Tags: datatypes.StringMap{"not": datatypes.String("found")},
+				Tags: datatypes.KeyValues{"not": datatypes.String("found")},
 			},
 			ID:     "not found",
 			Passed: true,
@@ -640,7 +640,7 @@ func TestMemoryQueue_ACK(t *testing.T) {
 		ack := &v1willow.ACK{
 			BrokerInfo: v1willow.BrokerInfo{
 				Name: "test",
-				Tags: datatypes.StringMap{"a": datatypes.String("a"), "b": datatypes.String("b"), "not": datatypes.String("found")},
+				Tags: datatypes.KeyValues{"a": datatypes.String("a"), "b": datatypes.String("b"), "not": datatypes.String("found")},
 			},
 			ID:     "not found",
 			Passed: true,
@@ -674,7 +674,7 @@ func TestMemoryQueue_ACK(t *testing.T) {
 
 			metrics := queue.Metrics()
 			g.Expect(metrics).ToNot(BeNil())
-			g.Expect(metrics).To(Equal(&v1willow.QueueMetricsResponse{Name: "test", Total: 1, Max: 5, Tags: []*v1willow.TagMetricsResponse{{Processing: 1, Ready: 0, Tags: datatypes.StringMap{"a": datatypes.String("a"), "b": datatypes.String("b"), "c": datatypes.String("c")}}}}))
+			g.Expect(metrics).To(Equal(&v1willow.QueueMetricsResponse{Name: "test", Total: 1, Max: 5, Tags: []*v1willow.TagMetricsResponse{{Processing: 1, Ready: 0, Tags: datatypes.KeyValues{"a": datatypes.String("a"), "b": datatypes.String("b"), "c": datatypes.String("c")}}}}))
 
 			return queue, dequeueItem, cancel
 		}
@@ -686,7 +686,7 @@ func TestMemoryQueue_ACK(t *testing.T) {
 			ack := &v1willow.ACK{
 				BrokerInfo: v1willow.BrokerInfo{
 					Name: "test",
-					Tags: datatypes.StringMap{"a": datatypes.String("a"), "b": datatypes.String("b"), "c": datatypes.String("c")},
+					Tags: datatypes.KeyValues{"a": datatypes.String("a"), "b": datatypes.String("b"), "c": datatypes.String("c")},
 				},
 				ID:     "not_found",
 				Passed: true,
@@ -699,7 +699,7 @@ func TestMemoryQueue_ACK(t *testing.T) {
 
 			metrics := queue.Metrics()
 			g.Expect(metrics).ToNot(BeNil())
-			g.Expect(metrics).To(Equal(&v1willow.QueueMetricsResponse{Name: "test", Total: 1, Max: 5, Tags: []*v1willow.TagMetricsResponse{{Processing: 1, Ready: 0, Tags: datatypes.StringMap{"a": datatypes.String("a"), "b": datatypes.String("b"), "c": datatypes.String("c")}}}}))
+			g.Expect(metrics).To(Equal(&v1willow.QueueMetricsResponse{Name: "test", Total: 1, Max: 5, Tags: []*v1willow.TagMetricsResponse{{Processing: 1, Ready: 0, Tags: datatypes.KeyValues{"a": datatypes.String("a"), "b": datatypes.String("b"), "c": datatypes.String("c")}}}}))
 		})
 
 		t.Run("it removes the item from processing with a proper ID and removes the tag group if there are no more enqueued items", func(t *testing.T) {
@@ -709,7 +709,7 @@ func TestMemoryQueue_ACK(t *testing.T) {
 			ack := &v1willow.ACK{
 				BrokerInfo: v1willow.BrokerInfo{
 					Name: "test",
-					Tags: datatypes.StringMap{"a": datatypes.String("a"), "b": datatypes.String("b"), "c": datatypes.String("c")},
+					Tags: datatypes.KeyValues{"a": datatypes.String("a"), "b": datatypes.String("b"), "c": datatypes.String("c")},
 				},
 				ID:     dequeueItem.ID,
 				Passed: true,
@@ -734,7 +734,7 @@ func TestMemoryQueue_ACK(t *testing.T) {
 			ack := &v1willow.ACK{
 				BrokerInfo: v1willow.BrokerInfo{
 					Name: "test",
-					Tags: datatypes.StringMap{"a": datatypes.String("a"), "b": datatypes.String("b"), "c": datatypes.String("c")},
+					Tags: datatypes.KeyValues{"a": datatypes.String("a"), "b": datatypes.String("b"), "c": datatypes.String("c")},
 				},
 				ID:     dequeueItem.ID,
 				Passed: true,
@@ -746,7 +746,7 @@ func TestMemoryQueue_ACK(t *testing.T) {
 
 			metrics := queue.Metrics()
 			g.Expect(metrics).ToNot(BeNil())
-			g.Expect(metrics).To(Equal(&v1willow.QueueMetricsResponse{Name: "test", Total: 1, Max: 5, Tags: []*v1willow.TagMetricsResponse{{Processing: 0, Ready: 1, Tags: datatypes.StringMap{"a": datatypes.String("a"), "b": datatypes.String("b"), "c": datatypes.String("c")}}}}))
+			g.Expect(metrics).To(Equal(&v1willow.QueueMetricsResponse{Name: "test", Total: 1, Max: 5, Tags: []*v1willow.TagMetricsResponse{{Processing: 0, Ready: 1, Tags: datatypes.KeyValues{"a": datatypes.String("a"), "b": datatypes.String("b"), "c": datatypes.String("c")}}}}))
 		})
 	})
 

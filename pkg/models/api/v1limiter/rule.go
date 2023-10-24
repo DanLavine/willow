@@ -76,7 +76,7 @@ type RuleResponse struct {
 
 type RuleOverrideResponse struct {
 	// The possible key values for the overrides
-	KeyValues datatypes.StringMap
+	KeyValues datatypes.KeyValues
 
 	// The new limit to use for the paricular mapping
 	Limit uint64

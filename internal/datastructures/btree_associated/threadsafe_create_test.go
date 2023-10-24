@@ -11,7 +11,7 @@ import (
 func TestAssociatedTree_CreateOrFind_ParamCheck(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	keys := datatypes.StringMap{"1": datatypes.Int(1)}
+	keys := datatypes.KeyValues{"1": datatypes.Int(1)}
 	onCreate := func() any { return true }
 	onFind := func(item any) {}
 
@@ -27,7 +27,7 @@ func TestAssociatedTree_CreateOrFind_ParamCheck(t *testing.T) {
 	t.Run("it returns an error if the keyValuePairs contains '_associated_id' key", func(t *testing.T) {
 		associatedTree := NewThreadSafe()
 
-		id, err := associatedTree.CreateOrFind(datatypes.StringMap{"_associated_id": datatypes.Int(1)}, onCreate, onFind)
+		id, err := associatedTree.CreateOrFind(datatypes.KeyValues{"_associated_id": datatypes.Int(1)}, onCreate, onFind)
 		g.Expect(err).To(HaveOccurred())
 		g.Expect(err.Error()).To(ContainSubstring("reserved keyword '_associated_id' cannot be used in the keyValuePairs"))
 		g.Expect(id).To(Equal(""))
@@ -55,7 +55,7 @@ func TestAssociatedTree_CreateOrFind_ParamCheck(t *testing.T) {
 func TestAssociatedTree_CreateOrFind_FailedToCreate(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	keyValues := datatypes.StringMap{"1": datatypes.String("one"), "2": datatypes.Int(5)}
+	keyValues := datatypes.KeyValues{"1": datatypes.String("one"), "2": datatypes.Int(5)}
 	noOpOnCreate := func() any { return "find me" }
 	noOpOnFind := func(item any) {}
 
@@ -78,9 +78,9 @@ func TestAssociatedTree_CreateOrFind_FailedToCreate(t *testing.T) {
 	t.Run("it does not remove any IDs that might already exist", func(t *testing.T) {
 		associatedTree := NewThreadSafe()
 
-		goodKeyValues1 := datatypes.StringMap{"1": datatypes.String("one"), "4": datatypes.Int(4)}
-		goodKeyValues2 := datatypes.StringMap{"1": datatypes.String("one"), "2": datatypes.Int(5), "3": datatypes.String("three")}
-		badKeyValues := datatypes.StringMap{"1": datatypes.String("one"), "2": datatypes.Int(4)} // This tests the break on processing shrinks
+		goodKeyValues1 := datatypes.KeyValues{"1": datatypes.String("one"), "4": datatypes.Int(4)}
+		goodKeyValues2 := datatypes.KeyValues{"1": datatypes.String("one"), "2": datatypes.Int(5), "3": datatypes.String("three")}
+		badKeyValues := datatypes.KeyValues{"1": datatypes.String("one"), "2": datatypes.Int(4)} // This tests the break on processing shrinks
 
 		badCreate := func() any {
 			return nil
@@ -165,7 +165,7 @@ func TestAssociatedTree_CreateOrFind_FailedToCreate(t *testing.T) {
 func TestAssociatedTree_CreateOrFind_SingleKeyValue(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	keyValues := datatypes.StringMap{"1": datatypes.String("one")}
+	keyValues := datatypes.KeyValues{"1": datatypes.String("one")}
 	noOpOnCreate := func() any { return "found me" }
 	noOpOnFind := func(item any) {}
 
@@ -205,9 +205,9 @@ func TestAssociatedTree_CreateOrFind_SingleKeyValue(t *testing.T) {
 	t.Run("it properly saves multiple key values", func(t *testing.T) {
 		associatedTree := NewThreadSafe()
 
-		keyValues1 := datatypes.StringMap{"1": datatypes.String("one")}
-		keyValues2 := datatypes.StringMap{"1": datatypes.Int(5)}
-		keyValues3 := datatypes.StringMap{"3": datatypes.String("three")}
+		keyValues1 := datatypes.KeyValues{"1": datatypes.String("one")}
+		keyValues2 := datatypes.KeyValues{"1": datatypes.Int(5)}
+		keyValues3 := datatypes.KeyValues{"3": datatypes.String("three")}
 
 		createCount := 0
 		onCreate := func() any {
@@ -249,7 +249,7 @@ func TestAssociatedTree_CreateOrFind_SingleKeyValue(t *testing.T) {
 func TestAssociatedTree_CreateOrFind_MultiKeyValue(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	keyValues := datatypes.StringMap{"1": datatypes.String("one"), "2": datatypes.Float32(3.0)}
+	keyValues := datatypes.KeyValues{"1": datatypes.String("one"), "2": datatypes.Float32(3.0)}
 	noOpOnCreate := func() any { return "find me" }
 	noOpOnFind := func(item any) {}
 
@@ -285,10 +285,10 @@ func TestAssociatedTree_CreateOrFind_MultiKeyValue(t *testing.T) {
 	t.Run("it properly saves multiple key values", func(t *testing.T) {
 		associatedTree := NewThreadSafe()
 
-		keyValues1 := datatypes.StringMap{"1": datatypes.String("one"), "2": datatypes.Float64(3.0)}
-		keyValues2 := datatypes.StringMap{"1": datatypes.String("one"), "2": datatypes.Float32(3.0)}
-		keyValues3 := datatypes.StringMap{"1": datatypes.String("one"), "2": datatypes.Float32(5.0)}
-		keyValues4 := datatypes.StringMap{"2": datatypes.String("two"), "3": datatypes.Float32(3.0)}
+		keyValues1 := datatypes.KeyValues{"1": datatypes.String("one"), "2": datatypes.Float64(3.0)}
+		keyValues2 := datatypes.KeyValues{"1": datatypes.String("one"), "2": datatypes.Float32(3.0)}
+		keyValues3 := datatypes.KeyValues{"1": datatypes.String("one"), "2": datatypes.Float32(5.0)}
+		keyValues4 := datatypes.KeyValues{"2": datatypes.String("two"), "3": datatypes.Float32(3.0)}
 
 		createCount := 0
 		onCreate := func() any {

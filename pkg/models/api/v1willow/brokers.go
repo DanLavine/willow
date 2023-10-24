@@ -31,7 +31,7 @@ type BrokerInfo struct {
 
 	// possible tags used by the broker
 	// leaving this empty (or nil) results to the default tag set
-	Tags datatypes.StringMap
+	Tags datatypes.KeyValues
 }
 
 func (b BrokerInfo) validate() *api.Error {

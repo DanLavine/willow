@@ -14,7 +14,7 @@ type RuleOverride struct {
 
 	// They key value parings we are making the override for
 	// NOTE: these must match the GroupBy keys in the original Rule
-	KeyValues datatypes.StringMap
+	KeyValues datatypes.KeyValues
 
 	// The new limit to use for the paricular mapping
 	Limit uint64

@@ -30,7 +30,7 @@ func Test_Lock(t *testing.T) {
 		lockerClient := testConstruct.LockerClient
 
 		lockRequest := v1locker.CreateLockRequest{
-			KeyValues: datatypes.StringMap{
+			KeyValues: datatypes.KeyValues{
 				"key1": datatypes.String("key one"),
 				"key2": datatypes.String("key two"),
 			},
@@ -44,7 +44,7 @@ func Test_Lock(t *testing.T) {
 
 		resp, err := lockerClient.Do(obtainLock)
 		g.Expect(err).ToNot(HaveOccurred())
-		g.Expect(resp.StatusCode).To(Equal(http.StatusOK))
+		g.Expect(resp.StatusCode).To(Equal(http.StatusCreated))
 	})
 
 	t.Run("It blocks a second requst for the same lock tags", func(t *testing.T) {
@@ -54,7 +54,7 @@ func Test_Lock(t *testing.T) {
 		lockerClient := testConstruct.LockerClient
 
 		lockRequest := v1locker.CreateLockRequest{
-			KeyValues: datatypes.StringMap{
+			KeyValues: datatypes.KeyValues{
 				"key1": datatypes.String("key one"),
 				"key2": datatypes.String("key two"),
 			},
@@ -68,52 +68,11 @@ func Test_Lock(t *testing.T) {
 
 		resp, err := lockerClient.Do(obtainLock)
 		g.Expect(err).ToNot(HaveOccurred())
-		g.Expect(resp.StatusCode).To(Equal(http.StatusOK))
+		g.Expect(resp.StatusCode).To(Equal(http.StatusCreated))
 
 		done := make(chan struct{})
 		go func() {
 			r, _ := http.NewRequest("POST", fmt.Sprintf("%s/v1/locker/create", lockerClient.Address()), bytes.NewBuffer(data))
-			lockerClient.Do(r)
-			close(done)
-		}()
-
-		g.Consistently(done).ShouldNot(BeClosed())
-	})
-
-	t.Run("It block a second requst if they share any of the tags from a previous request that has a lock", func(t *testing.T) {
-		testConstruct.StartLocker(g)
-		defer testConstruct.Shutdown(g)
-
-		lockerClient := testConstruct.LockerClient
-
-		lockRequest1 := v1locker.CreateLockRequest{
-			KeyValues: datatypes.StringMap{
-				"key1": datatypes.String("key one"),
-				"key2": datatypes.String("key two"),
-			},
-		}
-		data1, err := json.Marshal(lockRequest1)
-		g.Expect(err).ToNot(HaveOccurred())
-
-		lockRequest2 := v1locker.CreateLockRequest{
-			KeyValues: datatypes.StringMap{
-				"key1": datatypes.String("key one"),
-				"key2": datatypes.String("key two"),
-			},
-		}
-		data2, err := json.Marshal(lockRequest2)
-		g.Expect(err).ToNot(HaveOccurred())
-
-		obtainLock, err := http.NewRequest("POST", fmt.Sprintf("%s/v1/locker/create", testConstruct.LockerClient.Address()), bytes.NewBuffer(data1))
-		g.Expect(err).ToNot(HaveOccurred())
-
-		resp, err := lockerClient.Do(obtainLock)
-		g.Expect(err).ToNot(HaveOccurred())
-		g.Expect(resp.StatusCode).To(Equal(http.StatusOK))
-
-		done := make(chan struct{})
-		go func() {
-			r, _ := http.NewRequest("POST", fmt.Sprintf("%s/v1/locker/create", testConstruct.LockerClient.Address()), bytes.NewBuffer(data2))
 			lockerClient.Do(r)
 			close(done)
 		}()
@@ -136,7 +95,7 @@ func TestLocker_Delete_API(t *testing.T) {
 
 		// setup the first lock
 		lockRequest := v1locker.CreateLockRequest{
-			KeyValues: datatypes.StringMap{
+			KeyValues: datatypes.KeyValues{
 				"key1": datatypes.String("key one"),
 				"key2": datatypes.String("key two"),
 			},
@@ -149,7 +108,7 @@ func TestLocker_Delete_API(t *testing.T) {
 
 		resp, err := lockerClient.Do(obtainLock)
 		g.Expect(err).ToNot(HaveOccurred())
-		g.Expect(resp.StatusCode).To(Equal(http.StatusOK))
+		g.Expect(resp.StatusCode).To(Equal(http.StatusCreated))
 
 		obtainLockResp := v1locker.DeleteLockRequest{}
 		respData, err := io.ReadAll(resp.Body)
@@ -196,7 +155,7 @@ func TestLocker_List_API(t *testing.T) {
 
 		// setup the first lock
 		lockRequest := v1locker.CreateLockRequest{
-			KeyValues: datatypes.StringMap{
+			KeyValues: datatypes.KeyValues{
 				"key1": datatypes.String("key one"),
 				"key2": datatypes.String("key two"),
 			},
@@ -209,11 +168,11 @@ func TestLocker_List_API(t *testing.T) {
 
 		resp, err := lockerClient.Do(obtainLock)
 		g.Expect(err).ToNot(HaveOccurred())
-		g.Expect(resp.StatusCode).To(Equal(http.StatusOK))
+		g.Expect(resp.StatusCode).To(Equal(http.StatusCreated))
 
 		// setup the second lock
 		lockRequest = v1locker.CreateLockRequest{
-			KeyValues: datatypes.StringMap{
+			KeyValues: datatypes.KeyValues{
 				"key1": datatypes.String("key one"),
 				"key3": datatypes.String("key three"),
 			},
@@ -226,7 +185,7 @@ func TestLocker_List_API(t *testing.T) {
 
 		resp, err = lockerClient.Do(obtainLock)
 		g.Expect(err).ToNot(HaveOccurred())
-		g.Expect(resp.StatusCode).To(Equal(http.StatusOK))
+		g.Expect(resp.StatusCode).To(Equal(http.StatusCreated))
 
 		// list all the locks
 		listLocks, err := http.NewRequest("GET", fmt.Sprintf("%s/v1/locker/list", testConstruct.LockerClient.Address()), nil)
@@ -264,7 +223,7 @@ func TestLocker_Heartbeat_API(t *testing.T) {
 		lockerClient := testConstruct.LockerClient
 
 		heartbeatRequest := v1locker.HeartbeatLocksRequst{
-			LockSessions: []string{"nope"},
+			SessionIDs: []string{"nope"},
 		}
 
 		data, err := json.Marshal(heartbeatRequest)
@@ -286,7 +245,7 @@ func TestLocker_Heartbeat_API(t *testing.T) {
 
 		// create the lock
 		lockRequest := v1locker.CreateLockRequest{
-			KeyValues: datatypes.StringMap{
+			KeyValues: datatypes.KeyValues{
 				"key1": datatypes.String("key one"),
 				"key2": datatypes.String("key two"),
 			},
@@ -301,7 +260,7 @@ func TestLocker_Heartbeat_API(t *testing.T) {
 
 		resp, err := lockerClient.Do(obtainLock)
 		g.Expect(err).ToNot(HaveOccurred())
-		g.Expect(resp.StatusCode).To(Equal(http.StatusOK))
+		g.Expect(resp.StatusCode).To(Equal(http.StatusCreated))
 
 		obtainLockResp := v1locker.DeleteLockRequest{}
 		respData, err := io.ReadAll(resp.Body)
@@ -312,7 +271,7 @@ func TestLocker_Heartbeat_API(t *testing.T) {
 		// continueoously heartbeat for longer than the time expiration
 		for i := 0; i < 10; i++ {
 			heartbeatRequest := v1locker.HeartbeatLocksRequst{
-				LockSessions: []string{string(obtainLockResp.SessionID)},
+				SessionIDs: []string{string(obtainLockResp.SessionID)},
 			}
 
 			data, err := json.Marshal(heartbeatRequest)
@@ -350,7 +309,7 @@ func TestLocker_Heartbeat_API(t *testing.T) {
 
 		// create the lock
 		lockRequest := v1locker.CreateLockRequest{
-			KeyValues: datatypes.StringMap{
+			KeyValues: datatypes.KeyValues{
 				"key1": datatypes.String("key one"),
 				"key2": datatypes.String("key two"),
 			},
@@ -365,7 +324,7 @@ func TestLocker_Heartbeat_API(t *testing.T) {
 
 		resp, err := lockerClient.Do(obtainLock)
 		g.Expect(err).ToNot(HaveOccurred())
-		g.Expect(resp.StatusCode).To(Equal(http.StatusOK))
+		g.Expect(resp.StatusCode).To(Equal(http.StatusCreated))
 
 		obtainLockResp := v1locker.DeleteLockRequest{}
 		respData, err := io.ReadAll(resp.Body)
@@ -406,7 +365,7 @@ func TestLocker_Async_API_Threading_Checks(t *testing.T) {
 		lockerClient := testConstruct.LockerClient
 
 		lockRequest := v1locker.CreateLockRequest{
-			KeyValues: datatypes.StringMap{
+			KeyValues: datatypes.KeyValues{
 				"key1": datatypes.String("key one"),
 				"key2": datatypes.String("key two"),
 			},
@@ -426,7 +385,7 @@ func TestLocker_Async_API_Threading_Checks(t *testing.T) {
 
 				resp, err := lockerClient.Do(obtainLock)
 				g.Expect(err).ToNot(HaveOccurred())
-				g.Expect(resp.StatusCode).To(Equal(http.StatusOK))
+				g.Expect(resp.StatusCode).To(Equal(http.StatusCreated))
 
 				obtainLockResp := v1locker.CreateLockResponse{}
 				respData, err := io.ReadAll(resp.Body)

@@ -49,7 +49,7 @@ func (q *AssociatedKeyValuesQuery) Validate() error {
 }
 
 // used to know if arbitrary tags, would be found from a query
-func (q *AssociatedKeyValuesQuery) MatchTags(tags datatypes.StringMap) bool {
+func (q *AssociatedKeyValuesQuery) MatchTags(tags datatypes.KeyValues) bool {
 	matched := true
 
 	// if Query is not nil, check the tags

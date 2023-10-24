@@ -96,7 +96,7 @@ func Test_AssociatedKeyValuesQuery_MatchTags(t *testing.T) {
 			}
 			g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-			tags := datatypes.StringMap{
+			tags := datatypes.KeyValues{
 				"one": datatypes.String("1"),
 				"two": datatypes.Float64(2.0),
 			}
@@ -117,12 +117,12 @@ func Test_AssociatedKeyValuesQuery_MatchTags(t *testing.T) {
 			}
 			g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-			valdTags := datatypes.StringMap{
+			valdTags := datatypes.KeyValues{
 				"one": datatypes.Int(1),
 				"two": datatypes.String("3"),
 			}
 
-			invaldTags := datatypes.StringMap{
+			invaldTags := datatypes.KeyValues{
 				"one": datatypes.Int(1),
 				"two": datatypes.String("2"),
 			}
@@ -144,7 +144,7 @@ func Test_AssociatedKeyValuesQuery_MatchTags(t *testing.T) {
 			}
 			g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-			tags := datatypes.StringMap{
+			tags := datatypes.KeyValues{
 				"one": datatypes.String("1"),
 			}
 
@@ -163,7 +163,7 @@ func Test_AssociatedKeyValuesQuery_MatchTags(t *testing.T) {
 					}
 					g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-					tags := datatypes.StringMap{
+					tags := datatypes.KeyValues{
 						"one": datatypes.String("1"),
 					}
 
@@ -180,7 +180,7 @@ func Test_AssociatedKeyValuesQuery_MatchTags(t *testing.T) {
 					}
 					g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-					tags := datatypes.StringMap{
+					tags := datatypes.KeyValues{
 						"one": datatypes.String("1"),
 					}
 
@@ -198,7 +198,7 @@ func Test_AssociatedKeyValuesQuery_MatchTags(t *testing.T) {
 						}
 						g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-						tags := datatypes.StringMap{
+						tags := datatypes.KeyValues{
 							"one": datatypes.String("1"),
 						}
 
@@ -215,7 +215,7 @@ func Test_AssociatedKeyValuesQuery_MatchTags(t *testing.T) {
 						}
 						g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-						tags := datatypes.StringMap{
+						tags := datatypes.KeyValues{
 							"one": datatypes.String("1"),
 						}
 
@@ -235,7 +235,7 @@ func Test_AssociatedKeyValuesQuery_MatchTags(t *testing.T) {
 					}
 					g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-					tags := datatypes.StringMap{
+					tags := datatypes.KeyValues{
 						"one": datatypes.String("1"),
 					}
 
@@ -252,7 +252,7 @@ func Test_AssociatedKeyValuesQuery_MatchTags(t *testing.T) {
 					}
 					g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-					tags := datatypes.StringMap{
+					tags := datatypes.KeyValues{
 						"one": datatypes.String("1"),
 					}
 
@@ -270,7 +270,7 @@ func Test_AssociatedKeyValuesQuery_MatchTags(t *testing.T) {
 						}
 						g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-						tags := datatypes.StringMap{
+						tags := datatypes.KeyValues{
 							"one": datatypes.String("1"),
 						}
 
@@ -287,7 +287,7 @@ func Test_AssociatedKeyValuesQuery_MatchTags(t *testing.T) {
 						}
 						g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-						tags := datatypes.StringMap{
+						tags := datatypes.KeyValues{
 							"one": datatypes.String("1"),
 						}
 
@@ -310,7 +310,7 @@ func Test_AssociatedKeyValuesQuery_MatchTags(t *testing.T) {
 					}
 					g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-					tags := datatypes.StringMap{
+					tags := datatypes.KeyValues{
 						"one": datatypes.String("1"),
 					}
 
@@ -328,7 +328,7 @@ func Test_AssociatedKeyValuesQuery_MatchTags(t *testing.T) {
 					}
 					g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-					tags := datatypes.StringMap{
+					tags := datatypes.KeyValues{
 						"one": datatypes.String("2"),
 					}
 
@@ -348,7 +348,7 @@ func Test_AssociatedKeyValuesQuery_MatchTags(t *testing.T) {
 					}
 					g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-					tags := datatypes.StringMap{
+					tags := datatypes.KeyValues{
 						"one": datatypes.String("1"),
 					}
 
@@ -366,7 +366,7 @@ func Test_AssociatedKeyValuesQuery_MatchTags(t *testing.T) {
 					}
 					g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-					tags := datatypes.StringMap{
+					tags := datatypes.KeyValues{
 						"one": datatypes.String("2"),
 					}
 
@@ -386,7 +386,7 @@ func Test_AssociatedKeyValuesQuery_MatchTags(t *testing.T) {
 					}
 					g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-					tags := datatypes.StringMap{
+					tags := datatypes.KeyValues{
 						"one": datatypes.Int(1),
 					}
 
@@ -404,7 +404,7 @@ func Test_AssociatedKeyValuesQuery_MatchTags(t *testing.T) {
 					}
 					g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-					tags := datatypes.StringMap{
+					tags := datatypes.KeyValues{
 						"one": datatypes.Int(2),
 					}
 
@@ -424,7 +424,7 @@ func Test_AssociatedKeyValuesQuery_MatchTags(t *testing.T) {
 					}
 					g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-					tags := datatypes.StringMap{
+					tags := datatypes.KeyValues{
 						"one": datatypes.Int(20),
 					}
 
@@ -442,7 +442,7 @@ func Test_AssociatedKeyValuesQuery_MatchTags(t *testing.T) {
 					}
 					g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-					tags := datatypes.StringMap{
+					tags := datatypes.KeyValues{
 						"one": datatypes.Int(2),
 					}
 
@@ -472,7 +472,7 @@ func Test_AssociatedKeyValuesQuery_MatchTags(t *testing.T) {
 					}
 					g.Expect(query2.Validate()).ToNot(HaveOccurred())
 
-					tags := datatypes.StringMap{
+					tags := datatypes.KeyValues{
 						"one": datatypes.Int(2),
 					}
 
@@ -493,7 +493,7 @@ func Test_AssociatedKeyValuesQuery_MatchTags(t *testing.T) {
 					}
 					g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-					tags := datatypes.StringMap{
+					tags := datatypes.KeyValues{
 						"one": datatypes.Int(1),
 					}
 
@@ -511,7 +511,7 @@ func Test_AssociatedKeyValuesQuery_MatchTags(t *testing.T) {
 					}
 					g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-					tags := datatypes.StringMap{
+					tags := datatypes.KeyValues{
 						"one": datatypes.Int(1),
 					}
 
@@ -531,7 +531,7 @@ func Test_AssociatedKeyValuesQuery_MatchTags(t *testing.T) {
 					}
 					g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-					tags := datatypes.StringMap{
+					tags := datatypes.KeyValues{
 						"one": datatypes.Int(50),
 					}
 
@@ -549,7 +549,7 @@ func Test_AssociatedKeyValuesQuery_MatchTags(t *testing.T) {
 					}
 					g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-					tags := datatypes.StringMap{
+					tags := datatypes.KeyValues{
 						"one": datatypes.Int(2),
 					}
 
@@ -579,7 +579,7 @@ func Test_AssociatedKeyValuesQuery_MatchTags(t *testing.T) {
 					}
 					g.Expect(query2.Validate()).ToNot(HaveOccurred())
 
-					tags := datatypes.StringMap{
+					tags := datatypes.KeyValues{
 						"one": datatypes.Int(2),
 					}
 
@@ -600,7 +600,7 @@ func Test_AssociatedKeyValuesQuery_MatchTags(t *testing.T) {
 					}
 					g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-					tags := datatypes.StringMap{
+					tags := datatypes.KeyValues{
 						"one": datatypes.Int(1),
 					}
 
@@ -618,7 +618,7 @@ func Test_AssociatedKeyValuesQuery_MatchTags(t *testing.T) {
 					}
 					g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-					tags := datatypes.StringMap{
+					tags := datatypes.KeyValues{
 						"one": datatypes.Int(1),
 					}
 
@@ -638,7 +638,7 @@ func Test_AssociatedKeyValuesQuery_MatchTags(t *testing.T) {
 					}
 					g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-					tags := datatypes.StringMap{
+					tags := datatypes.KeyValues{
 						"one": datatypes.Int(50),
 					}
 
@@ -656,7 +656,7 @@ func Test_AssociatedKeyValuesQuery_MatchTags(t *testing.T) {
 					}
 					g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-					tags := datatypes.StringMap{
+					tags := datatypes.KeyValues{
 						"one": datatypes.Int(0),
 					}
 
@@ -686,7 +686,7 @@ func Test_AssociatedKeyValuesQuery_MatchTags(t *testing.T) {
 					}
 					g.Expect(query2.Validate()).ToNot(HaveOccurred())
 
-					tags := datatypes.StringMap{
+					tags := datatypes.KeyValues{
 						"one": datatypes.Int(2),
 					}
 
@@ -707,7 +707,7 @@ func Test_AssociatedKeyValuesQuery_MatchTags(t *testing.T) {
 					}
 					g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-					tags := datatypes.StringMap{
+					tags := datatypes.KeyValues{
 						"one": datatypes.Int(0),
 					}
 
@@ -725,7 +725,7 @@ func Test_AssociatedKeyValuesQuery_MatchTags(t *testing.T) {
 					}
 					g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-					tags := datatypes.StringMap{
+					tags := datatypes.KeyValues{
 						"one": datatypes.Int(1),
 					}
 
@@ -745,7 +745,7 @@ func Test_AssociatedKeyValuesQuery_MatchTags(t *testing.T) {
 					}
 					g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-					tags := datatypes.StringMap{
+					tags := datatypes.KeyValues{
 						"one": datatypes.Int(50),
 					}
 
@@ -763,7 +763,7 @@ func Test_AssociatedKeyValuesQuery_MatchTags(t *testing.T) {
 					}
 					g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-					tags := datatypes.StringMap{
+					tags := datatypes.KeyValues{
 						"one": datatypes.Int(-1),
 					}
 
@@ -793,7 +793,7 @@ func Test_AssociatedKeyValuesQuery_MatchTags(t *testing.T) {
 					}
 					g.Expect(query2.Validate()).ToNot(HaveOccurred())
 
-					tags := datatypes.StringMap{
+					tags := datatypes.KeyValues{
 						"one": datatypes.Int(2),
 					}
 
@@ -829,11 +829,11 @@ func Test_AssociatedKeyValuesQuery_MatchTags(t *testing.T) {
 			}
 			g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-			validTags := datatypes.StringMap{
+			validTags := datatypes.KeyValues{
 				"one": datatypes.Int(1),
 			}
 
-			invalidTags := datatypes.StringMap{
+			invalidTags := datatypes.KeyValues{
 				"one": datatypes.Int(1),
 				"two": datatypes.Float64(2.0),
 			}
@@ -867,11 +867,11 @@ func Test_AssociatedKeyValuesQuery_MatchTags(t *testing.T) {
 			}
 			g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-			validTags1 := datatypes.StringMap{
+			validTags1 := datatypes.KeyValues{
 				"one": datatypes.Int(1),
 			}
 
-			validTags2 := datatypes.StringMap{
+			validTags2 := datatypes.KeyValues{
 				"one": datatypes.Int(1),
 				"two": datatypes.Float64(2.0),
 			}
@@ -903,11 +903,11 @@ func Test_AssociatedKeyValuesQuery_MatchTags(t *testing.T) {
 			}
 			g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-			validTags := datatypes.StringMap{
+			validTags := datatypes.KeyValues{
 				"one": datatypes.Int(1),
 			}
 
-			invalidTags := datatypes.StringMap{
+			invalidTags := datatypes.KeyValues{
 				"one": datatypes.Int(1),
 				"two": datatypes.Float64(2.0),
 			}

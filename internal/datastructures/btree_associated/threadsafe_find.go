@@ -17,7 +17,7 @@ import (
 // RETURNS:
 // - string - _associated_id if the item is found
 // - error - any errors encountered with the parameters
-func (tsat *threadsafeAssociatedTree) Find(keyValuePairs datatypes.StringMap, onFind datastructures.OnFind) (string, error) {
+func (tsat *threadsafeAssociatedTree) Find(keyValuePairs datatypes.KeyValues, onFind datastructures.OnFind) (string, error) {
 	if len(keyValuePairs) == 0 {
 		return "", fmt.Errorf("keyValuePairs cannot be empty")
 	}

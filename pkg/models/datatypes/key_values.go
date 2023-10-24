@@ -4,9 +4,9 @@ import (
 	"sort"
 )
 
-type StringMap map[string]EncapsulatedData
+type KeyValues map[string]EncapsulatedData
 
-func (sm StringMap) Keys() []string {
+func (sm KeyValues) Keys() []string {
 	keys := []string{}
 
 	for key, _ := range sm {
@@ -16,7 +16,7 @@ func (sm StringMap) Keys() []string {
 	return keys
 }
 
-func (sm StringMap) SoretedKeys() []string {
+func (sm KeyValues) SoretedKeys() []string {
 	keys := []string{}
 
 	for key := range sm {
@@ -27,8 +27,8 @@ func (sm StringMap) SoretedKeys() []string {
 	return keys
 }
 
-func (sm StringMap) StripKey(removeKey string) StringMap {
-	returnMap := StringMap{}
+func (sm KeyValues) StripKey(removeKey string) KeyValues {
+	returnMap := KeyValues{}
 
 	for key, value := range sm {
 		if key != removeKey {
@@ -44,7 +44,7 @@ func (sm StringMap) StripKey(removeKey string) StringMap {
 //
 // Example:
 // *	Tags{"b":"2", "a":"1", "c":"3"} -> [{"a":"1"}, {"b":"2"}, {"c":"3"}, {"a":"1", "b":"2"}, {"a":"1", "c":"3"}, {"b":"2", "c":"3"}, {"a":"1", "b":"2", "c":"3"}]
-func (sm StringMap) GenerateTagPairs() []StringMap {
+func (sm KeyValues) GenerateTagPairs() []KeyValues {
 	groupPairs := sm.generateTagPairs(sm.Keys())
 
 	sort.SliceStable(groupPairs, func(i, j int) bool {
@@ -74,18 +74,18 @@ func (sm StringMap) GenerateTagPairs() []StringMap {
 	return groupPairs
 }
 
-func (sm StringMap) generateTagPairs(group []string) []StringMap {
-	var allGroupPairs []StringMap
+func (sm KeyValues) generateTagPairs(group []string) []KeyValues {
+	var allGroupPairs []KeyValues
 
 	switch len(group) {
 	case 0:
 		// nothing to do here
 	case 1:
 		// there is only 1 key value pair
-		allGroupPairs = append(allGroupPairs, StringMap{group[0]: sm[group[0]]})
+		allGroupPairs = append(allGroupPairs, KeyValues{group[0]: sm[group[0]]})
 	default:
 		// add the first index each time. Will recurse through original group shrinking by 1 each time to capture all elements
-		allGroupPairs = append(allGroupPairs, StringMap{group[0]: sm[group[0]]})
+		allGroupPairs = append(allGroupPairs, KeyValues{group[0]: sm[group[0]]})
 
 		// drop a key and advance to the next subset ["a", "b", "c"] -> ["b", "c"]
 		allGroupPairs = append(allGroupPairs, sm.generateTagPairs(group[1:])...)
@@ -100,11 +100,11 @@ func (sm StringMap) generateTagPairs(group []string) []StringMap {
 	return allGroupPairs
 }
 
-func (sm StringMap) generateTagGroups(prefix, suffix []string) []StringMap {
-	allGroupPairs := []StringMap{}
+func (sm KeyValues) generateTagGroups(prefix, suffix []string) []KeyValues {
+	allGroupPairs := []KeyValues{}
 
 	// add initial combined slice
-	baseGrouping := StringMap{}
+	baseGrouping := KeyValues{}
 	for _, prefixKey := range prefix {
 		baseGrouping[prefixKey] = sm[prefixKey]
 	}

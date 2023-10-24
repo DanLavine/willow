@@ -44,12 +44,12 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 		associatedTree := NewThreadSafe()
 
 		// create a number of entries in the associated tree
-		keyValues1 := datatypes.StringMap{"1": datatypes.Int(1)}
-		keyValues2 := datatypes.StringMap{"2": datatypes.String("2")}
-		keyValues3 := datatypes.StringMap{"1": datatypes.Int8(1), "2": datatypes.Float32(3.4)}
-		keyValues4 := datatypes.StringMap{"1": datatypes.String("1"), "2": datatypes.String("2"), "3": datatypes.Float64(3.4)}
-		keyValues5 := datatypes.StringMap{"3": datatypes.Int32(1), "4": datatypes.Float64(3.4)}
-		keyValues6 := datatypes.StringMap{"1": datatypes.Int8(4), "2": datatypes.Float32(3.4)}
+		keyValues1 := datatypes.KeyValues{"1": datatypes.Int(1)}
+		keyValues2 := datatypes.KeyValues{"2": datatypes.String("2")}
+		keyValues3 := datatypes.KeyValues{"1": datatypes.Int8(1), "2": datatypes.Float32(3.4)}
+		keyValues4 := datatypes.KeyValues{"1": datatypes.String("1"), "2": datatypes.String("2"), "3": datatypes.Float64(3.4)}
+		keyValues5 := datatypes.KeyValues{"3": datatypes.Int32(1), "4": datatypes.Float64(3.4)}
+		keyValues6 := datatypes.KeyValues{"1": datatypes.Int8(4), "2": datatypes.Float32(3.4)}
 		id, err := associatedTree.CreateOrFind(keyValues1, func() any { return "1" }, noOpOnFind)
 		g.Expect(err).ToNot(HaveOccurred())
 		ids[0] = id
@@ -186,7 +186,7 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 				associatedTree := setupQuery(g)
 
 				int8_4 := datatypes.Int8(4)
-				newKeyValues := datatypes.StringMap{"a": int8_4}
+				newKeyValues := datatypes.KeyValues{"a": int8_4}
 				newID, err := associatedTree.CreateOrFind(newKeyValues, func() any { return "1" }, noOpOnFind)
 				g.Expect(err).ToNot(HaveOccurred())
 
@@ -218,7 +218,7 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 				associatedTree := setupQuery(g)
 
 				int8_4 := datatypes.Int8(4)
-				newKeyValues := datatypes.StringMap{"a": int8_4}
+				newKeyValues := datatypes.KeyValues{"a": int8_4}
 				newID, err := associatedTree.CreateOrFind(newKeyValues, func() any { return "1" }, noOpOnFind)
 				g.Expect(err).ToNot(HaveOccurred())
 
@@ -254,7 +254,7 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 				associatedTree := setupQuery(g)
 
 				int8_4 := datatypes.Int8(4)
-				newKeyValues := datatypes.StringMap{"a": int8_4, "b": int8_4}
+				newKeyValues := datatypes.KeyValues{"a": int8_4, "b": int8_4}
 				newID, err := associatedTree.CreateOrFind(newKeyValues, func() any { return "1" }, noOpOnFind)
 				g.Expect(err).ToNot(HaveOccurred())
 
@@ -565,9 +565,9 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 						associatedTree := NewThreadSafe()
 
 						// create a number of entries in the associated tree
-						keyValues1 := datatypes.StringMap{"1": datatypes.Int(1)}
-						keyValues2 := datatypes.StringMap{"1": datatypes.Int8(1), "2": datatypes.Float32(3.4)}
-						keyValues3 := datatypes.StringMap{"1": datatypes.String("1"), "2": datatypes.Int16(1), "3": datatypes.Float64(3.4)}
+						keyValues1 := datatypes.KeyValues{"1": datatypes.Int(1)}
+						keyValues2 := datatypes.KeyValues{"1": datatypes.Int8(1), "2": datatypes.Float32(3.4)}
+						keyValues3 := datatypes.KeyValues{"1": datatypes.String("1"), "2": datatypes.Int16(1), "3": datatypes.Float64(3.4)}
 						associatedTree.CreateOrFind(keyValues1, func() any { return "1" }, noOpOnFind)
 						associatedTree.CreateOrFind(keyValues2, func() any { return "2" }, noOpOnFind)
 						associatedTree.CreateOrFind(keyValues3, func() any { return "2" }, noOpOnFind)
@@ -788,9 +788,9 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 						associatedTree := NewThreadSafe()
 
 						// create a number of entries in the associated tree
-						keyValues1 := datatypes.StringMap{"1": datatypes.Int8(1), "2": datatypes.String("1")}
-						keyValues2 := datatypes.StringMap{"1": datatypes.Int8(1), "2": datatypes.String("2"), "3": datatypes.Float32(3.2)}
-						keyValues3 := datatypes.StringMap{"1": datatypes.Int8(1), "2": datatypes.String("3")}
+						keyValues1 := datatypes.KeyValues{"1": datatypes.Int8(1), "2": datatypes.String("1")}
+						keyValues2 := datatypes.KeyValues{"1": datatypes.Int8(1), "2": datatypes.String("2"), "3": datatypes.Float32(3.2)}
+						keyValues3 := datatypes.KeyValues{"1": datatypes.Int8(1), "2": datatypes.String("3")}
 						associatedTree.CreateOrFind(keyValues1, func() any { return "1" }, noOpOnFind)
 						associatedTree.CreateOrFind(keyValues2, func() any { return "2" }, noOpOnFind)
 						associatedTree.CreateOrFind(keyValues3, func() any { return "3" }, noOpOnFind)
@@ -1337,20 +1337,20 @@ func TestAssociatedTree_Query_JoinAND(t *testing.T) {
 		associatedTree := NewThreadSafe()
 
 		// create a number of entries in the associated tree
-		keyValues1 := datatypes.StringMap{"1": datatypes.Int(1)}
-		keyValues2 := datatypes.StringMap{"2": datatypes.Int(2)}
-		keyValues3 := datatypes.StringMap{"3": datatypes.Int(3)}
-		keyValues4 := datatypes.StringMap{"1": datatypes.String("1")}
-		keyValues5 := datatypes.StringMap{"2": datatypes.String("2")}
-		keyValues6 := datatypes.StringMap{"3": datatypes.String("3")}
-		keyValues7 := datatypes.StringMap{"1": datatypes.Int(1), "2": datatypes.Int(2)}
-		keyValues8 := datatypes.StringMap{"1": datatypes.Int(1), "2": datatypes.String("2")}
-		keyValues9 := datatypes.StringMap{"1": datatypes.Int(1), "3": datatypes.Int(3)}
-		keyValues10 := datatypes.StringMap{"1": datatypes.Int(1), "3": datatypes.String("3")}
-		keyValues11 := datatypes.StringMap{"2": datatypes.Int(2), "3": datatypes.Int(3)}
-		keyValues12 := datatypes.StringMap{"2": datatypes.Int(2), "3": datatypes.String("3")}
-		keyValues13 := datatypes.StringMap{"1": datatypes.Int(1), "2": datatypes.Int(2), "3": datatypes.Int(3)}
-		keyValues14 := datatypes.StringMap{"1": datatypes.Int(1), "2": datatypes.String("2"), "3": datatypes.String("3")}
+		keyValues1 := datatypes.KeyValues{"1": datatypes.Int(1)}
+		keyValues2 := datatypes.KeyValues{"2": datatypes.Int(2)}
+		keyValues3 := datatypes.KeyValues{"3": datatypes.Int(3)}
+		keyValues4 := datatypes.KeyValues{"1": datatypes.String("1")}
+		keyValues5 := datatypes.KeyValues{"2": datatypes.String("2")}
+		keyValues6 := datatypes.KeyValues{"3": datatypes.String("3")}
+		keyValues7 := datatypes.KeyValues{"1": datatypes.Int(1), "2": datatypes.Int(2)}
+		keyValues8 := datatypes.KeyValues{"1": datatypes.Int(1), "2": datatypes.String("2")}
+		keyValues9 := datatypes.KeyValues{"1": datatypes.Int(1), "3": datatypes.Int(3)}
+		keyValues10 := datatypes.KeyValues{"1": datatypes.Int(1), "3": datatypes.String("3")}
+		keyValues11 := datatypes.KeyValues{"2": datatypes.Int(2), "3": datatypes.Int(3)}
+		keyValues12 := datatypes.KeyValues{"2": datatypes.Int(2), "3": datatypes.String("3")}
+		keyValues13 := datatypes.KeyValues{"1": datatypes.Int(1), "2": datatypes.Int(2), "3": datatypes.Int(3)}
+		keyValues14 := datatypes.KeyValues{"1": datatypes.Int(1), "2": datatypes.String("2"), "3": datatypes.String("3")}
 
 		associatedTree.CreateOrFind(keyValues1, func() any { return "1" }, noOpOnFind)
 		associatedTree.CreateOrFind(keyValues2, func() any { return "2" }, noOpOnFind)
@@ -1522,20 +1522,20 @@ func TestAssociatedTree_Query_JoinOR(t *testing.T) {
 		associatedTree := NewThreadSafe()
 
 		// create a number of entries in the associated tree
-		keyValues1 := datatypes.StringMap{"1": datatypes.Int(1)}
-		keyValues2 := datatypes.StringMap{"2": datatypes.Int(2)}
-		keyValues3 := datatypes.StringMap{"3": datatypes.Int(3)}
-		keyValues4 := datatypes.StringMap{"1": datatypes.String("1")}
-		keyValues5 := datatypes.StringMap{"2": datatypes.String("2")}
-		keyValues6 := datatypes.StringMap{"3": datatypes.String("3")}
-		keyValues7 := datatypes.StringMap{"1": datatypes.Int(1), "2": datatypes.Int(2)}
-		keyValues8 := datatypes.StringMap{"1": datatypes.Int(1), "2": datatypes.String("2")}
-		keyValues9 := datatypes.StringMap{"1": datatypes.Int(1), "3": datatypes.Int(3)}
-		keyValues10 := datatypes.StringMap{"1": datatypes.Int(1), "3": datatypes.String("3")}
-		keyValues11 := datatypes.StringMap{"2": datatypes.Int(2), "3": datatypes.Int(3)}
-		keyValues12 := datatypes.StringMap{"2": datatypes.Int(2), "3": datatypes.String("3")}
-		keyValues13 := datatypes.StringMap{"1": datatypes.Int(1), "2": datatypes.Int(2), "3": datatypes.Int(3)}
-		keyValues14 := datatypes.StringMap{"1": datatypes.Int(1), "2": datatypes.String("2"), "3": datatypes.String("3")}
+		keyValues1 := datatypes.KeyValues{"1": datatypes.Int(1)}
+		keyValues2 := datatypes.KeyValues{"2": datatypes.Int(2)}
+		keyValues3 := datatypes.KeyValues{"3": datatypes.Int(3)}
+		keyValues4 := datatypes.KeyValues{"1": datatypes.String("1")}
+		keyValues5 := datatypes.KeyValues{"2": datatypes.String("2")}
+		keyValues6 := datatypes.KeyValues{"3": datatypes.String("3")}
+		keyValues7 := datatypes.KeyValues{"1": datatypes.Int(1), "2": datatypes.Int(2)}
+		keyValues8 := datatypes.KeyValues{"1": datatypes.Int(1), "2": datatypes.String("2")}
+		keyValues9 := datatypes.KeyValues{"1": datatypes.Int(1), "3": datatypes.Int(3)}
+		keyValues10 := datatypes.KeyValues{"1": datatypes.Int(1), "3": datatypes.String("3")}
+		keyValues11 := datatypes.KeyValues{"2": datatypes.Int(2), "3": datatypes.Int(3)}
+		keyValues12 := datatypes.KeyValues{"2": datatypes.Int(2), "3": datatypes.String("3")}
+		keyValues13 := datatypes.KeyValues{"1": datatypes.Int(1), "2": datatypes.Int(2), "3": datatypes.Int(3)}
+		keyValues14 := datatypes.KeyValues{"1": datatypes.Int(1), "2": datatypes.String("2"), "3": datatypes.String("3")}
 
 		associatedTree.CreateOrFind(keyValues1, func() any { return "1" }, noOpOnFind)
 		associatedTree.CreateOrFind(keyValues2, func() any { return "2" }, noOpOnFind)
@@ -1640,20 +1640,20 @@ func TestAssociatedTree_Query_AND_OR_joins(t *testing.T) {
 		associatedTree := NewThreadSafe()
 
 		// create a number of entries in the associated tree
-		keyValues1 := datatypes.StringMap{"1": datatypes.Int(1)}
-		keyValues2 := datatypes.StringMap{"2": datatypes.Int(2)}
-		keyValues3 := datatypes.StringMap{"3": datatypes.Int(3)}
-		keyValues4 := datatypes.StringMap{"1": datatypes.String("1")}
-		keyValues5 := datatypes.StringMap{"2": datatypes.String("2")}
-		keyValues6 := datatypes.StringMap{"3": datatypes.String("3")}
-		keyValues7 := datatypes.StringMap{"1": datatypes.Int(1), "2": datatypes.Int(2)}
-		keyValues8 := datatypes.StringMap{"1": datatypes.Int(1), "2": datatypes.String("2")}
-		keyValues9 := datatypes.StringMap{"1": datatypes.Int(1), "3": datatypes.Int(3)}
-		keyValues10 := datatypes.StringMap{"1": datatypes.Int(1), "3": datatypes.String("3")}
-		keyValues11 := datatypes.StringMap{"2": datatypes.Int(2), "3": datatypes.Int(3)}
-		keyValues12 := datatypes.StringMap{"2": datatypes.Int(2), "3": datatypes.String("3")}
-		keyValues13 := datatypes.StringMap{"1": datatypes.Int(1), "2": datatypes.Int(2), "3": datatypes.Int(3)}
-		keyValues14 := datatypes.StringMap{"1": datatypes.Int(1), "2": datatypes.String("2"), "3": datatypes.String("3")}
+		keyValues1 := datatypes.KeyValues{"1": datatypes.Int(1)}
+		keyValues2 := datatypes.KeyValues{"2": datatypes.Int(2)}
+		keyValues3 := datatypes.KeyValues{"3": datatypes.Int(3)}
+		keyValues4 := datatypes.KeyValues{"1": datatypes.String("1")}
+		keyValues5 := datatypes.KeyValues{"2": datatypes.String("2")}
+		keyValues6 := datatypes.KeyValues{"3": datatypes.String("3")}
+		keyValues7 := datatypes.KeyValues{"1": datatypes.Int(1), "2": datatypes.Int(2)}
+		keyValues8 := datatypes.KeyValues{"1": datatypes.Int(1), "2": datatypes.String("2")}
+		keyValues9 := datatypes.KeyValues{"1": datatypes.Int(1), "3": datatypes.Int(3)}
+		keyValues10 := datatypes.KeyValues{"1": datatypes.Int(1), "3": datatypes.String("3")}
+		keyValues11 := datatypes.KeyValues{"2": datatypes.Int(2), "3": datatypes.Int(3)}
+		keyValues12 := datatypes.KeyValues{"2": datatypes.Int(2), "3": datatypes.String("3")}
+		keyValues13 := datatypes.KeyValues{"1": datatypes.Int(1), "2": datatypes.Int(2), "3": datatypes.Int(3)}
+		keyValues14 := datatypes.KeyValues{"1": datatypes.Int(1), "2": datatypes.String("2"), "3": datatypes.String("3")}
 
 		associatedTree.CreateOrFind(keyValues1, func() any { return "1" }, noOpOnFind)
 		associatedTree.CreateOrFind(keyValues2, func() any { return "2" }, noOpOnFind)

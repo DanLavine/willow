@@ -24,7 +24,7 @@ var (
 	Queue1UpdateableEnqueue = v1willow.EnqueueItemRequest{
 		BrokerInfo: v1willow.BrokerInfo{
 			Name: "queue1",
-			Tags: datatypes.StringMap{"some": datatypes.String("tag")},
+			Tags: datatypes.KeyValues{"some": datatypes.String("tag")},
 		},
 		Data:       []byte(`hello world`),
 		Updateable: true,
@@ -33,7 +33,7 @@ var (
 	Queue1NotUpdateableEnqueue = v1willow.EnqueueItemRequest{
 		BrokerInfo: v1willow.BrokerInfo{
 			Name: "queue1",
-			Tags: datatypes.StringMap{"some": datatypes.String("tag")},
+			Tags: datatypes.KeyValues{"some": datatypes.String("tag")},
 		},
 		Data:       []byte(`hello world`),
 		Updateable: false,
@@ -42,7 +42,7 @@ var (
 	Queue2UpdateableEnqueue = v1willow.EnqueueItemRequest{
 		BrokerInfo: v1willow.BrokerInfo{
 			Name: "queue2",
-			Tags: datatypes.StringMap{"some": datatypes.String("tag")},
+			Tags: datatypes.KeyValues{"some": datatypes.String("tag")},
 		},
 		Data:       []byte(`hello world`),
 		Updateable: true,

@@ -19,27 +19,27 @@ type Rule interface {
 	DeleteOverride(logger *zap.Logger, override *v1limiter.RuleOverride) *api.Error
 
 	// Find the limit for a particualr group of tags when checking the limits
-	FindLimit(logger *zap.Logger, keyValues datatypes.StringMap) uint64
+	FindLimit(logger *zap.Logger, keyValues datatypes.KeyValues) uint64
 
 	// check if any tags coming in match the tag group
-	TagsMatch(logger *zap.Logger, keyValues datatypes.StringMap) bool
+	TagsMatch(logger *zap.Logger, keyValues datatypes.KeyValues) bool
 
 	// generate a query based on the search tags
-	//GenerateQuery(keyValues datatypes.StringMap) query.Select
+	//GenerateQuery(keyValues datatypes.KeyValues) query.Select
 
 	// operations for callbacks when resources are freed
 	// TODO: These operations are very consuming and hard to implement. So do that after a basic limiter is
 	// setup and useful
 	//
-	//AddClientWaiting(logger *zap.Logger, keyValues datatypes.StringMap) <-chan struct{} // client calls when trying to "increment", but a limit is blocked, sets up a callback that triggers another "increment" call
-	//TriggerClientWaiting(keyValues datatypes.StringMap)                                 // decrement calls these whenever that happens. Can als be called on an override increase change
+	//AddClientWaiting(logger *zap.Logger, keyValues datatypes.KeyValues) <-chan struct{} // client calls when trying to "increment", but a limit is blocked, sets up a callback that triggers another "increment" call
+	//TriggerClientWaiting(keyValues datatypes.KeyValues)                                 // decrement calls these whenever that happens. Can als be called on an override increase change
 
 	// locking operation from the manager when checking limits
 	Lock()
 	Unlock()
 
 	// Need to generate a query on what to search for
-	GenerateQuery(keyValues datatypes.StringMap) query.AssociatedKeyValuesQuery
+	GenerateQuery(keyValues datatypes.KeyValues) query.AssociatedKeyValuesQuery
 
 	// Get a rule response for Read operations
 	GetRuleResponse(includeOverrides bool) *v1limiter.RuleResponse

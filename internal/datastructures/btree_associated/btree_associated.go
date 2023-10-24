@@ -52,20 +52,20 @@ import (
 type BTreeAssociated interface {
 	// Find an item in the assoociation tree
 	// TOOD: Remove this
-	Find(keyValuePairs datatypes.StringMap, onFind datastructures.OnFind) (string, error)
+	Find(keyValuePairs datatypes.KeyValues, onFind datastructures.OnFind) (string, error)
 
 	// Find an item in the assoociation tree by the assocaited id
 	// TOOD: Remove this
 	FindByAssociatedID(associatedID string, onFind datastructures.OnFind) error
 
 	// Create or Find an item in the assoociation tree
-	CreateOrFind(keyValuePairs datatypes.StringMap, onCreate datastructures.OnCreate, onFind datastructures.OnFind) (string, error)
+	CreateOrFind(keyValuePairs datatypes.KeyValues, onCreate datastructures.OnCreate, onFind datastructures.OnFind) (string, error)
 
 	// Serch for any number of items in the assoociation tree
 	// todo: should be able to ad _associated_id to the queries as well
 	Query(query query.AssociatedKeyValuesQuery, onFindPagination datastructures.OnFindPagination) error
 
 	// Delete an item in the association tree
-	Delete(keyValuePairs datatypes.StringMap, canDelete datastructures.CanDelete) error
+	Delete(keyValuePairs datatypes.KeyValues, canDelete datastructures.CanDelete) error
 	//Delete(query query.Query, canDelete datastructures.CanDelete) error
 }

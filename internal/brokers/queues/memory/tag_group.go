@@ -31,12 +31,12 @@ type tagGroup struct {
 	notifier       *gonotify.Notify
 	dequeueChannel chan any // any -> func(logger *zap.Logger) *v1willow.DequeueItemResponse
 
-	tags                datatypes.StringMap
+	tags                datatypes.KeyValues
 	itemReadyCount      *atomic.Uint64
 	itemProcessingCount *atomic.Uint64
 }
 
-func newTagGroup(tags datatypes.StringMap) *tagGroup {
+func newTagGroup(tags datatypes.KeyValues) *tagGroup {
 	tree, err := btree.NewThreadSafe(2)
 	if err != nil {
 		panic(err)
