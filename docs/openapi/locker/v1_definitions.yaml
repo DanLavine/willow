@@ -1,4 +1,4 @@
-v1_definitions:
+definitions:
   EncapsulatedData:
     type: object
     required:
@@ -25,9 +25,11 @@ v1_definitions:
         type: integer
         enum: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]
       Value:
+        description: |
+          Can be any value that is associated to the DataType
         type: object
 
   StringMap:
     type: object
     additionalProperties:
-      $ref: "#/v1_definitions/EncapsulatedData"
+      $ref: "#/definitions/EncapsulatedData"

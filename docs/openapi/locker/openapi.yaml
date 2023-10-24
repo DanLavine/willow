@@ -1,0 +1,118 @@
+#swagger: "2.0"
+#
+#info:
+#    description: Locker API
+#    title: Locker
+#    version: a1.0.0
+#
+#paths:
+#    /v1/locker/crerate:
+#        put:
+#            produces:
+#                - appplication/json
+#            parameters:
+#                - name: Timeout
+#                  in: body
+#                  required: false
+#                  schema:
+#                      title: Timeout
+#                      type: integer
+#                      format: int64
+#                      default: 0
+#                      description: "If set to 0, then the server's configuration will be used"
+#                - name: KeyValues
+#                  in: body
+#                  required: true
+#                  schema:
+#                      minLength: 1
+#                      $ref: "#/definitions/StringMap"
+#            responses:
+#                201:
+#                    description: created
+#                400:
+#                    description: error with the request body
+#
+#definitions:
+#    EncapsulatedData:
+#        $ref: "v1_definitions.yaml#/definitions/EncapsulatedData"
+#    StringMap:
+#        $ref: "v1_definitions.yaml#/definitions/StringMap"
+#
+
+openapi: "3.0.3"
+
+info:
+    description: Locker API
+    title: Locker
+    version: a1.0.0
+
+paths:
+    /v1/locker/crerate:
+        put:
+            requestBody:
+                required: true
+                content:
+                    appplication/json:
+                        schema:
+                            type: object
+                            required:
+                                - KeyValues
+                            properties:
+                                Timeout:
+                                    type: integer
+                                    format: int64
+                                    default: 0
+                                    description: "If set to 0, then the server's configuration will be used"
+                                KeyValues":
+                                    minLength: 1
+                                    type: object
+                                    additionalProperties:
+                                        type: object
+                                        title: KeyValues
+                                        x-additionalPropertiesName: KeyValues
+                                        required:
+                                            - DataType
+                                            - Value
+                                        properties:
+                                            DataType:
+                                                description: |
+                                                    Data type indicates how to parse the provided Value:\
+                                                    0: uint8\
+                                                    1: uint16\
+                                                    2: uint32\
+                                                    3: uint64\
+                                                    4: uint\
+                                                    5: int8\
+                                                    6: int16\
+                                                    7: int32\
+                                                    8: int64\
+                                                    9: int\
+                                                    10: float32\
+                                                    11: float64\
+                                                    12: string\
+                                                    13: nil
+                                                type: integer
+                                                enum:
+                                                    [
+                                                        0,
+                                                        1,
+                                                        2,
+                                                        3,
+                                                        4,
+                                                        5,
+                                                        6,
+                                                        7,
+                                                        8,
+                                                        9,
+                                                        10,
+                                                        11,
+                                                        12,
+                                                        13,
+                                                    ]
+                                            Value:
+                                                description: |
+                                                    Can be any value that is associated to the DataType
+                                                type: object
+            responses:
+                201:
+                    description: created
