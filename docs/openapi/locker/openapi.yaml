@@ -1,4 +1,4 @@
-openapi: "3.0.3"
+openapi: "3.0.0"
 
 info:
     description: Locker API
@@ -8,11 +8,11 @@ info:
 paths:
     /v1/locker/crerate:
         put:
-            description: |
-                Create or obtain a lock for a collection of KeyValues. This request blocks if another process
-                already has the lock being requested. It will eventually return if the lock has been freed and
-                claaimed, or the server is restarting. In which case, the client will need to retry claiming the lock
             requestBody:
+                description: |
+                    Create or obtain a lock for a collection of KeyValues. This request blocks if another process
+                    already has the lock being requested. It will eventually return if the lock has been freed and
+                    claimed, or the server is restarting. In which case, the client will need to retry claiming the lock
                 required: true
                 content:
                     appplication/json:
@@ -55,10 +55,10 @@ paths:
                     description: server is shutting down for a restart and client should retry obtaining the lock
     /v1/locker/heartbeat:
         put:
-            description: |
-                Heartbeat any number of locks that a client currently holds by their SessionID. Each heartbeat can
-                refresh any number of SessionIDs to try and keep the number of requests down
             requestBody:
+                description: |
+                    Heartbeat any number of locks that a client currently holds by their SessionID. Each heartbeat can
+                    refresh any number of SessionIDs to try and keep the number of requests down
                 required: true
                 content:
                     appplication/json:
@@ -83,9 +83,9 @@ paths:
                                 $ref: "#/components/schemas/HeartbeatResponse"
     /v1/locker/list:
         get:
+            operationId: "/v1/locker/list"
             description: |
-                List all currently held locks by this service. Currently being used for validation
-
+                List all currently held locks by this service. Currently being used for validatio   
                 TODO:
                 1. Add a query for finding exact locks
                 2. Add a way to paginate responses
@@ -96,9 +96,9 @@ paths:
                         appplication/json:
                             schema:
                                 $ref: "#/components/schemas/ListResponse"
-
     /v1/locker/delete:
         delete:
+            operationId: "/v1/locker/delete"
             description: |
                 Delete a lock based on the SessionID
 
