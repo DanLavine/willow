@@ -7,7 +7,7 @@ info:
 
 paths:
     /v1/locker/crerate:
-        put:
+        post:
             requestBody:
                 description: |
                     Create or obtain a lock for a collection of KeyValues. This request blocks if another process
@@ -54,7 +54,7 @@ paths:
                 502:
                     description: server is shutting down for a restart and client should retry obtaining the lock
     /v1/locker/heartbeat:
-        put:
+        post:
             requestBody:
                 description: |
                     Heartbeat any number of locks that a client currently holds by their SessionID. Each heartbeat can

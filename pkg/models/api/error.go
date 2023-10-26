@@ -16,7 +16,7 @@ var (
 )
 
 type Error struct {
-	Message  string
+	Message  string `json:"Error"`
 	expected string
 	actual   string
 
