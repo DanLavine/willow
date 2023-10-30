@@ -112,8 +112,11 @@ func (locker *LockerTCP) Execute(ctx context.Context) error {
 	// These operations seem more like a normal DB that I want to do...
 	mux.HandleFunc("/v1/locker/create", locker.v1Handler.Create) // pass the ctx here so clients can clean up when the server shutsdown
 	mux.HandleFunc("/v1/locker/heartbeat", locker.v1Handler.Heartbeat)
-	mux.HandleFunc("/v1/locker/list", locker.v1Handler.List)
 	mux.HandleFunc("/v1/locker/delete", locker.v1Handler.Delete)
+
+	// Admin APIs
+	// TODO: Need to actual account for auth for this though
+	mux.HandleFunc("/v1/locker/list", locker.v1Handler.List)
 
 	locker.server.Handler = mux
 

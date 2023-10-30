@@ -18,17 +18,24 @@ import (
 	"golang.org/x/net/http2"
 )
 
+// Open Question. What is the best way to shutdown the server? Should all the locks be closed
+// from all the respective clients, or should we just call `ReleaseLocksAndCloseClient`? What a pain
+
+type LockerClient interface {
+	ObtainLock(ctx context.Context, keyValues datatypes.KeyValues, timeout time.Duration) (Lock, error)
+
+	Done() <-chan struct{}
+}
+
 type lockerclient struct {
-	// mange releasing all locks
-	done   chan struct{}
-	cancel context.CancelFunc
+	// used to know if the async manager is done
+	done chan struct{}
 
 	// client to connect with the remote Locker service
 	url    string
 	client *http.Client
 
 	// callback to client if a lock was somehow released on the server beccause heartbeats are failing
-	lockLostCallback       func(keyValues datatypes.KeyValues, err error)
 	heartbeatErrorCallback func(keyValues datatypes.KeyValues, err error)
 
 	// each item in the locks tree's value is a lock
@@ -38,15 +45,29 @@ type lockerclient struct {
 	asyncManager goasync.AsyncTaskManager
 }
 
-func NewLockerClient(cfg *Config, lockLostCallback, heartbeatErrorCallback func(keyValues datatypes.KeyValues, err error)) (*lockerclient, error) {
-	locks := btreeassociated.NewThreadSafe()
+//	PARAMS
+//	- ctx - Context for the http(s) client. This must be closed to close the managed client and will trigger a close of all held locks
+//	- cfg - configuration for the http client
+//	- heartbeatErrorCallback (optional) - callback for heartbeat errors. Mainly used to log any errors the managed client to the locker service might be experiencing
+//
+//	RETURNS:
+//
+// Setup a new client to the remote locker service. This client automatically manages hertbeats for any obtained locks and
+// will notify the user if a lock is lost at some point
+func NewLockerClient(ctx context.Context, cfg *Config, heartbeatErrorCallback func(keyValue datatypes.KeyValues, err error)) (LockerClient, error) {
+	if ctx == nil || ctx == context.TODO() || ctx == context.Background() {
+		return nil, fmt.Errorf("cannot use provided context. The context must be canceled by the caller to cleanup async resource management")
+	}
 
 	if err := cfg.Vaidate(); err != nil {
 		return nil, err
 	}
 
+	done := make(chan struct{})
+	asyncManager := goasync.NewTaskManager(goasync.RelaxedConfig())
+
+	locks := btreeassociated.NewThreadSafe()
 	httpClient := &http.Client{}
-	httpClient.Transport = &http2.Transport{}
 
 	if cfg.LockerCAFile != "" {
 		httpClient.Transport = &http2.Transport{
@@ -57,31 +78,44 @@ func NewLockerClient(cfg *Config, lockLostCallback, heartbeatErrorCallback func(
 		}
 	}
 
-	done := make(chan struct{})
-	ctx, cancel := context.WithCancel(context.Background())
-	asyncManager := goasync.NewTaskManager(goasync.RelaxedConfig())
-	go func() {
-		_ = asyncManager.Run(ctx)
-		close(done)
-	}()
-
-	return &lockerclient{
+	lockerClient := &lockerclient{
 		done:                   done,
-		cancel:                 cancel,
 		url:                    cfg.URL,
 		client:                 httpClient,
-		lockLostCallback:       lockLostCallback,
 		heartbeatErrorCallback: heartbeatErrorCallback,
 		locks:                  locks,
-		asyncManager:           goasync.NewTaskManager(goasync.RelaxedConfig()),
-	}, nil
+		asyncManager:           asyncManager,
+	}
+
+	go func() {
+		defer close(done)
+		_ = asyncManager.Run(ctx)
+	}()
+
+	return lockerClient, nil
 }
 
-// Obtain a lock for a particular set of KeyValues. This blocks until the desired lock is obtained, or the context is canceled
+//	PARAMS:
+//	- ctx - Context that can be used to cancel the blocking requst trying to obtain the lock. NOTE: once a lock is obtained, release must be called
+//	- keyValues - Key Values to obtain the unique lock for
+//	- timeout - How long the lock should remain valid for if the heartbeats are failing
 //
-// PARAMS:
-//   - ctx - Context that can be used to cancel the request
-func (lc *lockerclient) ObtainLock(ctx context.Context, keyValues datatypes.KeyValues, timeout time.Duration) error {
+//	RETURNS
+//	- Lock - lock object that can be used to release a lock, and monitor if a lock is lost for some reason
+//	- error - any errors encountered when obtaining the lock
+//	NOTE: is both Lock and error are nil, the context must have been canceled obtaining the lock
+//
+// Obtain a lock for a particular set of KeyValues. This blocks until the desired lock is obtained, or the context is canceled.
+// The returned lock will automatically heartbeat to ensure that the lock remains valid. If the heartbeat fails for some reason,
+// the channel returned from the `lock.Done()` call will be closed. It is up to the clients to monitor for a lock being lost
+func (lc *lockerclient) ObtainLock(ctx context.Context, keyValues datatypes.KeyValues, timeout time.Duration) (Lock, error) {
+	select {
+	case <-lc.done:
+		return nil, fmt.Errorf("locker client has already been canceled and won't process heartbeats. Refusing to obtain the lock")
+	default:
+		// nothing to do here, can still obtain the lock
+	}
+
 	// create lock request body
 	createLockRequest := v1locker.CreateLockRequest{
 		KeyValues: keyValues,
@@ -90,30 +124,56 @@ func (lc *lockerclient) ObtainLock(ctx context.Context, keyValues datatypes.KeyV
 	body, err := json.Marshal(createLockRequest)
 	if err != nil {
 		// should never actually hit this
-		return err
+		return nil, err
 	}
 
-	var lockErr error
+	obtainedLock := make(chan struct{})
+	defer close(obtainedLock)
 
-	// make the request
+	var returnLock *lock
+	var lockErr error
 
 	// should check to make sure we don't already have the lock
 	onCreate := func() any {
+		cancelContext, cancel := context.WithCancel(ctx)
+		defer cancel()
+
+		go func() {
+			select {
+			case <-obtainedLock:
+				// obtained the lock properly
+			case <-cancelContext.Done():
+				// caller or canceled the context
+			case <-lc.done:
+				// locker client is canceled
+				cancel()
+			}
+		}()
+
 		for {
-			req, err := http.NewRequestWithContext(ctx, "POST", fmt.Sprintf("%s/v1/locks/create", lc.url), bytes.NewBuffer(body))
+			req, err := http.NewRequestWithContext(cancelContext, "POST", fmt.Sprintf("%s/v1/locker/create", lc.url), bytes.NewBuffer(body))
 			if err != nil {
 				// this should never actually hit
-				return err
+				lockErr = fmt.Errorf("internal error setting up http request: %w", err)
+				return nil
 			}
+
 			resp, err := lc.client.Do(req)
 			if err != nil {
 				// we didn't make the request or was canceled
 				select {
-				case <-ctx.Done():
-					// client was canceled so don't return an error
-					return nil
+				case <-cancelContext.Done():
+					select {
+					case <-lc.done:
+						// locker client was closed
+						lockErr = fmt.Errorf("locker client has been canceled and won't process heartbeats. Refusing to obtain the lock: %w", err)
+						return nil
+					default:
+						// client was canceled so don't return an error
+						return nil
+					}
 				default:
-					lockErr = err
+					lockErr = fmt.Errorf("unable to make request to locker service: %w", err)
 					return nil
 				}
 			}
@@ -123,52 +183,45 @@ func (lc *lockerclient) ObtainLock(ctx context.Context, keyValues datatypes.KeyV
 				// created the lock, need to record the session id and start hearbeating
 				respBody, err := io.ReadAll(resp.Body)
 				if err != nil {
-					// shouldn't actuall hit this
-					lockErr = err
+					// server sent back a bad body for some reason
+					lockErr = fmt.Errorf("failed to read response body: %v", err)
 					return nil
 				}
 
 				createLockResponse := &v1locker.CreateLockResponse{}
 				if err = json.Unmarshal(respBody, createLockResponse); err != nil {
-					// shouldn't actuall hit this
-					lockErr = err
+					// server sent back an unexpeded response body
+					lockErr = fmt.Errorf("failed to parse server response: %v", err)
 					return nil
 				}
 
 				// wrapper is needed so we ensure that the lock is removed from the tree on removal
-				lostLockWrapper := func(keyValues datatypes.KeyValues, err error) {
+				lostLockWrapper := func() {
 					canDelete := func(_ any) bool {
 						return true
 					}
 					lc.locks.Delete(keyValues, canDelete)
-
-					// only call when there was an error
-					if err != nil {
-						lc.lockLostCallback(keyValues, err)
-					}
 				}
 
-				newLock := &lock{
-					client:                 lc.client,
-					url:                    lc.url,
-					lockLostCallback:       lostLockWrapper,
-					heartbeatErrorCallback: lc.heartbeatErrorCallback,
-					keyValues:              keyValues,
-					releaseChan:            make(chan struct{}),
-					sessionID:              createLockResponse.SessionID,
-					timeout:                createLockRequest.Timeout,
+				if lc.heartbeatErrorCallback != nil {
+					returnLock = newLock(createLockResponse.SessionID, createLockRequest.Timeout, lc.client, lc.url, nil, lostLockWrapper)
+				} else {
+					errCallback := func(err error) {
+						lc.heartbeatErrorCallback(keyValues, err)
+					}
+					returnLock = newLock(createLockResponse.SessionID, createLockRequest.Timeout, lc.client, lc.url, errCallback, lostLockWrapper)
 				}
 
 				// setup the heartbeat operation
-				if err = lc.asyncManager.AddExecuteTask(createLockResponse.SessionID, newLock); err != nil {
+				if err = lc.asyncManager.AddExecuteTask(createLockResponse.SessionID, returnLock); err != nil {
 					// could not add the task to execute, must be shutting down so release the lock
 					lockErr = fmt.Errorf("client has been closed, will not obtain lock")
-					newLock.releaseAndStopHeartbeat()
+					returnLock.release()
 
-					return nil
+					returnLock = nil
 				}
 
-				return newLock
+				return returnLock
 			case http.StatusBadRequest:
 				// there was an error with the request. possibly a mismatch on client server versions
 				respBody, err := io.ReadAll(resp.Body)
@@ -197,39 +250,17 @@ func (lc *lockerclient) ObtainLock(ctx context.Context, keyValues datatypes.KeyV
 		}
 	}
 
-	onFind := func(_ any) {
+	onFind := func(item any) {
 		// nothing to do here
+		returnLock = item.(*btreeassociated.AssociatedKeyValues).Value().(*lock)
 	}
 
 	// create or find the lock if we already have it
-	lc.locks.CreateOrFind(keyValues, onCreate, onFind)
+	_, _ = lc.locks.CreateOrFind(keyValues, onCreate, onFind)
 
-	return lockErr
+	return returnLock, lockErr
 }
 
-func (lc *lockerclient) ReleaseLock(keyValues datatypes.KeyValues) error {
-	var lockErr error
-	canDelete := func(item any) bool {
-		lock := item.(*btreeassociated.AssociatedKeyValues).Value().(*lock)
-		lock.releaseAndStopHeartbeat()
-
-		return true
-	}
-
-	lc.locks.Delete(keyValues, canDelete)
-	return lockErr
-}
-
-// Release all locks currently held
-func (lc *lockerclient) ReleaseLocks() {
-
-}
-
-// Release locks can be called to release all held locks as part of a shutdown process
-func (lc *lockerclient) ReleaseLocksAndCloseClient() {
-	// cancel asyc task manager
-	lc.cancel()
-
-	// wait for all clients to close
-	<-lc.done
+func (lc *lockerclient) Done() <-chan struct{} {
+	return lc.done
 }

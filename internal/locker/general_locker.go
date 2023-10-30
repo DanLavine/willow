@@ -2,7 +2,6 @@ package locker
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/DanLavine/goasync"
@@ -205,8 +204,6 @@ func (generalLocker *generalLocker) ReleaseLock(lockID string) {
 
 func (generalLocker *generalLocker) freeLock(keyValues datatypes.KeyValues) bool {
 	removed := false
-
-	fmt.Println("Calling free lock")
 
 	canDelete := func(item any) bool {
 		generalLock := item.(*btreeassociated.AssociatedKeyValues).Value().(*generalLock)

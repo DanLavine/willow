@@ -2,7 +2,6 @@ package integrationhelpers
 
 import (
 	"bytes"
-	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -20,6 +19,7 @@ type IntegrationTestConstruct struct {
 	dataDir string
 
 	ServerPath   string
+	ServerURL    string
 	Session      *gexec.Session
 	ServerStdout *bytes.Buffer
 	ServerStderr *bytes.Buffer
@@ -44,6 +44,7 @@ func NewIntrgrationLockerTestConstruct(g *WithT) *IntegrationTestConstruct {
 
 	return &IntegrationTestConstruct{
 		ServerPath:   lockerPath,
+		ServerURL:    "https://127.0.0.1:8083",
 		LockerClient: testclient.NewLockerClient(g, "https://127.0.0.1:8083"),
 	}
 }
@@ -105,14 +106,8 @@ func (itc *IntegrationTestConstruct) StartLocker(g *WithT) {
 func (itc *IntegrationTestConstruct) Shutdown(g *WithT) {
 	session := itc.Session.Interrupt()
 	time.Sleep(time.Second)
-	fmt.Println(itc.ServerStdout.String())
-	fmt.Println(itc.ServerStderr.String())
 
 	g.Eventually(session, "20s").Should(gexec.Exit(0), string(itc.Session.Out.Contents()))
-
-	// g.Eventually(session, 2*time.Second).Should(gexec.Exit())
-	// fmt.Println((string(itc.Session.Out.Contents())))
-	// g.Fail("boo")
 
 	g.Expect(os.RemoveAll(itc.dataDir)).ToNot(HaveOccurred())
 }
