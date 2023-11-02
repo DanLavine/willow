@@ -91,10 +91,6 @@ func (locker *LockerTCP) Initialize() error {
 func (locker *LockerTCP) Execute(ctx context.Context) error {
 	logger := locker.logger
 
-	// capture any errors from the server
-	errChan := make(chan error, 1)
-	defer close(errChan)
-
 	mux := urlrouter.New()
 
 	// OpenAPI endpoints

@@ -73,32 +73,21 @@ func (limiter *limiterTCP) Initialize() error {
 
 func (limiter *limiterTCP) Execute(ctx context.Context) error {
 	logger := limiter.logger
-
-	// capture any errors from the server
-	errChan := make(chan error, 1)
-	defer close(errChan)
-
 	mux := http.NewServeMux()
 
 	// crud operations for group rules
 	// These operations seem more like a normal DB that I want to do...
-	mux.HandleFunc("/v1/group_rules/create", limiter.v1ruleHandler.Create)
-	mux.HandleFunc("/v1/group_rules/set_override", limiter.v1ruleHandler.SetOverride)
+	mux.HandleFunc("/v1/limiter/rules/create", limiter.v1ruleHandler.Create)
+	mux.HandleFunc("/v1/limiter/rules/update", limiter.v1ruleHandler.Update)
+	mux.HandleFunc("/v1/limiter/rules/delete", limiter.v1ruleHandler.Delete)
+	//mux.HandleFunc("/v1/limiter/rules/list", limiter.v1ruleHandler.Delete)
+	mux.HandleFunc("/v1/limiter/rules/find", limiter.v1ruleHandler.Find)
 
-	mux.HandleFunc("/v1/group_rules/find", limiter.v1ruleHandler.Find)
-	mux.HandleFunc("/v1/group_rules/update", limiter.v1ruleHandler.Update)
-	mux.HandleFunc("/v1/group_rules/delete", limiter.v1ruleHandler.Delete)
+	mux.HandleFunc("/v1/limiter/rules/override", limiter.v1ruleHandler.SetOverride)
 
 	// operations to check items against arbitrary rules
 	mux.HandleFunc("/v1/items/increment", limiter.v1ruleHandler.Increment)
 	mux.HandleFunc("/v1/items/decrement", limiter.v1ruleHandler.Decrement)
-	// delete all items, or a collection of gruped tags?
-	// seems like something I would want to do...
-	//mux.HandleFunc("/v1/items/delete", nil)
-
-	// client operations?
-	// want to kick a bunch of operations that might be pending?
-	//mux.HandleFunc("/v1/items/kick", nil)
 
 	// set the server mux
 	limiter.server.Handler = mux

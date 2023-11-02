@@ -1,0 +1,203 @@
+openapi: "3.0.0"
+
+info:
+  description: Limiter API
+  title: Limiter
+  version: a0.0.1
+
+paths:
+  /v1/limiter/rules/crerate:
+    post:
+      requestBody:
+        description: |
+          Create a new Limiter Rule.
+        required: true
+        content:
+          appplication/json:
+            schema:
+              type: object
+              required:
+                - Name
+                - GroupBy
+                - Limit
+              properties:
+                Name:
+                  description: "Name of the rule to create"
+                  type: string
+                GroupBy:
+                  description: |
+                    GroupBy defines the keys for any Key + Value Pairs that make a unique pairing.
+                    These are matched on the /v1/items/increment api to know when limits are reached.
+                  type: array
+                  items:
+                    type: string
+                Query:
+                  description: "Optional query to filter out unwanted Key + Value Pairs"
+                  $ref: "#/components/schemas/AssociatedKeyValuesQuery"
+                Limit:
+                  type: integer
+                  format: uint64
+      responses:
+        201:
+          description: Created a new limiter rule
+          content:
+            appplication/json:
+              schema:
+                type: object
+                properties:
+                  SessionID:
+                    type: string
+                    description: "Session ID that is used to send hertbeats or release obtained locks"
+#        400:
+#          description: returned when an error processing for the request body fails
+#          content:
+#            appplication/json:
+#              schema:
+#                type: object
+#                properties:
+#                  ApiError:
+#                    $ref: "#/components/schemas/ApiError"
+#        502:
+#          description: server is shutting down for a restart and client should retry obtaining the lock
+#  /v1/locker/heartbeat:
+#    post:
+#      requestBody:
+#        description: |
+#          Heartbeat any number of locks that a client currently holds by their SessionID. Each heartbeat can
+#          refresh any number of SessionIDs to try and keep the number of requests down
+#        required: true
+#        content:
+#          appplication/json:
+#            schema:
+#              minLength: 1
+#              $ref: "#/components/schemas/HeartbeatRequest"
+#
+#      responses:
+#        200:
+#          description: OK
+#        400:
+#          description: returned when an error when the request body fails validation
+#          content:
+#            appplication/json:
+#              schema:
+#                $ref: "#/components/schemas/ApiError"
+#        409:
+#          description: returned when there was an error processing one or more of the SessionIDs
+#          content:
+#            appplication/json:
+#              schema:
+#                $ref: "#/components/schemas/HeartbeatResponse"
+#  /v1/locker/list:
+#    get:
+#      operationId: "/v1/locker/list"
+#      description: |
+#        List all currently held locks by this service. Currently being used for validatio
+#        TODO:
+#        1. Add a query for finding exact locks
+#        2. Add a way to paginate responses
+#      responses:
+#        200:
+#          description: OK
+#          content:
+#            appplication/json:
+#              schema:
+#                $ref: "#/components/schemas/ListResponse"
+#  /v1/locker/delete:
+#    delete:
+#      operationId: "/v1/locker/delete"
+#      description: |
+#        Delete a lock based on the SessionID
+#
+#        TODO:
+#        1. Possibly like heartbeat, allow this to take any number of SessionIDs. I currently see the use case
+#           for this service that I have wanting to create a number of locks all at once, then release them at
+#           the same time
+#        2. Allow for deleting through KeyValues (admin api. would need auth setup to allow this).
+#           Or should I make this a seperate "Admin" api?
+#      responses:
+#        204:
+#          description: Resrouce was deleted or never even existed
+#        400:
+#          description: returned when an error when the request body fails validation
+#          content:
+#            appplication/json:
+#              schema:
+#                $ref: "#/components/schemas/ApiError"
+
+components:
+  schemas:
+    # General API errors
+    ApiError:
+      type: object
+      properties:
+        Error:
+          type: string
+
+    # General query thats used all over the place
+    AssociatedKeyValuesQuery:
+      type: object
+      properties:
+        KeyValueSelection:
+          type: object
+          $ref: "#/components/schemas/KeyValueSelection"
+        OR:
+          type: array
+          items:
+            type: object
+            $ref: "#/components/schemas/AssociatedKeyValuesQuery"
+        AND:
+          type: array
+          items:
+            type: object
+            $ref: "#/components/schemas/AssociatedKeyValuesQuery"
+
+    KeyValueSelection:
+      type: object
+      properties:
+        KeyValues:
+          type: object
+          $ref: "#/components/schemas/KeyValues"
+        Limits:
+          type: object
+          properties:
+            KeyLimits:
+              type: integer
+
+    # General Key Values of Encapsulated data
+    KeyValues:
+      type: object
+      additionalProperties:
+        title: KeyValues
+        x-additionalPropertiesName: KeyValues
+        $ref: "#/components/schemas/EncapsulatedData"
+
+    # Generic data type wrapper for any Values in a Key Value pairing
+    EncapsulatedData:
+      type: object
+      required:
+        - DataType
+        - Value
+      properties:
+        DataType:
+          description: |
+            Data type indicates how to parse the provided Value:\
+            0: uint8\
+            1: uint16\
+            2: uint32\
+            3: uint64\
+            4: uint\
+            5: int8\
+            6: int16\
+            7: int32\
+            8: int64\
+            9: int\
+            10: float32\
+            11: float64\
+            12: string\
+            13: nil
+          type: integer
+          enum: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]
+        Value:
+          description: |
+            Can be any value that is associated to the DataType
+          type: object
