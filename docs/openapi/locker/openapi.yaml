@@ -53,34 +53,6 @@ paths:
                                         $ref: "#/components/schemas/ApiError"
                 502:
                     description: server is shutting down for a restart and client should retry obtaining the lock
-    /v1/locker/heartbeat:
-        post:
-            requestBody:
-                description: |
-                    Heartbeat any number of locks that a client currently holds by their SessionID. Each heartbeat can
-                    refresh any number of SessionIDs to try and keep the number of requests down
-                required: true
-                content:
-                    appplication/json:
-                        schema:
-                            minLength: 1
-                            $ref: "#/components/schemas/HeartbeatRequest"
-
-            responses:
-                200:
-                    description: OK
-                400:
-                    description: returned when an error when the request body fails validation
-                    content:
-                        appplication/json:
-                            schema:
-                                $ref: "#/components/schemas/ApiError"
-                409:
-                    description: returned when there was an error processing one or more of the SessionIDs
-                    content:
-                        appplication/json:
-                            schema:
-                                $ref: "#/components/schemas/HeartbeatResponse"
     /v1/locker/list:
         get:
             operationId: "/v1/locker/list"
@@ -96,7 +68,26 @@ paths:
                         appplication/json:
                             schema:
                                 $ref: "#/components/schemas/ListResponse"
-    /v1/locker/delete:
+    /v1/locker/:_associated_id/heartbeat:
+        post:
+            description: |
+                Heartbeat a lock by the unique SessionID
+            responses:
+                200:
+                    description: OK
+                400:
+                    description: returned when an error when the request body fails validation
+                    content:
+                        appplication/json:
+                            schema:
+                                $ref: "#/components/schemas/ApiError"
+                409:
+                    description: returned when there was an error processing the SessionID
+                    content:
+                        appplication/json:
+                            schema:
+                                $ref: "#/components/schemas/HeartbeatResponse"
+    /v1/locker/:_associated_id/delete:
         delete:
             operationId: "/v1/locker/delete"
             description: |
@@ -127,31 +118,12 @@ components:
                 Error:
                     type: string
 
-        # hearbeat request
-        HeartbeatRequest:
-            type: object
-            required:
-                - LockSessioons
-            properties:
-                LockSessions:
-                    description: a list of all held Lock's SessionIDs to refresh at once
-                    type: array
-                    additionalProperties:
-                        type: string
-
         # heartbeats response
         HeartbeatResponse:
             type: object
             properties:
-                HeartbeatErrors:
-                    type: array
-                    items:
-                        type: object
-                        properties:
-                            SessionID:
-                                type: string
-                            Error:
-                                type: string
+                Error:
+                    type: string
 
         # list locks response
         ListResponse:

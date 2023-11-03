@@ -117,11 +117,8 @@ func (l *lock) Execute(ctx context.Context) error {
 //	RETURNS:
 //	- int - 0 indicattes success, 1 indicates that the heartbeat failed, 2 indicates that the Lock was lost and we can stop the async loop
 func (l *lock) heartbeat() int {
-	// heartbeat Lock request body
-	heartbeatLocksRequest := v1locker.HeartbeatLocksRequst{
-		SessionIDs: []string{l.sessionID},
-	}
-	body, err := json.Marshal(heartbeatLocksRequest)
+	// heartbeat Lock
+	req, err := http.NewRequest("POST", fmt.Sprintf("%s/v1/locker/%s/heartbeat", l.url, l.sessionID), nil)
 	if err != nil {
 		if l.heartbeatErrorCallback != nil {
 			l.heartbeatErrorCallback(err)
@@ -129,14 +126,6 @@ func (l *lock) heartbeat() int {
 		return 1
 	}
 
-	// heartbeat Lock
-	req, err := http.NewRequest("POST", fmt.Sprintf("%s/v1/locker/heartbeat", l.url), bytes.NewBuffer(body))
-	if err != nil {
-		if l.heartbeatErrorCallback != nil {
-			l.heartbeatErrorCallback(err)
-		}
-		return 1
-	}
 	resp, err := l.client.Do(req)
 	if err != nil {
 		if l.heartbeatErrorCallback != nil {
@@ -176,24 +165,20 @@ func (l *lock) heartbeat() int {
 			return 1
 		default: // http.StatusConflict
 			// there was an error with the sessionID
-			heartbeatErrors := &v1locker.HeartbeatLocksResponse{}
-			if err = json.Unmarshal(respBody, heartbeatErrors); err != nil {
+			heartbeatError := &v1locker.HeartbeatError{}
+			if err = json.Unmarshal(respBody, heartbeatError); err != nil {
 				if l.heartbeatErrorCallback != nil {
 					l.heartbeatErrorCallback(fmt.Errorf("error paring server response body: %w", err))
 				}
 				return 1
 			}
 
-			// TODO change the API to only accept 1 at a time!
-			// this will only have a range == 1 right now. this means we should change the API.
-			// I would love to do batches of sessionIDs, but make error processing awful if sending multiple
-			for _, heartbeatError := range heartbeatErrors.HeartbeatErrors {
-				if l.heartbeatErrorCallback != nil {
-					l.heartbeatErrorCallback(fmt.Errorf(heartbeatError.Error))
-				}
-
-				l.releaseLockCallback()
+			// record the error and release the lock
+			if l.heartbeatErrorCallback != nil {
+				l.heartbeatErrorCallback(fmt.Errorf(heartbeatError.Error))
 			}
+
+			l.releaseLockCallback()
 
 			return 2
 		}

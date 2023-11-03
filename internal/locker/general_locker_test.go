@@ -390,9 +390,10 @@ func TestGeneralLocker_Heartbeat(t *testing.T) {
 		generalLocker := NewGeneralLocker(nil)
 		taskManager.AddExecuteTask("teset", generalLocker)
 
-		errors := generalLocker.Heartbeat([]string{"bad id"})
-		g.Expect(len(errors)).To(Equal(1))
-		g.Expect(errors[0].Error).To(ContainSubstring("session could not be found"))
+		err := generalLocker.Heartbeat("bad id")
+		g.Expect(err).ToNot(BeNil())
+		g.Expect(err.Session).To(Equal("bad id"))
+		g.Expect(err.Error).To(ContainSubstring("session id could not be found"))
 	})
 
 	t.Run("It keeps the lock around as long as the heartbeats are received", func(t *testing.T) {
@@ -416,46 +417,11 @@ func TestGeneralLocker_Heartbeat(t *testing.T) {
 		// this timer is longer than the heartbeat timeout
 		for i := 0; i < 3; i++ {
 			time.Sleep(60 * time.Millisecond)
-			g.Expect(generalLocker.Heartbeat([]string{lockResp.SessionID})).To(BeNil())
+			g.Expect(generalLocker.Heartbeat(lockResp.SessionID)).To(BeNil())
 		}
 
 		locks := generalLocker.ListLocks()
 		g.Expect(len(locks)).To(Equal(1))
-	})
-
-	t.Run("It can heartbeat multiple sessions", func(t *testing.T) {
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
-
-		taskManager := goasync.NewTaskManager(goasync.RelaxedConfig())
-		go func() {
-			taskManager.Run(ctx)
-		}()
-
-		generalLocker := NewGeneralLocker(nil)
-		taskManager.AddExecuteTask("teset", generalLocker)
-
-		lockRequest1 := defaultCreateLockRequest()
-		lockRequest1.Timeout = 100 * time.Millisecond
-
-		lockRequest2 := defaultCreateLockRequest()
-		lockRequest2.KeyValues["foo"] = datatypes.Float32(3.5)
-		lockRequest2.Timeout = 100 * time.Millisecond
-
-		lockResp1 := generalLocker.ObtainLock(context.Background(), lockRequest1)
-		g.Expect(lockResp1).ToNot(BeNil())
-
-		lockResp2 := generalLocker.ObtainLock(context.Background(), lockRequest2)
-		g.Expect(lockResp2).ToNot(BeNil())
-
-		// this timer is longer than the heartbeat timeout
-		for i := 0; i < 3; i++ {
-			time.Sleep(60 * time.Millisecond)
-			g.Expect(generalLocker.Heartbeat([]string{lockResp1.SessionID, lockResp2.SessionID})).To(BeNil())
-		}
-
-		locks := generalLocker.ListLocks()
-		g.Expect(len(locks)).To(Equal(2))
 	})
 
 	t.Run("It removes the lock if no heartbeats are received", func(t *testing.T) {

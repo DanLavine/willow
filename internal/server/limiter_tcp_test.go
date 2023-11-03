@@ -17,6 +17,7 @@ import (
 
 func TestLimiterTCP_ShutdownBehavior(t *testing.T) {
 	g := NewGomegaWithT(t)
+
 	limiterConfig := testconfig.Limiter(g)
 
 	setupLogger := func() (*zap.Logger, *observer.ObservedLogs) {

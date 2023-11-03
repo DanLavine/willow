@@ -16,7 +16,7 @@ type GeneralLocker interface {
 	ObtainLock(clientCtx context.Context, createRequest *v1locker.CreateLockRequest) *v1locker.CreateLockResponse
 
 	// Heartbeat any number of locks so we know they are still running properly
-	Heartbeat(sessions []string) []v1locker.HeartbeatError
+	Heartbeat(sessions string) *v1locker.HeartbeatError
 
 	// Find all locks currently held in the tree
 	ListLocks() []v1locker.Lock
@@ -147,10 +147,8 @@ func (generalLocker *generalLocker) ObtainLock(clientCtx context.Context, create
 	}
 }
 
-// heartbeat any number of key values
-func (generalLocker *generalLocker) Heartbeat(sessions []string) []v1locker.HeartbeatError {
-	var heartbeatErrors []v1locker.HeartbeatError
-
+// heartbeat a particualr session key values
+func (generalLocker *generalLocker) Heartbeat(sessionID string) *v1locker.HeartbeatError {
 	found := false
 	onFind := func(item any) {
 		generalLock := item.(*btreeassociated.AssociatedKeyValues).Value().(*generalLock)
@@ -165,17 +163,13 @@ func (generalLocker *generalLocker) Heartbeat(sessions []string) []v1locker.Hear
 		found = true
 	}
 
-	for _, session := range sessions {
-		_ = generalLocker.locks.FindByAssociatedID(session, onFind)
+	_ = generalLocker.locks.FindByAssociatedID(sessionID, onFind)
 
-		if !found {
-			heartbeatErrors = append(heartbeatErrors, v1locker.HeartbeatError{Session: session, Error: "session could not be found"})
-		}
-
-		found = false
+	if !found {
+		return &v1locker.HeartbeatError{Session: sessionID, Error: "session id could not be found"}
 	}
 
-	return heartbeatErrors
+	return nil
 }
 
 // delete a lock from the

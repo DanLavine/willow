@@ -35,7 +35,7 @@ func (generalLock *generalLock) Execute(ctx context.Context) error {
 		select {
 		case <-generalLock.hertbeat:
 			// in this case we recieved a heartbeat, so reset the timer
-			timer.Reset(15 * time.Second)
+			timer.Reset(generalLock.timeout)
 		case <-ctx.Done():
 			// in this case, we received a shutdown signal from the server, so just cancel this threadand don't clean
 			// anything up since we eventually want locks to persist through a server restart
@@ -47,7 +47,7 @@ func (generalLock *generalLock) Execute(ctx context.Context) error {
 			}
 
 			// there must be another process waiting for the key so start processing again
-			timer.Reset(15 * time.Second)
+			timer.Reset(generalLock.timeout)
 		}
 	}
 }

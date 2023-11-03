@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/DanLavine/urlrouter"
 	"github.com/DanLavine/willow/internal/config"
 	"github.com/DanLavine/willow/internal/datastructures/btree"
 	"github.com/DanLavine/willow/internal/server/versions/v1server"
@@ -94,29 +95,34 @@ func (locker *LockerTCP) Execute(ctx context.Context) error {
 	errChan := make(chan error, 1)
 	defer close(errChan)
 
-	mux := http.NewServeMux()
+	mux := urlrouter.New()
 
 	// OpenAPI endpoints
 	// api url to server all the OpenAPI files
-	mux.Handle("/docs/openapi/", http.StripPrefix("/docs/openapi/", http.FileServer(http.Dir("./docs/openapi/locker"))))
+	mux.HandleFunc("GET", "/docs/openapi/", func(w http.ResponseWriter, r *http.Request) {
+		handle := http.StripPrefix("/docs/openapi/", http.FileServer(http.Dir("./docs/openapi/locker")))
+		handle.ServeHTTP(w, r)
+	})
 
 	// ui that calls the files and knows what to do
-	mux.Handle("/docs", middleware.Redoc(middleware.RedocOpts{
-		BasePath: "/",
-		Path:     "docs",
-		SpecURL:  "/docs/openapi/openapi.yaml",
-		Title:    "Locker API Documentation",
-	}, nil))
+	mux.HandleFunc("GET", "/docs", func(w http.ResponseWriter, r *http.Request) {
+		middleware.Redoc(middleware.RedocOpts{
+			BasePath: "/",
+			Path:     "docs",
+			SpecURL:  "/docs/openapi/openapi.yaml",
+			Title:    "Locker API Documentation",
+		}, nil).ServeHTTP(w, r)
+	})
 
 	// crud operations for group rules
 	// These operations seem more like a normal DB that I want to do...
-	mux.HandleFunc("/v1/locker/create", locker.v1Handler.Create) // pass the ctx here so clients can clean up when the server shutsdown
-	mux.HandleFunc("/v1/locker/heartbeat", locker.v1Handler.Heartbeat)
-	mux.HandleFunc("/v1/locker/delete", locker.v1Handler.Delete)
+	mux.HandleFunc("POST", "/v1/locker/create", locker.v1Handler.Create) // pass the ctx here so clients can clean up when the server shutsdown
+	mux.HandleFunc("POST", "/v1/locker/:_associated_id/heartbeat", locker.v1Handler.Heartbeat)
+	mux.HandleFunc("DELETE", "/v1/locker/:_associated_id/delete", locker.v1Handler.Delete)
 
 	// Admin APIs
 	// TODO: Need to actual account for auth for this though
-	mux.HandleFunc("/v1/locker/list", locker.v1Handler.List)
+	mux.HandleFunc("GET", "/v1/locker/list", locker.v1Handler.List)
 
 	locker.server.Handler = mux
 
