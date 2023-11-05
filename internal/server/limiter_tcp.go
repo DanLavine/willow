@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/DanLavine/urlrouter"
 	"github.com/DanLavine/willow/internal/config"
 	"github.com/DanLavine/willow/internal/server/versions/v1server"
 	"go.uber.org/zap"
@@ -73,21 +74,22 @@ func (limiter *limiterTCP) Initialize() error {
 
 func (limiter *limiterTCP) Execute(ctx context.Context) error {
 	logger := limiter.logger
-	mux := http.NewServeMux()
+	mux := urlrouter.New()
 
 	// crud operations for group rules
 	// These operations seem more like a normal DB that I want to do...
-	mux.HandleFunc("/v1/limiter/rules/create", limiter.v1ruleHandler.Create)
-	mux.HandleFunc("/v1/limiter/rules/update", limiter.v1ruleHandler.Update)
-	mux.HandleFunc("/v1/limiter/rules/delete", limiter.v1ruleHandler.Delete)
-	//mux.HandleFunc("/v1/limiter/rules/list", limiter.v1ruleHandler.Delete)
-	mux.HandleFunc("/v1/limiter/rules/find", limiter.v1ruleHandler.Find)
+	mux.HandleFunc("POST", "/v1/limiter/rules/create", limiter.v1ruleHandler.Create)
+	mux.HandleFunc("PUT", "/v1/limiter/rules/:name/update", limiter.v1ruleHandler.Update)
+	mux.HandleFunc("DELETE", "/v1/limiter/rules/:name/delete", limiter.v1ruleHandler.Delete)
+	mux.HandleFunc("GET", "/v1/limiter/rules/find", limiter.v1ruleHandler.Find)
 
-	mux.HandleFunc("/v1/limiter/rules/override", limiter.v1ruleHandler.SetOverride)
+	// create an override for a specific rule
+	mux.HandleFunc("POST", "/v1/limiter/rules/:name/override", limiter.v1ruleHandler.SetOverride)
+	mux.HandleFunc("DELETE", "/v1/limiter/rules/:name/override", limiter.v1ruleHandler.DeleteOverride)
 
 	// operations to check items against arbitrary rules
-	mux.HandleFunc("/v1/items/increment", limiter.v1ruleHandler.Increment)
-	mux.HandleFunc("/v1/items/decrement", limiter.v1ruleHandler.Decrement)
+	mux.HandleFunc("POST", "/v1/limiter/items/increment", limiter.v1ruleHandler.Increment)
+	mux.HandleFunc("DELETE", "/v1/limiter/items/decrement", limiter.v1ruleHandler.Decrement)
 
 	// set the server mux
 	limiter.server.Handler = mux

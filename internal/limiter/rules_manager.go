@@ -71,7 +71,7 @@ func (rm *rulesManger) CreateGroupRule(logger *zap.Logger, createRequest *v1limi
 
 	onFind := func(_ any) {
 		logger.Error("failed to create new rule set", zap.String("name", createRequest.Name))
-		returnErr = (&api.Error{Message: "rule already exists", StatusCode: http.StatusConflict}).With(fmt.Sprintf("name %s to not be in use", createRequest.Name), "")
+		returnErr = (&api.Error{Message: "rule already exists", StatusCode: http.StatusUnprocessableEntity}).With(fmt.Sprintf("name %s to not be in use", createRequest.Name), "")
 	}
 
 	if err := rm.rules.CreateOrFind(datatypes.String(createRequest.Name), onCreate, onFind); err != nil {

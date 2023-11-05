@@ -15,114 +15,209 @@ paths:
         content:
           appplication/json:
             schema:
-              type: object
-              required:
-                - Name
-                - GroupBy
-                - Limit
-              properties:
-                Name:
-                  description: "Name of the rule to create"
-                  type: string
-                GroupBy:
-                  description: |
-                    GroupBy defines the keys for any Key + Value Pairs that make a unique pairing.
-                    These are matched on the /v1/items/increment api to know when limits are reached.
-                  type: array
-                  items:
-                    type: string
-                Query:
-                  description: "Optional query to filter out unwanted Key + Value Pairs"
-                  $ref: "#/components/schemas/AssociatedKeyValuesQuery"
-                Limit:
-                  type: integer
-                  format: uint64
+              $ref: "#/components/schemas/CreateRuleRequest"
       responses:
         201:
           description: Created a new limiter rule
+        400:
+          description: Error parsing or validating the request body
           content:
             appplication/json:
               schema:
                 type: object
                 properties:
-                  SessionID:
-                    type: string
-                    description: "Session ID that is used to send hertbeats or release obtained locks"
-#        400:
-#          description: returned when an error processing for the request body fails
-#          content:
-#            appplication/json:
-#              schema:
-#                type: object
-#                properties:
-#                  ApiError:
-#                    $ref: "#/components/schemas/ApiError"
-#        502:
-#          description: server is shutting down for a restart and client should retry obtaining the lock
-#  /v1/locker/heartbeat:
-#    post:
-#      requestBody:
-#        description: |
-#          Heartbeat any number of locks that a client currently holds by their SessionID. Each heartbeat can
-#          refresh any number of SessionIDs to try and keep the number of requests down
-#        required: true
-#        content:
-#          appplication/json:
-#            schema:
-#              minLength: 1
-#              $ref: "#/components/schemas/HeartbeatRequest"
-#
-#      responses:
-#        200:
-#          description: OK
-#        400:
-#          description: returned when an error when the request body fails validation
-#          content:
-#            appplication/json:
-#              schema:
-#                $ref: "#/components/schemas/ApiError"
-#        409:
-#          description: returned when there was an error processing one or more of the SessionIDs
-#          content:
-#            appplication/json:
-#              schema:
-#                $ref: "#/components/schemas/HeartbeatResponse"
-#  /v1/locker/list:
-#    get:
-#      operationId: "/v1/locker/list"
-#      description: |
-#        List all currently held locks by this service. Currently being used for validatio
-#        TODO:
-#        1. Add a query for finding exact locks
-#        2. Add a way to paginate responses
-#      responses:
-#        200:
-#          description: OK
-#          content:
-#            appplication/json:
-#              schema:
-#                $ref: "#/components/schemas/ListResponse"
-#  /v1/locker/delete:
-#    delete:
-#      operationId: "/v1/locker/delete"
-#      description: |
-#        Delete a lock based on the SessionID
-#
-#        TODO:
-#        1. Possibly like heartbeat, allow this to take any number of SessionIDs. I currently see the use case
-#           for this service that I have wanting to create a number of locks all at once, then release them at
-#           the same time
-#        2. Allow for deleting through KeyValues (admin api. would need auth setup to allow this).
-#           Or should I make this a seperate "Admin" api?
-#      responses:
-#        204:
-#          description: Resrouce was deleted or never even existed
-#        400:
-#          description: returned when an error when the request body fails validation
-#          content:
-#            appplication/json:
-#              schema:
-#                $ref: "#/components/schemas/ApiError"
+                  ApiError:
+                    $ref: "#/components/schemas/ApiError"
+        422:
+          description: Conflict if another rule already exists with the same name
+          content:
+            appplication/json:
+              schema:
+                type: object
+                properties:
+                  ApiError:
+                    $ref: "#/components/schemas/ApiError"
+  /v1/limiter/rules/find:
+    get:
+      description: |
+        Delete a particualr rule and any overrides associated with the rule
+      requestBody:
+        description: |
+          Find any rules that match the provided criteria.
+        required: true
+        content:
+          appplication/json:
+            schema:
+              $ref: "#/components/schemas/FindRuleRequest"
+      responses:
+        200:
+          description: Successfully searched for any rules that matched the query
+          content:
+            appplication/json:
+              schema:
+                $ref: "#/components/schemas/FindRuleResponse"
+        400:
+          description: Error parsing or validating the request
+          content:
+            appplication/json:
+              schema:
+                type: object
+                properties:
+                  ApiError:
+                    $ref: "#/components/schemas/ApiError"
+  /v1/limiter/rules/:name/update:
+    post:
+      requestBody:
+        description: |
+          update a limiter rule.
+        required: true
+        content:
+          appplication/json:
+            schema:
+              $ref: "#/components/schemas/UpdateRuleRequest"
+      responses:
+        200:
+          description: Successfully update the rule
+        400:
+          description: Error parsing or validating the request body
+          content:
+            appplication/json:
+              schema:
+                type: object
+                properties:
+                  ApiError:
+                    $ref: "#/components/schemas/ApiError"
+        422:
+          description: The original rule could not be found
+          content:
+            appplication/json:
+              schema:
+                type: object
+                properties:
+                  ApiError:
+                    $ref: "#/components/schemas/ApiError"
+  /v1/limiter/rules/:name/delete:
+    delete:
+      description: |
+        Delete a particualr rule and any overrides associated with the rule
+      responses:
+        204:
+          description: Successfully deleted the rule and all associatted overrides
+  /v1/limiter/rules/:name/override:
+    post:
+      requestBody:
+        description: |
+          Create a new Override rule for a specifc set of Key Value pairs
+        required: true
+        content:
+          appplication/json:
+            schema:
+              $ref: "#/components/schemas/CreateRuleOverrideRequest"
+      responses:
+        201:
+          description: Created a new limiter rule
+        400:
+          description: Error parsing or validating the request body
+          content:
+            appplication/json:
+              schema:
+                type: object
+                properties:
+                  ApiError:
+                    $ref: "#/components/schemas/ApiError"
+        422:
+          description: Conflict if another rule overide already exists with the same key values
+          content:
+            appplication/json:
+              schema:
+                type: object
+                properties:
+                  ApiError:
+                    $ref: "#/components/schemas/ApiError"
+    delete:
+      requestBody:
+        description: |
+          delete any rule overrides that match the provided query
+        required: true
+        content:
+          appplication/json:
+            schema:
+              $ref: "#/components/schemas/AssociatedKeyValuesQuery"
+      responses:
+        201:
+          description: Created a new limiter rule
+        400:
+          description: Error parsing or validating the request body
+          content:
+            appplication/json:
+              schema:
+                type: object
+                properties:
+                  ApiError:
+                    $ref: "#/components/schemas/ApiError"
+        422:
+          description: Conflict if another rule overide already exists with the same key values
+          content:
+            appplication/json:
+              schema:
+                type: object
+                properties:
+                  ApiError:
+                    $ref: "#/components/schemas/ApiError"
+  /v1/limiter/items/increment:
+    post:
+      requestBody:
+        description: |
+          Increment a particular group of key value pairs.
+          TODO: does this request block if the keys cannot be incremented or does the client retry?
+        required: true
+        content:
+          appplication/json:
+            schema:
+              $ref: "#/components/schemas/KeyValues"
+      responses:
+        201:
+          description: Increment a group of Key Value Pairs
+        400:
+          description: Error parsing or validating the request body
+          content:
+            appplication/json:
+              schema:
+                type: object
+                properties:
+                  ApiError:
+                    $ref: "#/components/schemas/ApiError"
+        409:
+          description: Conflict if a particular rule's limits are already hit
+          content:
+            appplication/json:
+              schema:
+                type: object
+                properties:
+                  ApiError:
+                    $ref: "#/components/schemas/LimitReachedResponse"
+  /v1/limiter/items/decrement:
+    delete:
+      requestBody:
+        description: |
+          decrement a particular group of key value pairs.
+        required: true
+        content:
+          appplication/json:
+            schema:
+              $ref: "#/components/schemas/KeyValues"
+      responses:
+        204:
+          description: kkey values pair was decremeneted
+        400:
+          description: Error parsing or validating the request body
+          content:
+            appplication/json:
+              schema:
+                type: object
+                properties:
+                  ApiError:
+                    $ref: "#/components/schemas/ApiError"
 
 components:
   schemas:
@@ -201,3 +296,112 @@ components:
           description: |
             Can be any value that is associated to the DataType
           type: object
+
+    # create a new rule request
+    CreateRuleRequest:
+      type: object
+      required:
+        - Name
+        - GroupBy
+        - Limit
+      properties:
+        Name:
+          description: "Name of the rule to create"
+          type: string
+        GroupBy:
+          description: |
+            GroupBy defines the keys for any Key + Value Pairs that make a unique pairing.
+            These are matched on the /v1/items/increment api to know when limits are reached.
+          type: array
+          items:
+            type: string
+        Query:
+          description: "Optional query to filter out unwanted Key + Value Pairs"
+          $ref: "#/components/schemas/AssociatedKeyValuesQuery"
+        Limit:
+          type: integer
+          format: uint64
+
+    # Uppdate rule request
+    UpdateRuleRequest:
+      type: object
+      required:
+        - Limit
+      properties:
+        Limit:
+          type: integer
+          format: uint64
+          description: default limit that all rules adhere to
+
+    # Find rule request
+    FindRuleRequest:
+      type: object
+      properties:
+        Name:
+          description: "Name of the rule to find"
+          type: string
+        KeyValues:
+          $ref: "#/components/schemas/KeyValues"
+        IncludeOverrides:
+          type: boolean
+          default: false
+    # Find rule response
+    FindRuleResponse:
+      type: array
+      items:
+        type: object
+        properties:
+          Name:
+            type: string
+          GroupBy:
+            type: array
+            items:
+              type: string
+          Query:
+            $ref: "#/components/schemas/AssociatedKeyValuesQuery"
+          Limit:
+            type: integer
+            format: uint64
+          RuleOverrides:
+            type: array
+            items:
+              type: object
+              properties:
+                KeyValues:
+                  $ref: "#/components/schemas/KeyValues"
+                Limit:
+                  type: integer
+                  format: uint64
+
+    # create a new rule request
+    CreateRuleOverrideRequest:
+      type: object
+      required:
+        - Name
+        - KeyValues
+        - Limit
+      properties:
+        Name:
+          description: "Name of the override rule to create"
+          type: string
+        KeyValues:
+          $ref: "#/components/schemas/KeyValues"
+        Limit:
+          type: integer
+          format: uint64
+
+    # incremenet response if a rule has already been reached
+    LimitReachedResponse:
+      type: object
+      properties:
+        RuleName:
+          type: string
+        Override:
+          description: if an override was used to determine the limits reached
+          type: object
+          properties:
+            KeyValues:
+              $ref: "#/components/schemas/KeyValues"
+            Limit:
+              type: integer
+              format: uint64

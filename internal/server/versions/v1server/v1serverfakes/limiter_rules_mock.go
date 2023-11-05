@@ -70,6 +70,18 @@ func (mr *MockLimitRuleHandlerMockRecorder) Delete(arg0, arg1 interface{}) *gomo
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockLimitRuleHandler)(nil).Delete), arg0, arg1)
 }
 
+// DeleteOverride mocks base method.
+func (m *MockLimitRuleHandler) DeleteOverride(arg0 http.ResponseWriter, arg1 *http.Request) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "DeleteOverride", arg0, arg1)
+}
+
+// DeleteOverride indicates an expected call of DeleteOverride.
+func (mr *MockLimitRuleHandlerMockRecorder) DeleteOverride(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteOverride", reflect.TypeOf((*MockLimitRuleHandler)(nil).DeleteOverride), arg0, arg1)
+}
+
 // Find mocks base method.
 func (m *MockLimitRuleHandler) Find(arg0 http.ResponseWriter, arg1 *http.Request) {
 	m.ctrl.T.Helper()

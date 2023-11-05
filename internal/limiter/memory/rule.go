@@ -1,6 +1,7 @@
 package memory
 
 import (
+	"net/http"
 	"sync"
 
 	btreeassociated "github.com/DanLavine/willow/internal/datastructures/btree_associated"
@@ -42,7 +43,7 @@ func (r *rule) Update(logger *zap.Logger, newLimit uint64) {
 	r.ruleModel.Limit = uint64(newLimit)
 }
 
-func (r *rule) SetOverride(logger *zap.Logger, override *v1limiter.RuleOverride) *api.Error {
+func (r *rule) SetOverride(logger *zap.Logger, override *v1limiter.RuleOverrideRequest) *api.Error {
 	logger = logger.Named("SetOverride")
 
 	// set an override iff the tags aare valid
@@ -74,15 +75,17 @@ func (r *rule) SetOverride(logger *zap.Logger, override *v1limiter.RuleOverride)
 	return nil
 }
 
-func (r *rule) DeleteOverride(logger *zap.Logger, override *v1limiter.RuleOverride) *api.Error {
+func (r *rule) DeleteOverride(logger *zap.Logger, query query.AssociatedKeyValuesQuery) *api.Error {
 	logger = logger.Named("DeleteOverride")
 
-	if err := r.overrides.Delete(override.KeyValues, func(_ any) bool { return true }); err != nil {
-		logger.Error("failed to delete a rule override", zap.Error(err))
-		return errors.InternalServerError.With("", err.Error())
-	}
+	// if err := r.overrides.Delete(override.KeyValues, func(_ any) bool { return true }); err != nil {
+	// 	logger.Error("failed to delete a rule override", zap.Error(err))
+	// 	return errors.InternalServerError.With("", err.Error())
+	// }
 
-	return nil
+	// return nil
+
+	return &api.Error{Message: "not implemented delete override", StatusCode: http.StatusNotImplemented}
 }
 
 func (r *rule) FindLimit(logger *zap.Logger, keyValues datatypes.KeyValues) uint64 {

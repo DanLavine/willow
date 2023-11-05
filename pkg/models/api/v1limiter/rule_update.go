@@ -8,7 +8,7 @@ import (
 )
 
 type RuleUpdateRequest struct {
-	// Name of the rule
+	// TODO: remove me
 	Name string
 
 	// Limit Key is an optional param that can be used to dictate what value of the tags to use as a limiter

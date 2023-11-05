@@ -62,6 +62,7 @@ func TestLimiterTCP_ShutdownBehavior(t *testing.T) {
 
 		mockController := gomock.NewController(t)
 		defer mockController.Finish()
+
 		fakeLimitHandler := v1serverfakes.NewMockLimitRuleHandler(mockController)
 		fakeLimitHandler.EXPECT().Create(gomock.Any(), gomock.Any()).Do(func(w http.ResponseWriter, r *http.Request) {
 			handlerChan <- struct{}{}
@@ -91,7 +92,7 @@ func TestLimiterTCP_ShutdownBehavior(t *testing.T) {
 
 		// make a request to the server
 		client := testclient.Limiter(g)
-		httpRequest, err := http.NewRequest("GET", "https://127.0.0.1:8080/v1/group_rules/create", nil)
+		httpRequest, err := http.NewRequest("POST", "https://127.0.0.1:8080/v1/limiter/rules/create", nil)
 		g.Expect(err).ToNot(HaveOccurred())
 
 		respChan := make(chan *http.Response)

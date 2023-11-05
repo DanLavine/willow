@@ -5,7 +5,6 @@ import (
 	"io"
 
 	"github.com/DanLavine/willow/pkg/models/api"
-	"github.com/DanLavine/willow/pkg/models/datatypes"
 	"github.com/DanLavine/willow/pkg/models/query"
 )
 
@@ -55,33 +54,4 @@ func (rreq *RuleRequest) Validate() *api.Error {
 	}
 
 	return nil
-}
-
-type RuleResponse struct {
-	// Name of the rule
-	Name string
-
-	// These can be used to create a rule groupiing that any tags will have to match agains
-	GroupBy []string
-
-	// When comparing tags, use this selection to figure out if a rule applies to them
-	Query query.AssociatedKeyValuesQuery
-
-	// Limit Key is an optional param that can be used to dictate what value of the tags to use as a limiter
-	Limit uint64
-
-	// all the rule overrides
-	RuleOverrides []RuleOverrideResponse
-}
-
-type RuleOverrideResponse struct {
-	// The possible key values for the overrides
-	KeyValues datatypes.KeyValues
-
-	// The new limit to use for the paricular mapping
-	Limit uint64
-}
-
-func (rresp *RuleResponse) ToBytes() ([]byte, error) {
-	return json.Marshal(rresp)
 }
