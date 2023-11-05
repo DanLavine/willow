@@ -30,50 +30,94 @@ func TestLimiterConfig(t *testing.T) {
 
 	baseArgs := []string{"-limiter-server-key", serverKey.Name(), "-limiter-server-crt", serverCRT.Name()}
 
-	t.Run("It returns an error if the 'limiter-server-key' is not set", func(t *testing.T) {
-		cfg, err := Limiter(nil)
-		g.Expect(cfg).To(BeNil())
-		g.Expect(err).To(HaveOccurred())
-		g.Expect(err.Error()).To(Equal("param 'limiter-server-key' is not set"))
-	})
-
-	t.Run("It returns an error if the 'limiter-server-crt' is not set", func(t *testing.T) {
-		cfg, err := Limiter([]string{"-limiter-server-key", serverKey.Name()})
-		g.Expect(cfg).To(BeNil())
-		g.Expect(err).To(HaveOccurred())
-		g.Expect(err.Error()).To(Equal("param 'limiter-server-crt' is not set"))
-	})
-
-	t.Run("limter-server keys can be set via env vars", func(t *testing.T) {
-		os.Setenv("LIMITER_SERVER_KEY", serverKey.Name())
-		os.Setenv("LIMITER_SERVER_CRT", serverCRT.Name())
-		defer func() {
-			defer os.Unsetenv("LIMITER_SERVER_KEY")
-			defer os.Unsetenv("LIMITER_SERVER_CRT")
-		}()
-
-		cfg, err := Limiter(nil)
-		g.Expect(err).ToNot(HaveOccurred())
-		g.Expect(*cfg.LimiterServerKey).To(Equal(serverKey.Name()))
-		g.Expect(*cfg.LimiterServerCRT).To(Equal(serverCRT.Name()))
-	})
-
-	t.Run("Describe CA certificate", func(t *testing.T) {
-		t.Run("It can be set via command line params", func(t *testing.T) {
-			cfg, err := Limiter(append(baseArgs, "-limiter-ca", caCrt.Name()))
-			g.Expect(err).ToNot(HaveOccurred())
-			g.Expect(*cfg.LimiterCA).To(Equal(caCrt.Name()))
+	t.Run("Describe HTTPs server configuration", func(t *testing.T) {
+		t.Run("It returns an error if the 'limiter-server-key' is not set", func(t *testing.T) {
+			cfg, err := Limiter(nil)
+			g.Expect(cfg).To(BeNil())
+			g.Expect(err).To(HaveOccurred())
+			g.Expect(err.Error()).To(Equal("param 'limiter-server-key' is not set"))
 		})
 
-		t.Run("It can be set via an env var", func(t *testing.T) {
-			os.Setenv("LIMITER_CA", caCrt.Name())
+		t.Run("It returns an error if the 'limiter-server-crt' is not set", func(t *testing.T) {
+			cfg, err := Limiter([]string{"-limiter-server-key", serverKey.Name()})
+			g.Expect(cfg).To(BeNil())
+			g.Expect(err).To(HaveOccurred())
+			g.Expect(err.Error()).To(Equal("param 'limiter-server-crt' is not set"))
+		})
+
+		t.Run("limter-server keys can be set via env vars", func(t *testing.T) {
+			os.Setenv("LIMITER_SERVER_KEY", serverKey.Name())
+			os.Setenv("LIMITER_SERVER_CRT", serverCRT.Name())
 			defer func() {
-				defer os.Unsetenv("LOG_LEVEL")
+				defer os.Unsetenv("LIMITER_SERVER_KEY")
+				defer os.Unsetenv("LIMITER_SERVER_CRT")
 			}()
 
-			cfg, err := Limiter(baseArgs)
+			cfg, err := Limiter(nil)
 			g.Expect(err).ToNot(HaveOccurred())
-			g.Expect(*cfg.LimiterCA).To(Equal(caCrt.Name()))
+			g.Expect(*cfg.LimiterServerKey).To(Equal(serverKey.Name()))
+			g.Expect(*cfg.LimiterServerCRT).To(Equal(serverCRT.Name()))
+		})
+
+		t.Run("Describe CA certificate", func(t *testing.T) {
+			t.Run("It can be set via command line params", func(t *testing.T) {
+				cfg, err := Limiter(append(baseArgs, "-limiter-ca", caCrt.Name()))
+				g.Expect(err).ToNot(HaveOccurred())
+				g.Expect(*cfg.LimiterCA).To(Equal(caCrt.Name()))
+			})
+
+			t.Run("It can be set via an env var", func(t *testing.T) {
+				os.Setenv("LIMITER_CA", caCrt.Name())
+				defer func() {
+					defer os.Unsetenv("LIMITER_CA")
+				}()
+
+				cfg, err := Limiter(baseArgs)
+				g.Expect(err).ToNot(HaveOccurred())
+				g.Expect(*cfg.LimiterCA).To(Equal(caCrt.Name()))
+			})
+		})
+	})
+
+	t.Run("Describe HTTP server configuration", func(t *testing.T) {
+		t.Run("It accepts 'limiter-insecure-http' to be set via command line", func(t *testing.T) {
+			cfg, err := Limiter([]string{"-limiter-insecure-http"})
+			g.Expect(err).ToNot(HaveOccurred())
+			g.Expect(cfg).ToNot(BeNil())
+			g.Expect(*cfg.LimiterInsecureHTTP).To(BeTrue())
+		})
+
+		t.Run("It accepts 'limiter-insecure-http' to be set via env var", func(t *testing.T) {
+			os.Setenv("LIMITER_INSECURE_HTTP", "true")
+			defer func() {
+				defer os.Unsetenv("LIMITER_INSECURE_HTTP")
+			}()
+
+			cfg, err := Limiter([]string{})
+			g.Expect(err).ToNot(HaveOccurred())
+			g.Expect(cfg).ToNot(BeNil())
+			g.Expect(*cfg.LimiterInsecureHTTP).To(BeTrue())
+		})
+
+		t.Run("It returns an error if the 'limiter-ca' is set", func(t *testing.T) {
+			cfg, err := Limiter([]string{"-limiter-insecure-http", "-limiter-ca", "something"})
+			g.Expect(err).To(HaveOccurred())
+			g.Expect(err.Error()).To(Equal("param 'limiter-ca' can not be set with 'limiter-insecure-http'"))
+			g.Expect(cfg).To(BeNil())
+		})
+
+		t.Run("It returns an error if the 'limiter-server-crt' is set", func(t *testing.T) {
+			cfg, err := Limiter([]string{"-limiter-insecure-http", "-limiter-server-crt", "something"})
+			g.Expect(err).To(HaveOccurred())
+			g.Expect(err.Error()).To(Equal("param 'limiter-server-crt' can not be set with 'limiter-insecure-http'"))
+			g.Expect(cfg).To(BeNil())
+		})
+
+		t.Run("It returns an error if the 'limiter-server-key' is set", func(t *testing.T) {
+			cfg, err := Limiter([]string{"-limiter-insecure-http", "-limiter-server-key", "something"})
+			g.Expect(err).To(HaveOccurred())
+			g.Expect(err.Error()).To(Equal("param 'limiter-server-key' can not be set with 'limiter-insecure-http'"))
+			g.Expect(cfg).To(BeNil())
 		})
 	})
 

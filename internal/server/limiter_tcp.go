@@ -11,6 +11,7 @@ import (
 	"github.com/DanLavine/urlrouter"
 	"github.com/DanLavine/willow/internal/config"
 	"github.com/DanLavine/willow/internal/server/versions/v1server"
+	"github.com/go-openapi/runtime/middleware"
 	"go.uber.org/zap"
 	"golang.org/x/net/http2"
 )
@@ -40,33 +41,39 @@ func (limiter *limiterTCP) Initialize() error {
 		Addr: fmt.Sprintf(":%s", *limiter.config.LimiterPort),
 	}
 
-	// load the server CRT and Key
-	cert, err := tls.LoadX509KeyPair(*limiter.config.LimiterServerCRT, *limiter.config.LimiterServerKey)
-	if err != nil {
-		return err
-	}
-
-	// add them to the server
-	server.TLSConfig = &tls.Config{
-		Certificates: []tls.Certificate{cert},
-	}
-
-	// load the CA cert if it exists
-	if *limiter.config.LimiterCA != "" {
-		CaPEM, err := os.ReadFile(*limiter.config.LimiterCA)
+	if !*limiter.config.LimiterInsecureHTTP {
+		// load the server CRT and Key
+		cert, err := tls.LoadX509KeyPair(*limiter.config.LimiterServerCRT, *limiter.config.LimiterServerKey)
 		if err != nil {
 			return err
 		}
-		CAs := x509.NewCertPool()
-		if !CAs.AppendCertsFromPEM(CaPEM) {
-			return fmt.Errorf("failed to parse LimiterCA")
+
+		// add them to the server
+		server.TLSConfig = &tls.Config{
+			Certificates: []tls.Certificate{cert},
 		}
 
-		server.TLSConfig.RootCAs = CAs
-	}
+		// load the CA cert if it exists
+		if *limiter.config.LimiterCA != "" {
+			CaPEM, err := os.ReadFile(*limiter.config.LimiterCA)
+			if err != nil {
+				return err
+			}
+			CAs := x509.NewCertPool()
+			if !CAs.AppendCertsFromPEM(CaPEM) {
+				return fmt.Errorf("failed to parse LimiterCA")
+			}
 
-	// enforce using http2
-	limiter.server = server
+			server.TLSConfig.RootCAs = CAs
+		}
+
+		// enforce using http2
+		limiter.server = server
+		http2.ConfigureServer(limiter.server, &http2.Server{})
+	} else {
+		// set to http
+		limiter.server = server
+	}
 
 	// certs loaded successfully
 	return nil
@@ -75,6 +82,23 @@ func (limiter *limiterTCP) Initialize() error {
 func (limiter *limiterTCP) Execute(ctx context.Context) error {
 	logger := limiter.logger
 	mux := urlrouter.New()
+
+	// OpenAPI endpoints
+	// api url to server all the OpenAPI files
+	mux.HandleFunc("GET", "/docs/openapi/", func(w http.ResponseWriter, r *http.Request) {
+		handle := http.StripPrefix("/docs/openapi/", http.FileServer(http.Dir("./docs/openapi/limiter")))
+		handle.ServeHTTP(w, r)
+	})
+
+	// ui that calls the files and knows what to do
+	mux.HandleFunc("GET", "/docs", func(w http.ResponseWriter, r *http.Request) {
+		middleware.Redoc(middleware.RedocOpts{
+			BasePath: "/",
+			Path:     "docs",
+			SpecURL:  "/docs/openapi/openapi.yaml",
+			Title:    "Limiter API Documentation",
+		}, nil).ServeHTTP(w, r)
+	})
 
 	// crud operations for group rules
 	// These operations seem more like a normal DB that I want to do...
@@ -93,7 +117,6 @@ func (limiter *limiterTCP) Execute(ctx context.Context) error {
 
 	// set the server mux
 	limiter.server.Handler = mux
-	http2.ConfigureServer(limiter.server, &http2.Server{})
 
 	// handle shutdown
 	shutdownErr := make(chan error)
@@ -103,19 +126,36 @@ func (limiter *limiterTCP) Execute(ctx context.Context) error {
 	}()
 
 	// return any error other than the server closed
-	logger.Info("Limiter TCP server running")
-	if err := limiter.server.ListenAndServeTLS("", ""); err != nil {
-		select {
-		case <-ctx.Done():
-			if err != http.ErrServerClosed {
-				// must be an unexpected error during shutdown
+	logger.Info("Limiter TCP server running", zap.String("port", *limiter.config.LimiterPort))
+	if *limiter.config.LimiterInsecureHTTP {
+		if err := limiter.server.ListenAndServe(); err != nil {
+			select {
+			case <-ctx.Done():
+				if err != http.ErrServerClosed {
+					// must be an unexpected error during shutdown
+					return err
+				}
+
+				// context was closed and server closed error. clean shutdown case
+			default:
+				// always return the error if the context was not closed
 				return err
 			}
+		}
+	} else {
+		if err := limiter.server.ListenAndServeTLS("", ""); err != nil {
+			select {
+			case <-ctx.Done():
+				if err != http.ErrServerClosed {
+					// must be an unexpected error during shutdown
+					return err
+				}
 
-			// context was closed and server closed error. clean shutdown case
-		default:
-			// always return the error if the context was not closed
-			return err
+				// context was closed and server closed error. clean shutdown case
+			default:
+				// always return the error if the context was not closed
+				return err
+			}
 		}
 	}
 

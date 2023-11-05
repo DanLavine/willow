@@ -6,8 +6,9 @@ info:
   version: a0.0.1
 
 paths:
-  /v1/limiter/rules/crerate:
+  /v1/limiter/rules/create:
     post:
+      operationId: create rule
       requestBody:
         description: |
           Create a new Limiter Rule.
@@ -39,23 +40,22 @@ paths:
                     $ref: "#/components/schemas/ApiError"
   /v1/limiter/rules/find:
     get:
+      operationId: Find Rule by Name
       description: |
-        Delete a particualr rule and any overrides associated with the rule
+        Find rules that match a specific name
       requestBody:
-        description: |
-          Find any rules that match the provided criteria.
         required: true
         content:
           appplication/json:
             schema:
-              $ref: "#/components/schemas/FindRuleRequest"
+              $ref: "#/components/schemas/FindRuleByNameRequest"
       responses:
         200:
           description: Successfully searched for any rules that matched the query
           content:
             appplication/json:
               schema:
-                $ref: "#/components/schemas/FindRuleResponse"
+                $ref: "#/components/schemas/ListRulesResponse"
         400:
           description: Error parsing or validating the request
           content:
@@ -65,8 +65,38 @@ paths:
                 properties:
                   ApiError:
                     $ref: "#/components/schemas/ApiError"
+  /v1/limiter/rules/match:
+    get:
+      operationId: Find Rules that match Key Values
+      description: |
+        Query rules that match any particualr Key Values
+      requestBody:
+        required: true
+        content:
+          appplication/json:
+            schema:
+              $ref: "#/components/schemas/FindRulesByKeyValuesRequest"
+      responses:
+        200:
+          description: Successfully searched for any rules that matched the query
+          content:
+            appplication/json:
+              schema:
+                $ref: "#/components/schemas/ListRulesResponse"
+        400:
+          description: Error parsing or validating the request
+          content:
+            appplication/json:
+              schema:
+                type: object
+                properties:
+                  ApiError:
+                    $ref: "#/components/schemas/ApiError"
+    #match:
+    #  openapi: Find Rules match Key Values
   /v1/limiter/rules/:name/update:
     post:
+      operationId: update rule
       requestBody:
         description: |
           update a limiter rule.
@@ -98,6 +128,7 @@ paths:
                     $ref: "#/components/schemas/ApiError"
   /v1/limiter/rules/:name/delete:
     delete:
+      operationId: delete rule
       description: |
         Delete a particualr rule and any overrides associated with the rule
       responses:
@@ -105,6 +136,7 @@ paths:
           description: Successfully deleted the rule and all associatted overrides
   /v1/limiter/rules/:name/override:
     post:
+      operationId: create rule override
       requestBody:
         description: |
           Create a new Override rule for a specifc set of Key Value pairs
@@ -135,6 +167,7 @@ paths:
                   ApiError:
                     $ref: "#/components/schemas/ApiError"
     delete:
+      operationId: delete rule override
       requestBody:
         description: |
           delete any rule overrides that match the provided query
@@ -166,6 +199,7 @@ paths:
                     $ref: "#/components/schemas/ApiError"
   /v1/limiter/items/increment:
     post:
+      operationId: increment Key Values Pair
       requestBody:
         description: |
           Increment a particular group of key value pairs.
@@ -177,7 +211,7 @@ paths:
               $ref: "#/components/schemas/KeyValues"
       responses:
         201:
-          description: Increment a group of Key Value Pairs
+          description: Increment a group of Key Value Group
         400:
           description: Error parsing or validating the request body
           content:
@@ -198,6 +232,7 @@ paths:
                     $ref: "#/components/schemas/LimitReachedResponse"
   /v1/limiter/items/decrement:
     delete:
+      operationId: decrement Key Values Group
       requestBody:
         description: |
           decrement a particular group of key value pairs.
@@ -208,7 +243,7 @@ paths:
               $ref: "#/components/schemas/KeyValues"
       responses:
         204:
-          description: kkey values pair was decremeneted
+          description: Key Values Group was decremeneted
         400:
           description: Error parsing or validating the request body
           content:
@@ -310,15 +345,16 @@ components:
           type: string
         GroupBy:
           description: |
-            GroupBy defines the keys for any Key + Value Pairs that make a unique pairing.
-            These are matched on the /v1/items/increment api to know when limits are reached.
+            GroupBy defines the keys for any Key + Value Pairs that make a unique group for the rule.
+            These are matched agains the item counters to know when limits are reached.
           type: array
           items:
             type: string
-        Query:
-          description: "Optional query to filter out unwanted Key + Value Pairs"
+        QueryFilter:
+          description: "Optional query to select specific or filter out unwanted Key Values"
           $ref: "#/components/schemas/AssociatedKeyValuesQuery"
         Limit:
+          description: "Max limit for any Key Value Group"
           type: integer
           format: uint64
 
@@ -333,20 +369,27 @@ components:
           format: uint64
           description: default limit that all rules adhere to
 
-    # Find rule request
-    FindRuleRequest:
+    # Find rule by name
+    FindRuleByNameRequest:
       type: object
       properties:
         Name:
           description: "Name of the rule to find"
           type: string
+        IncludeOverrides:
+          type: boolean
+          default: false
+    FindRulesByKeyValuesRequest:
+      type: object
+      properties:
         KeyValues:
+          description: "Key Values to match rules against"
           $ref: "#/components/schemas/KeyValues"
         IncludeOverrides:
           type: boolean
           default: false
     # Find rule response
-    FindRuleResponse:
+    ListRulesResponse:
       type: array
       items:
         type: object

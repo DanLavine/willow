@@ -13,6 +13,7 @@ import (
 	"github.com/DanLavine/willow/internal/logger"
 	"github.com/DanLavine/willow/internal/server"
 	"github.com/DanLavine/willow/internal/server/versions/v1server"
+	"go.uber.org/zap"
 )
 
 func main() {
@@ -35,7 +36,7 @@ func main() {
 	// start all processes
 	shutdown, _ := signal.NotifyContext(context.Background(), syscall.SIGINT)
 	if errs := taskManager.Run(shutdown); errs != nil {
-		log.Fatal("Failed runnng willow cleanly", errs)
+		logger.Fatal("Failed runnng Limiter cleanly", zap.Any("errors", errs))
 	}
 
 	logger.Info("Successfully shutdown")

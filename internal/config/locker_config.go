@@ -130,8 +130,8 @@ func (lc *LockerConfig) validate() error {
 	}
 
 	if *lc.LockerInsecureHTTP {
-		if *lc.LockerServerCRT != "" {
-			return fmt.Errorf("pram 'locker-server-crt' needds to be nil if using the 'locker-insecure-http'")
+		if *lc.LockerCA != "" {
+			return fmt.Errorf("pram 'locker-ca' needs to be nil if using the 'locker-insecure-http'")
 		}
 
 		if *lc.LockerServerKey != "" {
@@ -142,6 +142,8 @@ func (lc *LockerConfig) validate() error {
 			return fmt.Errorf("pram 'locker-server-crt' needds to be nil if using the 'locker-insecure-http'")
 		}
 	} else {
+		// ca key is optional. Could be added on a system level
+
 		// tls key
 		if *lc.LockerServerKey == "" {
 			return fmt.Errorf("param 'locker-server-key' is not set")

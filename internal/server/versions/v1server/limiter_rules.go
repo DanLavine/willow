@@ -22,9 +22,6 @@ type LimitRuleHandler interface {
 	Create(w http.ResponseWriter, r *http.Request)
 	Update(w http.ResponseWriter, r *http.Request)
 	Delete(w http.ResponseWriter, r *http.Request)
-
-	// read group rules
-	List(w http.ResponseWriter, r *http.Request)
 	Find(w http.ResponseWriter, r *http.Request)
 
 	// overide operations
