@@ -6,9 +6,9 @@ info:
   version: a0.0.1
 
 paths:
-  /v1/limiter/rules/create:
+  /v1/limiter/rules:
     post:
-      operationId: create rule
+      operationId: create Rule
       requestBody:
         description: |
           Create a new Limiter Rule.
@@ -38,68 +38,66 @@ paths:
                 properties:
                   ApiError:
                     $ref: "#/components/schemas/ApiError"
-  /v1/limiter/rules/find:
     get:
-      operationId: Find Rule by Name
-      description: |
-        Find rules that match a specific name
-      requestBody:
-        required: true
-        content:
-          appplication/json:
-            schema:
-              $ref: "#/components/schemas/FindRuleByNameRequest"
-      responses:
-        200:
-          description: Successfully searched for any rules that matched the query
-          content:
-            appplication/json:
-              schema:
-                $ref: "#/components/schemas/ListRulesResponse"
-        400:
-          description: Error parsing or validating the request
-          content:
-            appplication/json:
-              schema:
-                type: object
-                properties:
-                  ApiError:
-                    $ref: "#/components/schemas/ApiError"
-  /v1/limiter/rules/match:
-    get:
-      operationId: Find Rules that match Key Values
-      description: |
-        Query rules that match any particualr Key Values
-      requestBody:
-        required: true
-        content:
-          appplication/json:
-            schema:
-              $ref: "#/components/schemas/FindRulesByKeyValuesRequest"
-      responses:
-        200:
-          description: Successfully searched for any rules that matched the query
-          content:
-            appplication/json:
-              schema:
-                $ref: "#/components/schemas/ListRulesResponse"
-        400:
-          description: Error parsing or validating the request
-          content:
-            appplication/json:
-              schema:
-                type: object
-                properties:
-                  ApiError:
-                    $ref: "#/components/schemas/ApiError"
-    #match:
-    #  openapi: Find Rules match Key Values
-  /v1/limiter/rules/:name/update:
-    post:
-      operationId: update rule
+      operationId: list Rules
       requestBody:
         description: |
-          update a limiter rule.
+          Query rules that match any particular Key Values
+        required: true
+        content:
+          appplication/json:
+            schema:
+              $ref: "#/components/schemas/ListRulesRequest"
+      responses:
+        200:
+          description: Successfully searched for any rules that matched the query
+          content:
+            appplication/json:
+              schema:
+                $ref: "#/components/schemas/ListRulesResponse"
+        400:
+          description: Error parsing or validating the request
+          content:
+            appplication/json:
+              schema:
+                type: object
+                properties:
+                  ApiError:
+                    $ref: "#/components/schemas/ApiError"
+  /v1/limiter/rules/:name:
+    get:
+      operationId: get Rule
+      responses:
+        200:
+          description: |
+            Retrieve a single Rule's specificationo
+          content:
+            appplication/json:
+              schema:
+                $ref: "#/components/schemas/ListRulesResponse"
+        400:
+          description: Error parsing or validating the request
+          content:
+            appplication/json:
+              schema:
+                type: object
+                properties:
+                  ApiError:
+                    $ref: "#/components/schemas/ApiError"
+        422:
+          description: The Rule could not be found
+          content:
+            appplication/json:
+              schema:
+                type: object
+                properties:
+                  ApiError:
+                    $ref: "#/components/schemas/ApiError"
+    put:
+      operationId: update Rule
+      requestBody:
+        description: |
+          update a specific Rule.
         required: true
         content:
           appplication/json:
@@ -126,17 +124,16 @@ paths:
                 properties:
                   ApiError:
                     $ref: "#/components/schemas/ApiError"
-  /v1/limiter/rules/:name/delete:
     delete:
-      operationId: delete rule
+      operationId: delete Rule
       description: |
-        Delete a particualr rule and any overrides associated with the rule
+        Delete a specific rule and any overrides associated with the rule
       responses:
         204:
           description: Successfully deleted the rule and all associatted overrides
-  /v1/limiter/rules/:name/override:
+  /v1/limiter/rules/:name/overrides:
     post:
-      operationId: create rule override
+      operationId: create Rule Override
       requestBody:
         description: |
           Create a new Override rule for a specifc set of Key Value pairs
@@ -144,7 +141,7 @@ paths:
         content:
           appplication/json:
             schema:
-              $ref: "#/components/schemas/CreateRuleOverrideRequest"
+              $ref: "#/components/schemas/RuleOverride"
       responses:
         201:
           description: Created a new limiter rule
@@ -153,12 +150,51 @@ paths:
           content:
             appplication/json:
               schema:
+                $ref: "#/components/schemas/ApiError"
+        422:
+          description: Conflict if another rule overide already exists with the same key values
+          content:
+            appplication/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    get:
+      operationId: list Rule Overrides
+      requestBody:
+        description: |
+          list any rule overrides that match the provided Key Values
+        required: true
+        content:
+          appplication/json:
+            schema:
+              $ref: "#/components/schemas/KeyValues"
+      responses:
+        200:
+          description: A collection of rules
+          content:
+            appplication/json:
+              schema:
+                $ref: "#/components/schemas/RuleOverrides"
+  /v1/limiter/rules/:name/overrides/:override_name:
+    get:
+      operationId: get Rule Override
+      responses:
+        200:
+          description: Successfully found the Rule Override
+          content:
+            appplication/json:
+              schema:
+                $ref: "#/components/schemas/RuleOverride"
+        400:
+          description: Error parsing or validating the request
+          content:
+            appplication/json:
+              schema:
                 type: object
                 properties:
                   ApiError:
                     $ref: "#/components/schemas/ApiError"
         422:
-          description: Conflict if another rule overide already exists with the same key values
+          description: The Rule or Rule Override could not be found
           content:
             appplication/json:
               schema:
@@ -167,29 +203,12 @@ paths:
                   ApiError:
                     $ref: "#/components/schemas/ApiError"
     delete:
-      operationId: delete rule override
-      requestBody:
-        description: |
-          delete any rule overrides that match the provided query
-        required: true
-        content:
-          appplication/json:
-            schema:
-              $ref: "#/components/schemas/AssociatedKeyValuesQuery"
+      operationId: delete Rule Override
       responses:
-        201:
-          description: Created a new limiter rule
-        400:
-          description: Error parsing or validating the request body
-          content:
-            appplication/json:
-              schema:
-                type: object
-                properties:
-                  ApiError:
-                    $ref: "#/components/schemas/ApiError"
+        204:
+          description: deleted the Rule Override
         422:
-          description: Conflict if another rule overide already exists with the same key values
+          description: Conflict if the Rule or Rule Override do not exist
           content:
             appplication/json:
               schema:
@@ -197,12 +216,12 @@ paths:
                 properties:
                   ApiError:
                     $ref: "#/components/schemas/ApiError"
-  /v1/limiter/items/increment:
+  /v1/limiter/items:
     post:
-      operationId: increment Key Values Pair
+      operationId: increment Key Values Group
       requestBody:
         description: |
-          Increment a particular group of key value pairs.
+          Increment the Key Values Group
           TODO: does this request block if the keys cannot be incremented or does the client retry?
         required: true
         content:
@@ -211,7 +230,7 @@ paths:
               $ref: "#/components/schemas/KeyValues"
       responses:
         201:
-          description: Increment a group of Key Value Group
+          description: Incremented a the Key Value Group
         400:
           description: Error parsing or validating the request body
           content:
@@ -230,12 +249,11 @@ paths:
                 properties:
                   ApiError:
                     $ref: "#/components/schemas/LimitReachedResponse"
-  /v1/limiter/items/decrement:
     delete:
       operationId: decrement Key Values Group
       requestBody:
         description: |
-          decrement a particular group of key value pairs.
+          Decrement the Key Values Group. If the index would be 0, the group is removed entierly
         required: true
         content:
           appplication/json:
@@ -369,23 +387,15 @@ components:
           format: uint64
           description: default limit that all rules adhere to
 
-    # Find rule by name
-    FindRuleByNameRequest:
-      type: object
-      properties:
-        Name:
-          description: "Name of the rule to find"
-          type: string
-        IncludeOverrides:
-          type: boolean
-          default: false
-    FindRulesByKeyValuesRequest:
+    # List rules that match the provided key values
+    ListRulesRequest:
       type: object
       properties:
         KeyValues:
           description: "Key Values to match rules against"
           $ref: "#/components/schemas/KeyValues"
         IncludeOverrides:
+          description: "Include any override values that match the provided key values as well"
           type: boolean
           default: false
     # Find rule response
@@ -417,7 +427,7 @@ components:
                   format: uint64
 
     # create a new rule request
-    CreateRuleOverrideRequest:
+    RuleOverride:
       type: object
       required:
         - Name
@@ -432,6 +442,10 @@ components:
         Limit:
           type: integer
           format: uint64
+    RuleOverrides:
+      type: array
+      items:
+        $ref: "#/components/schemas/RuleOverride"
 
     # incremenet response if a rule has already been reached
     LimitReachedResponse:
