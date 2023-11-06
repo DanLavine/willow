@@ -35,6 +35,17 @@ func TestBTree_Random_Create(t *testing.T) {
 			}(key, num)
 		}
 
+		for i := 0; i < iterateCount; i++ {
+			num := iterateCount + i
+			key := datatypes.Int(num)
+
+			wg.Add(1)
+			go func(tKey datatypes.EncapsulatedData, tNum int) {
+				defer wg.Done()
+				g.Expect(bTree.Create(tKey, NewBTreeTester(fmt.Sprintf("%d", tNum)))).ToNot(HaveOccurred())
+			}(key, num)
+		}
+
 		wg.Wait()
 		validateThreadSafeTree(g, bTree.root)
 	})
@@ -56,6 +67,17 @@ func TestBTree_Random_Create(t *testing.T) {
 			}(key, num)
 		}
 
+		for i := 0; i < iterateCount; i++ {
+			num := iterateCount + i
+			key := datatypes.Int(num)
+
+			wg.Add(1)
+			go func(tKey datatypes.EncapsulatedData, tNum int) {
+				defer wg.Done()
+				g.Expect(bTree.Create(tKey, NewBTreeTester(fmt.Sprintf("%d", tNum)))).ToNot(HaveOccurred())
+			}(key, num)
+		}
+
 		wg.Wait()
 		validateThreadSafeTree(g, bTree.root)
 	})
@@ -74,6 +96,17 @@ func TestBTree_Random_Create(t *testing.T) {
 			go func(tKey datatypes.EncapsulatedData, tNum int) {
 				defer wg.Done()
 				g.Expect(bTree.CreateOrFind(tKey, NewBTreeTester(fmt.Sprintf("%d", tNum)), OnFindTest)).ToNot(HaveOccurred())
+			}(key, num)
+		}
+
+		for i := 0; i < iterateCount; i++ {
+			num := iterateCount + i
+			key := datatypes.Int(num)
+
+			wg.Add(1)
+			go func(tKey datatypes.EncapsulatedData, tNum int) {
+				defer wg.Done()
+				g.Expect(bTree.Create(tKey, NewBTreeTester(fmt.Sprintf("%d", tNum)))).ToNot(HaveOccurred())
 			}(key, num)
 		}
 
@@ -300,12 +333,19 @@ func TestBTree_Random_AllActions(t *testing.T) {
 					onFindPaginate = onFindPaginateFalse
 				}
 			}
-			// add
+			// create or find
 			wg.Add(1)
 			go func(tKey datatypes.EncapsulatedData, tNum int) {
 				defer wg.Done()
 				g.Expect(bTree.CreateOrFind(tKey, NewBTreeTester(fmt.Sprintf("%d", tNum)), onFindNoOp)).ToNot(HaveOccurred())
 			}(datatypes.Int(i), i)
+
+			// create
+			wg.Add(1)
+			go func(tKey datatypes.EncapsulatedData, tNum int) {
+				defer wg.Done()
+				g.Expect(bTree.Create(tKey, NewBTreeTester(fmt.Sprintf("%d", tNum)))).ToNot(HaveOccurred())
+			}(datatypes.Int(i+10_000), i)
 
 			// find
 			wg.Add(1)
@@ -422,12 +462,19 @@ func TestBTree_Random_AllActions(t *testing.T) {
 					onFindPaginate = onFindPaginateFalse
 				}
 			}
-			// add
+			// create or find
 			wg.Add(1)
 			go func(tKey datatypes.EncapsulatedData, tNum int) {
 				defer wg.Done()
 				g.Expect(bTree.CreateOrFind(tKey, NewBTreeTester(fmt.Sprintf("%d", tNum)), onFindNoOp)).ToNot(HaveOccurred())
 			}(datatypes.Int(i), i)
+
+			// create
+			wg.Add(1)
+			go func(tKey datatypes.EncapsulatedData, tNum int) {
+				defer wg.Done()
+				g.Expect(bTree.Create(tKey, NewBTreeTester(fmt.Sprintf("%d", tNum)))).ToNot(HaveOccurred())
+			}(datatypes.Int(i+10_000), i)
 
 			// find
 			wg.Add(1)
@@ -545,12 +592,19 @@ func TestBTree_Random_AllActions(t *testing.T) {
 					onFindPaginate = onFindPaginateFalse
 				}
 			}
-			// add
+			// create or find
 			wg.Add(1)
 			go func(tKey datatypes.EncapsulatedData, tNum int) {
 				defer wg.Done()
 				g.Expect(bTree.CreateOrFind(tKey, NewBTreeTester(fmt.Sprintf("%d", tNum)), onFindNoOp)).ToNot(HaveOccurred())
 			}(datatypes.Int(i), i)
+
+			// create
+			wg.Add(1)
+			go func(tKey datatypes.EncapsulatedData, tNum int) {
+				defer wg.Done()
+				g.Expect(bTree.Create(tKey, NewBTreeTester(fmt.Sprintf("%d", tNum)))).ToNot(HaveOccurred())
+			}(datatypes.Int(i+10_000), i)
 
 			// find
 			wg.Add(1)

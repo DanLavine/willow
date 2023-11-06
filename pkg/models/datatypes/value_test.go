@@ -1,9 +1,8 @@
-package query
+package datatypes
 
 import (
 	"testing"
 
-	"github.com/DanLavine/willow/pkg/models/datatypes"
 	. "github.com/onsi/gomega"
 )
 
@@ -20,7 +19,7 @@ func Test_Value_validate(t *testing.T) {
 
 	t.Run("It returns an error if both Exists and Value are not nil", func(t *testing.T) {
 		True := true
-		dInt := datatypes.Int(5)
+		dInt := Int(5)
 		value := &Value{Exists: &True, Value: &dInt}
 
 		err := value.validate()
@@ -39,7 +38,7 @@ func Test_Value_validate(t *testing.T) {
 
 		t.Run("It accepts setting an ExistsType", func(t *testing.T) {
 			True := true
-			intType := datatypes.T_int
+			intType := T_int
 			value := &Value{Exists: &True, ExistsType: &intType}
 
 			err := value.validate()
@@ -48,7 +47,7 @@ func Test_Value_validate(t *testing.T) {
 
 		t.Run("It returns an error if the ExistsType is unkown", func(t *testing.T) {
 			True := true
-			badType := datatypes.DataType(8000)
+			badType := DataType(8000)
 			value := &Value{Exists: &True, ExistsType: &badType}
 
 			err := value.validate()
@@ -58,7 +57,7 @@ func Test_Value_validate(t *testing.T) {
 
 		t.Run("It returns an error if a Value is set", func(t *testing.T) {
 			True := true
-			valueString := datatypes.String("wops")
+			valueString := String("wops")
 			value := &Value{Exists: &True, Value: &valueString}
 
 			err := value.validate()
@@ -69,7 +68,7 @@ func Test_Value_validate(t *testing.T) {
 
 	t.Run("Context when setting a Value", func(t *testing.T) {
 		t.Run("It accepts a Value and ValueComparison", func(t *testing.T) {
-			dInt := datatypes.Int(5)
+			dInt := Int(5)
 			value := &Value{Value: &dInt, ValueComparison: EqualsPtr()}
 
 			err := value.validate()
@@ -77,7 +76,7 @@ func Test_Value_validate(t *testing.T) {
 		})
 
 		t.Run("It returns an error if the ValueComparison is not set", func(t *testing.T) {
-			dInt := datatypes.Int(5)
+			dInt := Int(5)
 			value := &Value{Value: &dInt}
 
 			err := value.validate()
@@ -86,7 +85,7 @@ func Test_Value_validate(t *testing.T) {
 		})
 
 		t.Run("It returns an error if the ValueComparison is unknown", func(t *testing.T) {
-			dInt := datatypes.Int(5)
+			dInt := Int(5)
 			badComparison := Comparison("foo")
 
 			value := &Value{Value: &dInt, ValueComparison: &badComparison}
@@ -112,7 +111,7 @@ func Test_Value_validateReservedKey(t *testing.T) {
 	})
 
 	t.Run("It returns an error if ExistsType is set", func(t *testing.T) {
-		value := &Value{ExistsType: &datatypes.T_int64}
+		value := &Value{ExistsType: &T_int64}
 
 		err := value.validateReservedKey()
 		g.Expect(err).To(HaveOccurred())
@@ -128,7 +127,7 @@ func Test_Value_validateReservedKey(t *testing.T) {
 	})
 
 	t.Run("It returns an error if Value is not a string", func(t *testing.T) {
-		intValue := datatypes.Int(32)
+		intValue := Int(32)
 		value := &Value{Value: &intValue}
 
 		err := value.validateReservedKey()
@@ -137,7 +136,7 @@ func Test_Value_validateReservedKey(t *testing.T) {
 	})
 
 	t.Run("It returns an error if Value is not a string", func(t *testing.T) {
-		strValue := datatypes.String("32")
+		strValue := String("32")
 		value := &Value{Value: &strValue, ValueComparison: LessThanPtr()}
 
 		err := value.validateReservedKey()
@@ -146,7 +145,7 @@ func Test_Value_validateReservedKey(t *testing.T) {
 	})
 
 	t.Run("It accepts a string to equal againsy", func(t *testing.T) {
-		strValue := datatypes.String("32")
+		strValue := String("32")
 		value := &Value{Value: &strValue, ValueComparison: EqualsPtr()}
 
 		err := value.validateReservedKey()

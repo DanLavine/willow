@@ -1,13 +1,9 @@
-package query
+package datatypes
 
 import (
 	"fmt"
 	"sort"
-
-	"github.com/DanLavine/willow/pkg/models/datatypes"
 )
-
-const ReservedID = "_associated_id"
 
 type KeyValueSelection struct {
 	// Key Values ensures that all key values exist
@@ -38,7 +34,7 @@ func (kvs *KeyValueSelection) Validate() error {
 	}
 
 	if kvs.Limits != nil {
-		if _, ok := kvs.KeyValues[ReservedID]; ok {
+		if _, ok := kvs.KeyValues["_associated_id"]; ok {
 			if err := kvs.Limits.Validate(len(kvs.KeyValues) - 1); err != nil {
 				return fmt.Errorf(".Limits.%s", err.Error())
 			}
@@ -50,7 +46,7 @@ func (kvs *KeyValueSelection) Validate() error {
 	}
 
 	for key, value := range kvs.KeyValues {
-		if key == ReservedID {
+		if key == "_associated_id" {
 			if err := value.validateReservedKey(); err != nil {
 				return fmt.Errorf(".KeyValues[%s]%s", key, err.Error())
 			}
@@ -80,7 +76,7 @@ func (kl *KeyLimits) Validate(keys int) error {
 	return nil
 }
 
-func (kvs *KeyValueSelection) MatchTags(tags datatypes.KeyValues) bool {
+func (kvs *KeyValueSelection) MatchTags(tags KeyValues) bool {
 	// quick checek to reject on the number of keys
 	if kvs.Limits != nil && *kvs.Limits.NumberOfKeys < len(tags) {
 		return false

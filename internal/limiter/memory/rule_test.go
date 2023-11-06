@@ -3,22 +3,21 @@ package memory
 import (
 	"testing"
 
-	"github.com/DanLavine/willow/pkg/models/api/v1limiter"
+	v1limiter "github.com/DanLavine/willow/pkg/models/api/limiter/v1"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
-	"github.com/DanLavine/willow/pkg/models/query"
 	. "github.com/onsi/gomega"
 	"go.uber.org/zap"
 )
 
-func defaultLimiterTestRule(g *GomegaWithT) *v1limiter.RuleRequest {
-	rule := &v1limiter.RuleRequest{
-		Name:    "test",
-		GroupBy: []string{"key1", "key2"},
-		Query:   query.AssociatedKeyValuesQuery{},
-		Limit:   5,
+func defaultLimiterTestRule(g *GomegaWithT) *v1limiter.Rule {
+	rule := &v1limiter.Rule{
+		Name:        "test",
+		GroupBy:     []string{"key1", "key2"},
+		QueryFilter: datatypes.AssociatedKeyValuesQuery{},
+		Limit:       5,
 	}
 
-	g.Expect(rule.Validate()).ToNot(HaveOccurred())
+	g.Expect(rule.ValidateRequest()).ToNot(HaveOccurred())
 
 	return rule
 }
@@ -63,16 +62,16 @@ func TestRule_SetOverride(t *testing.T) {
 	t.Run("It returns an errpd of the tags don't match", func(t *testing.T) {
 		defaultLimiterRule := defaultLimiterTestRule(g)
 		stringKey := datatypes.String("2")
-		defaultLimiterRule.Query = query.AssociatedKeyValuesQuery{
-			KeyValueSelection: &query.KeyValueSelection{
-				KeyValues: map[string]query.Value{
-					"key1": query.Value{Value: &stringKey, ValueComparison: query.EqualsPtr()},
+		defaultLimiterRule.QueryFilter = datatypes.AssociatedKeyValuesQuery{
+			KeyValueSelection: &datatypes.KeyValueSelection{
+				KeyValues: map[string]datatypes.Value{
+					"key1": datatypes.Value{Value: &stringKey, ValueComparison: datatypes.EqualsPtr()},
 				},
 			},
 		}
 		rule := NewRule(defaultLimiterRule)
 
-		override := &v1limiter.RuleOverrideRequest{
+		override := &v1limiter.Override{
 			KeyValues: datatypes.KeyValues{
 				"key1": datatypes.Int(3),
 			},
@@ -81,7 +80,7 @@ func TestRule_SetOverride(t *testing.T) {
 
 		err := rule.SetOverride(zap.NewNop(), override)
 		g.Expect(err).To(HaveOccurred())
-		g.Expect(err.Error()).To(ContainSubstring("the provided keys values to match the rule query."))
+		g.Expect(err.Error()).To(ContainSubstring("the provided keys values to match the rule datatypes."))
 	})
 
 	t.Run("Context when using find", func(t *testing.T) {
@@ -93,7 +92,7 @@ func TestRule_SetOverride(t *testing.T) {
 			limit := rule.FindLimit(zap.NewNop(), defaultValidKeyValues(g))
 			g.Expect(limit).To(Equal(uint64(5)))
 
-			override := &v1limiter.RuleOverrideRequest{
+			override := &v1limiter.Override{
 				KeyValues: defaultValidKeyValues(g),
 				Limit:     32,
 			}
@@ -112,7 +111,7 @@ func TestRule_SetOverride(t *testing.T) {
 			limit := rule.FindLimit(zap.NewNop(), defaultValidKeyValues(g))
 			g.Expect(limit).To(Equal(uint64(5)))
 
-			override := &v1limiter.RuleOverrideRequest{
+			override := &v1limiter.Override{
 				KeyValues: defaultValidKeyValues(g),
 				Limit:     32,
 			}
@@ -204,12 +203,12 @@ func TestRule_TagsMatch(t *testing.T) {
 	t.Run("It returns false the rule's selection filters out a group of tags", func(t *testing.T) {
 		defaultLimiterRule := defaultLimiterTestRule(g)
 		falsePtr := false
-		defaultLimiterRule.Query = query.AssociatedKeyValuesQuery{
-			And: []query.AssociatedKeyValuesQuery{
+		defaultLimiterRule.QueryFilter = datatypes.AssociatedKeyValuesQuery{
+			And: []datatypes.AssociatedKeyValuesQuery{
 				{
-					KeyValueSelection: &query.KeyValueSelection{
-						KeyValues: map[string]query.Value{
-							"key3": query.Value{Exists: &falsePtr},
+					KeyValueSelection: &datatypes.KeyValueSelection{
+						KeyValues: map[string]datatypes.Value{
+							"key3": datatypes.Value{Exists: &falsePtr},
 						},
 					},
 				},

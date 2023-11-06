@@ -4,15 +4,14 @@ import (
 	"testing"
 
 	"github.com/DanLavine/willow/pkg/models/datatypes"
-	"github.com/DanLavine/willow/pkg/models/query"
 	. "github.com/onsi/gomega"
 )
 
 func TestAssociatedTree_Query_ParamCheck(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	validSelection := query.AssociatedKeyValuesQuery{}
-	invalidSelection := query.AssociatedKeyValuesQuery{KeyValueSelection: &query.KeyValueSelection{}}
+	validSelection := datatypes.AssociatedKeyValuesQuery{}
+	invalidSelection := datatypes.AssociatedKeyValuesQuery{KeyValueSelection: &datatypes.KeyValueSelection{}}
 	onFindPagination := func(items any) bool { return true }
 
 	t.Run("it returns an error if the select query is invalid", func(t *testing.T) {
@@ -44,12 +43,12 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 		associatedTree := NewThreadSafe()
 
 		// create a number of entries in the associated tree
-		keyValues1 := datatypes.KeyValues{"1": datatypes.Int(1)}
-		keyValues2 := datatypes.KeyValues{"2": datatypes.String("2")}
-		keyValues3 := datatypes.KeyValues{"1": datatypes.Int8(1), "2": datatypes.Float32(3.4)}
-		keyValues4 := datatypes.KeyValues{"1": datatypes.String("1"), "2": datatypes.String("2"), "3": datatypes.Float64(3.4)}
-		keyValues5 := datatypes.KeyValues{"3": datatypes.Int32(1), "4": datatypes.Float64(3.4)}
-		keyValues6 := datatypes.KeyValues{"1": datatypes.Int8(4), "2": datatypes.Float32(3.4)}
+		keyValues1 := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.Int(1)})
+		keyValues2 := ConverDatatypesKeyValues(datatypes.KeyValues{"2": datatypes.String("2")})
+		keyValues3 := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.Int8(1), "2": datatypes.Float32(3.4)})
+		keyValues4 := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.String("1"), "2": datatypes.String("2"), "3": datatypes.Float64(3.4)})
+		keyValues5 := ConverDatatypesKeyValues(datatypes.KeyValues{"3": datatypes.Int32(1), "4": datatypes.Float64(3.4)})
+		keyValues6 := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.Int8(4), "2": datatypes.Float32(3.4)})
 		id, err := associatedTree.CreateOrFind(keyValues1, func() any { return "1" }, noOpOnFind)
 		g.Expect(err).ToNot(HaveOccurred())
 		ids[0] = id
@@ -78,10 +77,10 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 			}
 
 			idString := datatypes.String(ids[0])
-			query := query.AssociatedKeyValuesQuery{
-				KeyValueSelection: &query.KeyValueSelection{
-					KeyValues: map[string]query.Value{
-						"_associated_id": query.Value{Value: &idString, ValueComparison: query.EqualsPtr()},
+			query := datatypes.AssociatedKeyValuesQuery{
+				KeyValueSelection: &datatypes.KeyValueSelection{
+					KeyValues: map[string]datatypes.Value{
+						"_associated_id": datatypes.Value{Value: &idString, ValueComparison: datatypes.EqualsPtr()},
 					},
 				},
 			}
@@ -90,8 +89,8 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 			err := associatedTree.Query(query, onFindPagination)
 			g.Expect(err).ToNot(HaveOccurred())
 			g.Expect(foundItem).ToNot(BeNil())
-			g.Expect(foundItem.KeyValues()["1"]).To(Equal(datatypes.Int(1)))
-			g.Expect(foundItem.KeyValues()["_associated_id"]).To(Equal(idString))
+			g.Expect(foundItem.KeyValues().RetrieveStringDataType()["1"]).To(Equal(datatypes.Int(1)))
+			g.Expect(foundItem.AssociatedID()).To(Equal(ids[0]))
 		})
 
 		t.Run("It adds the id if the Limits are below the selected values", func(t *testing.T) {
@@ -105,12 +104,12 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 
 			keyLimits := 32
 			idString := datatypes.String(ids[3])
-			query := query.AssociatedKeyValuesQuery{
-				KeyValueSelection: &query.KeyValueSelection{
-					KeyValues: map[string]query.Value{
-						"_associated_id": query.Value{Value: &idString, ValueComparison: query.EqualsPtr()},
+			query := datatypes.AssociatedKeyValuesQuery{
+				KeyValueSelection: &datatypes.KeyValueSelection{
+					KeyValues: map[string]datatypes.Value{
+						"_associated_id": datatypes.Value{Value: &idString, ValueComparison: datatypes.EqualsPtr()},
 					},
-					Limits: &query.KeyLimits{
+					Limits: &datatypes.KeyLimits{
 						NumberOfKeys: &keyLimits,
 					},
 				},
@@ -120,7 +119,7 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 			err := associatedTree.Query(query, onFindPagination)
 			g.Expect(err).ToNot(HaveOccurred())
 			g.Expect(foundItem).ToNot(BeNil())
-			g.Expect(foundItem.KeyValues()["_associated_id"]).To(Equal(idString))
+			g.Expect(foundItem.AssociatedID()).To(Equal(ids[3]))
 		})
 
 		t.Run("It does not add the id if the Limits have to many values", func(t *testing.T) {
@@ -134,12 +133,12 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 
 			keyLimits := 1
 			idString := datatypes.String(ids[3])
-			query := query.AssociatedKeyValuesQuery{
-				KeyValueSelection: &query.KeyValueSelection{
-					KeyValues: map[string]query.Value{
-						"_associated_id": query.Value{Value: &idString, ValueComparison: query.EqualsPtr()},
+			query := datatypes.AssociatedKeyValuesQuery{
+				KeyValueSelection: &datatypes.KeyValueSelection{
+					KeyValues: map[string]datatypes.Value{
+						"_associated_id": datatypes.Value{Value: &idString, ValueComparison: datatypes.EqualsPtr()},
 					},
-					Limits: &query.KeyLimits{
+					Limits: &datatypes.KeyLimits{
 						NumberOfKeys: &keyLimits,
 					},
 				},
@@ -163,11 +162,11 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 
 				idString := datatypes.String(ids[3])
 				oneString := datatypes.String("1")
-				query := query.AssociatedKeyValuesQuery{
-					KeyValueSelection: &query.KeyValueSelection{
-						KeyValues: map[string]query.Value{
-							"_associated_id": query.Value{Value: &idString, ValueComparison: query.EqualsPtr()},
-							"1":              query.Value{Value: &oneString, ValueComparison: query.EqualsPtr()},
+				query := datatypes.AssociatedKeyValuesQuery{
+					KeyValueSelection: &datatypes.KeyValueSelection{
+						KeyValues: map[string]datatypes.Value{
+							"_associated_id": datatypes.Value{Value: &idString, ValueComparison: datatypes.EqualsPtr()},
+							"1":              datatypes.Value{Value: &oneString, ValueComparison: datatypes.EqualsPtr()},
 						},
 					},
 				}
@@ -176,17 +175,17 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 				err := associatedTree.Query(query, onFindPagination)
 				g.Expect(err).ToNot(HaveOccurred())
 				g.Expect(foundItem).ToNot(BeNil())
-				g.Expect(foundItem.KeyValues()["1"]).To(Equal(datatypes.String("1")))
-				g.Expect(foundItem.KeyValues()["2"]).To(Equal(datatypes.String("2")))
-				g.Expect(foundItem.KeyValues()["3"]).To(Equal(datatypes.Float64(3.4)))
-				g.Expect(foundItem.KeyValues()["_associated_id"]).To(Equal(idString))
+				g.Expect(foundItem.KeyValues().RetrieveStringDataType()["1"]).To(Equal(datatypes.String("1")))
+				g.Expect(foundItem.KeyValues().RetrieveStringDataType()["2"]).To(Equal(datatypes.String("2")))
+				g.Expect(foundItem.KeyValues().RetrieveStringDataType()["3"]).To(Equal(datatypes.Float64(3.4)))
+				g.Expect(foundItem.AssociatedID()).To(Equal(ids[3]))
 			})
 
 			t.Run("It an add the _associated_id second", func(t *testing.T) {
 				associatedTree := setupQuery(g)
 
 				int8_4 := datatypes.Int8(4)
-				newKeyValues := datatypes.KeyValues{"a": int8_4}
+				newKeyValues := ConverDatatypesKeyValues(datatypes.KeyValues{"a": int8_4})
 				newID, err := associatedTree.CreateOrFind(newKeyValues, func() any { return "1" }, noOpOnFind)
 				g.Expect(err).ToNot(HaveOccurred())
 
@@ -197,11 +196,11 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 				}
 
 				idString := datatypes.String(newID)
-				query := query.AssociatedKeyValuesQuery{
-					KeyValueSelection: &query.KeyValueSelection{
-						KeyValues: map[string]query.Value{
-							"a":              query.Value{Value: &int8_4, ValueComparison: query.EqualsPtr()},
-							"_associated_id": query.Value{Value: &idString, ValueComparison: query.EqualsPtr()},
+				query := datatypes.AssociatedKeyValuesQuery{
+					KeyValueSelection: &datatypes.KeyValueSelection{
+						KeyValues: map[string]datatypes.Value{
+							"a":              datatypes.Value{Value: &int8_4, ValueComparison: datatypes.EqualsPtr()},
+							"_associated_id": datatypes.Value{Value: &idString, ValueComparison: datatypes.EqualsPtr()},
 						},
 					},
 				}
@@ -210,15 +209,15 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 				err = associatedTree.Query(query, onFindPagination)
 				g.Expect(err).ToNot(HaveOccurred())
 				g.Expect(foundItem).ToNot(BeNil())
-				g.Expect(foundItem.KeyValues()["a"]).To(Equal(datatypes.Int8(4)))
-				g.Expect(foundItem.KeyValues()["_associated_id"]).To(Equal(idString))
+				g.Expect(foundItem.KeyValues().RetrieveStringDataType()["a"]).To(Equal(datatypes.Int8(4)))
+				g.Expect(foundItem.AssociatedID()).To(Equal(newID))
 			})
 
 			t.Run("It an add the _associated_id second if it is under the Limits", func(t *testing.T) {
 				associatedTree := setupQuery(g)
 
 				int8_4 := datatypes.Int8(4)
-				newKeyValues := datatypes.KeyValues{"a": int8_4}
+				newKeyValues := ConverDatatypesKeyValues(datatypes.KeyValues{"a": int8_4})
 				newID, err := associatedTree.CreateOrFind(newKeyValues, func() any { return "1" }, noOpOnFind)
 				g.Expect(err).ToNot(HaveOccurred())
 
@@ -230,13 +229,13 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 
 				keyLimits := 32
 				idString := datatypes.String(newID)
-				query := query.AssociatedKeyValuesQuery{
-					KeyValueSelection: &query.KeyValueSelection{
-						KeyValues: map[string]query.Value{
-							"a":              query.Value{Value: &int8_4, ValueComparison: query.EqualsPtr()},
-							"_associated_id": query.Value{Value: &idString, ValueComparison: query.EqualsPtr()},
+				query := datatypes.AssociatedKeyValuesQuery{
+					KeyValueSelection: &datatypes.KeyValueSelection{
+						KeyValues: map[string]datatypes.Value{
+							"a":              datatypes.Value{Value: &int8_4, ValueComparison: datatypes.EqualsPtr()},
+							"_associated_id": datatypes.Value{Value: &idString, ValueComparison: datatypes.EqualsPtr()},
 						},
-						Limits: &query.KeyLimits{
+						Limits: &datatypes.KeyLimits{
 							NumberOfKeys: &keyLimits,
 						},
 					},
@@ -246,15 +245,15 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 				err = associatedTree.Query(query, onFindPagination)
 				g.Expect(err).ToNot(HaveOccurred())
 				g.Expect(foundItem).ToNot(BeNil())
-				g.Expect(foundItem.KeyValues()["a"]).To(Equal(datatypes.Int8(4)))
-				g.Expect(foundItem.KeyValues()["_associated_id"]).To(Equal(idString))
+				g.Expect(foundItem.KeyValues().RetrieveStringDataType()["a"]).To(Equal(datatypes.Int8(4)))
+				g.Expect(foundItem.AssociatedID()).To(Equal(newID))
 			})
 
 			t.Run("It does not add the _associated_id second if it is over the Limits", func(t *testing.T) {
 				associatedTree := setupQuery(g)
 
 				int8_4 := datatypes.Int8(4)
-				newKeyValues := datatypes.KeyValues{"a": int8_4, "b": int8_4}
+				newKeyValues := ConverDatatypesKeyValues(datatypes.KeyValues{"a": int8_4, "b": int8_4})
 				newID, err := associatedTree.CreateOrFind(newKeyValues, func() any { return "1" }, noOpOnFind)
 				g.Expect(err).ToNot(HaveOccurred())
 
@@ -266,13 +265,13 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 
 				keyLimits := 1
 				idString := datatypes.String(newID)
-				query := query.AssociatedKeyValuesQuery{
-					KeyValueSelection: &query.KeyValueSelection{
-						KeyValues: map[string]query.Value{
-							"a":              query.Value{Value: &int8_4, ValueComparison: query.EqualsPtr()},
-							"_associated_id": query.Value{Value: &idString, ValueComparison: query.EqualsPtr()},
+				query := datatypes.AssociatedKeyValuesQuery{
+					KeyValueSelection: &datatypes.KeyValueSelection{
+						KeyValues: map[string]datatypes.Value{
+							"a":              datatypes.Value{Value: &int8_4, ValueComparison: datatypes.EqualsPtr()},
+							"_associated_id": datatypes.Value{Value: &idString, ValueComparison: datatypes.EqualsPtr()},
 						},
-						Limits: &query.KeyLimits{
+						Limits: &datatypes.KeyLimits{
 							NumberOfKeys: &keyLimits,
 						},
 					},
@@ -295,11 +294,11 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 
 				int8_4 := datatypes.Int8(4)
 				idString := datatypes.String(ids[2])
-				query := query.AssociatedKeyValuesQuery{
-					KeyValueSelection: &query.KeyValueSelection{
-						KeyValues: map[string]query.Value{
-							"3":              query.Value{Value: &int8_4, ValueComparison: query.EqualsPtr()},
-							"_associated_id": query.Value{Value: &idString, ValueComparison: query.EqualsPtr()},
+				query := datatypes.AssociatedKeyValuesQuery{
+					KeyValueSelection: &datatypes.KeyValueSelection{
+						KeyValues: map[string]datatypes.Value{
+							"3":              datatypes.Value{Value: &int8_4, ValueComparison: datatypes.EqualsPtr()},
+							"_associated_id": datatypes.Value{Value: &idString, ValueComparison: datatypes.EqualsPtr()},
 						},
 					},
 				}
@@ -322,7 +321,7 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 				return true
 			}
 
-			query := query.AssociatedKeyValuesQuery{}
+			query := datatypes.AssociatedKeyValuesQuery{}
 			g.Expect(query.Validate()).ToNot(HaveOccurred())
 
 			err := associatedTree.Query(query, onFindPagination)
@@ -339,7 +338,7 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 				return false
 			}
 
-			query := query.AssociatedKeyValuesQuery{}
+			query := datatypes.AssociatedKeyValuesQuery{}
 			g.Expect(query.Validate()).ToNot(HaveOccurred())
 
 			err := associatedTree.Query(query, onFindPagination)
@@ -360,9 +359,9 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 						return true
 					}
 
-					query := query.AssociatedKeyValuesQuery{
-						KeyValueSelection: &query.KeyValueSelection{
-							KeyValues: map[string]query.Value{
+					query := datatypes.AssociatedKeyValuesQuery{
+						KeyValueSelection: &datatypes.KeyValueSelection{
+							KeyValues: map[string]datatypes.Value{
 								"1": {Exists: &existsTrue},
 							},
 						},
@@ -384,9 +383,9 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 						return false
 					}
 
-					query := query.AssociatedKeyValuesQuery{
-						KeyValueSelection: &query.KeyValueSelection{
-							KeyValues: map[string]query.Value{
+					query := datatypes.AssociatedKeyValuesQuery{
+						KeyValueSelection: &datatypes.KeyValueSelection{
+							KeyValues: map[string]datatypes.Value{
 								"1": {Exists: &existsTrue},
 							},
 						},
@@ -409,12 +408,12 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 							return true
 						}
 
-						query := query.AssociatedKeyValuesQuery{
-							KeyValueSelection: &query.KeyValueSelection{
-								KeyValues: map[string]query.Value{
+						query := datatypes.AssociatedKeyValuesQuery{
+							KeyValueSelection: &datatypes.KeyValueSelection{
+								KeyValues: map[string]datatypes.Value{
 									"1": {Exists: &existsTrue},
 								},
-								Limits: &query.KeyLimits{
+								Limits: &datatypes.KeyLimits{
 									NumberOfKeys: &one,
 								},
 							},
@@ -438,9 +437,9 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 							return true
 						}
 
-						query := query.AssociatedKeyValuesQuery{
-							KeyValueSelection: &query.KeyValueSelection{
-								KeyValues: map[string]query.Value{
+						query := datatypes.AssociatedKeyValuesQuery{
+							KeyValueSelection: &datatypes.KeyValueSelection{
+								KeyValues: map[string]datatypes.Value{
 									"1": {Exists: &existsTrue},
 									"2": {Exists: &existsTrue},
 								},
@@ -463,9 +462,9 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 							return true
 						}
 
-						query := query.AssociatedKeyValuesQuery{
-							KeyValueSelection: &query.KeyValueSelection{
-								KeyValues: map[string]query.Value{
+						query := datatypes.AssociatedKeyValuesQuery{
+							KeyValueSelection: &datatypes.KeyValueSelection{
+								KeyValues: map[string]datatypes.Value{
 									"1": {Exists: &existsTrue},
 									"4": {Exists: &existsTrue},
 								},
@@ -490,9 +489,9 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 						return true
 					}
 
-					query := query.AssociatedKeyValuesQuery{
-						KeyValueSelection: &query.KeyValueSelection{
-							KeyValues: map[string]query.Value{
+					query := datatypes.AssociatedKeyValuesQuery{
+						KeyValueSelection: &datatypes.KeyValueSelection{
+							KeyValues: map[string]datatypes.Value{
 								"1": {Exists: &existsFalse},
 							},
 						},
@@ -516,12 +515,12 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 							return true
 						}
 
-						query := query.AssociatedKeyValuesQuery{
-							KeyValueSelection: &query.KeyValueSelection{
-								KeyValues: map[string]query.Value{
+						query := datatypes.AssociatedKeyValuesQuery{
+							KeyValueSelection: &datatypes.KeyValueSelection{
+								KeyValues: map[string]datatypes.Value{
 									"1": {Exists: &existsFalse},
 								},
-								Limits: &query.KeyLimits{
+								Limits: &datatypes.KeyLimits{
 									NumberOfKeys: &one,
 								},
 							},
@@ -545,9 +544,9 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 							return true
 						}
 
-						query := query.AssociatedKeyValuesQuery{
-							KeyValueSelection: &query.KeyValueSelection{
-								KeyValues: map[string]query.Value{
+						query := datatypes.AssociatedKeyValuesQuery{
+							KeyValueSelection: &datatypes.KeyValueSelection{
+								KeyValues: map[string]datatypes.Value{
 									"1": {Exists: &existsFalse},
 									"2": {Exists: &existsFalse},
 								},
@@ -565,9 +564,9 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 						associatedTree := NewThreadSafe()
 
 						// create a number of entries in the associated tree
-						keyValues1 := datatypes.KeyValues{"1": datatypes.Int(1)}
-						keyValues2 := datatypes.KeyValues{"1": datatypes.Int8(1), "2": datatypes.Float32(3.4)}
-						keyValues3 := datatypes.KeyValues{"1": datatypes.String("1"), "2": datatypes.Int16(1), "3": datatypes.Float64(3.4)}
+						keyValues1 := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.Int(1)})
+						keyValues2 := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.Int8(1), "2": datatypes.Float32(3.4)})
+						keyValues3 := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.String("1"), "2": datatypes.Int16(1), "3": datatypes.Float64(3.4)})
 						associatedTree.CreateOrFind(keyValues1, func() any { return "1" }, noOpOnFind)
 						associatedTree.CreateOrFind(keyValues2, func() any { return "2" }, noOpOnFind)
 						associatedTree.CreateOrFind(keyValues3, func() any { return "2" }, noOpOnFind)
@@ -578,9 +577,9 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 							return true
 						}
 
-						query := query.AssociatedKeyValuesQuery{
-							KeyValueSelection: &query.KeyValueSelection{
-								KeyValues: map[string]query.Value{
+						query := datatypes.AssociatedKeyValuesQuery{
+							KeyValueSelection: &datatypes.KeyValueSelection{
+								KeyValues: map[string]datatypes.Value{
 									"1": {Exists: &existsFalse},
 								},
 							},
@@ -606,9 +605,9 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 						return true
 					}
 
-					query := query.AssociatedKeyValuesQuery{
-						KeyValueSelection: &query.KeyValueSelection{
-							KeyValues: map[string]query.Value{
+					query := datatypes.AssociatedKeyValuesQuery{
+						KeyValueSelection: &datatypes.KeyValueSelection{
+							KeyValues: map[string]datatypes.Value{
 								"1": {Exists: &existsTrue, ExistsType: &datatypes.T_int},
 							},
 						},
@@ -632,12 +631,12 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 							return true
 						}
 
-						query := query.AssociatedKeyValuesQuery{
-							KeyValueSelection: &query.KeyValueSelection{
-								KeyValues: map[string]query.Value{
+						query := datatypes.AssociatedKeyValuesQuery{
+							KeyValueSelection: &datatypes.KeyValueSelection{
+								KeyValues: map[string]datatypes.Value{
 									"2": {Exists: &existsTrue, ExistsType: &datatypes.T_string},
 								},
-								Limits: &query.KeyLimits{
+								Limits: &datatypes.KeyLimits{
 									NumberOfKeys: &one,
 								},
 							},
@@ -661,9 +660,9 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 							return true
 						}
 
-						query := query.AssociatedKeyValuesQuery{
-							KeyValueSelection: &query.KeyValueSelection{
-								KeyValues: map[string]query.Value{
+						query := datatypes.AssociatedKeyValuesQuery{
+							KeyValueSelection: &datatypes.KeyValueSelection{
+								KeyValues: map[string]datatypes.Value{
 									"1": {Exists: &existsTrue, ExistsType: &datatypes.T_int8},
 									"2": {Exists: &existsTrue, ExistsType: &datatypes.T_float32},
 								},
@@ -686,9 +685,9 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 							return true
 						}
 
-						query := query.AssociatedKeyValuesQuery{
-							KeyValueSelection: &query.KeyValueSelection{
-								KeyValues: map[string]query.Value{
+						query := datatypes.AssociatedKeyValuesQuery{
+							KeyValueSelection: &datatypes.KeyValueSelection{
+								KeyValues: map[string]datatypes.Value{
 									"1": {Exists: &existsTrue, ExistsType: &datatypes.T_int8},
 									"2": {Exists: &existsTrue, ExistsType: &datatypes.T_float64},
 								},
@@ -713,9 +712,9 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 						return true
 					}
 
-					query := query.AssociatedKeyValuesQuery{
-						KeyValueSelection: &query.KeyValueSelection{
-							KeyValues: map[string]query.Value{
+					query := datatypes.AssociatedKeyValuesQuery{
+						KeyValueSelection: &datatypes.KeyValueSelection{
+							KeyValues: map[string]datatypes.Value{
 								"1": {Exists: &existsFalse, ExistsType: &datatypes.T_int8},
 							},
 						},
@@ -739,12 +738,12 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 							return true
 						}
 
-						query := query.AssociatedKeyValuesQuery{
-							KeyValueSelection: &query.KeyValueSelection{
-								KeyValues: map[string]query.Value{
+						query := datatypes.AssociatedKeyValuesQuery{
+							KeyValueSelection: &datatypes.KeyValueSelection{
+								KeyValues: map[string]datatypes.Value{
 									"1": {Exists: &existsFalse, ExistsType: &datatypes.T_int8},
 								},
-								Limits: &query.KeyLimits{
+								Limits: &datatypes.KeyLimits{
 									NumberOfKeys: &one,
 								},
 							},
@@ -768,9 +767,9 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 							return true
 						}
 
-						query := query.AssociatedKeyValuesQuery{
-							KeyValueSelection: &query.KeyValueSelection{
-								KeyValues: map[string]query.Value{
+						query := datatypes.AssociatedKeyValuesQuery{
+							KeyValueSelection: &datatypes.KeyValueSelection{
+								KeyValues: map[string]datatypes.Value{
 									"1": {Exists: &existsFalse, ExistsType: &datatypes.T_int8},
 									"2": {Exists: &existsFalse, ExistsType: &datatypes.T_float32},
 								},
@@ -788,9 +787,9 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 						associatedTree := NewThreadSafe()
 
 						// create a number of entries in the associated tree
-						keyValues1 := datatypes.KeyValues{"1": datatypes.Int8(1), "2": datatypes.String("1")}
-						keyValues2 := datatypes.KeyValues{"1": datatypes.Int8(1), "2": datatypes.String("2"), "3": datatypes.Float32(3.2)}
-						keyValues3 := datatypes.KeyValues{"1": datatypes.Int8(1), "2": datatypes.String("3")}
+						keyValues1 := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.Int8(1), "2": datatypes.String("1")})
+						keyValues2 := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.Int8(1), "2": datatypes.String("2"), "3": datatypes.Float32(3.2)})
+						keyValues3 := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.Int8(1), "2": datatypes.String("3")})
 						associatedTree.CreateOrFind(keyValues1, func() any { return "1" }, noOpOnFind)
 						associatedTree.CreateOrFind(keyValues2, func() any { return "2" }, noOpOnFind)
 						associatedTree.CreateOrFind(keyValues3, func() any { return "3" }, noOpOnFind)
@@ -801,9 +800,9 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 							return true
 						}
 
-						query := query.AssociatedKeyValuesQuery{
-							KeyValueSelection: &query.KeyValueSelection{
-								KeyValues: map[string]query.Value{
+						query := datatypes.AssociatedKeyValuesQuery{
+							KeyValueSelection: &datatypes.KeyValueSelection{
+								KeyValues: map[string]datatypes.Value{
 									"1": {Exists: &existsFalse, ExistsType: &datatypes.T_int8},
 									"2": {Exists: &existsFalse, ExistsType: &datatypes.T_string},
 								},
@@ -829,9 +828,9 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 					return true
 				}
 
-				query := query.AssociatedKeyValuesQuery{
-					KeyValueSelection: &query.KeyValueSelection{
-						KeyValues: map[string]query.Value{
+				query := datatypes.AssociatedKeyValuesQuery{
+					KeyValueSelection: &datatypes.KeyValueSelection{
+						KeyValues: map[string]datatypes.Value{
 							"1": {Exists: &existsTrue, ExistsType: &datatypes.T_int8},
 							"2": {Exists: &existsTrue},
 							"3": {Exists: &existsFalse},
@@ -861,10 +860,10 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 					}
 
 					intOne := datatypes.Int(1)
-					query := query.AssociatedKeyValuesQuery{
-						KeyValueSelection: &query.KeyValueSelection{
-							KeyValues: map[string]query.Value{
-								"1": {Value: &intOne, ValueComparison: query.EqualsPtr()},
+					query := datatypes.AssociatedKeyValuesQuery{
+						KeyValueSelection: &datatypes.KeyValueSelection{
+							KeyValues: map[string]datatypes.Value{
+								"1": {Value: &intOne, ValueComparison: datatypes.EqualsPtr()},
 							},
 						},
 					}
@@ -888,11 +887,11 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 
 						stringOne := datatypes.String("1")
 						stringTwo := datatypes.String("2")
-						query := query.AssociatedKeyValuesQuery{
-							KeyValueSelection: &query.KeyValueSelection{
-								KeyValues: map[string]query.Value{
-									"1": {Value: &stringOne, ValueComparison: query.EqualsPtr()},
-									"2": {Value: &stringTwo, ValueComparison: query.EqualsPtr()},
+						query := datatypes.AssociatedKeyValuesQuery{
+							KeyValueSelection: &datatypes.KeyValueSelection{
+								KeyValues: map[string]datatypes.Value{
+									"1": {Value: &stringOne, ValueComparison: datatypes.EqualsPtr()},
+									"2": {Value: &stringTwo, ValueComparison: datatypes.EqualsPtr()},
 								},
 							},
 						}
@@ -914,11 +913,11 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 						}
 
 						intOne := datatypes.Int(1)
-						query := query.AssociatedKeyValuesQuery{
-							KeyValueSelection: &query.KeyValueSelection{
-								KeyValues: map[string]query.Value{
-									"0": {Value: &intOne, ValueComparison: query.EqualsPtr()}, //runs first, and should invalidate a query
-									"1": {Value: &intOne, ValueComparison: query.EqualsPtr()},
+						query := datatypes.AssociatedKeyValuesQuery{
+							KeyValueSelection: &datatypes.KeyValueSelection{
+								KeyValues: map[string]datatypes.Value{
+									"0": {Value: &intOne, ValueComparison: datatypes.EqualsPtr()}, //runs first, and should invalidate a query
+									"1": {Value: &intOne, ValueComparison: datatypes.EqualsPtr()},
 								},
 							},
 						}
@@ -939,11 +938,11 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 						}
 
 						intOne := datatypes.Int(1)
-						query := query.AssociatedKeyValuesQuery{
-							KeyValueSelection: &query.KeyValueSelection{
-								KeyValues: map[string]query.Value{
-									"1":  {Value: &intOne, ValueComparison: query.EqualsPtr()},
-									"32": {Value: &intOne, ValueComparison: query.EqualsPtr()}, //runs second, and should invalidate a query
+						query := datatypes.AssociatedKeyValuesQuery{
+							KeyValueSelection: &datatypes.KeyValueSelection{
+								KeyValues: map[string]datatypes.Value{
+									"1":  {Value: &intOne, ValueComparison: datatypes.EqualsPtr()},
+									"32": {Value: &intOne, ValueComparison: datatypes.EqualsPtr()}, //runs second, and should invalidate a query
 								},
 							},
 						}
@@ -967,10 +966,10 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 					}
 
 					intOne := datatypes.Int(1)
-					query := query.AssociatedKeyValuesQuery{
-						KeyValueSelection: &query.KeyValueSelection{
-							KeyValues: map[string]query.Value{
-								"1": {Value: &intOne, ValueComparison: query.NotEqualsPtr()}, // filter out first key
+					query := datatypes.AssociatedKeyValuesQuery{
+						KeyValueSelection: &datatypes.KeyValueSelection{
+							KeyValues: map[string]datatypes.Value{
+								"1": {Value: &intOne, ValueComparison: datatypes.NotEqualsPtr()}, // filter out first key
 							},
 						},
 					}
@@ -992,10 +991,10 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 					}
 
 					intOne := datatypes.Int(1)
-					query := query.AssociatedKeyValuesQuery{
-						KeyValueSelection: &query.KeyValueSelection{
-							KeyValues: map[string]query.Value{
-								"32": {Value: &intOne, ValueComparison: query.NotEqualsPtr()}, // should be a no op
+					query := datatypes.AssociatedKeyValuesQuery{
+						KeyValueSelection: &datatypes.KeyValueSelection{
+							KeyValues: map[string]datatypes.Value{
+								"32": {Value: &intOne, ValueComparison: datatypes.NotEqualsPtr()}, // should be a no op
 							},
 						},
 					}
@@ -1019,11 +1018,11 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 
 						// no-op query
 						intOne := datatypes.Int(1)
-						query1 := query.AssociatedKeyValuesQuery{
-							KeyValueSelection: &query.KeyValueSelection{
-								KeyValues: map[string]query.Value{
-									"1":  {Value: &intOne, ValueComparison: query.NotEqualsPtr()}, // filter out first key
-									"32": {Value: &intOne, ValueComparison: query.NotEqualsPtr()}, // should be a no op
+						query1 := datatypes.AssociatedKeyValuesQuery{
+							KeyValueSelection: &datatypes.KeyValueSelection{
+								KeyValues: map[string]datatypes.Value{
+									"1":  {Value: &intOne, ValueComparison: datatypes.NotEqualsPtr()}, // filter out first key
+									"32": {Value: &intOne, ValueComparison: datatypes.NotEqualsPtr()}, // should be a no op
 								},
 							},
 						}
@@ -1037,11 +1036,11 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 						// removal query
 						strOne := datatypes.String("1")
 						strTwo := datatypes.String("2")
-						query2 := query.AssociatedKeyValuesQuery{
-							KeyValueSelection: &query.KeyValueSelection{
-								KeyValues: map[string]query.Value{
-									"1": {Value: &strOne, ValueComparison: query.NotEqualsPtr()},
-									"2": {Value: &strTwo, ValueComparison: query.NotEqualsPtr()},
+						query2 := datatypes.AssociatedKeyValuesQuery{
+							KeyValueSelection: &datatypes.KeyValueSelection{
+								KeyValues: map[string]datatypes.Value{
+									"1": {Value: &strOne, ValueComparison: datatypes.NotEqualsPtr()},
+									"2": {Value: &strTwo, ValueComparison: datatypes.NotEqualsPtr()},
 								},
 							},
 						}
@@ -1065,11 +1064,11 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 
 						// no-op query
 						intOne := datatypes.Int(1)
-						query1 := query.AssociatedKeyValuesQuery{
-							KeyValueSelection: &query.KeyValueSelection{
-								KeyValues: map[string]query.Value{
-									"-32": {Value: &intOne, ValueComparison: query.NotEqualsPtr()}, // should be a no op
-									"1":   {Value: &intOne, ValueComparison: query.NotEqualsPtr()}, // filter out first key
+						query1 := datatypes.AssociatedKeyValuesQuery{
+							KeyValueSelection: &datatypes.KeyValueSelection{
+								KeyValues: map[string]datatypes.Value{
+									"-32": {Value: &intOne, ValueComparison: datatypes.NotEqualsPtr()}, // should be a no op
+									"1":   {Value: &intOne, ValueComparison: datatypes.NotEqualsPtr()}, // filter out first key
 								},
 							},
 						}
@@ -1093,10 +1092,10 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 					}
 
 					intTwo := datatypes.Int(2)
-					query := query.AssociatedKeyValuesQuery{
-						KeyValueSelection: &query.KeyValueSelection{
-							KeyValues: map[string]query.Value{
-								"1": {Value: &intTwo, ValueComparison: query.LessThanPtr()},
+					query := datatypes.AssociatedKeyValuesQuery{
+						KeyValueSelection: &datatypes.KeyValueSelection{
+							KeyValues: map[string]datatypes.Value{
+								"1": {Value: &intTwo, ValueComparison: datatypes.LessThanPtr()},
 							},
 						},
 					}
@@ -1120,10 +1119,10 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 					}
 
 					intTwo := datatypes.Int(2)
-					query := query.AssociatedKeyValuesQuery{
-						KeyValueSelection: &query.KeyValueSelection{
-							KeyValues: map[string]query.Value{
-								"1": {Value: &intTwo, ValueComparison: query.LessThanMatchTypePtr()},
+					query := datatypes.AssociatedKeyValuesQuery{
+						KeyValueSelection: &datatypes.KeyValueSelection{
+							KeyValues: map[string]datatypes.Value{
+								"1": {Value: &intTwo, ValueComparison: datatypes.LessThanMatchTypePtr()},
 							},
 						},
 					}
@@ -1147,10 +1146,10 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 					}
 
 					intOne := datatypes.Int(1)
-					query := query.AssociatedKeyValuesQuery{
-						KeyValueSelection: &query.KeyValueSelection{
-							KeyValues: map[string]query.Value{
-								"1": {Value: &intOne, ValueComparison: query.LessThanOrEqualPtr()},
+					query := datatypes.AssociatedKeyValuesQuery{
+						KeyValueSelection: &datatypes.KeyValueSelection{
+							KeyValues: map[string]datatypes.Value{
+								"1": {Value: &intOne, ValueComparison: datatypes.LessThanOrEqualPtr()},
 							},
 						},
 					}
@@ -1174,10 +1173,10 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 					}
 
 					intOne := datatypes.Int(1)
-					query := query.AssociatedKeyValuesQuery{
-						KeyValueSelection: &query.KeyValueSelection{
-							KeyValues: map[string]query.Value{
-								"1": {Value: &intOne, ValueComparison: query.LessThanOrEqualMatchTypePtr()},
+					query := datatypes.AssociatedKeyValuesQuery{
+						KeyValueSelection: &datatypes.KeyValueSelection{
+							KeyValues: map[string]datatypes.Value{
+								"1": {Value: &intOne, ValueComparison: datatypes.LessThanOrEqualMatchTypePtr()},
 							},
 						},
 					}
@@ -1201,10 +1200,10 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 					}
 
 					int8Four := datatypes.Int8(4)
-					query := query.AssociatedKeyValuesQuery{
-						KeyValueSelection: &query.KeyValueSelection{
-							KeyValues: map[string]query.Value{
-								"1": {Value: &int8Four, ValueComparison: query.GreaterThanPtr()},
+					query := datatypes.AssociatedKeyValuesQuery{
+						KeyValueSelection: &datatypes.KeyValueSelection{
+							KeyValues: map[string]datatypes.Value{
+								"1": {Value: &int8Four, ValueComparison: datatypes.GreaterThanPtr()},
 							},
 						},
 					}
@@ -1228,10 +1227,10 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 					}
 
 					int8Three := datatypes.Int8(3)
-					query := query.AssociatedKeyValuesQuery{
-						KeyValueSelection: &query.KeyValueSelection{
-							KeyValues: map[string]query.Value{
-								"1": {Value: &int8Three, ValueComparison: query.GreaterThanMatchTypePtr()},
+					query := datatypes.AssociatedKeyValuesQuery{
+						KeyValueSelection: &datatypes.KeyValueSelection{
+							KeyValues: map[string]datatypes.Value{
+								"1": {Value: &int8Three, ValueComparison: datatypes.GreaterThanMatchTypePtr()},
 							},
 						},
 					}
@@ -1255,10 +1254,10 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 					}
 
 					int8Four := datatypes.Int8(4)
-					query := query.AssociatedKeyValuesQuery{
-						KeyValueSelection: &query.KeyValueSelection{
-							KeyValues: map[string]query.Value{
-								"1": {Value: &int8Four, ValueComparison: query.GreaterThanOrEqualPtr()},
+					query := datatypes.AssociatedKeyValuesQuery{
+						KeyValueSelection: &datatypes.KeyValueSelection{
+							KeyValues: map[string]datatypes.Value{
+								"1": {Value: &int8Four, ValueComparison: datatypes.GreaterThanOrEqualPtr()},
 							},
 						},
 					}
@@ -1282,10 +1281,10 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 					}
 
 					int8Four := datatypes.Int8(4)
-					query := query.AssociatedKeyValuesQuery{
-						KeyValueSelection: &query.KeyValueSelection{
-							KeyValues: map[string]query.Value{
-								"1": {Value: &int8Four, ValueComparison: query.GreaterThanOrEqualMatchTypePtr()},
+					query := datatypes.AssociatedKeyValuesQuery{
+						KeyValueSelection: &datatypes.KeyValueSelection{
+							KeyValues: map[string]datatypes.Value{
+								"1": {Value: &int8Four, ValueComparison: datatypes.GreaterThanOrEqualMatchTypePtr()},
 							},
 						},
 					}
@@ -1309,11 +1308,11 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 
 				int8One := datatypes.Int8(1)
 				stringFloat := datatypes.String("3.3")
-				query := query.AssociatedKeyValuesQuery{
-					KeyValueSelection: &query.KeyValueSelection{
-						KeyValues: map[string]query.Value{
-							"3": {Value: &int8One, ValueComparison: query.GreaterThanOrEqualPtr()},
-							"4": {Value: &stringFloat, ValueComparison: query.LessThanPtr()},
+				query := datatypes.AssociatedKeyValuesQuery{
+					KeyValueSelection: &datatypes.KeyValueSelection{
+						KeyValues: map[string]datatypes.Value{
+							"3": {Value: &int8One, ValueComparison: datatypes.GreaterThanOrEqualPtr()},
+							"4": {Value: &stringFloat, ValueComparison: datatypes.LessThanPtr()},
 						},
 					},
 				}
@@ -1337,20 +1336,20 @@ func TestAssociatedTree_Query_JoinAND(t *testing.T) {
 		associatedTree := NewThreadSafe()
 
 		// create a number of entries in the associated tree
-		keyValues1 := datatypes.KeyValues{"1": datatypes.Int(1)}
-		keyValues2 := datatypes.KeyValues{"2": datatypes.Int(2)}
-		keyValues3 := datatypes.KeyValues{"3": datatypes.Int(3)}
-		keyValues4 := datatypes.KeyValues{"1": datatypes.String("1")}
-		keyValues5 := datatypes.KeyValues{"2": datatypes.String("2")}
-		keyValues6 := datatypes.KeyValues{"3": datatypes.String("3")}
-		keyValues7 := datatypes.KeyValues{"1": datatypes.Int(1), "2": datatypes.Int(2)}
-		keyValues8 := datatypes.KeyValues{"1": datatypes.Int(1), "2": datatypes.String("2")}
-		keyValues9 := datatypes.KeyValues{"1": datatypes.Int(1), "3": datatypes.Int(3)}
-		keyValues10 := datatypes.KeyValues{"1": datatypes.Int(1), "3": datatypes.String("3")}
-		keyValues11 := datatypes.KeyValues{"2": datatypes.Int(2), "3": datatypes.Int(3)}
-		keyValues12 := datatypes.KeyValues{"2": datatypes.Int(2), "3": datatypes.String("3")}
-		keyValues13 := datatypes.KeyValues{"1": datatypes.Int(1), "2": datatypes.Int(2), "3": datatypes.Int(3)}
-		keyValues14 := datatypes.KeyValues{"1": datatypes.Int(1), "2": datatypes.String("2"), "3": datatypes.String("3")}
+		keyValues1 := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.Int(1)})
+		keyValues2 := ConverDatatypesKeyValues(datatypes.KeyValues{"2": datatypes.Int(2)})
+		keyValues3 := ConverDatatypesKeyValues(datatypes.KeyValues{"3": datatypes.Int(3)})
+		keyValues4 := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.String("1")})
+		keyValues5 := ConverDatatypesKeyValues(datatypes.KeyValues{"2": datatypes.String("2")})
+		keyValues6 := ConverDatatypesKeyValues(datatypes.KeyValues{"3": datatypes.String("3")})
+		keyValues7 := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.Int(1), "2": datatypes.Int(2)})
+		keyValues8 := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.Int(1), "2": datatypes.String("2")})
+		keyValues9 := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.Int(1), "3": datatypes.Int(3)})
+		keyValues10 := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.Int(1), "3": datatypes.String("3")})
+		keyValues11 := ConverDatatypesKeyValues(datatypes.KeyValues{"2": datatypes.Int(2), "3": datatypes.Int(3)})
+		keyValues12 := ConverDatatypesKeyValues(datatypes.KeyValues{"2": datatypes.Int(2), "3": datatypes.String("3")})
+		keyValues13 := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.Int(1), "2": datatypes.Int(2), "3": datatypes.Int(3)})
+		keyValues14 := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.Int(1), "2": datatypes.String("2"), "3": datatypes.String("3")})
 
 		associatedTree.CreateOrFind(keyValues1, func() any { return "1" }, noOpOnFind)
 		associatedTree.CreateOrFind(keyValues2, func() any { return "2" }, noOpOnFind)
@@ -1381,10 +1380,10 @@ func TestAssociatedTree_Query_JoinAND(t *testing.T) {
 
 		intOne := datatypes.Int(1)
 		intTwo := datatypes.Int(2)
-		query := query.AssociatedKeyValuesQuery{
-			And: []query.AssociatedKeyValuesQuery{
-				{KeyValueSelection: &query.KeyValueSelection{KeyValues: map[string]query.Value{"1": {Value: &intOne, ValueComparison: query.EqualsPtr()}}}},
-				{KeyValueSelection: &query.KeyValueSelection{KeyValues: map[string]query.Value{"2": {Value: &intTwo, ValueComparison: query.EqualsPtr()}}}},
+		query := datatypes.AssociatedKeyValuesQuery{
+			And: []datatypes.AssociatedKeyValuesQuery{
+				{KeyValueSelection: &datatypes.KeyValueSelection{KeyValues: map[string]datatypes.Value{"1": {Value: &intOne, ValueComparison: datatypes.EqualsPtr()}}}},
+				{KeyValueSelection: &datatypes.KeyValueSelection{KeyValues: map[string]datatypes.Value{"2": {Value: &intTwo, ValueComparison: datatypes.EqualsPtr()}}}},
 			},
 		}
 		g.Expect(query.Validate()).ToNot(HaveOccurred())
@@ -1406,10 +1405,10 @@ func TestAssociatedTree_Query_JoinAND(t *testing.T) {
 
 		intOne := datatypes.Int(1)
 		intTwo := datatypes.Int(2)
-		query := query.AssociatedKeyValuesQuery{
-			KeyValueSelection: &query.KeyValueSelection{KeyValues: map[string]query.Value{"1": {Value: &intOne, ValueComparison: query.EqualsPtr()}}},
-			And: []query.AssociatedKeyValuesQuery{
-				{KeyValueSelection: &query.KeyValueSelection{KeyValues: map[string]query.Value{"2": {Value: &intTwo, ValueComparison: query.EqualsPtr()}}}},
+		query := datatypes.AssociatedKeyValuesQuery{
+			KeyValueSelection: &datatypes.KeyValueSelection{KeyValues: map[string]datatypes.Value{"1": {Value: &intOne, ValueComparison: datatypes.EqualsPtr()}}},
+			And: []datatypes.AssociatedKeyValuesQuery{
+				{KeyValueSelection: &datatypes.KeyValueSelection{KeyValues: map[string]datatypes.Value{"2": {Value: &intTwo, ValueComparison: datatypes.EqualsPtr()}}}},
 			},
 		}
 		g.Expect(query.Validate()).ToNot(HaveOccurred())
@@ -1431,31 +1430,31 @@ func TestAssociatedTree_Query_JoinAND(t *testing.T) {
 
 		intOne := datatypes.Int(1)
 		intTwo := datatypes.Int(2)
-		query := query.AssociatedKeyValuesQuery{
-			And: []query.AssociatedKeyValuesQuery{
+		query := datatypes.AssociatedKeyValuesQuery{
+			And: []datatypes.AssociatedKeyValuesQuery{
 				{
-					And: []query.AssociatedKeyValuesQuery{
+					And: []datatypes.AssociatedKeyValuesQuery{
 						{ // do the same query 2x. shouldn't matter
-							And: []query.AssociatedKeyValuesQuery{
+							And: []datatypes.AssociatedKeyValuesQuery{
 								{
-									KeyValueSelection: &query.KeyValueSelection{
-										KeyValues: map[string]query.Value{"1": {Value: &intOne, ValueComparison: query.EqualsPtr()}},
+									KeyValueSelection: &datatypes.KeyValueSelection{
+										KeyValues: map[string]datatypes.Value{"1": {Value: &intOne, ValueComparison: datatypes.EqualsPtr()}},
 									},
 								},
 							},
 						},
 						{
-							And: []query.AssociatedKeyValuesQuery{
+							And: []datatypes.AssociatedKeyValuesQuery{
 								{
-									KeyValueSelection: &query.KeyValueSelection{
-										KeyValues: map[string]query.Value{"1": {Value: &intOne, ValueComparison: query.EqualsPtr()}},
+									KeyValueSelection: &datatypes.KeyValueSelection{
+										KeyValues: map[string]datatypes.Value{"1": {Value: &intOne, ValueComparison: datatypes.EqualsPtr()}},
 									},
 								},
 							},
 						},
 					},
 				},
-				{KeyValueSelection: &query.KeyValueSelection{KeyValues: map[string]query.Value{"2": {Value: &intTwo, ValueComparison: query.EqualsPtr()}}}},
+				{KeyValueSelection: &datatypes.KeyValueSelection{KeyValues: map[string]datatypes.Value{"2": {Value: &intTwo, ValueComparison: datatypes.EqualsPtr()}}}},
 			},
 		}
 		g.Expect(query.Validate()).ToNot(HaveOccurred())
@@ -1478,31 +1477,31 @@ func TestAssociatedTree_Query_JoinAND(t *testing.T) {
 		int73 := datatypes.Int(73)
 		intOne := datatypes.Int(1)
 		intTwo := datatypes.Int(2)
-		query := query.AssociatedKeyValuesQuery{
-			And: []query.AssociatedKeyValuesQuery{
+		query := datatypes.AssociatedKeyValuesQuery{
+			And: []datatypes.AssociatedKeyValuesQuery{
 				{
-					And: []query.AssociatedKeyValuesQuery{
+					And: []datatypes.AssociatedKeyValuesQuery{
 						{ // do the same query 2x. shouldn't matter
-							And: []query.AssociatedKeyValuesQuery{
+							And: []datatypes.AssociatedKeyValuesQuery{
 								{
-									KeyValueSelection: &query.KeyValueSelection{
-										KeyValues: map[string]query.Value{"1": {Value: &int73, ValueComparison: query.EqualsPtr()}},
+									KeyValueSelection: &datatypes.KeyValueSelection{
+										KeyValues: map[string]datatypes.Value{"1": {Value: &int73, ValueComparison: datatypes.EqualsPtr()}},
 									},
 								},
 							},
 						},
 						{
-							And: []query.AssociatedKeyValuesQuery{
+							And: []datatypes.AssociatedKeyValuesQuery{
 								{
-									KeyValueSelection: &query.KeyValueSelection{
-										KeyValues: map[string]query.Value{"1": {Value: &intOne, ValueComparison: query.EqualsPtr()}},
+									KeyValueSelection: &datatypes.KeyValueSelection{
+										KeyValues: map[string]datatypes.Value{"1": {Value: &intOne, ValueComparison: datatypes.EqualsPtr()}},
 									},
 								},
 							},
 						},
 					},
 				},
-				{KeyValueSelection: &query.KeyValueSelection{KeyValues: map[string]query.Value{"2": {Value: &intTwo, ValueComparison: query.EqualsPtr()}}}},
+				{KeyValueSelection: &datatypes.KeyValueSelection{KeyValues: map[string]datatypes.Value{"2": {Value: &intTwo, ValueComparison: datatypes.EqualsPtr()}}}},
 			},
 		}
 		g.Expect(query.Validate()).ToNot(HaveOccurred())
@@ -1522,20 +1521,20 @@ func TestAssociatedTree_Query_JoinOR(t *testing.T) {
 		associatedTree := NewThreadSafe()
 
 		// create a number of entries in the associated tree
-		keyValues1 := datatypes.KeyValues{"1": datatypes.Int(1)}
-		keyValues2 := datatypes.KeyValues{"2": datatypes.Int(2)}
-		keyValues3 := datatypes.KeyValues{"3": datatypes.Int(3)}
-		keyValues4 := datatypes.KeyValues{"1": datatypes.String("1")}
-		keyValues5 := datatypes.KeyValues{"2": datatypes.String("2")}
-		keyValues6 := datatypes.KeyValues{"3": datatypes.String("3")}
-		keyValues7 := datatypes.KeyValues{"1": datatypes.Int(1), "2": datatypes.Int(2)}
-		keyValues8 := datatypes.KeyValues{"1": datatypes.Int(1), "2": datatypes.String("2")}
-		keyValues9 := datatypes.KeyValues{"1": datatypes.Int(1), "3": datatypes.Int(3)}
-		keyValues10 := datatypes.KeyValues{"1": datatypes.Int(1), "3": datatypes.String("3")}
-		keyValues11 := datatypes.KeyValues{"2": datatypes.Int(2), "3": datatypes.Int(3)}
-		keyValues12 := datatypes.KeyValues{"2": datatypes.Int(2), "3": datatypes.String("3")}
-		keyValues13 := datatypes.KeyValues{"1": datatypes.Int(1), "2": datatypes.Int(2), "3": datatypes.Int(3)}
-		keyValues14 := datatypes.KeyValues{"1": datatypes.Int(1), "2": datatypes.String("2"), "3": datatypes.String("3")}
+		keyValues1 := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.Int(1)})
+		keyValues2 := ConverDatatypesKeyValues(datatypes.KeyValues{"2": datatypes.Int(2)})
+		keyValues3 := ConverDatatypesKeyValues(datatypes.KeyValues{"3": datatypes.Int(3)})
+		keyValues4 := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.String("1")})
+		keyValues5 := ConverDatatypesKeyValues(datatypes.KeyValues{"2": datatypes.String("2")})
+		keyValues6 := ConverDatatypesKeyValues(datatypes.KeyValues{"3": datatypes.String("3")})
+		keyValues7 := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.Int(1), "2": datatypes.Int(2)})
+		keyValues8 := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.Int(1), "2": datatypes.String("2")})
+		keyValues9 := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.Int(1), "3": datatypes.Int(3)})
+		keyValues10 := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.Int(1), "3": datatypes.String("3")})
+		keyValues11 := ConverDatatypesKeyValues(datatypes.KeyValues{"2": datatypes.Int(2), "3": datatypes.Int(3)})
+		keyValues12 := ConverDatatypesKeyValues(datatypes.KeyValues{"2": datatypes.Int(2), "3": datatypes.String("3")})
+		keyValues13 := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.Int(1), "2": datatypes.Int(2), "3": datatypes.Int(3)})
+		keyValues14 := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.Int(1), "2": datatypes.String("2"), "3": datatypes.String("3")})
 
 		associatedTree.CreateOrFind(keyValues1, func() any { return "1" }, noOpOnFind)
 		associatedTree.CreateOrFind(keyValues2, func() any { return "2" }, noOpOnFind)
@@ -1566,10 +1565,10 @@ func TestAssociatedTree_Query_JoinOR(t *testing.T) {
 
 		intOne := datatypes.Int(1)
 		intTwo := datatypes.Int(2)
-		query := query.AssociatedKeyValuesQuery{
-			Or: []query.AssociatedKeyValuesQuery{
-				{KeyValueSelection: &query.KeyValueSelection{KeyValues: map[string]query.Value{"1": {Value: &intOne, ValueComparison: query.EqualsPtr()}}}},
-				{KeyValueSelection: &query.KeyValueSelection{KeyValues: map[string]query.Value{"2": {Value: &intTwo, ValueComparison: query.EqualsPtr()}}}},
+		query := datatypes.AssociatedKeyValuesQuery{
+			Or: []datatypes.AssociatedKeyValuesQuery{
+				{KeyValueSelection: &datatypes.KeyValueSelection{KeyValues: map[string]datatypes.Value{"1": {Value: &intOne, ValueComparison: datatypes.EqualsPtr()}}}},
+				{KeyValueSelection: &datatypes.KeyValueSelection{KeyValues: map[string]datatypes.Value{"2": {Value: &intTwo, ValueComparison: datatypes.EqualsPtr()}}}},
 			},
 		}
 		g.Expect(query.Validate()).ToNot(HaveOccurred())
@@ -1591,10 +1590,10 @@ func TestAssociatedTree_Query_JoinOR(t *testing.T) {
 
 		intOne := datatypes.Int(1)
 		intTwo := datatypes.Int(2)
-		query := query.AssociatedKeyValuesQuery{
-			KeyValueSelection: &query.KeyValueSelection{KeyValues: map[string]query.Value{"1": {Value: &intOne, ValueComparison: query.EqualsPtr()}}},
-			Or: []query.AssociatedKeyValuesQuery{
-				{KeyValueSelection: &query.KeyValueSelection{KeyValues: map[string]query.Value{"2": {Value: &intTwo, ValueComparison: query.EqualsPtr()}}}},
+		query := datatypes.AssociatedKeyValuesQuery{
+			KeyValueSelection: &datatypes.KeyValueSelection{KeyValues: map[string]datatypes.Value{"1": {Value: &intOne, ValueComparison: datatypes.EqualsPtr()}}},
+			Or: []datatypes.AssociatedKeyValuesQuery{
+				{KeyValueSelection: &datatypes.KeyValueSelection{KeyValues: map[string]datatypes.Value{"2": {Value: &intTwo, ValueComparison: datatypes.EqualsPtr()}}}},
 			},
 		}
 		g.Expect(query.Validate()).ToNot(HaveOccurred())
@@ -1616,10 +1615,10 @@ func TestAssociatedTree_Query_JoinOR(t *testing.T) {
 
 		intOne := datatypes.Int(1)
 		intTwo := datatypes.Int(2)
-		query := query.AssociatedKeyValuesQuery{
-			Or: []query.AssociatedKeyValuesQuery{
-				{And: []query.AssociatedKeyValuesQuery{{And: []query.AssociatedKeyValuesQuery{{KeyValueSelection: &query.KeyValueSelection{KeyValues: map[string]query.Value{"1": {Value: &intOne, ValueComparison: query.EqualsPtr()}}}}}}}},
-				{KeyValueSelection: &query.KeyValueSelection{KeyValues: map[string]query.Value{"2": {Value: &intTwo, ValueComparison: query.EqualsPtr()}}}},
+		query := datatypes.AssociatedKeyValuesQuery{
+			Or: []datatypes.AssociatedKeyValuesQuery{
+				{And: []datatypes.AssociatedKeyValuesQuery{{And: []datatypes.AssociatedKeyValuesQuery{{KeyValueSelection: &datatypes.KeyValueSelection{KeyValues: map[string]datatypes.Value{"1": {Value: &intOne, ValueComparison: datatypes.EqualsPtr()}}}}}}}},
+				{KeyValueSelection: &datatypes.KeyValueSelection{KeyValues: map[string]datatypes.Value{"2": {Value: &intTwo, ValueComparison: datatypes.EqualsPtr()}}}},
 			},
 		}
 		g.Expect(query.Validate()).ToNot(HaveOccurred())
@@ -1640,20 +1639,20 @@ func TestAssociatedTree_Query_AND_OR_joins(t *testing.T) {
 		associatedTree := NewThreadSafe()
 
 		// create a number of entries in the associated tree
-		keyValues1 := datatypes.KeyValues{"1": datatypes.Int(1)}
-		keyValues2 := datatypes.KeyValues{"2": datatypes.Int(2)}
-		keyValues3 := datatypes.KeyValues{"3": datatypes.Int(3)}
-		keyValues4 := datatypes.KeyValues{"1": datatypes.String("1")}
-		keyValues5 := datatypes.KeyValues{"2": datatypes.String("2")}
-		keyValues6 := datatypes.KeyValues{"3": datatypes.String("3")}
-		keyValues7 := datatypes.KeyValues{"1": datatypes.Int(1), "2": datatypes.Int(2)}
-		keyValues8 := datatypes.KeyValues{"1": datatypes.Int(1), "2": datatypes.String("2")}
-		keyValues9 := datatypes.KeyValues{"1": datatypes.Int(1), "3": datatypes.Int(3)}
-		keyValues10 := datatypes.KeyValues{"1": datatypes.Int(1), "3": datatypes.String("3")}
-		keyValues11 := datatypes.KeyValues{"2": datatypes.Int(2), "3": datatypes.Int(3)}
-		keyValues12 := datatypes.KeyValues{"2": datatypes.Int(2), "3": datatypes.String("3")}
-		keyValues13 := datatypes.KeyValues{"1": datatypes.Int(1), "2": datatypes.Int(2), "3": datatypes.Int(3)}
-		keyValues14 := datatypes.KeyValues{"1": datatypes.Int(1), "2": datatypes.String("2"), "3": datatypes.String("3")}
+		keyValues1 := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.Int(1)})
+		keyValues2 := ConverDatatypesKeyValues(datatypes.KeyValues{"2": datatypes.Int(2)})
+		keyValues3 := ConverDatatypesKeyValues(datatypes.KeyValues{"3": datatypes.Int(3)})
+		keyValues4 := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.String("1")})
+		keyValues5 := ConverDatatypesKeyValues(datatypes.KeyValues{"2": datatypes.String("2")})
+		keyValues6 := ConverDatatypesKeyValues(datatypes.KeyValues{"3": datatypes.String("3")})
+		keyValues7 := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.Int(1), "2": datatypes.Int(2)})
+		keyValues8 := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.Int(1), "2": datatypes.String("2")})
+		keyValues9 := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.Int(1), "3": datatypes.Int(3)})
+		keyValues10 := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.Int(1), "3": datatypes.String("3")})
+		keyValues11 := ConverDatatypesKeyValues(datatypes.KeyValues{"2": datatypes.Int(2), "3": datatypes.Int(3)})
+		keyValues12 := ConverDatatypesKeyValues(datatypes.KeyValues{"2": datatypes.Int(2), "3": datatypes.String("3")})
+		keyValues13 := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.Int(1), "2": datatypes.Int(2), "3": datatypes.Int(3)})
+		keyValues14 := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.Int(1), "2": datatypes.String("2"), "3": datatypes.String("3")})
 
 		associatedTree.CreateOrFind(keyValues1, func() any { return "1" }, noOpOnFind)
 		associatedTree.CreateOrFind(keyValues2, func() any { return "2" }, noOpOnFind)
@@ -1685,13 +1684,13 @@ func TestAssociatedTree_Query_AND_OR_joins(t *testing.T) {
 		intOne := datatypes.Int(1)
 		intTwo := datatypes.Int(2)
 		intThree := datatypes.Int(3)
-		query := query.AssociatedKeyValuesQuery{
-			And: []query.AssociatedKeyValuesQuery{
-				{KeyValueSelection: &query.KeyValueSelection{KeyValues: map[string]query.Value{"1": {Value: &intOne, ValueComparison: query.EqualsPtr()}}}},
-				{KeyValueSelection: &query.KeyValueSelection{KeyValues: map[string]query.Value{"2": {Value: &intTwo, ValueComparison: query.EqualsPtr()}}}},
+		query := datatypes.AssociatedKeyValuesQuery{
+			And: []datatypes.AssociatedKeyValuesQuery{
+				{KeyValueSelection: &datatypes.KeyValueSelection{KeyValues: map[string]datatypes.Value{"1": {Value: &intOne, ValueComparison: datatypes.EqualsPtr()}}}},
+				{KeyValueSelection: &datatypes.KeyValueSelection{KeyValues: map[string]datatypes.Value{"2": {Value: &intTwo, ValueComparison: datatypes.EqualsPtr()}}}},
 			},
-			Or: []query.AssociatedKeyValuesQuery{
-				{KeyValueSelection: &query.KeyValueSelection{KeyValues: map[string]query.Value{"3": {Value: &intThree, ValueComparison: query.EqualsPtr()}}}},
+			Or: []datatypes.AssociatedKeyValuesQuery{
+				{KeyValueSelection: &datatypes.KeyValueSelection{KeyValues: map[string]datatypes.Value{"3": {Value: &intThree, ValueComparison: datatypes.EqualsPtr()}}}},
 			},
 		}
 		g.Expect(query.Validate()).ToNot(HaveOccurred())
@@ -1715,34 +1714,34 @@ func TestAssociatedTree_Query_AND_OR_joins(t *testing.T) {
 		intOne := datatypes.Int(1)
 		intTwo := datatypes.Int(2)
 		intThree := datatypes.Int(3)
-		query := query.AssociatedKeyValuesQuery{
-			And: []query.AssociatedKeyValuesQuery{
+		query := datatypes.AssociatedKeyValuesQuery{
+			And: []datatypes.AssociatedKeyValuesQuery{
 				{
-					And: []query.AssociatedKeyValuesQuery{
+					And: []datatypes.AssociatedKeyValuesQuery{
 						{ // do the same query 2x. shouldn't matter
-							And: []query.AssociatedKeyValuesQuery{
+							And: []datatypes.AssociatedKeyValuesQuery{
 								{
-									KeyValueSelection: &query.KeyValueSelection{
-										KeyValues: map[string]query.Value{"1": {Value: &int73, ValueComparison: query.EqualsPtr()}},
+									KeyValueSelection: &datatypes.KeyValueSelection{
+										KeyValues: map[string]datatypes.Value{"1": {Value: &int73, ValueComparison: datatypes.EqualsPtr()}},
 									},
 								},
 							},
 						},
 						{
-							And: []query.AssociatedKeyValuesQuery{
+							And: []datatypes.AssociatedKeyValuesQuery{
 								{
-									KeyValueSelection: &query.KeyValueSelection{
-										KeyValues: map[string]query.Value{"1": {Value: &intOne, ValueComparison: query.EqualsPtr()}},
+									KeyValueSelection: &datatypes.KeyValueSelection{
+										KeyValues: map[string]datatypes.Value{"1": {Value: &intOne, ValueComparison: datatypes.EqualsPtr()}},
 									},
 								},
 							},
 						},
 					},
 				},
-				{KeyValueSelection: &query.KeyValueSelection{KeyValues: map[string]query.Value{"2": {Value: &intTwo, ValueComparison: query.EqualsPtr()}}}},
+				{KeyValueSelection: &datatypes.KeyValueSelection{KeyValues: map[string]datatypes.Value{"2": {Value: &intTwo, ValueComparison: datatypes.EqualsPtr()}}}},
 			},
-			Or: []query.AssociatedKeyValuesQuery{
-				{KeyValueSelection: &query.KeyValueSelection{KeyValues: map[string]query.Value{"3": {Value: &intThree, ValueComparison: query.EqualsPtr()}}}},
+			Or: []datatypes.AssociatedKeyValuesQuery{
+				{KeyValueSelection: &datatypes.KeyValueSelection{KeyValues: map[string]datatypes.Value{"3": {Value: &intThree, ValueComparison: datatypes.EqualsPtr()}}}},
 			},
 		}
 		g.Expect(query.Validate()).ToNot(HaveOccurred())

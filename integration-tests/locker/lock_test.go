@@ -15,6 +15,7 @@ import (
 	"time"
 
 	. "github.com/DanLavine/willow/integration-tests/integrationhelpers"
+	"github.com/DanLavine/willow/pkg/clients"
 	lockerclient "github.com/DanLavine/willow/pkg/clients/locker_client"
 	"github.com/DanLavine/willow/pkg/models/api/v1locker"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
@@ -25,11 +26,11 @@ import (
 func setupClient(g *GomegaWithT, ctx context.Context, url string) lockerclient.LockerClient {
 	_, currentDir, _, _ := runtime.Caller(0)
 
-	cfg := &lockerclient.Config{
-		URL:                 url,
-		LockerCAFile:        filepath.Join(currentDir, "..", "..", "..", "testhelpers", "tls-keys", "ca.crt"),
-		LockerClientKeyFile: filepath.Join(currentDir, "..", "..", "..", "testhelpers", "tls-keys", "client.key"),
-		LockerClientCRTFile: filepath.Join(currentDir, "..", "..", "..", "testhelpers", "tls-keys", "client.crt"),
+	cfg := &clients.Config{
+		URL:           url,
+		CAFile:        filepath.Join(currentDir, "..", "..", "..", "testhelpers", "tls-keys", "ca.crt"),
+		ClientKeyFile: filepath.Join(currentDir, "..", "..", "..", "testhelpers", "tls-keys", "client.key"),
+		ClientCRTFile: filepath.Join(currentDir, "..", "..", "..", "testhelpers", "tls-keys", "client.crt"),
 	}
 
 	lockerClient, err := lockerclient.NewLockerClient(ctx, cfg, nil)

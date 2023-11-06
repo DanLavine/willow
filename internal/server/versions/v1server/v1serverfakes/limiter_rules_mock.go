@@ -106,18 +106,6 @@ func (mr *MockLimitRuleHandlerMockRecorder) Increment(arg0, arg1 interface{}) *g
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Increment", reflect.TypeOf((*MockLimitRuleHandler)(nil).Increment), arg0, arg1)
 }
 
-// List mocks base method.
-func (m *MockLimitRuleHandler) List(arg0 http.ResponseWriter, arg1 *http.Request) {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "List", arg0, arg1)
-}
-
-// List indicates an expected call of List.
-func (mr *MockLimitRuleHandlerMockRecorder) List(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "List", reflect.TypeOf((*MockLimitRuleHandler)(nil).List), arg0, arg1)
-}
-
 // SetOverride mocks base method.
 func (m *MockLimitRuleHandler) SetOverride(arg0 http.ResponseWriter, arg1 *http.Request) {
 	m.ctrl.T.Helper()

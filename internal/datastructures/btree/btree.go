@@ -56,6 +56,18 @@ type BTree interface {
 	// - key - key to use when comparing to other possible items
 	// - onCreate - callback function to create the item if it does not exist. If the create callback was to fail, its up
 	//              to the callback to perform any cleanup operations and return nil. In this case nothing will be saved to the tree
+	//
+	// RETURNS:
+	// - error - any errors encontered. I.E. key is not valid or the key already exists
+	Create(key datatypes.EncapsulatedData, onCreate datastructures.OnCreate) error
+
+	// If the provided key does not exist, the onCreate function will be called to initalize a new object.
+	// Otherwise the onFind callback will be invoked for the value associated with the key
+	//
+	// PARAMS:
+	// - key - key to use when comparing to other possible items
+	// - onCreate - callback function to create the item if it does not exist. If the create callback was to fail, its up
+	//              to the callback to perform any cleanup operations and return nil. In this case nothing will be saved to the tree
 	// - onFind - method to call if the key already exists
 	//
 	// RETURNS:

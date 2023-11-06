@@ -10,7 +10,7 @@ import (
 	"github.com/DanLavine/willow/internal/errors"
 	"github.com/DanLavine/willow/internal/limiter/memory"
 	"github.com/DanLavine/willow/pkg/models/api"
-	"github.com/DanLavine/willow/pkg/models/api/v1limiter"
+	v1limiter "github.com/DanLavine/willow/pkg/models/api/limiter/v1"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 	"go.uber.org/zap"
 )
@@ -24,7 +24,7 @@ type RulesManager interface {
 	// TODO: add an API for listing current limits
 
 	// create
-	CreateGroupRule(logger *zap.Logger, createRequest *v1limiter.RuleRequest) *api.Error
+	CreateGroupRule(logger *zap.Logger, rule *v1limiter.Rule) *api.Error
 
 	// read
 	FindRule(logger *zap.Logger, name string) Rule
@@ -61,20 +61,32 @@ func NewRulesManger() *rulesManger {
 }
 
 // Create new group rule operation
-func (rm *rulesManger) CreateGroupRule(logger *zap.Logger, createRequest *v1limiter.RuleRequest) *api.Error {
+func (rm *rulesManger) CreateGroupRule(logger *zap.Logger, rule *v1limiter.Rule) *api.Error {
 	logger = logger.Named("CreateGroupRule")
 	var returnErr *api.Error
 
 	onCreate := func() any {
-		return memory.NewRule(createRequest)
+		return memory.NewRule(rule)
 	}
 
 	onFind := func(_ any) {
-		logger.Error("failed to create new rule set", zap.String("name", createRequest.Name))
-		returnErr = (&api.Error{Message: "rule already exists", StatusCode: http.StatusUnprocessableEntity}).With(fmt.Sprintf("name %s to not be in use", createRequest.Name), "")
+		logger.Error("rule already exists", zap.String("name", rule.Name))
+		returnErr = (&api.Error{Message: "rule already exists", StatusCode: http.StatusUnprocessableEntity}).With(fmt.Sprintf("name %s to not be in use", rule.Name), "")
 	}
 
-	if err := rm.rules.CreateOrFind(datatypes.String(createRequest.Name), onCreate, onFind); err != nil {
+	// change the Btree so that OnCreate can take map[interface]EncapsulatedData. Then all the
+	// GroupBy[] params -> string. And Name-> custom type that can match agains string.
+	//
+	// Gives the ability to "query" about the strictly string types and custom types.
+	//
+	// one problem that would come up is the query is against only the keys, not the values when searching for matches
+	//
+	// OR...
+	//
+	// is there an easier way to conver things?
+	// IDEA: save the name as the _associated_id. This is the unique key in the API anyways
+
+	if err := rm.rules.CreateOrFind(datatypes.String(rule.Name), onCreate, onFind); err != nil {
 		logger.Error("failed to create or find a new rule", zap.Error(err))
 		return errors.InternalServerError
 	}
@@ -184,7 +196,7 @@ func (rm *rulesManger) Increment(logger *zap.Logger, increment *v1limiter.RuleCo
 		initialCount = counter.Add(1)
 	}
 
-	_, _ = rm.counters.CreateOrFind(increment.KeyValues, onCreate, onFind)
+	_, _ = rm.counters.CreateOrFind(btreeassociated.ConverDatatypesKeyValues(increment.KeyValues), onCreate, onFind)
 
 	// 2. sort through all the rules to know if we are at the limit
 	limitReached := false
@@ -231,7 +243,7 @@ func (rm *rulesManger) Increment(logger *zap.Logger, increment *v1limiter.RuleCo
 			return counter.Load() == 0
 		}
 
-		_ = rm.counters.Delete(increment.KeyValues, canDelete)
+		_ = rm.counters.Delete(btreeassociated.ConverDatatypesKeyValues(increment.KeyValues), canDelete)
 
 		return &api.Error{Message: "Unable to process limit request. The limits are already reached", StatusCode: http.StatusLocked}
 	}
@@ -249,5 +261,5 @@ func (rm *rulesManger) Decrement(logger *zap.Logger, decrement *v1limiter.RuleCo
 		return counter.Load() == 0
 	}
 
-	_ = rm.counters.Delete(decrement.KeyValues, canDelete)
+	_ = rm.counters.Delete(btreeassociated.ConverDatatypesKeyValues(decrement.KeyValues), canDelete)
 }

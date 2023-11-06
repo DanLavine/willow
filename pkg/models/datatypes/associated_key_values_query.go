@@ -1,10 +1,8 @@
-package query
+package datatypes
 
 import (
 	"encoding/json"
 	"fmt"
-
-	"github.com/DanLavine/willow/pkg/models/datatypes"
 )
 
 type AssociatedKeyValuesQuery struct {
@@ -49,7 +47,7 @@ func (q *AssociatedKeyValuesQuery) Validate() error {
 }
 
 // used to know if arbitrary tags, would be found from a query
-func (q *AssociatedKeyValuesQuery) MatchTags(tags datatypes.KeyValues) bool {
+func (q *AssociatedKeyValuesQuery) MatchTags(tags KeyValues) bool {
 	matched := true
 
 	// if Query is not nil, check the tags

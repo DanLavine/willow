@@ -7,15 +7,14 @@ import (
 	btreeassociated "github.com/DanLavine/willow/internal/datastructures/btree_associated"
 	"github.com/DanLavine/willow/internal/errors"
 	"github.com/DanLavine/willow/pkg/models/api"
-	"github.com/DanLavine/willow/pkg/models/api/v1limiter"
+	v1limiter "github.com/DanLavine/willow/pkg/models/api/limiter/v1"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
-	"github.com/DanLavine/willow/pkg/models/query"
 	"go.uber.org/zap"
 )
 
 type rule struct {
 	ruleModelLock *sync.RWMutex
-	ruleModel     *v1limiter.RuleRequest
+	ruleModel     *v1limiter.Rule
 
 	// all values in the overrides are of type 'ruleOverride'
 	overrides btreeassociated.BTreeAssociated
@@ -28,7 +27,7 @@ type ruleOverride struct {
 	limit     uint64
 }
 
-func NewRule(ruleModel *v1limiter.RuleRequest) *rule {
+func NewRule(ruleModel *v1limiter.Rule) *rule {
 	return &rule{
 		ruleModelLock: new(sync.RWMutex),
 		ruleModel:     ruleModel,
@@ -43,11 +42,11 @@ func (r *rule) Update(logger *zap.Logger, newLimit uint64) {
 	r.ruleModel.Limit = uint64(newLimit)
 }
 
-func (r *rule) SetOverride(logger *zap.Logger, override *v1limiter.RuleOverrideRequest) *api.Error {
+func (r *rule) SetOverride(logger *zap.Logger, override *v1limiter.Override) *api.Error {
 	logger = logger.Named("SetOverride")
 
 	// set an override iff the tags aare valid
-	if !r.ruleModel.Query.MatchTags(override.KeyValues) {
+	if !r.ruleModel.QueryFilter.MatchTags(override.KeyValues) {
 		return api.NotAcceptable.With("the provided keys values to match the rule query", "provided will never be found by the rule query")
 	}
 
@@ -67,7 +66,7 @@ func (r *rule) SetOverride(logger *zap.Logger, override *v1limiter.RuleOverrideR
 		ruleOverride.limit = override.Limit
 	}
 
-	if _, err := r.overrides.CreateOrFind(override.KeyValues, onCreate, onFind); err != nil {
+	if _, err := r.overrides.CreateOrFind(btreeassociated.ConverDatatypesKeyValues(override.KeyValues), onCreate, onFind); err != nil {
 		logger.Error("failed to CreateOrFind a rule override", zap.Error(err))
 		return errors.InternalServerError.With("", err.Error())
 	}
@@ -75,7 +74,7 @@ func (r *rule) SetOverride(logger *zap.Logger, override *v1limiter.RuleOverrideR
 	return nil
 }
 
-func (r *rule) DeleteOverride(logger *zap.Logger, query query.AssociatedKeyValuesQuery) *api.Error {
+func (r *rule) DeleteOverride(logger *zap.Logger, query datatypes.AssociatedKeyValuesQuery) *api.Error {
 	logger = logger.Named("DeleteOverride")
 
 	// if err := r.overrides.Delete(override.KeyValues, func(_ any) bool { return true }); err != nil {
@@ -102,7 +101,7 @@ func (r *rule) FindLimit(logger *zap.Logger, keyValues datatypes.KeyValues) uint
 	}
 
 	// ignore these errors... should make it so it just panics
-	_, _ = r.overrides.Find(keyValues, onFind)
+	_, _ = r.overrides.Find(btreeassociated.ConverDatatypesKeyValues(keyValues), onFind)
 
 	return limit
 }
@@ -116,7 +115,7 @@ func (r *rule) TagsMatch(logger *zap.Logger, keyValues datatypes.KeyValues) bool
 	}
 
 	// ensure that the selection doesn't filter out the request
-	return r.ruleModel.Query.MatchTags(keyValues)
+	return r.ruleModel.QueryFilter.MatchTags(keyValues)
 }
 
 func (r *rule) Lock() {
@@ -127,26 +126,27 @@ func (r *rule) Unlock() {
 	r.ruleModelLock.RLock()
 }
 
-func (r *rule) GenerateQuery(keyValues datatypes.KeyValues) query.AssociatedKeyValuesQuery {
-	selectQuery := query.AssociatedKeyValuesQuery{
-		KeyValueSelection: &query.KeyValueSelection{
-			KeyValues: map[string]query.Value{},
+func (r *rule) GenerateQuery(keyValues datatypes.KeyValues) datatypes.AssociatedKeyValuesQuery {
+	selectQuery := datatypes.AssociatedKeyValuesQuery{
+		KeyValueSelection: &datatypes.KeyValueSelection{
+			KeyValues: map[string]datatypes.Value{},
 		},
 	}
 
 	for _, key := range r.ruleModel.GroupBy {
 		value := keyValues[key]
-		selectQuery.KeyValueSelection.KeyValues[key] = query.Value{Value: &value, ValueComparison: query.EqualsPtr()}
+		selectQuery.KeyValueSelection.KeyValues[key] = datatypes.Value{Value: &value, ValueComparison: datatypes.EqualsPtr()}
 	}
 
 	return selectQuery
 }
 
-func (r *rule) GetRuleResponse(includeOverrides bool) *v1limiter.RuleResponse {
+func (r *rule) GetRuleResponse(includeOverrides bool) *v1limiter.Rule {
 	r.ruleModelLock.RLock()
 	defer r.ruleModelLock.RUnlock()
 
-	var overrides []v1limiter.RuleOverrideResponse
+	var overrides []v1limiter.Override
+
 	if includeOverrides {
 		onPagiination := func(item any) bool {
 			ruleOverride := item.(*btreeassociated.AssociatedKeyValues).Value().(*ruleOverride)
@@ -157,19 +157,19 @@ func (r *rule) GetRuleResponse(includeOverrides bool) *v1limiter.RuleResponse {
 			// I somehow need the key values here as well...
 			// this is the 2nd time i need this info (also in willow). And just saving it off here seems like a
 			// waste of memory. Ideally we could iterate over everything and pass in the key vaules that make up a pair?
-			overrides = append(overrides, v1limiter.RuleOverrideResponse{KeyValues: ruleOverride.keyValues, Limit: ruleOverride.limit})
+			overrides = append(overrides, v1limiter.Override{KeyValues: ruleOverride.keyValues, Limit: ruleOverride.limit})
 
 			return true
 		}
 
-		_ = r.overrides.Query(query.AssociatedKeyValuesQuery{}, onPagiination)
+		_ = r.overrides.Query(datatypes.AssociatedKeyValuesQuery{}, onPagiination)
 	}
 
-	ruleResponse := &v1limiter.RuleResponse{
-		Name:          r.ruleModel.Name,
-		GroupBy:       r.ruleModel.GroupBy,
-		Limit:         r.ruleModel.Limit,
-		RuleOverrides: overrides,
+	ruleResponse := &v1limiter.Rule{
+		Name:      r.ruleModel.Name,
+		GroupBy:   r.ruleModel.GroupBy,
+		Limit:     r.ruleModel.Limit,
+		Overrides: overrides,
 	}
 
 	return ruleResponse

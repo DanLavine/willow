@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/DanLavine/willow/pkg/models/datatypes"
-	"github.com/DanLavine/willow/pkg/models/query"
 
 	. "github.com/onsi/gomega"
 )
@@ -172,35 +171,73 @@ func TestAssociated_Random_Create(t *testing.T) {
 	noOpOnFind := func(item any) {}
 
 	t.Run("It is threadsafe when adding many entries asynchronously", func(t *testing.T) {
+		t.Parallel()
 		associatedTree := NewThreadSafe()
 		wg := new(sync.WaitGroup)
 
-		for i := 0; i < 10_000; i++ {
+		testCounter := 10_000
+		for i := 0; i < testCounter; i++ {
 			wg.Add(1)
 			go func(tNum int) {
 				defer wg.Done()
-
 				modInt := tNum % 5
 				modInt++
 
 				// generate a key with a few different types
-				keys := datatypes.KeyValues{}
-				repeatKeys := datatypes.KeyValues{}
+				keys := KeyValues{}
 				for i := 0; i < modInt; i++ {
 					switch tNum % 2 {
 					case 0:
-						keys[fmt.Sprintf("%d", i)] = datatypes.String(fmt.Sprintf("%d", tNum))
-						repeatKeys[fmt.Sprintf("%d", i)] = datatypes.String(fmt.Sprintf("%d", i))
+						keys[datatypes.String(fmt.Sprintf("%d", i))] = datatypes.String(fmt.Sprintf("%d", tNum))
 					default:
-						keys[fmt.Sprintf("%d", i)] = datatypes.Int(tNum)
-						repeatKeys[fmt.Sprintf("%d", i)] = datatypes.Int(i)
+						keys[datatypes.String(fmt.Sprintf("%d", i))] = datatypes.Int(tNum)
 					}
 				}
 
 				_, err := associatedTree.CreateOrFind(keys, noOpOnCreate, noOpOnFind)
 				g.Expect(err).ToNot(HaveOccurred())
+			}(i)
 
-				_, err = associatedTree.CreateOrFind(repeatKeys, noOpOnCreate, noOpOnFind)
+			wg.Add(1)
+			go func(tNum int) {
+				defer wg.Done()
+				modInt := tNum % 5
+				modInt++
+
+				// generate a key with a few different types
+				repeatKeys := KeyValues{}
+				for i := 0; i < modInt; i++ {
+					switch tNum % 2 {
+					case 0:
+						repeatKeys[datatypes.String(fmt.Sprintf("%d", i))] = datatypes.String(fmt.Sprintf("%d", i))
+					default:
+						repeatKeys[datatypes.String(fmt.Sprintf("%d", i))] = datatypes.Int(i)
+					}
+				}
+
+				_, err := associatedTree.CreateOrFind(repeatKeys, noOpOnCreate, noOpOnFind)
+				g.Expect(err).ToNot(HaveOccurred())
+			}(i)
+
+			wg.Add(1)
+			go func(tNum int) {
+				defer wg.Done()
+
+				// generate a key with a few different types
+				keys := KeyValues{datatypes.String(fmt.Sprintf("%d", tNum+testCounter)): datatypes.String(fmt.Sprintf("%d", tNum))}
+
+				_, err := associatedTree.Create(keys, noOpOnCreate)
+				g.Expect(err).ToNot(HaveOccurred())
+			}(i)
+
+			wg.Add(1)
+			go func(tNum int) {
+				defer wg.Done()
+
+				// generate a key with a few different types
+				keys := KeyValues{datatypes.String(fmt.Sprintf("%d", tNum+(2*testCounter))): datatypes.String(fmt.Sprintf("%d", tNum))}
+
+				err := associatedTree.CreateWithID(fmt.Sprintf("%d", tNum), keys, noOpOnCreate)
 				g.Expect(err).ToNot(HaveOccurred())
 			}(i)
 		}
@@ -214,12 +251,15 @@ func TestAssociated_Random_Find(t *testing.T) {
 	g := NewGomegaWithT(t)
 	noOpOnFind := func(item any) {}
 
+	testCounter := 10_000
+
 	t.Run("It is threadsafe when finding many entries asynchronously", func(t *testing.T) {
+		t.Parallel()
 		associatedTree := NewThreadSafe()
 		wg := new(sync.WaitGroup)
 
 		// create 10k entries
-		for i := 0; i < 10_000; i++ {
+		for i := 0; i < testCounter; i++ {
 			wg.Add(1)
 			go func(tNum int) {
 				defer wg.Done()
@@ -228,24 +268,46 @@ func TestAssociated_Random_Find(t *testing.T) {
 				modInt++
 
 				// generate a key with a few different types
-				keys := datatypes.KeyValues{}
+				keys := KeyValues{}
 				for i := 0; i < modInt; i++ {
 					switch tNum % 2 {
 					case 0:
-						keys[fmt.Sprintf("%d", i)] = datatypes.String(fmt.Sprintf("%d", tNum))
+						keys[datatypes.String(fmt.Sprintf("%d", i))] = datatypes.String(fmt.Sprintf("%d", tNum))
 					default:
-						keys[fmt.Sprintf("%d", i)] = datatypes.Int(tNum)
+						keys[datatypes.String(fmt.Sprintf("%d", i))] = datatypes.Int(tNum)
 					}
 				}
 
 				_, err := associatedTree.CreateOrFind(keys, func() any { return tNum }, noOpOnFind)
 				g.Expect(err).ToNot(HaveOccurred())
 			}(i)
+
+			wg.Add(1)
+			go func(tNum int) {
+				defer wg.Done()
+
+				// generate a key with a few different types
+				keys := KeyValues{datatypes.String(fmt.Sprintf("%d", tNum+testCounter)): datatypes.String(fmt.Sprintf("%d", tNum))}
+
+				_, err := associatedTree.Create(keys, func() any { return tNum })
+				g.Expect(err).ToNot(HaveOccurred())
+			}(i)
+
+			wg.Add(1)
+			go func(tNum int) {
+				defer wg.Done()
+
+				// generate a key with a few different types
+				keys := KeyValues{datatypes.String(fmt.Sprintf("%d", tNum+(2*testCounter))): datatypes.String(fmt.Sprintf("%d", tNum))}
+
+				err := associatedTree.CreateWithID(fmt.Sprintf("%d", tNum), keys, func() any { return tNum })
+				g.Expect(err).ToNot(HaveOccurred())
+			}(i)
 		}
 		wg.Wait()
 
 		// find 10k entries
-		for i := 0; i < 10_000; i++ {
+		for i := 0; i < testCounter; i++ {
 			wg.Add(1)
 			go func(tNum int) {
 				defer wg.Done()
@@ -254,13 +316,13 @@ func TestAssociated_Random_Find(t *testing.T) {
 				modInt++
 
 				// generate a key with a few different types
-				keys := datatypes.KeyValues{}
+				keys := KeyValues{}
 				for i := 0; i < modInt; i++ {
 					switch tNum % 2 {
 					case 0:
-						keys[fmt.Sprintf("%d", i)] = datatypes.String(fmt.Sprintf("%d", tNum))
+						keys[datatypes.String(fmt.Sprintf("%d", i))] = datatypes.String(fmt.Sprintf("%d", tNum))
 					default:
-						keys[fmt.Sprintf("%d", i)] = datatypes.Int(tNum)
+						keys[datatypes.String(fmt.Sprintf("%d", i))] = datatypes.Int(tNum)
 					}
 				}
 
@@ -272,6 +334,156 @@ func TestAssociated_Random_Find(t *testing.T) {
 				g.Expect(err).ToNot(HaveOccurred())
 
 				g.Expect(findCounter).To(Equal(1), fmt.Sprintf("Index %d has an invalid find counter", tNum))
+			}(i)
+
+			wg.Add(1)
+			go func(tNum int) {
+				defer wg.Done()
+
+				// generate a key with a few different types
+				findCounter := 0
+				keys := KeyValues{datatypes.String(fmt.Sprintf("%d", tNum+testCounter)): datatypes.String(fmt.Sprintf("%d", tNum))}
+
+				_, err := associatedTree.Find(keys, func(item any) {
+					findCounter++
+					g.Expect(item.(*AssociatedKeyValues).Value()).To(Equal(tNum))
+				})
+				g.Expect(err).ToNot(HaveOccurred())
+
+				g.Expect(findCounter).To(Equal(1), fmt.Sprintf("Index %d has an invalid find counter", tNum))
+			}(i)
+
+			wg.Add(1)
+			go func(tNum int) {
+				defer wg.Done()
+
+				modInt := tNum % 5
+				modInt++
+
+				// generate a key with a few different types
+				findCounter := 0
+				keys := KeyValues{datatypes.String(fmt.Sprintf("%d", tNum+(2*testCounter))): datatypes.String(fmt.Sprintf("%d", tNum))}
+
+				_, err := associatedTree.Find(keys, func(item any) {
+					findCounter++
+					g.Expect(item.(*AssociatedKeyValues).Value()).To(Equal(tNum))
+				})
+				g.Expect(err).ToNot(HaveOccurred())
+
+				g.Expect(findCounter).To(Equal(1), fmt.Sprintf("Index %d has an invalid find counter", tNum))
+			}(i)
+		}
+		wg.Wait()
+
+		validateThreadSafeTree(g, associatedTree)
+	})
+
+	t.Run("It is threadsafe when finding and inserting many entries asynchronously", func(t *testing.T) {
+		t.Parallel()
+		associatedTree := NewThreadSafe()
+		wg := new(sync.WaitGroup)
+
+		// create 10k entries
+		for i := 0; i < testCounter; i++ {
+			wg.Add(1)
+			go func(tNum int) {
+				defer wg.Done()
+
+				modInt := tNum % 5
+				modInt++
+
+				// generate a key with a few different types
+				keys := KeyValues{}
+				for i := 0; i < modInt; i++ {
+					switch tNum % 2 {
+					case 0:
+						keys[datatypes.String(fmt.Sprintf("%d", i))] = datatypes.String(fmt.Sprintf("%d", tNum))
+					default:
+						keys[datatypes.String(fmt.Sprintf("%d", i))] = datatypes.Int(tNum)
+					}
+				}
+
+				_, err := associatedTree.CreateOrFind(keys, func() any { return tNum }, noOpOnFind)
+				g.Expect(err).ToNot(HaveOccurred())
+			}(i)
+
+			wg.Add(1)
+			go func(tNum int) {
+				defer wg.Done()
+
+				// generate a key with a few different types
+				keys := KeyValues{datatypes.String(fmt.Sprintf("%d", tNum+testCounter)): datatypes.String(fmt.Sprintf("%d", tNum))}
+
+				_, err := associatedTree.Create(keys, func() any { return tNum })
+				g.Expect(err).ToNot(HaveOccurred())
+			}(i)
+
+			wg.Add(1)
+			go func(tNum int) {
+				defer wg.Done()
+
+				// generate a key with a few different types
+				keys := KeyValues{datatypes.String(fmt.Sprintf("%d", tNum+(2*testCounter))): datatypes.String(fmt.Sprintf("%d", tNum))}
+
+				err := associatedTree.CreateWithID(fmt.Sprintf("%d", tNum), keys, func() any { return tNum })
+				g.Expect(err).ToNot(HaveOccurred())
+			}(i)
+
+			// find entries
+			//// find create or find
+			wg.Add(1)
+			go func(tNum int) {
+				defer wg.Done()
+
+				modInt := tNum % 5
+				modInt++
+
+				// generate a key with a few different types
+				keys := KeyValues{}
+				for i := 0; i < modInt; i++ {
+					switch tNum % 2 {
+					case 0:
+						keys[datatypes.String(fmt.Sprintf("%d", i))] = datatypes.String(fmt.Sprintf("%d", tNum))
+					default:
+						keys[datatypes.String(fmt.Sprintf("%d", i))] = datatypes.Int(tNum)
+					}
+				}
+
+				_, err := associatedTree.Find(keys, func(item any) {
+					g.Expect(item.(*AssociatedKeyValues).Value()).To(Equal(tNum))
+				})
+				g.Expect(err).ToNot(HaveOccurred())
+			}(i)
+
+			//// find create
+			wg.Add(1)
+			go func(tNum int) {
+				defer wg.Done()
+
+				// generate a key with a few different types
+				keys := KeyValues{datatypes.String(fmt.Sprintf("%d", tNum+testCounter)): datatypes.String(fmt.Sprintf("%d", tNum))}
+
+				_, err := associatedTree.Find(keys, func(item any) {
+					g.Expect(item.(*AssociatedKeyValues).Value()).To(Equal(tNum))
+				})
+				g.Expect(err).ToNot(HaveOccurred())
+			}(i)
+
+			//// find create with id
+			wg.Add(1)
+			go func(tNum int) {
+				defer wg.Done()
+
+				modInt := tNum % 5
+				modInt++
+
+				// generate a key with a few different types
+				keys := KeyValues{datatypes.String(fmt.Sprintf("%d", tNum+(2*testCounter))): datatypes.String(fmt.Sprintf("%d", tNum))}
+
+				_, err := associatedTree.Find(keys, func(item any) {
+					g.Expect(item.(*AssociatedKeyValues).Value()).To(Equal(tNum))
+				})
+				g.Expect(err).ToNot(HaveOccurred())
 			}(i)
 		}
 		wg.Wait()
@@ -298,13 +510,13 @@ func TestAssociated_Random_Query(t *testing.T) {
 				modInt++
 
 				// generate a key with a few different types
-				keys := datatypes.KeyValues{}
+				keys := KeyValues{}
 				for i := 0; i < modInt; i++ {
 					switch tNum % 2 {
 					case 0:
-						keys[fmt.Sprintf("%d", i)] = datatypes.String(fmt.Sprintf("%d", tNum))
+						keys[datatypes.String(fmt.Sprintf("%d", i))] = datatypes.String(fmt.Sprintf("%d", tNum))
 					default:
-						keys[fmt.Sprintf("%d", i)] = datatypes.Int(tNum)
+						keys[datatypes.String(fmt.Sprintf("%d", i))] = datatypes.Int(tNum)
 					}
 				}
 
@@ -324,17 +536,17 @@ func TestAssociated_Random_Query(t *testing.T) {
 				modInt++
 
 				// generate a key with a few different types
-				queryDB := query.AssociatedKeyValuesQuery{}
+				queryDB := datatypes.AssociatedKeyValuesQuery{}
 				for i := 0; i < modInt; i++ {
-					asociatedKeyValuesQuery := query.AssociatedKeyValuesQuery{}
+					asociatedKeyValuesQuery := datatypes.AssociatedKeyValuesQuery{}
 					switch tNum % 2 {
 					case 0:
 						strValue := datatypes.String(fmt.Sprintf("%d", tNum))
-						asociatedKeyValuesQuery.KeyValueSelection = &query.KeyValueSelection{KeyValues: map[string]query.Value{fmt.Sprintf("%d", i): {Value: &strValue, ValueComparison: query.EqualsPtr()}}}
+						asociatedKeyValuesQuery.KeyValueSelection = &datatypes.KeyValueSelection{KeyValues: map[string]datatypes.Value{fmt.Sprintf("%d", i): {Value: &strValue, ValueComparison: datatypes.EqualsPtr()}}}
 						queryDB.And = append(queryDB.And, asociatedKeyValuesQuery)
 					default:
 						intValue := datatypes.Int(tNum)
-						asociatedKeyValuesQuery.KeyValueSelection = &query.KeyValueSelection{KeyValues: map[string]query.Value{fmt.Sprintf("%d", i): {Value: &intValue, ValueComparison: query.EqualsPtr()}}}
+						asociatedKeyValuesQuery.KeyValueSelection = &datatypes.KeyValueSelection{KeyValues: map[string]datatypes.Value{fmt.Sprintf("%d", i): {Value: &intValue, ValueComparison: datatypes.EqualsPtr()}}}
 						queryDB.Or = append(queryDB.Or, asociatedKeyValuesQuery)
 					}
 				}
@@ -357,13 +569,14 @@ func TestAssociated_Random_Query(t *testing.T) {
 func TestAssociated_Random_Delete(t *testing.T) {
 	g := NewGomegaWithT(t)
 	noOpOnFind := func(item any) {}
+	testCounter := 10_000
 
 	t.Run("It is threadsafe when deleting many entries asynchronously", func(t *testing.T) {
 		associatedTree := NewThreadSafe()
 		wg := new(sync.WaitGroup)
 
 		// create 10k entries
-		for i := 0; i < 10_000; i++ {
+		for i := 0; i < testCounter; i++ {
 			wg.Add(1)
 			go func(tNum int) {
 				defer wg.Done()
@@ -372,17 +585,39 @@ func TestAssociated_Random_Delete(t *testing.T) {
 				modInt++
 
 				// generate a key with a few different types
-				keys := datatypes.KeyValues{}
+				keys := KeyValues{}
 				for i := 0; i < modInt; i++ {
 					switch tNum % 2 {
 					case 0:
-						keys[fmt.Sprintf("%d", i)] = datatypes.String(fmt.Sprintf("%d", tNum))
+						keys[datatypes.String(fmt.Sprintf("%d", i))] = datatypes.String(fmt.Sprintf("%d", tNum))
 					default:
-						keys[fmt.Sprintf("%d", i)] = datatypes.Int(tNum)
+						keys[datatypes.String(fmt.Sprintf("%d", i))] = datatypes.Int(tNum)
 					}
 				}
 
 				_, err := associatedTree.CreateOrFind(keys, func() any { return tNum }, noOpOnFind)
+				g.Expect(err).ToNot(HaveOccurred())
+			}(i)
+
+			wg.Add(1)
+			go func(tNum int) {
+				defer wg.Done()
+
+				// generate a key with a few different types
+				keys := KeyValues{datatypes.String(fmt.Sprintf("%d", tNum+testCounter)): datatypes.String(fmt.Sprintf("%d", tNum))}
+
+				_, err := associatedTree.Create(keys, func() any { return tNum })
+				g.Expect(err).ToNot(HaveOccurred())
+			}(i)
+
+			wg.Add(1)
+			go func(tNum int) {
+				defer wg.Done()
+
+				// generate a key with a few different types
+				keys := KeyValues{datatypes.String(fmt.Sprintf("%d", tNum+(2*testCounter))): datatypes.String(fmt.Sprintf("%d", tNum))}
+
+				err := associatedTree.CreateWithID(fmt.Sprintf("%d", tNum), keys, func() any { return tNum })
 				g.Expect(err).ToNot(HaveOccurred())
 			}(i)
 		}
@@ -398,22 +633,29 @@ func TestAssociated_Random_Delete(t *testing.T) {
 				modInt++
 
 				// generate a key with a few different types
-				keys := datatypes.KeyValues{}
+				createOrFindKeys := KeyValues{}
+				createKeys := KeyValues{}
+				createWithIDKeys := KeyValues{}
 				for i := 0; i < modInt; i++ {
 					switch tNum % 2 {
 					case 0:
-						keys[fmt.Sprintf("%d", i)] = datatypes.String(fmt.Sprintf("%d", tNum))
+						createOrFindKeys[datatypes.String(fmt.Sprintf("%d", i))] = datatypes.String(fmt.Sprintf("%d", tNum))
 					default:
-						keys[fmt.Sprintf("%d", i)] = datatypes.Int(tNum)
+						createOrFindKeys[datatypes.String(fmt.Sprintf("%d", i))] = datatypes.Int(tNum)
 					}
 				}
 
-				g.Expect(associatedTree.Delete(keys, nil)).ToNot(HaveOccurred())
+				createKeys[datatypes.String(fmt.Sprintf("%d", tNum+testCounter))] = datatypes.String(fmt.Sprintf("%d", tNum))
+				createWithIDKeys[datatypes.String(fmt.Sprintf("%d", tNum+(2*testCounter)))] = datatypes.String(fmt.Sprintf("%d", tNum))
+
+				g.Expect(associatedTree.Delete(createOrFindKeys, nil)).ToNot(HaveOccurred())
+				g.Expect(associatedTree.Delete(createKeys, nil)).ToNot(HaveOccurred())
+				g.Expect(associatedTree.Delete(createWithIDKeys, nil)).ToNot(HaveOccurred())
+
 			}(i)
 		}
 		wg.Wait()
 
-		g.Expect(associatedTree.ids.Empty()).To(BeTrue())
 		g.Expect(associatedTree.keys.Empty()).To(BeTrue())
 	})
 }
@@ -421,15 +663,16 @@ func TestAssociated_Random_Delete(t *testing.T) {
 func TestAssociated_Random_AllActions(t *testing.T) {
 	g := NewGomegaWithT(t)
 	noOpOnFind := func(item any) {}
+	baicCreate := func() any { return true }
+	testCounter := 10_000
 
 	t.Run("It is threadsafe when performing all operations in parallel", func(t *testing.T) {
 		associatedTree := NewThreadSafe()
 		wg := new(sync.WaitGroup)
 
-		for i := 0; i < 10_000; i++ {
-			wg.Add(4)
-
-			// create
+		for i := 0; i < testCounter; i++ {
+			// create or find
+			wg.Add(1)
 			go func(tNum int) {
 				defer wg.Done()
 
@@ -437,13 +680,13 @@ func TestAssociated_Random_AllActions(t *testing.T) {
 				modInt++
 
 				// generate a key with a few different types
-				keys := datatypes.KeyValues{}
+				keys := KeyValues{}
 				for i := 0; i < modInt; i++ {
 					switch tNum % 2 {
 					case 0:
-						keys[fmt.Sprintf("%d", i)] = datatypes.String(fmt.Sprintf("%d", tNum))
+						keys[datatypes.String(fmt.Sprintf("%d", i))] = datatypes.String(fmt.Sprintf("%d", tNum))
 					default:
-						keys[fmt.Sprintf("%d", i)] = datatypes.Int(tNum)
+						keys[datatypes.String(fmt.Sprintf("%d", i))] = datatypes.Int(tNum)
 					}
 				}
 
@@ -451,7 +694,33 @@ func TestAssociated_Random_AllActions(t *testing.T) {
 				g.Expect(err).ToNot(HaveOccurred())
 			}(i)
 
+			// create
+			wg.Add(1)
+			go func(tNum int) {
+				defer wg.Done()
+
+				// generate a key with a few different types
+				keys := KeyValues{datatypes.String(fmt.Sprintf("%d", tNum+testCounter)): datatypes.String(fmt.Sprintf("%d", tNum))}
+
+				id, err := associatedTree.Create(keys, baicCreate)
+				g.Expect(id).ToNot(Equal(""))
+				g.Expect(err).ToNot(HaveOccurred())
+			}(i)
+
+			// create with id
+			wg.Add(1)
+			go func(tNum int) {
+				defer wg.Done()
+
+				// generate a key with a few different types
+				keys := KeyValues{datatypes.String(fmt.Sprintf("%d", tNum+(2*testCounter))): datatypes.String(fmt.Sprintf("%d", tNum))}
+
+				err := associatedTree.CreateWithID(fmt.Sprintf("%d", tNum), keys, baicCreate)
+				g.Expect(err).ToNot(HaveOccurred())
+			}(i)
+
 			// delete
+			wg.Add(1)
 			go func(tNum int) {
 				defer wg.Done()
 
@@ -459,20 +728,28 @@ func TestAssociated_Random_AllActions(t *testing.T) {
 				modInt++
 
 				// generate a key with a few different types
-				keys := datatypes.KeyValues{}
+				createOrFindKeys := KeyValues{}
+				createKeys := KeyValues{}
+				createWithIDKeys := KeyValues{}
 				for i := 0; i < modInt; i++ {
 					switch tNum % 2 {
 					case 0:
-						keys[fmt.Sprintf("%d", i)] = datatypes.String(fmt.Sprintf("%d", tNum))
+						createOrFindKeys[datatypes.String(fmt.Sprintf("%d", i))] = datatypes.String(fmt.Sprintf("%d", tNum))
 					default:
-						keys[fmt.Sprintf("%d", i)] = datatypes.Int(tNum)
+						createOrFindKeys[datatypes.String(fmt.Sprintf("%d", i))] = datatypes.Int(tNum)
 					}
 				}
 
-				g.Expect(associatedTree.Delete(keys, nil)).ToNot(HaveOccurred())
+				createKeys[datatypes.String(fmt.Sprintf("%d", tNum+testCounter))] = datatypes.String(fmt.Sprintf("%d", tNum))
+				createWithIDKeys[datatypes.String(fmt.Sprintf("%d", tNum+(2*testCounter)))] = datatypes.String(fmt.Sprintf("%d", tNum))
+
+				g.Expect(associatedTree.Delete(createOrFindKeys, nil)).ToNot(HaveOccurred())
+				g.Expect(associatedTree.Delete(createKeys, nil)).ToNot(HaveOccurred())
+				g.Expect(associatedTree.Delete(createWithIDKeys, nil)).ToNot(HaveOccurred())
 			}(i)
 
 			// find
+			wg.Add(1)
 			go func(tNum int) {
 				defer wg.Done()
 
@@ -480,21 +757,29 @@ func TestAssociated_Random_AllActions(t *testing.T) {
 				modInt++
 
 				// generate a key with a few different types
-				keys := datatypes.KeyValues{}
+				createOrFindKeys := KeyValues{}
+				createKeys := KeyValues{}
 				for i := 0; i < modInt; i++ {
 					switch tNum % 2 {
 					case 0:
-						keys[fmt.Sprintf("%d", i)] = datatypes.String(fmt.Sprintf("%d", tNum))
+						createOrFindKeys[datatypes.String(fmt.Sprintf("%d", i))] = datatypes.String(fmt.Sprintf("%d", tNum))
 					default:
-						keys[fmt.Sprintf("%d", i)] = datatypes.Int(tNum)
+						createOrFindKeys[datatypes.String(fmt.Sprintf("%d", i))] = datatypes.Int(tNum)
 					}
 				}
 
-				_, err := associatedTree.Find(keys, func(item any) { g.Expect(item.(*AssociatedKeyValues).Value()).To(Equal(tNum)) })
+				createKeys[datatypes.String(fmt.Sprintf("%d", tNum+testCounter))] = datatypes.String(fmt.Sprintf("%d", tNum))
+
+				_, err := associatedTree.Find(createOrFindKeys, func(item any) { g.Expect(item.(*AssociatedKeyValues).Value()).To(Equal(tNum)) })
+				g.Expect(err).ToNot(HaveOccurred())
+				_, err = associatedTree.Find(createKeys, func(item any) { g.Expect(item.(*AssociatedKeyValues).Value()).To(BeTrue()) })
+				g.Expect(err).ToNot(HaveOccurred())
+				err = associatedTree.FindByAssociatedID(fmt.Sprintf("%d", tNum+(2*testCounter)), func(item any) { g.Expect(item.(*AssociatedKeyValues).Value()).To(BeTrue()) })
 				g.Expect(err).ToNot(HaveOccurred())
 			}(i)
 
 			// query
+			wg.Add(1)
 			go func(tNum int) {
 				defer wg.Done()
 
@@ -502,24 +787,22 @@ func TestAssociated_Random_AllActions(t *testing.T) {
 				modInt++
 
 				// generate a key with a few different types
-				queryDB := query.AssociatedKeyValuesQuery{}
+				queryDB := datatypes.AssociatedKeyValuesQuery{}
 				for i := 0; i < modInt; i++ {
-					asociatedKeyValuesQuery := query.AssociatedKeyValuesQuery{}
+					asociatedKeyValuesQuery := datatypes.AssociatedKeyValuesQuery{}
 					switch tNum % 2 {
 					case 0:
 						strValue := datatypes.String(fmt.Sprintf("%d", tNum))
-						asociatedKeyValuesQuery.KeyValueSelection = &query.KeyValueSelection{KeyValues: map[string]query.Value{fmt.Sprintf("%d", i): {Value: &strValue, ValueComparison: query.EqualsPtr()}}}
+						asociatedKeyValuesQuery.KeyValueSelection = &datatypes.KeyValueSelection{KeyValues: map[string]datatypes.Value{fmt.Sprintf("%d", i): {Value: &strValue, ValueComparison: datatypes.EqualsPtr()}}}
 						queryDB.And = append(queryDB.And, asociatedKeyValuesQuery)
 					default:
 						intValue := datatypes.Int(tNum)
-						asociatedKeyValuesQuery.KeyValueSelection = &query.KeyValueSelection{KeyValues: map[string]query.Value{fmt.Sprintf("%d", i): {Value: &intValue, ValueComparison: query.EqualsPtr()}}}
+						asociatedKeyValuesQuery.KeyValueSelection = &datatypes.KeyValueSelection{KeyValues: map[string]datatypes.Value{fmt.Sprintf("%d", i): {Value: &intValue, ValueComparison: datatypes.EqualsPtr()}}}
 						queryDB.Or = append(queryDB.Or, asociatedKeyValuesQuery)
 					}
 				}
 				g.Expect(queryDB.Validate()).ToNot(HaveOccurred())
-				g.Expect(associatedTree.Query(queryDB, func(item any) bool {
-					return true
-				})).ToNot(HaveOccurred())
+				g.Expect(associatedTree.Query(queryDB, func(item any) bool { return true })).ToNot(HaveOccurred())
 			}(i)
 		}
 		wg.Wait()

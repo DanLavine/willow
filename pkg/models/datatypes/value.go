@@ -1,9 +1,7 @@
-package query
+package datatypes
 
 import (
 	"fmt"
-
-	"github.com/DanLavine/willow/pkg/models/datatypes"
 )
 
 type Comparison string
@@ -54,10 +52,10 @@ type Value struct {
 	// check to see if a key exists
 	Exists *bool
 	// check to use for a particualr type
-	ExistsType *datatypes.DataType
+	ExistsType *DataType
 
 	// specific value for a particular key
-	Value *datatypes.EncapsulatedData
+	Value *EncapsulatedData
 	// what type of comparison to run on a particualr value [=, !=, <, < MATCH, <=, <= MATCH, >, > MATCH, >=, >= MATCH]
 	ValueComparison *Comparison
 }
@@ -117,7 +115,7 @@ func (v *Value) validateReservedKey() error {
 		return fmt.Errorf(": requires a string Value to match against")
 	}
 
-	if v.Value.DataType != datatypes.T_string {
+	if v.Value.DataType != T_string {
 		return fmt.Errorf(": requires a string Value to match against")
 	}
 

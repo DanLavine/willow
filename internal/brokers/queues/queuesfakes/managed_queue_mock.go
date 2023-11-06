@@ -10,7 +10,7 @@ import (
 
 	api "github.com/DanLavine/willow/pkg/models/api"
 	v1willow "github.com/DanLavine/willow/pkg/models/api/v1willow"
-	query "github.com/DanLavine/willow/pkg/models/query"
+	datatypes "github.com/DanLavine/willow/pkg/models/datatypes"
 	gomock "go.uber.org/mock/gomock"
 	zap "go.uber.org/zap"
 )
@@ -53,7 +53,7 @@ func (mr *MockManagedQueueMockRecorder) ACK(arg0, arg1 interface{}) *gomock.Call
 }
 
 // Dequeue mocks base method.
-func (m *MockManagedQueue) Dequeue(arg0 *zap.Logger, arg1 context.Context, arg2 query.AssociatedKeyValuesQuery) (*v1willow.DequeueItemResponse, func(), func(), *api.Error) {
+func (m *MockManagedQueue) Dequeue(arg0 *zap.Logger, arg1 context.Context, arg2 datatypes.AssociatedKeyValuesQuery) (*v1willow.DequeueItemResponse, func(), func(), *api.Error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Dequeue", arg0, arg1, arg2)
 	ret0, _ := ret[0].(*v1willow.DequeueItemResponse)

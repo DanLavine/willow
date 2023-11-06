@@ -9,8 +9,7 @@ import (
 	"github.com/DanLavine/willow/internal/limiter"
 	"github.com/DanLavine/willow/internal/logger"
 	"github.com/DanLavine/willow/pkg/models/api"
-	"github.com/DanLavine/willow/pkg/models/api/v1limiter"
-	"github.com/DanLavine/willow/pkg/models/query"
+	v1limiter "github.com/DanLavine/willow/pkg/models/api/limiter/v1"
 	"go.uber.org/zap"
 )
 
@@ -52,6 +51,7 @@ func (grh *groupRuleHandler) Create(w http.ResponseWriter, r *http.Request) {
 	logger := logger.AddRequestID(grh.logger.Named("Create"), r)
 	logger.Debug("starting request")
 	defer logger.Debug("processed request")
+
 	limiterCreateReqquest, err := v1limiter.ParseRuleRequest(r.Body)
 	if err != nil {
 		w.WriteHeader(err.StatusCode)
@@ -186,7 +186,7 @@ func (grh *groupRuleHandler) SetOverride(w http.ResponseWriter, r *http.Request)
 	logger.Debug("starting request")
 	defer logger.Debug("processed request")
 
-	ruleOverrideRequest, err := v1limiter.ParesRuleOverrideRequst(r.Body)
+	ruleOverrideRequest, err := v1limiter.ParseOverrideRequest(r.Body)
 	if err != nil {
 		w.WriteHeader(err.StatusCode)
 		w.Write(err.ToBytes())
@@ -195,7 +195,7 @@ func (grh *groupRuleHandler) SetOverride(w http.ResponseWriter, r *http.Request)
 
 	namedParameters := urlrouter.GetNamedParamters(r.Context())
 
-	rule := grh.rulesManager.FindRule(logger, namedParameters[query.ReservedID])
+	rule := grh.rulesManager.FindRule(logger, namedParameters["_associated_id"])
 	if rule == nil {
 		err = &api.Error{Message: "rule not found", StatusCode: http.StatusBadRequest}
 		w.WriteHeader(err.StatusCode)

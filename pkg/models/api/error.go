@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 )
 
@@ -55,4 +56,18 @@ func (e *Error) MarshalJSON() ([]byte, error) {
 func (e *Error) ToBytes() []byte {
 	data, _ := json.Marshal(e)
 	return data
+}
+
+func ParseError(reader io.ReadCloser) (*Error, error) {
+	requestBody, err := io.ReadAll(reader)
+	if err != nil {
+		return nil, err
+	}
+
+	obj := &Error{}
+	if err := json.Unmarshal(requestBody, obj); err != nil {
+		return nil, err
+	}
+
+	return obj, nil
 }

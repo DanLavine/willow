@@ -5,7 +5,7 @@ import (
 	"io"
 
 	"github.com/DanLavine/willow/pkg/models/api"
-	"github.com/DanLavine/willow/pkg/models/query"
+	"github.com/DanLavine/willow/pkg/models/datatypes"
 )
 
 type EnqueueItemRequest struct {
@@ -59,7 +59,7 @@ type DequeueItemRequest struct {
 	Name string
 
 	// query for what readeers to select
-	Query query.AssociatedKeyValuesQuery
+	Query datatypes.AssociatedKeyValuesQuery
 }
 
 func ParseDequeueItemRequest(reader io.ReadCloser) (*DequeueItemRequest, *api.Error) {

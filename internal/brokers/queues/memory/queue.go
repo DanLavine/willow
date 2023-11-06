@@ -10,7 +10,6 @@ import (
 	"github.com/DanLavine/willow/pkg/models/api"
 	"github.com/DanLavine/willow/pkg/models/api/v1willow"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
-	"github.com/DanLavine/willow/pkg/models/query"
 	"go.uber.org/zap"
 
 	btreeassociated "github.com/DanLavine/willow/internal/datastructures/btree_associated"
@@ -18,7 +17,7 @@ import (
 )
 
 type clientWaiting struct {
-	selection  query.AssociatedKeyValuesQuery
+	selection  datatypes.AssociatedKeyValuesQuery
 	channelOPS channelops.MergeReadChannelOps
 }
 
@@ -109,7 +108,7 @@ func (q *Queue) Enqueue(logger *zap.Logger, enqueueItemRequest *v1willow.Enqueue
 		return tagGroup
 	}
 
-	if _, err := q.tagGroups.CreateOrFind(enqueueItemRequest.Tags, onCreate, onFind); err != nil {
+	if _, err := q.tagGroups.CreateOrFind(btreeassociated.ConverDatatypesKeyValues(enqueueItemRequest.Tags), onCreate, onFind); err != nil {
 		logger.Error("failed to create or find the tag group", zap.Error(err))
 		return errors.InternalServerError.With("", err.Error())
 	}
@@ -123,7 +122,7 @@ func (q *Queue) Enqueue(logger *zap.Logger, enqueueItemRequest *v1willow.Enqueue
 //	- logger - logger to record any errors
 //	- cancelContext - context from the http client to indicate if a client disconnects
 //	- selection - query to use when searching for tag groups
-func (q *Queue) Dequeue(logger *zap.Logger, cancelContext context.Context, selection query.AssociatedKeyValuesQuery) (*v1willow.DequeueItemResponse, func(), func(), *api.Error) {
+func (q *Queue) Dequeue(logger *zap.Logger, cancelContext context.Context, selection datatypes.AssociatedKeyValuesQuery) (*v1willow.DequeueItemResponse, func(), func(), *api.Error) {
 	logger = logger.Named("DequeueItem")
 
 	var dequeueResponse func(logger *zap.Logger) (*v1willow.DequeueItemResponse, func(), func(), *api.Error)
@@ -195,7 +194,7 @@ func (q *Queue) ACK(logger *zap.Logger, ackItem *v1willow.ACK) *api.Error {
 		return false
 	}
 
-	if err := q.tagGroups.Delete(ackItem.Tags, ack); err != nil {
+	if err := q.tagGroups.Delete(btreeassociated.ConverDatatypesKeyValues(ackItem.Tags), ack); err != nil {
 		return errors.InternalServerError.With("", err.Error())
 	} else if !called {
 		return &api.Error{Message: "tag group not found", StatusCode: http.StatusBadRequest}
@@ -220,7 +219,7 @@ func (q *Queue) Metrics() *v1willow.QueueMetricsResponse {
 	}
 
 	// find all items in the tree
-	q.tagGroups.Query(query.AssociatedKeyValuesQuery{}, metricsFunc)
+	q.tagGroups.Query(datatypes.AssociatedKeyValuesQuery{}, metricsFunc)
 
 	return metrics
 }
@@ -231,7 +230,7 @@ func (q *Queue) Stop() {
 	})
 }
 
-func (q *Queue) addClientWaiting(selection query.AssociatedKeyValuesQuery, channelOps channelops.MergeReadChannelOps) {
+func (q *Queue) addClientWaiting(selection datatypes.AssociatedKeyValuesQuery, channelOps channelops.MergeReadChannelOps) {
 	q.clientsLock.Lock()
 	defer q.clientsLock.Unlock()
 

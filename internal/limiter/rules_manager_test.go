@@ -5,9 +5,8 @@ import (
 	"testing"
 
 	btreeassociated "github.com/DanLavine/willow/internal/datastructures/btree_associated"
-	"github.com/DanLavine/willow/pkg/models/api/v1limiter"
+	v1limiter "github.com/DanLavine/willow/pkg/models/api/limiter/v1"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
-	"github.com/DanLavine/willow/pkg/models/query"
 	. "github.com/onsi/gomega"
 	"go.uber.org/zap"
 )
@@ -18,13 +17,13 @@ func TestRulesManager_CreateGroupRule(t *testing.T) {
 	t.Run("It returns nil when successfully creating a new rule", func(t *testing.T) {
 		rulesManager := NewRulesManger()
 
-		createRequest := &v1limiter.RuleRequest{
-			Name:    "test",
-			GroupBy: []string{"key1", "key2"},
-			Query:   query.AssociatedKeyValuesQuery{},
-			Limit:   5,
+		createRequest := &v1limiter.Rule{
+			Name:        "test",
+			GroupBy:     []string{"key1", "key2"},
+			QueryFilter: datatypes.AssociatedKeyValuesQuery{},
+			Limit:       5,
 		}
-		g.Expect(createRequest.Validate()).ToNot(HaveOccurred())
+		g.Expect(createRequest.ValidateRequest()).ToNot(HaveOccurred())
 
 		err := rulesManager.CreateGroupRule(zap.NewNop(), createRequest)
 		g.Expect(err).ToNot(HaveOccurred())
@@ -33,13 +32,13 @@ func TestRulesManager_CreateGroupRule(t *testing.T) {
 	t.Run("It returns an error when trying to create rule with the same name", func(t *testing.T) {
 		rulesManager := NewRulesManger()
 
-		createRequest := &v1limiter.RuleRequest{
-			Name:    "test",
-			GroupBy: []string{"key1", "key2"},
-			Query:   query.AssociatedKeyValuesQuery{},
-			Limit:   5,
+		createRequest := &v1limiter.Rule{
+			Name:        "test",
+			GroupBy:     []string{"key1", "key2"},
+			QueryFilter: datatypes.AssociatedKeyValuesQuery{},
+			Limit:       5,
 		}
-		g.Expect(createRequest.Validate()).ToNot(HaveOccurred())
+		g.Expect(createRequest.ValidateRequest()).ToNot(HaveOccurred())
 
 		err := rulesManager.CreateGroupRule(zap.NewNop(), createRequest)
 		g.Expect(err).ToNot(HaveOccurred())
@@ -63,13 +62,13 @@ func TestRulesManager_FindRule(t *testing.T) {
 	t.Run("It returns the proper rule if it exists", func(t *testing.T) {
 		rulesManager := NewRulesManger()
 
-		createRequest := &v1limiter.RuleRequest{
-			Name:    "test",
-			GroupBy: []string{"key1", "key2"},
-			Query:   query.AssociatedKeyValuesQuery{},
-			Limit:   5,
+		createRequest := &v1limiter.Rule{
+			Name:        "test",
+			GroupBy:     []string{"key1", "key2"},
+			QueryFilter: datatypes.AssociatedKeyValuesQuery{},
+			Limit:       5,
 		}
-		g.Expect(createRequest.Validate()).ToNot(HaveOccurred())
+		g.Expect(createRequest.ValidateRequest()).ToNot(HaveOccurred())
 
 		err := rulesManager.CreateGroupRule(zap.NewNop(), createRequest)
 		g.Expect(err).ToNot(HaveOccurred())
@@ -92,13 +91,13 @@ func TestRulesManager_ListRules(t *testing.T) {
 	t.Run("It returns the proper rule if it exists", func(t *testing.T) {
 		rulesManager := NewRulesManger()
 
-		createRequest := &v1limiter.RuleRequest{
-			Name:    "test",
-			GroupBy: []string{"key1", "key2"},
-			Query:   query.AssociatedKeyValuesQuery{},
-			Limit:   5,
+		createRequest := &v1limiter.Rule{
+			Name:        "test",
+			GroupBy:     []string{"key1", "key2"},
+			QueryFilter: datatypes.AssociatedKeyValuesQuery{},
+			Limit:       5,
 		}
-		g.Expect(createRequest.Validate()).ToNot(HaveOccurred())
+		g.Expect(createRequest.ValidateRequest()).ToNot(HaveOccurred())
 
 		err := rulesManager.CreateGroupRule(zap.NewNop(), createRequest)
 		g.Expect(err).ToNot(HaveOccurred())
@@ -114,13 +113,13 @@ func TestRulesManager_DeleteGroupRule(t *testing.T) {
 	t.Run("It deletes a rule iff it exists by name", func(t *testing.T) {
 		rulesManager := NewRulesManger()
 
-		createRequest := &v1limiter.RuleRequest{
-			Name:    "test",
-			GroupBy: []string{"key1", "key2"},
-			Query:   query.AssociatedKeyValuesQuery{},
-			Limit:   5,
+		createRequest := &v1limiter.Rule{
+			Name:        "test",
+			GroupBy:     []string{"key1", "key2"},
+			QueryFilter: datatypes.AssociatedKeyValuesQuery{},
+			Limit:       5,
 		}
-		g.Expect(createRequest.Validate()).ToNot(HaveOccurred())
+		g.Expect(createRequest.ValidateRequest()).ToNot(HaveOccurred())
 		g.Expect(rulesManager.CreateGroupRule(zap.NewNop(), createRequest)).ToNot(HaveOccurred())
 
 		rules := rulesManager.ListRules(zap.NewNop())
@@ -150,13 +149,13 @@ func TestRulesManager_Increment(t *testing.T) {
 	t.Run("It returns an error if a rule has reached its limit", func(t *testing.T) {
 		rulesManager := NewRulesManger()
 
-		createRequest := &v1limiter.RuleRequest{
-			Name:    "test",
-			GroupBy: []string{"key1", "key2"},
-			Query:   query.AssociatedKeyValuesQuery{},
-			Limit:   5,
+		createRequest := &v1limiter.Rule{
+			Name:        "test",
+			GroupBy:     []string{"key1", "key2"},
+			QueryFilter: datatypes.AssociatedKeyValuesQuery{},
+			Limit:       5,
 		}
-		g.Expect(createRequest.Validate()).ToNot(HaveOccurred())
+		g.Expect(createRequest.ValidateRequest()).ToNot(HaveOccurred())
 		g.Expect(rulesManager.CreateGroupRule(zap.NewNop(), createRequest)).ToNot(HaveOccurred())
 
 		increment := &v1limiter.RuleCounterRequest{
@@ -179,22 +178,22 @@ func TestRulesManager_Increment(t *testing.T) {
 	t.Run("It returns an error if any rule has reached its limit", func(t *testing.T) {
 		rulesManager := NewRulesManger()
 
-		createRequest1 := &v1limiter.RuleRequest{
-			Name:    "test",
-			GroupBy: []string{"key1", "key2"},
-			Query:   query.AssociatedKeyValuesQuery{},
-			Limit:   5,
+		createRequest1 := &v1limiter.Rule{
+			Name:        "test",
+			GroupBy:     []string{"key1", "key2"},
+			QueryFilter: datatypes.AssociatedKeyValuesQuery{},
+			Limit:       5,
 		}
-		g.Expect(createRequest1.Validate()).ToNot(HaveOccurred())
+		g.Expect(createRequest1.ValidateRequest()).ToNot(HaveOccurred())
 		g.Expect(rulesManager.CreateGroupRule(zap.NewNop(), createRequest1)).ToNot(HaveOccurred())
 
-		createRequest2 := &v1limiter.RuleRequest{
-			Name:    "test2",
-			GroupBy: []string{"key1"},
-			Query:   query.AssociatedKeyValuesQuery{},
-			Limit:   1,
+		createRequest2 := &v1limiter.Rule{
+			Name:        "test2",
+			GroupBy:     []string{"key1"},
+			QueryFilter: datatypes.AssociatedKeyValuesQuery{},
+			Limit:       1,
 		}
-		g.Expect(createRequest2.Validate()).ToNot(HaveOccurred())
+		g.Expect(createRequest2.ValidateRequest()).ToNot(HaveOccurred())
 		g.Expect(rulesManager.CreateGroupRule(zap.NewNop(), createRequest2)).ToNot(HaveOccurred())
 
 		increment := &v1limiter.RuleCounterRequest{
@@ -225,13 +224,13 @@ func TestRulesManager_Increment(t *testing.T) {
 		g.Expect(rulesManager.Increment(zap.NewNop(), increment)).ToNot(HaveOccurred())
 
 		// create the rule
-		createRequest := &v1limiter.RuleRequest{
-			Name:    "test",
-			GroupBy: []string{"key1", "key2"},
-			Query:   query.AssociatedKeyValuesQuery{},
-			Limit:   5,
+		createRequest := &v1limiter.Rule{
+			Name:        "test",
+			GroupBy:     []string{"key1", "key2"},
+			QueryFilter: datatypes.AssociatedKeyValuesQuery{},
+			Limit:       5,
 		}
-		g.Expect(createRequest.Validate()).ToNot(HaveOccurred())
+		g.Expect(createRequest.ValidateRequest()).ToNot(HaveOccurred())
 		g.Expect(rulesManager.CreateGroupRule(zap.NewNop(), createRequest)).ToNot(HaveOccurred())
 
 		// next call should error since the limit has been reached
@@ -260,18 +259,18 @@ func TestRulesManager_Decrement(t *testing.T) {
 		}
 
 		// ensure we have a counter of 2
-		rulesManager.counters.Query(query.AssociatedKeyValuesQuery{}, onFind)
+		rulesManager.counters.Query(datatypes.AssociatedKeyValuesQuery{}, onFind)
 		g.Expect(counterValue).To(Equal(uint64(2)))
 
 		rulesManager.Decrement(zap.NewNop(), counter)
 		// ensure we have a counter of 1
-		rulesManager.counters.Query(query.AssociatedKeyValuesQuery{}, onFind)
+		rulesManager.counters.Query(datatypes.AssociatedKeyValuesQuery{}, onFind)
 		g.Expect(counterValue).To(Equal(uint64(1)))
 
 		rulesManager.Decrement(zap.NewNop(), counter)
 		// ensure we have a counter of 0
 		counterValue = 0
-		rulesManager.counters.Query(query.AssociatedKeyValuesQuery{}, onFind)
+		rulesManager.counters.Query(datatypes.AssociatedKeyValuesQuery{}, onFind)
 		g.Expect(counterValue).To(Equal(uint64(0)))
 	})
 }

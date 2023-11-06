@@ -8,6 +8,133 @@ import (
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 )
 
+var ErrorKeyExists = fmt.Errorf("key already exists")
+
+// Inserts the keyValue into the tree if the key does not already exist. If the Key does exist
+// then an error will be returned and 'onCreate()' will not be called
+//
+// PARAMS:
+// - key - key to use when comparing to other possible values
+// - onCreate - callback function to create the value if it does not exist. If the create callback was to fail, its up to the callback to perform any cleanup operations and return nil. In this case nothing will be saved to the tree
+//
+// RETURNS:
+// - error - any errors encontered. I.E. key is not valid
+func (btree *threadSafeBTree) Create(key datatypes.EncapsulatedData, onCreate datastructures.OnCreate) error {
+	if err := key.Validate(); err != nil {
+		return fmt.Errorf("key is invalid: %w", err)
+	}
+	if onCreate == nil {
+		return fmt.Errorf("onCreate callback is nil, but a keyValue is required")
+	}
+
+	// lock the current node. But as we progress down the tree, if we know that we can insert a new value at a specific level, we can unlock
+	// the parent node. This way, we don't need an exclusive lock on the whole tree, but can find the smallest workable subset
+	btree.lock.Lock()
+
+	once := new(sync.Once)
+	unlock := func() { once.Do(func() { btree.lock.Unlock() }) }
+	defer func() { unlock() }()
+
+	if btree.root == nil {
+		btree.root = newBTreeNode(btree.nodeSize)
+	}
+
+	btree.root.lock.Lock()
+	newRoot, err := btree.root.create(unlock, key, onCreate)
+	if err != nil {
+		return err
+	}
+
+	if newRoot != nil {
+		btree.root = newRoot
+	}
+
+	return nil
+}
+
+// Create a new value  in the BTree.
+// The threading unlock strategy follows a number of rules when determining if it can unlock a Node
+// or the parent Node(s) for parallel requests:
+//  1. Lock the Node with an exclusive lock since Crete can add a new value
+//  2. Increment an "operation" that happening on the node
+//  3. Iff there is space to insert a new value on the node, we can consider realeasiing the locks on the parent nodes.
+//     3.1 If the number of parallel process that care about the node < number of free value slots, we can release the lock of the parent nodes.
+//     Otherwise, the node will be unlocked when a process on the child completes.
+//     3.2 Otherwise, wrap the release into a callback down to another node that eventually has free space
+//  4. At the end, decrement the operations counter and ensure the lock is released
+//
+// PARAMS:
+// * value - value to be inserted into the tree
+// * onCreate - required function to create the value if it does not yet exist in the tree
+//
+// RETURNS:
+// * TreeItem - the keyValue inserted or value if it already existed
+// * *threadSafeBNode - a new node if there was a split
+func (bn *threadSafeBNode) create(releaseParentLock func(), key datatypes.EncapsulatedData, onCreate datastructures.OnCreate) (*threadSafeBNode, error) {
+	// always release the current lock on return
+	once := new(sync.Once)
+	unlock := func() { once.Do(func() { bn.lock.Unlock() }) }
+	defer func() { unlock() }()
+
+	// special case when recursing if we can unlock the parents
+	// This happens when an internal node has guranteed space for a new value
+	recurseUnlock := func() {
+		releaseParentLock()
+		unlock()
+	}
+
+	// we know we are not splitting the current node, can release the parent locks
+	if bn.numberOfValues+1 <= bn.maxValues() {
+		releaseParentLock()
+	}
+
+	switch bn.numberOfChildren {
+	case 0: // leaf node
+		if err := bn.createTreeItem(key, onCreate); err != nil {
+			return nil, err
+		}
+
+		// need to check the number of values after creation because creating the item can fail and no inster operation takes place
+		if bn.numberOfValues > bn.maxValues() {
+			return bn.splitLeaf(), nil
+		}
+
+		return nil, nil
+	default: // internal node
+		var index int
+		for index = 0; index < bn.numberOfValues; index++ {
+			keyValue := bn.keyValues[index]
+
+			if !keyValue.key.Less(key) {
+				// value already exists, return an error
+				if !key.Less(keyValue.key) {
+					return nil, ErrorKeyExists
+				}
+
+				// found child index
+				break
+			}
+		}
+
+		//  found the index where the child node to recurse for index creation
+		bn.children[index].lock.Lock()
+		node, err := bn.children[index].create(recurseUnlock, key, onCreate)
+		if err != nil {
+			return nil, err
+		}
+
+		if node != nil {
+			bn.insertNode(node)
+
+			if bn.numberOfValues > bn.maxValues() {
+				return bn.splitNode(), nil
+			}
+		}
+
+		return nil, nil
+	}
+}
+
 // Inserts the keyValue into the tree if the key does not already exist:
 // In this case, the keyValue returned from 'onCreate()' will be saved in the tree iff the return keyValue != nil.
 //
@@ -104,7 +231,7 @@ func (bn *threadSafeBNode) createOrFind(releaseParentLock func(), key datatypes.
 
 	switch bn.numberOfChildren {
 	case 0: // leaf node
-		bn.createTreeItem(key, onFind, onCreate)
+		bn.createOrFindTreeItem(key, onFind, onCreate)
 
 		// need to check the number of values after creation because creating the item can fail and no inster operation takes place
 		if bn.numberOfValues > bn.maxValues() {
@@ -148,7 +275,40 @@ func (bn *threadSafeBNode) createOrFind(releaseParentLock func(), key datatypes.
 // PARAMS:
 // * key - tree key keyValue
 // * value - value to be saved and returned on a Find
-func (bn *threadSafeBNode) createTreeItem(key datatypes.EncapsulatedData, onFind datastructures.OnFind, onCreate datastructures.OnCreate) {
+func (bn *threadSafeBNode) createTreeItem(key datatypes.EncapsulatedData, onCreate datastructures.OnCreate) error {
+	var index int
+	for index = 0; index < bn.numberOfValues; index++ {
+		keyValue := bn.keyValues[index]
+
+		if !keyValue.key.Less(key) {
+			// value already exists, return an error
+			if !key.Less(keyValue.key) {
+				return ErrorKeyExists
+			}
+
+			// shift current values all 1 position
+			for i := bn.numberOfValues; i > index; i-- {
+				bn.keyValues[i] = bn.keyValues[i-1]
+			}
+
+			break
+		}
+	}
+
+	if value := onCreate(); value != nil {
+		bn.numberOfValues++
+		bn.keyValues[index] = &keyValue{key: key, value: value}
+	}
+
+	return nil
+}
+
+// createTreeItem is called only on "leaf" nodes who have space for a new keyValue
+//
+// PARAMS:
+// * key - tree key keyValue
+// * value - value to be saved and returned on a Find
+func (bn *threadSafeBNode) createOrFindTreeItem(key datatypes.EncapsulatedData, onFind datastructures.OnFind, onCreate datastructures.OnCreate) {
 	var index int
 	for index = 0; index < bn.numberOfValues; index++ {
 		keyValue := bn.keyValues[index]

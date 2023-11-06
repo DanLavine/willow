@@ -6,25 +6,20 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-// test struct To satisfy the any interface
-type AnyTest struct {
+// test struct To satisfy the CheckLess interface
+type customTest struct {
 	value string
 }
 
-func (at AnyTest) Less(comparableObj ComparableDataType) bool {
-	return at.value < comparableObj.(AnyTest).value
-}
-
-func (at AnyTest) LessType(comparableObj ComparableDataType) bool {
-	return at.value < comparableObj.(AnyTest).value
-}
-
-func (at AnyTest) LessValue(comparableObj ComparableDataType) bool {
-	return at.value < comparableObj.(AnyTest).value
+func (at customTest) Less(item any) bool {
+	return at.value < item.(customTest).value
 }
 
 func TestComparable_Less(t *testing.T) {
 	g := NewGomegaWithT(t)
+
+	// custom
+	tCustom := Custom(customTest{value: "custom"})
 
 	// ints
 	tInt := Int(1)
@@ -51,6 +46,10 @@ func TestComparable_Less(t *testing.T) {
 	tNil := Nil()
 
 	t.Run("keys of the same values are always equal", func(t *testing.T) {
+		// custom
+		g.Expect(tCustom.Less(Custom(customTest{value: "custom"}))).To(BeFalse())
+		g.Expect(Custom(customTest{value: "custom"}).Less(tCustom)).To(BeFalse())
+
 		// ints
 		//// int
 		g.Expect(tInt.Less(Int(1))).To(BeFalse())
@@ -103,6 +102,9 @@ func TestComparable_Less(t *testing.T) {
 	})
 
 	t.Run("keys of the same type have proper Less than values", func(t *testing.T) {
+		// custom
+		g.Expect(tCustom.Less(Custom(customTest{value: "customMore"}))).To(BeTrue())
+
 		// ints
 		//// int
 		g.Expect(tInt.Less(Int(2))).To(BeTrue())
@@ -141,6 +143,9 @@ func TestComparable_Less(t *testing.T) {
 	})
 
 	t.Run("keys of the same type respect greater than values", func(t *testing.T) {
+		// custom
+		g.Expect(tCustom.Less(Custom(customTest{value: "custo"}))).To(BeFalse())
+
 		// ints
 		//// int
 		g.Expect(tInt.Less(Int(0))).To(BeFalse())
@@ -182,6 +187,9 @@ func TestComparable_Less(t *testing.T) {
 func TestComparable_LessType(t *testing.T) {
 	g := NewGomegaWithT(t)
 
+	// custom
+	tCustom := Custom(customTest{value: "custom"})
+
 	// ints
 	tInt := Int(1)
 	tInt8 := Int8(1)
@@ -207,6 +215,10 @@ func TestComparable_LessType(t *testing.T) {
 	tNil := Nil()
 
 	t.Run("type of the same values are always equal", func(t *testing.T) {
+		// custom
+		g.Expect(tCustom.LessType(Custom(customTest{value: "custom"}))).To(BeFalse())
+		g.Expect(Custom(customTest{value: "custom"}).LessType(tCustom)).To(BeFalse())
+
 		// ints
 		//// int
 		g.Expect(tInt.LessType(Int(1))).To(BeFalse())
@@ -262,6 +274,9 @@ func TestComparable_LessType(t *testing.T) {
 func TestComparable_LessValue(t *testing.T) {
 	g := NewGomegaWithT(t)
 
+	// custom
+	tCustom := Custom(customTest{value: "custom"})
+
 	// ints
 	tInt := Int(1)
 	tInt8 := Int8(1)
@@ -287,6 +302,9 @@ func TestComparable_LessValue(t *testing.T) {
 	tNil := Nil()
 
 	t.Run("panics if they types are not the same", func(t *testing.T) {
+		// custom
+		g.Expect(func() { tInt.LessValue(Custom(customTest{value: "custom"})) }).To(Panic())
+
 		// ints
 		g.Expect(func() { tInt.LessValue(Int64(1)) }).To(Panic())
 		//// int16
@@ -322,6 +340,10 @@ func TestComparable_LessValue(t *testing.T) {
 	})
 
 	t.Run("compares values properly when they are the same type", func(t *testing.T) {
+		// custom
+		g.Expect(tCustom.LessValue(Custom(customTest{value: "custom"}))).To(BeFalse())
+		g.Expect(Custom(customTest{value: "custom"}).LessValue(tCustom)).To(BeFalse())
+
 		// ints
 		//// int
 		g.Expect(tInt.LessValue(Int(1))).To(BeFalse())
@@ -394,9 +416,14 @@ func TestComparable_Validate(t *testing.T) {
 	})
 
 	t.Run("it returns an error if the DataType and value don't match", func(t *testing.T) {
+		// custom
+		err := EncapsulatedData{DataType: T_custom, Value: "bad"}.Validate()
+		g.Expect(err).To(HaveOccurred())
+		g.Expect(err.Error()).To(Equal("EncapsulatedData has a custom data type which dos not implement: CheckLess"))
+
 		// ints
 		//// int
-		err := EncapsulatedData{DataType: T_int, Value: "nope"}.Validate()
+		err = EncapsulatedData{DataType: T_int, Value: "nope"}.Validate()
 		g.Expect(err).To(HaveOccurred())
 		g.Expect(err.Error()).To(Equal("EncapsulatedData has an int data type, but the Value is a: string"))
 		//// int8

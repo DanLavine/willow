@@ -8,7 +8,6 @@ import (
 	"github.com/DanLavine/willow/internal/locker"
 	"github.com/DanLavine/willow/internal/logger"
 	"github.com/DanLavine/willow/pkg/models/api/v1locker"
-	"github.com/DanLavine/willow/pkg/models/query"
 	"go.uber.org/zap"
 )
 
@@ -77,7 +76,7 @@ func (lh *lockerHandler) Heartbeat(w http.ResponseWriter, r *http.Request) {
 	defer logger.Debug("processed request")
 
 	namedParameters := urlrouter.GetNamedParamters(r.Context())
-	heartbeatError := lh.generalLocker.Heartbeat(namedParameters[query.ReservedID])
+	heartbeatError := lh.generalLocker.Heartbeat(namedParameters["_associated_id"])
 
 	if heartbeatError == nil {
 		w.WriteHeader(http.StatusOK)

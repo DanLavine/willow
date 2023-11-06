@@ -1,4 +1,4 @@
-package v1limiter
+package v1
 
 import (
 	"encoding/json"
@@ -8,22 +8,18 @@ import (
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 )
 
-type RuleOverrideRequest struct {
-	// They key value parings we are making the override for
-	// NOTE: these must match the GroupBy keys in the original Rule
+type RuleCounterRequest struct {
+	// Specific key values to add or remove a counter from
 	KeyValues datatypes.KeyValues
-
-	// The new limit to use for the paricular mapping
-	Limit uint64
 }
 
-func ParesRuleOverrideRequst(reader io.ReadCloser) (*RuleOverrideRequest, *api.Error) {
+func ParseRuleCounterRequest(reader io.ReadCloser) (*RuleCounterRequest, *api.Error) {
 	requestBody, err := io.ReadAll(reader)
 	if err != nil {
 		return nil, api.ReadRequestBodyError.With("", err.Error())
 	}
 
-	obj := &RuleOverrideRequest{}
+	obj := &RuleCounterRequest{}
 	if err := json.Unmarshal(requestBody, obj); err != nil {
 		return nil, api.ParseRequestBodyError.With("", err.Error())
 	}
@@ -35,9 +31,9 @@ func ParesRuleOverrideRequst(reader io.ReadCloser) (*RuleOverrideRequest, *api.E
 	return obj, nil
 }
 
-func (ro *RuleOverrideRequest) Validate() *api.Error {
-	if len(ro.KeyValues) == 0 {
-		return api.InvalidRequestBody.With("KeyValues tags to be provided", "recieved empty set")
+func (rcr *RuleCounterRequest) Validate() *api.Error {
+	if len(rcr.KeyValues) == 0 {
+		return api.InvalidRequestBody.With("KeyValues to be provided", "recieved empty KeyValues set")
 	}
 
 	return nil

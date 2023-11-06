@@ -21,11 +21,11 @@ type ComparableDataType interface {
 type DataType int
 
 func (dt DataType) Less(dataType DataType) bool {
-	// know data type is less
 	return dt < dataType
 }
 
 var (
+	T_custom  DataType = -1 // custom is a way for callers to provide their own types
 	T_uint8   DataType = 0
 	T_uint16  DataType = 1
 	T_uint32  DataType = 2
@@ -64,6 +64,8 @@ func (edt EncapsulatedData) Less(comparableObj EncapsulatedData) bool {
 
 	// when the EncapsulatedData and ComparableDataType are the same, check the actual values
 	switch edt.DataType {
+	case T_custom:
+		return edt.Value.(CheckLess).Less(comparableObj.Value)
 	case T_uint8:
 		return edt.Value.(uint8) < comparableObj.Value.(uint8)
 	case T_uint16:
@@ -90,30 +92,23 @@ func (edt EncapsulatedData) Less(comparableObj EncapsulatedData) bool {
 		return edt.Value.(float64) < comparableObj.Value.(float64)
 	case T_string:
 		return edt.Value.(string) < comparableObj.Value.(string)
-	case T_nil:
+	default: // T_nil:
 		// NOTE: This is important to always return false. This way on a btree when doing the lookup, we will always
 		// find 1 copy of this item. The check is !item1.Less(item2) && !item2.Less(item1) -> returns true
 		return false
-	default: // T_any
-		// In this case the user defined both Values and should know how to compare their own data types
-		//
-		// NOTE: we know these casts are safe since the end user created these from the `Any(...)` function
-		return edt.Value.(ComparableDataType).Less(comparableObj.Value.(ComparableDataType))
 	}
 }
 
 func (edt EncapsulatedData) LessType(comparableObj EncapsulatedData) bool {
 	// know data type is less
-	if edt.DataType < comparableObj.DataType {
-		return true
-	}
-
-	return false
+	return edt.DataType < comparableObj.DataType
 }
 
 func (edt EncapsulatedData) LessValue(comparableObj EncapsulatedData) bool {
 	// when the EncapsulatedData and ComparableDataType are the same, check the actual values
 	switch edt.DataType {
+	case T_custom:
+		return edt.Value.(CheckLess).Less(comparableObj.Value)
 	case T_uint8:
 		return edt.Value.(uint8) < comparableObj.Value.(uint8)
 	case T_uint16:
@@ -151,7 +146,7 @@ func (edt EncapsulatedData) LessValue(comparableObj EncapsulatedData) bool {
 	}
 }
 
-// Validate that Encapsulated data is correct
+// Validate that Encapsulated data is correct. This will fail if any datatypes have a T_reserved
 //
 // NOTE: call this on the BTree, to check the params. not eveery time less is called
 func (edt EncapsulatedData) Validate() error {
@@ -162,6 +157,10 @@ func (edt EncapsulatedData) Validate() error {
 	kind := reflect.ValueOf(edt.Value).Kind()
 
 	switch edt.DataType {
+	case T_custom:
+		if !reflect.TypeOf(edt.Value).Implements(reflect.TypeOf((*CheckLess)(nil)).Elem()) {
+			return fmt.Errorf("EncapsulatedData has a custom data type which dos not implement: CheckLess")
+		}
 	case T_uint8:
 		if kind != reflect.Uint8 {
 			return fmt.Errorf("EncapsulatedData has a uint8 data type, but the Value is a: %s", kind.String())
@@ -223,4 +222,123 @@ func (edt EncapsulatedData) Validate() error {
 	}
 
 	return nil
+}
+
+// CUSTOM types
+type CheckLess interface {
+	// only return true if the value is less than the parameter
+	Less(item any) bool
+}
+
+// Custom can be used by any Service when saving values to the AssociatedTree, and needs to create
+// keys that are guranteed to not collide with an end user's values. So it is important that no
+// APIs allow for receiving of this type.
+func Custom(value CheckLess) EncapsulatedData {
+	return EncapsulatedData{
+		DataType: T_custom,
+		Value:    value,
+	}
+}
+
+// UINT types
+func Uint8(value uint8) EncapsulatedData {
+	return EncapsulatedData{
+		DataType: T_uint8,
+		Value:    value,
+	}
+}
+
+func Uint16(value uint16) EncapsulatedData {
+	return EncapsulatedData{
+		DataType: T_uint16,
+		Value:    value,
+	}
+}
+
+func Uint32(value uint32) EncapsulatedData {
+	return EncapsulatedData{
+		DataType: T_uint32,
+		Value:    value,
+	}
+}
+
+func Uint64(value uint64) EncapsulatedData {
+	return EncapsulatedData{
+		DataType: T_uint64,
+		Value:    value,
+	}
+}
+
+func Uint(value uint) EncapsulatedData {
+	return EncapsulatedData{
+		DataType: T_uint,
+		Value:    value,
+	}
+}
+
+// INT types
+func Int8(value int8) EncapsulatedData {
+	return EncapsulatedData{
+		DataType: T_int8,
+		Value:    value,
+	}
+}
+
+func Int16(value int16) EncapsulatedData {
+	return EncapsulatedData{
+		DataType: T_int16,
+		Value:    value,
+	}
+}
+
+func Int32(value int32) EncapsulatedData {
+	return EncapsulatedData{
+		DataType: T_int32,
+		Value:    value,
+	}
+}
+
+func Int64(value int64) EncapsulatedData {
+	return EncapsulatedData{
+		DataType: T_int64,
+		Value:    value,
+	}
+}
+
+func Int(value int) EncapsulatedData {
+	return EncapsulatedData{
+		DataType: T_int,
+		Value:    value,
+	}
+}
+
+// float types
+func Float32(value float32) EncapsulatedData {
+	return EncapsulatedData{
+		DataType: T_float32,
+		Value:    value,
+	}
+}
+
+func Float64(value float64) EncapsulatedData {
+	return EncapsulatedData{
+		DataType: T_float64,
+		Value:    value,
+	}
+}
+
+// STRING types
+func String(value string) EncapsulatedData {
+	return EncapsulatedData{
+		DataType: T_string,
+		Value:    value,
+	}
+}
+
+// NIL types
+func Nil() EncapsulatedData {
+	return EncapsulatedData{
+		DataType: T_nil,
+		Value:    nil,
+	}
 }

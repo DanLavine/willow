@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/DanLavine/goasync"
+	"github.com/DanLavine/willow/pkg/clients"
 	"github.com/DanLavine/willow/pkg/models/api/v1locker"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 	. "github.com/onsi/gomega"
@@ -15,7 +16,7 @@ import (
 func TestLockerClient_New(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	cfg := &Config{
+	cfg := &clients.Config{
 		URL: "doesn't matter here",
 	}
 
@@ -40,9 +41,9 @@ func TestLockerClient_New(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
-		lockerClient, err := NewLockerClient(ctx, &Config{}, nil)
+		lockerClient, err := NewLockerClient(ctx, &clients.Config{}, nil)
 		g.Expect(err).To(HaveOccurred())
-		g.Expect(err.Error()).To(Equal("LockerClient's Config.URL cannot be empty"))
+		g.Expect(err.Error()).To(Equal("client's Config.URL cannot be empty"))
 		g.Expect(lockerClient).To(BeNil())
 	})
 
@@ -75,7 +76,7 @@ func TestLockerClient_ObtainLock(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel()
 
-		cfg := &Config{URL: "http://127.0.0.1:8080"}
+		cfg := &clients.Config{URL: "http://127.0.0.1:8080"}
 
 		lockerClient, err := NewLockerClient(ctx, cfg, nil)
 		g.Expect(err).ToNot(HaveOccurred())
@@ -94,7 +95,7 @@ func TestLockerClient_ObtainLock(t *testing.T) {
 		clientCtx, clienetCancel := context.WithCancel(context.Background())
 		defer clienetCancel()
 
-		cfg := &Config{URL: "http://127.0.0.1:8080"}
+		cfg := &clients.Config{URL: "http://127.0.0.1:8080"}
 
 		lockerClient, err := NewLockerClient(clientCtx, cfg, nil)
 		g.Expect(err).ToNot(HaveOccurred())
@@ -114,7 +115,7 @@ func TestLockerClient_ObtainLock(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
-		cfg := &Config{URL: "bad url"}
+		cfg := &clients.Config{URL: "bad url"}
 
 		lockerClient, err := NewLockerClient(ctx, cfg, nil)
 		g.Expect(err).ToNot(HaveOccurred())
@@ -147,7 +148,7 @@ func TestLockerClient_ObtainLock(t *testing.T) {
 
 		// setup client
 		clientCtx, clientCancel := context.WithCancel(context.Background())
-		cfg := &Config{URL: server.URL}
+		cfg := &clients.Config{URL: server.URL}
 
 		lockerClient, err := NewLockerClient(clientCtx, cfg, nil)
 		g.Expect(err).ToNot(HaveOccurred())
@@ -193,7 +194,7 @@ func TestLockerClient_ObtainLock(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 
-			cfg := &Config{URL: server.URL}
+			cfg := &clients.Config{URL: server.URL}
 
 			lockerClient, err := NewLockerClient(ctx, cfg, nil)
 			g.Expect(err).ToNot(HaveOccurred())
@@ -225,7 +226,7 @@ func TestLockerClient_ObtainLock(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 
-			cfg := &Config{URL: server.URL}
+			cfg := &clients.Config{URL: server.URL}
 
 			lockerClient, err := NewLockerClient(ctx, cfg, nil)
 			g.Expect(err).ToNot(HaveOccurred())
@@ -260,7 +261,7 @@ func TestLockerClient_ObtainLock(t *testing.T) {
 			// setup client
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
-			cfg := &Config{URL: server.URL}
+			cfg := &clients.Config{URL: server.URL}
 
 			lockerClient, err := NewLockerClient(ctx, cfg, nil)
 			g.Expect(err).ToNot(HaveOccurred())
@@ -286,7 +287,7 @@ func TestLockerClient_ObtainLock(t *testing.T) {
 			// setup client
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
-			cfg := &Config{URL: server.URL}
+			cfg := &clients.Config{URL: server.URL}
 
 			lockerClient, err := NewLockerClient(ctx, cfg, nil)
 			g.Expect(err).ToNot(HaveOccurred())
@@ -316,7 +317,7 @@ func TestLockerClient_ObtainLock(t *testing.T) {
 			defer server.Close()
 
 			// setup client
-			cfg := &Config{URL: server.URL}
+			cfg := &clients.Config{URL: server.URL}
 
 			clientCtx, clientCancel := context.WithCancel(context.Background())
 			defer clientCancel()

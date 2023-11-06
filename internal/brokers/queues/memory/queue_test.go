@@ -9,7 +9,6 @@ import (
 	"github.com/DanLavine/willow/pkg/models/api"
 	"github.com/DanLavine/willow/pkg/models/api/v1willow"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
-	"github.com/DanLavine/willow/pkg/models/query"
 
 	. "github.com/onsi/gomega"
 	"go.uber.org/zap"
@@ -157,12 +156,12 @@ func TestMemoryQueue_Enqueue(t *testing.T) {
 func TestMemoryQueue_Dequeue(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	globalSelect := query.AssociatedKeyValuesQuery{}
+	globalSelect := datatypes.AssociatedKeyValuesQuery{}
 	bValue := datatypes.String("b")
-	bSelection := query.AssociatedKeyValuesQuery{
-		KeyValueSelection: &query.KeyValueSelection{
-			KeyValues: map[string]query.Value{
-				"b": {Value: &bValue, ValueComparison: query.EqualsPtr()},
+	bSelection := datatypes.AssociatedKeyValuesQuery{
+		KeyValueSelection: &datatypes.KeyValueSelection{
+			KeyValues: map[string]datatypes.Value{
+				"b": {Value: &bValue, ValueComparison: datatypes.EqualsPtr()},
 			},
 		},
 	}
@@ -659,7 +658,7 @@ func TestMemoryQueue_ACK(t *testing.T) {
 			// setup reader
 			dequeuRequest := &v1willow.DequeueItemRequest{
 				Name:  "test",
-				Query: query.AssociatedKeyValuesQuery{},
+				Query: datatypes.AssociatedKeyValuesQuery{},
 			}
 			g.Expect(dequeuRequest.Validate()).ToNot(HaveOccurred())
 

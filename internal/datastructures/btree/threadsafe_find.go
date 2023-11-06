@@ -28,6 +28,7 @@ func (btree *threadSafeBTree) Find(key datatypes.EncapsulatedData, onFind datast
 	if btree.root != nil {
 		btree.root.lock.RLock()
 		btree.lock.RUnlock()
+
 		btree.root.find(key, onFind)
 	} else {
 		btree.lock.RUnlock()

@@ -11,7 +11,7 @@ import (
 func TestAssociatedTree_Find_ParamCheck(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	keys := datatypes.KeyValues{"1": datatypes.Int(1)}
+	keys := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.Int(1)})
 	onFind := func(item any) {}
 
 	t.Run("it returns an error with nil keyValues", func(t *testing.T) {
@@ -36,7 +36,7 @@ func TestAssociatedTree_Find_ParamCheck(t *testing.T) {
 func TestAssociatedTree_Find(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	keys := datatypes.KeyValues{"1": datatypes.Int(1)}
+	keys := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.Int(1)})
 	noOpOnFind := func(item any) {}
 
 	t.Run("it does not run the callback when the value cannot be found", func(t *testing.T) {
@@ -56,8 +56,8 @@ func TestAssociatedTree_Find(t *testing.T) {
 	t.Run("it doesn't return an id if the key value pairs are not found", func(t *testing.T) {
 		associatedTree := NewThreadSafe()
 
-		keyValues1 := datatypes.KeyValues{"1": datatypes.String("1")}
-		keyValues2 := datatypes.KeyValues{"1": datatypes.String("1"), "2": datatypes.Float32(3.4)}
+		keyValues1 := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.String("1")})
+		keyValues2 := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.String("1"), "2": datatypes.Float32(3.4)})
 
 		// create a single key value pair
 		_, err := associatedTree.CreateOrFind(keyValues1, func() any { return "1" }, noOpOnFind)
@@ -72,10 +72,10 @@ func TestAssociatedTree_Find(t *testing.T) {
 	t.Run("it runs the callback for only key value pairs who match exacly", func(t *testing.T) {
 		associatedTree := NewThreadSafe()
 
-		keyValues1 := datatypes.KeyValues{"1": datatypes.Int(1)}
-		keyValues2 := datatypes.KeyValues{"1": datatypes.String("1")}
-		keyValues3 := datatypes.KeyValues{"1": datatypes.Int(1), "2": datatypes.Float32(3.4)}
-		keyValues4 := datatypes.KeyValues{"1": datatypes.Int(1), "2": datatypes.Float64(3.4)}
+		keyValues1 := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.Int(1)})
+		keyValues2 := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.String("1")})
+		keyValues3 := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.Int(1), "2": datatypes.Float32(3.4)})
+		keyValues4 := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.Int(1), "2": datatypes.Float64(3.4)})
 
 		keys := []string{}
 		onFind := func(key string) func(item any) {
@@ -125,16 +125,6 @@ func TestAssociatedTree_Find(t *testing.T) {
 func TestAssociatedTree_FindByAssociatedID_ParamCheck(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	onFind := func(item any) {}
-
-	t.Run("it returns an error with nil keyValues", func(t *testing.T) {
-		associatedTree := NewThreadSafe()
-
-		err := associatedTree.FindByAssociatedID("", onFind)
-		g.Expect(err).To(HaveOccurred())
-		g.Expect(err.Error()).To(ContainSubstring("associattedID is the empty string"))
-	})
-
 	t.Run("it returns an error with nil onFind", func(t *testing.T) {
 		associatedTree := NewThreadSafe()
 
@@ -165,10 +155,10 @@ func TestAssociatedTree_FindByAssociatedID(t *testing.T) {
 	t.Run("it runs the callback when the value is found", func(t *testing.T) {
 		associatedTree := NewThreadSafe()
 
-		keyValues1 := datatypes.KeyValues{"1": datatypes.Int(1)}
-		keyValues2 := datatypes.KeyValues{"1": datatypes.String("1")}
-		keyValues3 := datatypes.KeyValues{"1": datatypes.Int(1), "2": datatypes.Float32(3.4)}
-		keyValues4 := datatypes.KeyValues{"1": datatypes.Int(1), "2": datatypes.Float64(3.4)}
+		keyValues1 := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.Int(1)})
+		keyValues2 := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.String("1")})
+		keyValues3 := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.Int(1), "2": datatypes.Float32(3.4)})
+		keyValues4 := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.Int(1), "2": datatypes.Float64(3.4)})
 
 		keys := []string{}
 		onFind := func(key string) func(item any) {

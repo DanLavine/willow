@@ -9,14 +9,15 @@ import (
 )
 
 type threadsafeAssociatedTree struct {
-	// the actual saved values in the tree
-	// each value in here is a AssociatedKeyValues node
-	ids btree.BTree // change this to just be another key _associated_id -> which saves the actual value
+	// associated ids
+	// each value here is an *AssociatedKeyValues
+	associatedIDs btree.BTree
 
 	// generator for the IDs saved to the id tree
 	idGenerator idgenerator.UniqueIDs
 
-	// each value here is a threadSafeValuesNode
+	// KeyValues that were provided for creating an item in the tree
+	// each value here is a *threadSafeValuesNode.
 	keys btree.BTree
 }
 
@@ -38,7 +39,7 @@ type threadsafeIDNode struct {
 }
 
 func NewThreadSafe() *threadsafeAssociatedTree {
-	ids, err := btree.NewThreadSafe(2)
+	associatedIDs, err := btree.NewThreadSafe(2)
 	if err != nil {
 		panic(err)
 	}
@@ -49,9 +50,9 @@ func NewThreadSafe() *threadsafeAssociatedTree {
 	}
 
 	return &threadsafeAssociatedTree{
-		ids:         ids,
-		idGenerator: idgenerator.UUID(),
-		keys:        keys,
+		associatedIDs: associatedIDs,
+		idGenerator:   idgenerator.UUID(),
+		keys:          keys,
 	}
 }
 

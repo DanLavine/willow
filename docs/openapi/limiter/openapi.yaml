@@ -25,19 +25,13 @@ paths:
           content:
             appplication/json:
               schema:
-                type: object
-                properties:
-                  ApiError:
-                    $ref: "#/components/schemas/ApiError"
+                $ref: "#/components/schemas/ApiError"
         422:
           description: Conflict if another rule already exists with the same name
           content:
             appplication/json:
               schema:
-                type: object
-                properties:
-                  ApiError:
-                    $ref: "#/components/schemas/ApiError"
+                $ref: "#/components/schemas/ApiError"
     get:
       operationId: list Rules
       requestBody:

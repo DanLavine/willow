@@ -8,7 +8,6 @@ import (
 	btreeassociated "github.com/DanLavine/willow/internal/datastructures/btree_associated"
 	"github.com/DanLavine/willow/pkg/models/api/v1locker"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
-	"github.com/DanLavine/willow/pkg/models/query"
 )
 
 type GeneralLocker interface {
@@ -78,12 +77,12 @@ func (generalLocker *generalLocker) ListLocks() []v1locker.Lock {
 		generalLock.counterLock.RLock()
 		defer generalLock.counterLock.RUnlock()
 
-		locks = append(locks, v1locker.Lock{KeyValues: associatedKeyValues.KeyValues().StripKey(btreeassociated.ReservedID), LocksHeldOrWaiting: generalLock.counter})
+		locks = append(locks, v1locker.Lock{KeyValues: associatedKeyValues.KeyValues().RetrieveStringDataType().StripKey(btreeassociated.ReservedID), LocksHeldOrWaiting: generalLock.counter})
 
 		return true
 	}
 
-	_ = generalLocker.locks.Query(query.AssociatedKeyValuesQuery{}, onPaginate)
+	_ = generalLocker.locks.Query(datatypes.AssociatedKeyValuesQuery{}, onPaginate)
 
 	return locks
 }
@@ -119,7 +118,7 @@ func (generalLocker *generalLocker) ObtainLock(clientCtx context.Context, create
 	}
 
 	// lock every single possible tag combination we might be using
-	sessionID, _ = generalLocker.locks.CreateOrFind(createLockRequest.KeyValues, onCreate, onFind)
+	sessionID, _ = generalLocker.locks.CreateOrFind(btreeassociated.ConverDatatypesKeyValues(createLockRequest.KeyValues), onCreate, onFind)
 
 	switch lockChan {
 	case nil:
@@ -178,15 +177,15 @@ func (generalLocker *generalLocker) ReleaseLock(lockID string) {
 
 	// only need to find the 1 item
 	onQuery := func(item any) bool {
-		keyValues = item.(*btreeassociated.AssociatedKeyValues).KeyValues().StripKey(query.ReservedID)
+		keyValues = item.(*btreeassociated.AssociatedKeyValues).KeyValues().RetrieveStringDataType().StripKey(btreeassociated.ReservedID)
 		return false
 	}
 
 	idString := datatypes.String(lockID)
-	generalLocker.locks.Query(query.AssociatedKeyValuesQuery{
-		KeyValueSelection: &query.KeyValueSelection{
-			KeyValues: map[string]query.Value{
-				query.ReservedID: {Value: &idString, ValueComparison: query.EqualsPtr()},
+	generalLocker.locks.Query(datatypes.AssociatedKeyValuesQuery{
+		KeyValueSelection: &datatypes.KeyValueSelection{
+			KeyValues: map[string]datatypes.Value{
+				btreeassociated.ReservedID: {Value: &idString, ValueComparison: datatypes.EqualsPtr()},
 			},
 		},
 	}, onQuery)
@@ -222,7 +221,7 @@ func (generalLocker *generalLocker) freeLock(keyValues datatypes.KeyValues) bool
 	}
 
 	// delete or at least signal to other waiting locks that we are freeing the currently held lock
-	_ = generalLocker.locks.Delete(keyValues, canDelete)
+	_ = generalLocker.locks.Delete(btreeassociated.ConverDatatypesKeyValues(keyValues), canDelete)
 
 	return removed
 }

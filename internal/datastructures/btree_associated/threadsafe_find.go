@@ -17,7 +17,7 @@ import (
 // RETURNS:
 // - string - _associated_id if the item is found
 // - error - any errors encountered with the parameters
-func (tsat *threadsafeAssociatedTree) Find(keyValuePairs datatypes.KeyValues, onFind datastructures.OnFind) (string, error) {
+func (tsat *threadsafeAssociatedTree) Find(keyValuePairs KeyValues, onFind datastructures.OnFind) (string, error) {
 	if len(keyValuePairs) == 0 {
 		return "", fmt.Errorf("keyValuePairs cannot be empty")
 	}
@@ -28,7 +28,7 @@ func (tsat *threadsafeAssociatedTree) Find(keyValuePairs datatypes.KeyValues, on
 
 	var idSet set.Set[string]
 	keyValuePairsLen := len(keyValuePairs)
-	sortedKeys := keyValuePairs.SoretedKeys()
+	sortedKeys := keyValuePairs.SortedKeys()
 
 	// callback for when a "value" is found
 	failFast := false
@@ -55,10 +55,10 @@ func (tsat *threadsafeAssociatedTree) Find(keyValuePairs datatypes.KeyValues, on
 	}
 
 	// callback for when a "key" is found
-	findKey := func(key string) func(item any) {
+	findKey := func(value datatypes.EncapsulatedData) func(item any) {
 		return func(item any) {
 			valuesNode := item.(*threadsafeValuesNode)
-			if err := valuesNode.values.Find(keyValuePairs[key], findValue); err != nil {
+			if err := valuesNode.values.Find(value, findValue); err != nil {
 				panic(err)
 			}
 		}
@@ -66,12 +66,17 @@ func (tsat *threadsafeAssociatedTree) Find(keyValuePairs datatypes.KeyValues, on
 
 	// filter all the key value pairs into one specific id to lookup
 	for _, key := range sortedKeys {
-		tsat.keys.Find(datatypes.String(key), findKey(key))
+		tsat.keys.Find(key, findKey(keyValuePairs[key]))
+		if failFast {
+			break
+		}
 	}
 
 	// if there is only 1 value in the set, then we know that we found the desired object
 	if !failFast && counter == keyValuePairsLen && idSet != nil && idSet.Size() == 1 {
-		tsat.ids.Find(datatypes.String(idSet.Values()[0]), onFind)
+		if err := tsat.associatedIDs.Find(datatypes.String(idSet.Values()[0]), onFind); err != nil {
+			panic(err)
+		}
 
 		return idSet.Values()[0], nil
 	}
@@ -88,13 +93,9 @@ func (tsat *threadsafeAssociatedTree) Find(keyValuePairs datatypes.KeyValues, on
 // RETURNS:
 // - error - any errors encountered with the parameters
 func (tsat *threadsafeAssociatedTree) FindByAssociatedID(associatedID string, onFind datastructures.OnFind) error {
-	if associatedID == "" {
-		return fmt.Errorf("associattedID is the empty string")
-	}
-
 	if onFind == nil {
 		return fmt.Errorf("onFind cannot be nil")
 	}
 
-	return tsat.ids.Find(datatypes.String(associatedID), onFind)
+	return tsat.associatedIDs.Find(datatypes.String(associatedID), onFind)
 }

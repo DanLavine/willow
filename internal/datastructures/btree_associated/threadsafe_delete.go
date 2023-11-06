@@ -17,7 +17,7 @@ import (
 //
 // RETURNS:
 // - error - any errors encountered with parameters
-func (tsat *threadsafeAssociatedTree) Delete(keyValuePairs datatypes.KeyValues, canDelete datastructures.CanDelete) error {
+func (tsat *threadsafeAssociatedTree) Delete(keyValuePairs KeyValues, canDelete datastructures.CanDelete) error {
 	if len(keyValuePairs) == 0 {
 		return fmt.Errorf("keyValuePairs cannot be empty")
 	}
@@ -27,7 +27,7 @@ func (tsat *threadsafeAssociatedTree) Delete(keyValuePairs datatypes.KeyValues, 
 
 	// sort the keys so their won't be any deadlocks if everything goes smoothly
 	keyValuePairsLen := len(keyValuePairs)
-	sortedKeys := keyValuePairs.SoretedKeys()
+	sortedKeys := keyValuePairs.SortedKeys()
 
 	// callback for when a "value" is found
 	findValue := func(item any) {
@@ -36,10 +36,10 @@ func (tsat *threadsafeAssociatedTree) Delete(keyValuePairs datatypes.KeyValues, 
 	}
 
 	// callback for when a "key" is found
-	findKey := func(key string) func(item any) {
+	findKey := func(value datatypes.EncapsulatedData) func(item any) {
 		return func(item any) {
 			valuesNode := item.(*threadsafeValuesNode)
-			if err := valuesNode.values.Find(keyValuePairs[key], findValue); err != nil {
+			if err := valuesNode.values.Find(value, findValue); err != nil {
 				panic(err)
 			}
 		}
@@ -47,10 +47,10 @@ func (tsat *threadsafeAssociatedTree) Delete(keyValuePairs datatypes.KeyValues, 
 
 	// filter all the key value pairs into one specific id to lookup
 	for _, key := range sortedKeys {
-		tsat.keys.Find(datatypes.String(key), findKey(key))
+		tsat.keys.Find(key, findKey(keyValuePairs[key]))
 	}
 
-	// we at least hit all the key value pairs
+	// we hit all the key value pairs so we can obtain an associatedID to delete
 	if len(idNodes) == keyValuePairsLen {
 		for index, idNode := range idNodes {
 			idNode.lock.Lock()
@@ -59,7 +59,6 @@ func (tsat *threadsafeAssociatedTree) Delete(keyValuePairs datatypes.KeyValues, 
 			// NOTE: This is super important to return early here. In a race with create, there won't be any
 			// entries untill they are properly created. So this is a guard to bail early if create is in the process
 			// of adding entries
-			// NOTE: the above isn't correct. if create, [create|delete] happen, can be messed up still
 			if len(idNode.ids) < keyValuePairsLen {
 				// unlock any nodes that were locked
 				for i := 0; i <= index; i++ {
@@ -84,7 +83,7 @@ func (tsat *threadsafeAssociatedTree) Delete(keyValuePairs datatypes.KeyValues, 
 			idToDelete := idSet.Values()[0]
 
 			// try and delte the ID's value from the tree
-			tsat.ids.Delete(datatypes.String(idToDelete), func(item any) bool {
+			tsat.associatedIDs.Delete(datatypes.String(idToDelete), func(item any) bool {
 				if canDelete != nil {
 					deleted = canDelete(item)
 				}
@@ -134,7 +133,7 @@ func (tsat *threadsafeAssociatedTree) Delete(keyValuePairs datatypes.KeyValues, 
 		return len(idNode.ids) == 0 && idNode.creating.Load() == 0
 	}
 
-	deleteKey := func(key string) func(item any) bool {
+	deleteKey := func(key datatypes.EncapsulatedData) func(item any) bool {
 		return func(item any) bool {
 			valuesForKey := item.(*threadsafeValuesNode)
 
@@ -149,7 +148,76 @@ func (tsat *threadsafeAssociatedTree) Delete(keyValuePairs datatypes.KeyValues, 
 
 	// cleanup any indexes that are now empty
 	for _, key := range sortedKeys {
-		if err := tsat.keys.Delete(datatypes.String(key), deleteKey(key)); err != nil {
+		if err := tsat.keys.Delete(key, deleteKey(key)); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// delete KeyValues from the tree, but not the associatedID
+//
+// PARAMS:
+// - keyValuePair - is a map of key value pairs that compose an object to be deleted if found
+//
+// RETURNS:
+// - error - any errors encountered with parameters
+func (tsat *threadsafeAssociatedTree) deleteKeyValues(associatedID string, keyValues KeyValues) error {
+	if len(keyValues) == 0 {
+		return fmt.Errorf("keyValues cannot be empty")
+	}
+
+	// sort the keys so their won't be any deadlocks if everything goes smoothly
+	keyValuePairsLen := len(keyValues)
+	sortedKeys := keyValues.SortedKeys()
+
+	// remove the KEYs and VALUEs if there are no more saved IDs
+	deleteValue := func(item any) bool {
+		// don't need to lock here. BTree has exclusive lock access already
+		idNode := item.(*threadsafeIDNode)
+		idNode.lock.Lock()
+		defer idNode.lock.Unlock()
+
+		// remove the id from the id node
+		for index, value := range idNode.ids[keyValuePairsLen-1] {
+			if value == associatedID {
+				// swap with last element
+				idNode.ids[keyValuePairsLen-1][index] = idNode.ids[keyValuePairsLen-1][len(idNode.ids[keyValuePairsLen-1])-1]
+				// pop last element
+				idNode.ids[keyValuePairsLen-1] = idNode.ids[keyValuePairsLen-1][:len(idNode.ids[keyValuePairsLen-1])-1]
+			}
+		}
+
+		// truncate the IDNode to free memory
+		for i := len(idNode.ids) - 1; i >= 0; i-- {
+			if len(idNode.ids[i]) == 0 {
+				idNode.ids = idNode.ids[:len(idNode.ids)-1]
+			} else {
+				// don't process anymore since we found a value
+				break
+			}
+		}
+
+		return len(idNode.ids) == 0 && idNode.creating.Load() == 0
+	}
+
+	deleteKey := func(value datatypes.EncapsulatedData) func(item any) bool {
+		return func(item any) bool {
+			valuesForKey := item.(*threadsafeValuesNode)
+
+			// try to remove the value if it was created
+			if err := valuesForKey.values.Delete(value, deleteValue); err != nil {
+				panic(err)
+			}
+
+			return valuesForKey.values.Empty()
+		}
+	}
+
+	// cleanup any indexes that are now empty
+	for _, key := range sortedKeys {
+		if err := tsat.keys.Delete(key, deleteKey(keyValues[key])); err != nil {
 			return err
 		}
 	}

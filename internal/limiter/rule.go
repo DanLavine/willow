@@ -2,9 +2,8 @@ package limiter
 
 import (
 	"github.com/DanLavine/willow/pkg/models/api"
-	"github.com/DanLavine/willow/pkg/models/api/v1limiter"
+	v1limiter "github.com/DanLavine/willow/pkg/models/api/limiter/v1"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
-	"github.com/DanLavine/willow/pkg/models/query"
 	"go.uber.org/zap"
 )
 
@@ -13,10 +12,10 @@ type Rule interface {
 	Update(logger *zap.Logger, newLimit uint64)
 
 	// set an override for a particualr group of tags
-	SetOverride(logger *zap.Logger, override *v1limiter.RuleOverrideRequest) *api.Error
+	SetOverride(logger *zap.Logger, override *v1limiter.Override) *api.Error
 
 	// delete an override for a particualr group of tags
-	DeleteOverride(logger *zap.Logger, query query.AssociatedKeyValuesQuery) *api.Error
+	DeleteOverride(logger *zap.Logger, query datatypes.AssociatedKeyValuesQuery) *api.Error
 
 	// Find the limit for a particualr group of tags when checking the limits
 	FindLimit(logger *zap.Logger, keyValues datatypes.KeyValues) uint64
@@ -25,7 +24,7 @@ type Rule interface {
 	TagsMatch(logger *zap.Logger, keyValues datatypes.KeyValues) bool
 
 	// generate a query based on the search tags
-	//GenerateQuery(keyValues datatypes.KeyValues) query.Select
+	//GenerateQuery(keyValues datatypes.KeyValues) datatypes.Select
 
 	// operations for callbacks when resources are freed
 	// TODO: These operations are very consuming and hard to implement. So do that after a basic limiter is
@@ -39,8 +38,8 @@ type Rule interface {
 	Unlock()
 
 	// Need to generate a query on what to search for
-	GenerateQuery(keyValues datatypes.KeyValues) query.AssociatedKeyValuesQuery
+	GenerateQuery(keyValues datatypes.KeyValues) datatypes.AssociatedKeyValuesQuery
 
 	// Get a rule response for Read operations
-	GetRuleResponse(includeOverrides bool) *v1limiter.RuleResponse
+	GetRuleResponse(includeOverrides bool) v1limiter.Rules
 }

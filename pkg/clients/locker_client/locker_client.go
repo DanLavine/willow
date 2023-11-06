@@ -12,14 +12,12 @@ import (
 
 	"github.com/DanLavine/goasync"
 	btreeassociated "github.com/DanLavine/willow/internal/datastructures/btree_associated"
+	"github.com/DanLavine/willow/pkg/clients"
 	"github.com/DanLavine/willow/pkg/models/api"
 	"github.com/DanLavine/willow/pkg/models/api/v1locker"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 	"golang.org/x/net/http2"
 )
-
-// Open Question. What is the best way to shutdown the server? Should all the locks be closed
-// from all the respective clients, or should we just call `ReleaseLocksAndCloseClient`? What a pain
 
 type LockerClient interface {
 	ObtainLock(ctx context.Context, keyValues datatypes.KeyValues, timeout time.Duration) (Lock, error)
@@ -54,7 +52,7 @@ type lockerclient struct {
 //
 // Setup a new client to the remote locker service. This client automatically manages hertbeats for any obtained locks and
 // will notify the user if a lock is lost at some point
-func NewLockerClient(ctx context.Context, cfg *Config, heartbeatErrorCallback func(keyValue datatypes.KeyValues, err error)) (LockerClient, error) {
+func NewLockerClient(ctx context.Context, cfg *clients.Config, heartbeatErrorCallback func(keyValue datatypes.KeyValues, err error)) (LockerClient, error) {
 	if ctx == nil || ctx == context.TODO() || ctx == context.Background() {
 		return nil, fmt.Errorf("cannot use provided context. The context must be canceled by the caller to cleanup async resource management")
 	}
@@ -69,11 +67,11 @@ func NewLockerClient(ctx context.Context, cfg *Config, heartbeatErrorCallback fu
 	locks := btreeassociated.NewThreadSafe()
 	httpClient := &http.Client{}
 
-	if cfg.LockerCAFile != "" {
+	if cfg.CAFile != "" {
 		httpClient.Transport = &http2.Transport{
 			TLSClientConfig: &tls.Config{
-				Certificates: []tls.Certificate{cfg.cert},
-				RootCAs:      cfg.rootCAs,
+				Certificates: []tls.Certificate{cfg.Cert()},
+				RootCAs:      cfg.RootCAs(),
 			},
 		}
 	}
@@ -200,7 +198,7 @@ func (lc *lockerclient) ObtainLock(ctx context.Context, keyValues datatypes.KeyV
 					canDelete := func(_ any) bool {
 						return true
 					}
-					lc.locks.Delete(keyValues, canDelete)
+					lc.locks.Delete(btreeassociated.ConverDatatypesKeyValues(keyValues), canDelete)
 				}
 
 				if lc.heartbeatErrorCallback != nil {
@@ -256,7 +254,7 @@ func (lc *lockerclient) ObtainLock(ctx context.Context, keyValues datatypes.KeyV
 	}
 
 	// create or find the lock if we already have it
-	_, _ = lc.locks.CreateOrFind(keyValues, onCreate, onFind)
+	_, _ = lc.locks.CreateOrFind(btreeassociated.ConverDatatypesKeyValues(keyValues), onCreate, onFind)
 
 	return returnLock, lockErr
 }

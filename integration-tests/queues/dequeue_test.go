@@ -12,7 +12,6 @@ import (
 
 	"github.com/DanLavine/willow/pkg/models/api/v1willow"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
-	"github.com/DanLavine/willow/pkg/models/query"
 
 	. "github.com/DanLavine/willow/integration-tests/integrationhelpers"
 	. "github.com/onsi/gomega"
@@ -31,10 +30,10 @@ func Test_Dequeue(t *testing.T) {
 		tagString := datatypes.String("tag")
 		dequeueRequest := v1willow.DequeueItemRequest{
 			Name: "queue1",
-			Query: query.AssociatedKeyValuesQuery{
-				KeyValueSelection: &query.KeyValueSelection{
-					KeyValues: map[string]query.Value{
-						"some": query.Value{Value: &tagString, ValueComparison: query.EqualsPtr()},
+			Query: datatypes.AssociatedKeyValuesQuery{
+				KeyValueSelection: &datatypes.KeyValueSelection{
+					KeyValues: map[string]datatypes.Value{
+						"some": datatypes.Value{Value: &tagString, ValueComparison: datatypes.EqualsPtr()},
 					},
 				},
 			},
@@ -61,12 +60,12 @@ func Test_Dequeue(t *testing.T) {
 		oneKey := 1
 		dequeueRequest := v1willow.DequeueItemRequest{
 			Name: "queue1",
-			Query: query.AssociatedKeyValuesQuery{
-				KeyValueSelection: &query.KeyValueSelection{
-					KeyValues: map[string]query.Value{
-						"some": query.Value{Value: &tagString, ValueComparison: query.EqualsPtr()},
+			Query: datatypes.AssociatedKeyValuesQuery{
+				KeyValueSelection: &datatypes.KeyValueSelection{
+					KeyValues: map[string]datatypes.Value{
+						"some": datatypes.Value{Value: &tagString, ValueComparison: datatypes.EqualsPtr()},
 					},
-					Limits: &query.KeyLimits{
+					Limits: &datatypes.KeyLimits{
 						NumberOfKeys: &oneKey,
 					},
 				},
@@ -102,12 +101,12 @@ func Test_Dequeue(t *testing.T) {
 		oneKey := 1
 		dequeueRequest := v1willow.DequeueItemRequest{
 			Name: "queue1",
-			Query: query.AssociatedKeyValuesQuery{
-				KeyValueSelection: &query.KeyValueSelection{
-					KeyValues: map[string]query.Value{
-						"some": query.Value{Value: &tagString, ValueComparison: query.EqualsPtr()},
+			Query: datatypes.AssociatedKeyValuesQuery{
+				KeyValueSelection: &datatypes.KeyValueSelection{
+					KeyValues: map[string]datatypes.Value{
+						"some": datatypes.Value{Value: &tagString, ValueComparison: datatypes.EqualsPtr()},
 					},
-					Limits: &query.KeyLimits{
+					Limits: &datatypes.KeyLimits{
 						NumberOfKeys: &oneKey,
 					},
 				},
@@ -180,12 +179,12 @@ func Test_Dequeue(t *testing.T) {
 		oneKey := 1
 		dequeueRequest := v1willow.DequeueItemRequest{
 			Name: "queue1",
-			Query: query.AssociatedKeyValuesQuery{
-				KeyValueSelection: &query.KeyValueSelection{
-					KeyValues: map[string]query.Value{
-						"some": query.Value{Value: &tagString, ValueComparison: query.EqualsPtr()},
+			Query: datatypes.AssociatedKeyValuesQuery{
+				KeyValueSelection: &datatypes.KeyValueSelection{
+					KeyValues: map[string]datatypes.Value{
+						"some": datatypes.Value{Value: &tagString, ValueComparison: datatypes.EqualsPtr()},
 					},
-					Limits: &query.KeyLimits{
+					Limits: &datatypes.KeyLimits{
 						NumberOfKeys: &oneKey,
 					},
 				},
@@ -286,32 +285,32 @@ func Test_Dequeue(t *testing.T) {
 			trueValue := true
 			dequeueRequest := v1willow.DequeueItemRequest{
 				Name: "queue1",
-				Query: query.AssociatedKeyValuesQuery{
-					Or: []query.AssociatedKeyValuesQuery{
+				Query: datatypes.AssociatedKeyValuesQuery{
+					Or: []datatypes.AssociatedKeyValuesQuery{
 						{
-							KeyValueSelection: &query.KeyValueSelection{
-								KeyValues: map[string]query.Value{
-									"some":    query.Value{Value: &tagString, ValueComparison: query.EqualsPtr()},
-									"another": query.Value{Value: &tagString, ValueComparison: query.EqualsPtr()},
+							KeyValueSelection: &datatypes.KeyValueSelection{
+								KeyValues: map[string]datatypes.Value{
+									"some":    datatypes.Value{Value: &tagString, ValueComparison: datatypes.EqualsPtr()},
+									"another": datatypes.Value{Value: &tagString, ValueComparison: datatypes.EqualsPtr()},
 								},
-								Limits: &query.KeyLimits{
+								Limits: &datatypes.KeyLimits{
 									NumberOfKeys: &twoKey,
 								},
 							},
 						},
 						{
-							And: []query.AssociatedKeyValuesQuery{
+							And: []datatypes.AssociatedKeyValuesQuery{
 								{
-									KeyValueSelection: &query.KeyValueSelection{
-										KeyValues: map[string]query.Value{
-											"the other unique tag": query.Value{Value: &notokString, ValueComparison: query.NotEqualsPtr()},
+									KeyValueSelection: &datatypes.KeyValueSelection{
+										KeyValues: map[string]datatypes.Value{
+											"the other unique tag": datatypes.Value{Value: &notokString, ValueComparison: datatypes.NotEqualsPtr()},
 										},
 									},
 								},
 								{
-									KeyValueSelection: &query.KeyValueSelection{
-										KeyValues: map[string]query.Value{
-											"the other unique tag": query.Value{Exists: &trueValue},
+									KeyValueSelection: &datatypes.KeyValueSelection{
+										KeyValues: map[string]datatypes.Value{
+											"the other unique tag": datatypes.Value{Exists: &trueValue},
 										},
 									},
 								},

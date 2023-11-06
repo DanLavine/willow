@@ -1,9 +1,8 @@
-package query
+package datatypes
 
 import (
 	"testing"
 
-	"github.com/DanLavine/willow/pkg/models/datatypes"
 	. "github.com/onsi/gomega"
 )
 
@@ -96,17 +95,17 @@ func Test_AssociatedKeyValuesQuery_MatchTags(t *testing.T) {
 			}
 			g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-			tags := datatypes.KeyValues{
-				"one": datatypes.String("1"),
-				"two": datatypes.Float64(2.0),
+			tags := KeyValues{
+				"one": String("1"),
+				"two": Float64(2.0),
 			}
 
 			g.Expect(query.MatchTags(tags)).To(BeFalse())
 		})
 
 		t.Run("It joins all the clauses together with an AND", func(t *testing.T) {
-			intOne := datatypes.Int(1)
-			twoString := datatypes.String("2")
+			intOne := Int(1)
+			twoString := String("2")
 			query := &AssociatedKeyValuesQuery{
 				KeyValueSelection: &KeyValueSelection{
 					KeyValues: map[string]Value{
@@ -117,14 +116,14 @@ func Test_AssociatedKeyValuesQuery_MatchTags(t *testing.T) {
 			}
 			g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-			valdTags := datatypes.KeyValues{
-				"one": datatypes.Int(1),
-				"two": datatypes.String("3"),
+			valdTags := KeyValues{
+				"one": Int(1),
+				"two": String("3"),
 			}
 
-			invaldTags := datatypes.KeyValues{
-				"one": datatypes.Int(1),
-				"two": datatypes.String("2"),
+			invaldTags := KeyValues{
+				"one": Int(1),
+				"two": String("2"),
 			}
 
 			g.Expect(query.MatchTags(valdTags)).To(BeTrue())
@@ -132,8 +131,8 @@ func Test_AssociatedKeyValuesQuery_MatchTags(t *testing.T) {
 		})
 
 		t.Run("It fails if a provided query value does not exist in the tags", func(t *testing.T) {
-			intOne := datatypes.Int(1)
-			twoString := datatypes.String("2")
+			intOne := Int(1)
+			twoString := String("2")
 			query := &AssociatedKeyValuesQuery{
 				KeyValueSelection: &KeyValueSelection{
 					KeyValues: map[string]Value{
@@ -144,8 +143,8 @@ func Test_AssociatedKeyValuesQuery_MatchTags(t *testing.T) {
 			}
 			g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-			tags := datatypes.KeyValues{
-				"one": datatypes.String("1"),
+			tags := KeyValues{
+				"one": String("1"),
 			}
 
 			g.Expect(query.MatchTags(tags)).To(BeFalse())
@@ -163,8 +162,8 @@ func Test_AssociatedKeyValuesQuery_MatchTags(t *testing.T) {
 					}
 					g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-					tags := datatypes.KeyValues{
-						"one": datatypes.String("1"),
+					tags := KeyValues{
+						"one": String("1"),
 					}
 
 					g.Expect(query.MatchTags(tags)).To(BeTrue())
@@ -180,8 +179,8 @@ func Test_AssociatedKeyValuesQuery_MatchTags(t *testing.T) {
 					}
 					g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-					tags := datatypes.KeyValues{
-						"one": datatypes.String("1"),
+					tags := KeyValues{
+						"one": String("1"),
 					}
 
 					g.Expect(query.MatchTags(tags)).To(BeFalse())
@@ -192,14 +191,14 @@ func Test_AssociatedKeyValuesQuery_MatchTags(t *testing.T) {
 						query := &AssociatedKeyValuesQuery{
 							KeyValueSelection: &KeyValueSelection{
 								KeyValues: map[string]Value{
-									"one": {Exists: &isTrue, ExistsType: &datatypes.T_string},
+									"one": {Exists: &isTrue, ExistsType: &T_string},
 								},
 							},
 						}
 						g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-						tags := datatypes.KeyValues{
-							"one": datatypes.String("1"),
+						tags := KeyValues{
+							"one": String("1"),
 						}
 
 						g.Expect(query.MatchTags(tags)).To(BeTrue())
@@ -209,14 +208,14 @@ func Test_AssociatedKeyValuesQuery_MatchTags(t *testing.T) {
 						query := &AssociatedKeyValuesQuery{
 							KeyValueSelection: &KeyValueSelection{
 								KeyValues: map[string]Value{
-									"one": {Exists: &isTrue, ExistsType: &datatypes.T_int},
+									"one": {Exists: &isTrue, ExistsType: &T_int},
 								},
 							},
 						}
 						g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-						tags := datatypes.KeyValues{
-							"one": datatypes.String("1"),
+						tags := KeyValues{
+							"one": String("1"),
 						}
 
 						g.Expect(query.MatchTags(tags)).To(BeFalse())
@@ -235,8 +234,8 @@ func Test_AssociatedKeyValuesQuery_MatchTags(t *testing.T) {
 					}
 					g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-					tags := datatypes.KeyValues{
-						"one": datatypes.String("1"),
+					tags := KeyValues{
+						"one": String("1"),
 					}
 
 					g.Expect(query.MatchTags(tags)).To(BeFalse())
@@ -252,8 +251,8 @@ func Test_AssociatedKeyValuesQuery_MatchTags(t *testing.T) {
 					}
 					g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-					tags := datatypes.KeyValues{
-						"one": datatypes.String("1"),
+					tags := KeyValues{
+						"one": String("1"),
 					}
 
 					g.Expect(query.MatchTags(tags)).To(BeTrue())
@@ -264,14 +263,14 @@ func Test_AssociatedKeyValuesQuery_MatchTags(t *testing.T) {
 						query := &AssociatedKeyValuesQuery{
 							KeyValueSelection: &KeyValueSelection{
 								KeyValues: map[string]Value{
-									"one": {Exists: &isFalse, ExistsType: &datatypes.T_string},
+									"one": {Exists: &isFalse, ExistsType: &T_string},
 								},
 							},
 						}
 						g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-						tags := datatypes.KeyValues{
-							"one": datatypes.String("1"),
+						tags := KeyValues{
+							"one": String("1"),
 						}
 
 						g.Expect(query.MatchTags(tags)).To(BeFalse())
@@ -281,14 +280,14 @@ func Test_AssociatedKeyValuesQuery_MatchTags(t *testing.T) {
 						query := &AssociatedKeyValuesQuery{
 							KeyValueSelection: &KeyValueSelection{
 								KeyValues: map[string]Value{
-									"one": {Exists: &isFalse, ExistsType: &datatypes.T_int},
+									"one": {Exists: &isFalse, ExistsType: &T_int},
 								},
 							},
 						}
 						g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-						tags := datatypes.KeyValues{
-							"one": datatypes.String("1"),
+						tags := KeyValues{
+							"one": String("1"),
 						}
 
 						g.Expect(query.MatchTags(tags)).To(BeTrue())
@@ -300,7 +299,7 @@ func Test_AssociatedKeyValuesQuery_MatchTags(t *testing.T) {
 		t.Run("Context Value checks", func(t *testing.T) {
 			t.Run("Context Equals", func(t *testing.T) {
 				t.Run("It returns true if the tags have the exact key", func(t *testing.T) {
-					oneValue := datatypes.String("1")
+					oneValue := String("1")
 					query := &AssociatedKeyValuesQuery{
 						KeyValueSelection: &KeyValueSelection{
 							KeyValues: map[string]Value{
@@ -310,15 +309,15 @@ func Test_AssociatedKeyValuesQuery_MatchTags(t *testing.T) {
 					}
 					g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-					tags := datatypes.KeyValues{
-						"one": datatypes.String("1"),
+					tags := KeyValues{
+						"one": String("1"),
 					}
 
 					g.Expect(query.MatchTags(tags)).To(BeTrue())
 				})
 
 				t.Run("It returns false if the tags don't have the exact key", func(t *testing.T) {
-					oneValue := datatypes.String("1")
+					oneValue := String("1")
 					query := &AssociatedKeyValuesQuery{
 						KeyValueSelection: &KeyValueSelection{
 							KeyValues: map[string]Value{
@@ -328,8 +327,8 @@ func Test_AssociatedKeyValuesQuery_MatchTags(t *testing.T) {
 					}
 					g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-					tags := datatypes.KeyValues{
-						"one": datatypes.String("2"),
+					tags := KeyValues{
+						"one": String("2"),
 					}
 
 					g.Expect(query.MatchTags(tags)).To(BeFalse())
@@ -338,7 +337,7 @@ func Test_AssociatedKeyValuesQuery_MatchTags(t *testing.T) {
 
 			t.Run("Context NotEquals", func(t *testing.T) {
 				t.Run("It returns false if the tags have the exact key value", func(t *testing.T) {
-					oneValue := datatypes.String("1")
+					oneValue := String("1")
 					query := &AssociatedKeyValuesQuery{
 						KeyValueSelection: &KeyValueSelection{
 							KeyValues: map[string]Value{
@@ -348,15 +347,15 @@ func Test_AssociatedKeyValuesQuery_MatchTags(t *testing.T) {
 					}
 					g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-					tags := datatypes.KeyValues{
-						"one": datatypes.String("1"),
+					tags := KeyValues{
+						"one": String("1"),
 					}
 
 					g.Expect(query.MatchTags(tags)).To(BeFalse())
 				})
 
 				t.Run("It returns true if the tags don't have the exact key value", func(t *testing.T) {
-					oneValue := datatypes.String("1")
+					oneValue := String("1")
 					query := &AssociatedKeyValuesQuery{
 						KeyValueSelection: &KeyValueSelection{
 							KeyValues: map[string]Value{
@@ -366,8 +365,8 @@ func Test_AssociatedKeyValuesQuery_MatchTags(t *testing.T) {
 					}
 					g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-					tags := datatypes.KeyValues{
-						"one": datatypes.String("2"),
+					tags := KeyValues{
+						"one": String("2"),
 					}
 
 					g.Expect(query.MatchTags(tags)).To(BeTrue())
@@ -376,7 +375,7 @@ func Test_AssociatedKeyValuesQuery_MatchTags(t *testing.T) {
 
 			t.Run("Context LessThan", func(t *testing.T) {
 				t.Run("It returns true if the tags are less than the query", func(t *testing.T) {
-					fiftyValue := datatypes.Int(50)
+					fiftyValue := Int(50)
 					query := &AssociatedKeyValuesQuery{
 						KeyValueSelection: &KeyValueSelection{
 							KeyValues: map[string]Value{
@@ -386,15 +385,15 @@ func Test_AssociatedKeyValuesQuery_MatchTags(t *testing.T) {
 					}
 					g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-					tags := datatypes.KeyValues{
-						"one": datatypes.Int(1),
+					tags := KeyValues{
+						"one": Int(1),
 					}
 
 					g.Expect(query.MatchTags(tags)).To(BeTrue())
 				})
 
 				t.Run("It returns false if the are greater or equal to the query", func(t *testing.T) {
-					zeroValue := datatypes.Int(0)
+					zeroValue := Int(0)
 					query := &AssociatedKeyValuesQuery{
 						KeyValueSelection: &KeyValueSelection{
 							KeyValues: map[string]Value{
@@ -404,8 +403,8 @@ func Test_AssociatedKeyValuesQuery_MatchTags(t *testing.T) {
 					}
 					g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-					tags := datatypes.KeyValues{
-						"one": datatypes.Int(2),
+					tags := KeyValues{
+						"one": Int(2),
 					}
 
 					g.Expect(query.MatchTags(tags)).To(BeFalse())
@@ -414,7 +413,7 @@ func Test_AssociatedKeyValuesQuery_MatchTags(t *testing.T) {
 
 			t.Run("Context LessThanMatchType", func(t *testing.T) {
 				t.Run("It returns true if the tags are less than the query", func(t *testing.T) {
-					fiftyValue := datatypes.Int(50)
+					fiftyValue := Int(50)
 					query := &AssociatedKeyValuesQuery{
 						KeyValueSelection: &KeyValueSelection{
 							KeyValues: map[string]Value{
@@ -424,15 +423,15 @@ func Test_AssociatedKeyValuesQuery_MatchTags(t *testing.T) {
 					}
 					g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-					tags := datatypes.KeyValues{
-						"one": datatypes.Int(20),
+					tags := KeyValues{
+						"one": Int(20),
 					}
 
 					g.Expect(query.MatchTags(tags)).To(BeTrue())
 				})
 
 				t.Run("It returns false if the are greater or equal to the query", func(t *testing.T) {
-					zeroValue := datatypes.Int(0)
+					zeroValue := Int(0)
 					query := &AssociatedKeyValuesQuery{
 						KeyValueSelection: &KeyValueSelection{
 							KeyValues: map[string]Value{
@@ -442,8 +441,8 @@ func Test_AssociatedKeyValuesQuery_MatchTags(t *testing.T) {
 					}
 					g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-					tags := datatypes.KeyValues{
-						"one": datatypes.Int(2),
+					tags := KeyValues{
+						"one": Int(2),
 					}
 
 					g.Expect(query.MatchTags(tags)).To(BeFalse())
@@ -451,7 +450,7 @@ func Test_AssociatedKeyValuesQuery_MatchTags(t *testing.T) {
 
 				t.Run("It returns false if the Values type do not match", func(t *testing.T) {
 					// value type less than
-					zeroValue := datatypes.Int64(0)
+					zeroValue := Int64(0)
 					query1 := &AssociatedKeyValuesQuery{
 						KeyValueSelection: &KeyValueSelection{
 							KeyValues: map[string]Value{
@@ -462,7 +461,7 @@ func Test_AssociatedKeyValuesQuery_MatchTags(t *testing.T) {
 					g.Expect(query1.Validate()).ToNot(HaveOccurred())
 
 					// value type greater than
-					floatZeroValue := datatypes.Float32(0.0)
+					floatZeroValue := Float32(0.0)
 					query2 := &AssociatedKeyValuesQuery{
 						KeyValueSelection: &KeyValueSelection{
 							KeyValues: map[string]Value{
@@ -472,8 +471,8 @@ func Test_AssociatedKeyValuesQuery_MatchTags(t *testing.T) {
 					}
 					g.Expect(query2.Validate()).ToNot(HaveOccurred())
 
-					tags := datatypes.KeyValues{
-						"one": datatypes.Int(2),
+					tags := KeyValues{
+						"one": Int(2),
 					}
 
 					g.Expect(query1.MatchTags(tags)).To(BeFalse())
@@ -483,7 +482,7 @@ func Test_AssociatedKeyValuesQuery_MatchTags(t *testing.T) {
 
 			t.Run("Context LessThanOrEqual", func(t *testing.T) {
 				t.Run("It returns true if the tags are less than or Equal to the query", func(t *testing.T) {
-					oneValue := datatypes.Int(1)
+					oneValue := Int(1)
 					query := &AssociatedKeyValuesQuery{
 						KeyValueSelection: &KeyValueSelection{
 							KeyValues: map[string]Value{
@@ -493,15 +492,15 @@ func Test_AssociatedKeyValuesQuery_MatchTags(t *testing.T) {
 					}
 					g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-					tags := datatypes.KeyValues{
-						"one": datatypes.Int(1),
+					tags := KeyValues{
+						"one": Int(1),
 					}
 
 					g.Expect(query.MatchTags(tags)).To(BeTrue())
 				})
 
 				t.Run("It returns false if the are greater than the quert", func(t *testing.T) {
-					zeroValue := datatypes.Int(0)
+					zeroValue := Int(0)
 					query := &AssociatedKeyValuesQuery{
 						KeyValueSelection: &KeyValueSelection{
 							KeyValues: map[string]Value{
@@ -511,8 +510,8 @@ func Test_AssociatedKeyValuesQuery_MatchTags(t *testing.T) {
 					}
 					g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-					tags := datatypes.KeyValues{
-						"one": datatypes.Int(1),
+					tags := KeyValues{
+						"one": Int(1),
 					}
 
 					g.Expect(query.MatchTags(tags)).To(BeFalse())
@@ -521,7 +520,7 @@ func Test_AssociatedKeyValuesQuery_MatchTags(t *testing.T) {
 
 			t.Run("Context LessThanOrEqualMatchType", func(t *testing.T) {
 				t.Run("It returns true if the tags are less than or equalt than the query", func(t *testing.T) {
-					fiftyValue := datatypes.Int(50)
+					fiftyValue := Int(50)
 					query := &AssociatedKeyValuesQuery{
 						KeyValueSelection: &KeyValueSelection{
 							KeyValues: map[string]Value{
@@ -531,15 +530,15 @@ func Test_AssociatedKeyValuesQuery_MatchTags(t *testing.T) {
 					}
 					g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-					tags := datatypes.KeyValues{
-						"one": datatypes.Int(50),
+					tags := KeyValues{
+						"one": Int(50),
 					}
 
 					g.Expect(query.MatchTags(tags)).To(BeTrue())
 				})
 
 				t.Run("It returns false if the are greater or equal to the query", func(t *testing.T) {
-					zeroValue := datatypes.Int(0)
+					zeroValue := Int(0)
 					query := &AssociatedKeyValuesQuery{
 						KeyValueSelection: &KeyValueSelection{
 							KeyValues: map[string]Value{
@@ -549,8 +548,8 @@ func Test_AssociatedKeyValuesQuery_MatchTags(t *testing.T) {
 					}
 					g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-					tags := datatypes.KeyValues{
-						"one": datatypes.Int(2),
+					tags := KeyValues{
+						"one": Int(2),
 					}
 
 					g.Expect(query.MatchTags(tags)).To(BeFalse())
@@ -558,7 +557,7 @@ func Test_AssociatedKeyValuesQuery_MatchTags(t *testing.T) {
 
 				t.Run("It returns false if the Values type do not match", func(t *testing.T) {
 					// value type less than
-					zeroValue := datatypes.Int64(0)
+					zeroValue := Int64(0)
 					query1 := &AssociatedKeyValuesQuery{
 						KeyValueSelection: &KeyValueSelection{
 							KeyValues: map[string]Value{
@@ -569,7 +568,7 @@ func Test_AssociatedKeyValuesQuery_MatchTags(t *testing.T) {
 					g.Expect(query1.Validate()).ToNot(HaveOccurred())
 
 					// value type greater than
-					floatZeroValue := datatypes.Float32(0.0)
+					floatZeroValue := Float32(0.0)
 					query2 := &AssociatedKeyValuesQuery{
 						KeyValueSelection: &KeyValueSelection{
 							KeyValues: map[string]Value{
@@ -579,8 +578,8 @@ func Test_AssociatedKeyValuesQuery_MatchTags(t *testing.T) {
 					}
 					g.Expect(query2.Validate()).ToNot(HaveOccurred())
 
-					tags := datatypes.KeyValues{
-						"one": datatypes.Int(2),
+					tags := KeyValues{
+						"one": Int(2),
 					}
 
 					g.Expect(query1.MatchTags(tags)).To(BeFalse())
@@ -590,7 +589,7 @@ func Test_AssociatedKeyValuesQuery_MatchTags(t *testing.T) {
 
 			t.Run("Context GreaterThan", func(t *testing.T) {
 				t.Run("It returns true if the tags are greater than the query", func(t *testing.T) {
-					zeroValue := datatypes.Int(0)
+					zeroValue := Int(0)
 					query := &AssociatedKeyValuesQuery{
 						KeyValueSelection: &KeyValueSelection{
 							KeyValues: map[string]Value{
@@ -600,15 +599,15 @@ func Test_AssociatedKeyValuesQuery_MatchTags(t *testing.T) {
 					}
 					g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-					tags := datatypes.KeyValues{
-						"one": datatypes.Int(1),
+					tags := KeyValues{
+						"one": Int(1),
 					}
 
 					g.Expect(query.MatchTags(tags)).To(BeTrue())
 				})
 
 				t.Run("It returns false if the tags are less than the query", func(t *testing.T) {
-					fiveValue := datatypes.Int(5)
+					fiveValue := Int(5)
 					query := &AssociatedKeyValuesQuery{
 						KeyValueSelection: &KeyValueSelection{
 							KeyValues: map[string]Value{
@@ -618,8 +617,8 @@ func Test_AssociatedKeyValuesQuery_MatchTags(t *testing.T) {
 					}
 					g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-					tags := datatypes.KeyValues{
-						"one": datatypes.Int(1),
+					tags := KeyValues{
+						"one": Int(1),
 					}
 
 					g.Expect(query.MatchTags(tags)).To(BeFalse())
@@ -628,7 +627,7 @@ func Test_AssociatedKeyValuesQuery_MatchTags(t *testing.T) {
 
 			t.Run("Context GreaterThanMatchType", func(t *testing.T) {
 				t.Run("It returns true if the tags are greater than the query", func(t *testing.T) {
-					zeroValue := datatypes.Int(0)
+					zeroValue := Int(0)
 					query := &AssociatedKeyValuesQuery{
 						KeyValueSelection: &KeyValueSelection{
 							KeyValues: map[string]Value{
@@ -638,15 +637,15 @@ func Test_AssociatedKeyValuesQuery_MatchTags(t *testing.T) {
 					}
 					g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-					tags := datatypes.KeyValues{
-						"one": datatypes.Int(50),
+					tags := KeyValues{
+						"one": Int(50),
 					}
 
 					g.Expect(query.MatchTags(tags)).To(BeTrue())
 				})
 
 				t.Run("It returns false if the tags are less or equal to the query", func(t *testing.T) {
-					zeroValue := datatypes.Int(0)
+					zeroValue := Int(0)
 					query := &AssociatedKeyValuesQuery{
 						KeyValueSelection: &KeyValueSelection{
 							KeyValues: map[string]Value{
@@ -656,8 +655,8 @@ func Test_AssociatedKeyValuesQuery_MatchTags(t *testing.T) {
 					}
 					g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-					tags := datatypes.KeyValues{
-						"one": datatypes.Int(0),
+					tags := KeyValues{
+						"one": Int(0),
 					}
 
 					g.Expect(query.MatchTags(tags)).To(BeFalse())
@@ -665,7 +664,7 @@ func Test_AssociatedKeyValuesQuery_MatchTags(t *testing.T) {
 
 				t.Run("It returns false if the Values type do not match", func(t *testing.T) {
 					// value type less than
-					zeroValue := datatypes.Int64(0)
+					zeroValue := Int64(0)
 					query1 := &AssociatedKeyValuesQuery{
 						KeyValueSelection: &KeyValueSelection{
 							KeyValues: map[string]Value{
@@ -676,7 +675,7 @@ func Test_AssociatedKeyValuesQuery_MatchTags(t *testing.T) {
 					g.Expect(query1.Validate()).ToNot(HaveOccurred())
 
 					// value type greater than
-					floatZeroValue := datatypes.Float32(0.0)
+					floatZeroValue := Float32(0.0)
 					query2 := &AssociatedKeyValuesQuery{
 						KeyValueSelection: &KeyValueSelection{
 							KeyValues: map[string]Value{
@@ -686,8 +685,8 @@ func Test_AssociatedKeyValuesQuery_MatchTags(t *testing.T) {
 					}
 					g.Expect(query2.Validate()).ToNot(HaveOccurred())
 
-					tags := datatypes.KeyValues{
-						"one": datatypes.Int(2),
+					tags := KeyValues{
+						"one": Int(2),
 					}
 
 					g.Expect(query1.MatchTags(tags)).To(BeFalse())
@@ -697,7 +696,7 @@ func Test_AssociatedKeyValuesQuery_MatchTags(t *testing.T) {
 
 			t.Run("Context GreaterThanOrEqual", func(t *testing.T) {
 				t.Run("It returns true if the tags are greater than or equal to the query", func(t *testing.T) {
-					zeroValue := datatypes.Int(0)
+					zeroValue := Int(0)
 					query := &AssociatedKeyValuesQuery{
 						KeyValueSelection: &KeyValueSelection{
 							KeyValues: map[string]Value{
@@ -707,15 +706,15 @@ func Test_AssociatedKeyValuesQuery_MatchTags(t *testing.T) {
 					}
 					g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-					tags := datatypes.KeyValues{
-						"one": datatypes.Int(0),
+					tags := KeyValues{
+						"one": Int(0),
 					}
 
 					g.Expect(query.MatchTags(tags)).To(BeTrue())
 				})
 
 				t.Run("It returns false if the tags are less than the query", func(t *testing.T) {
-					fiveValue := datatypes.Int(5)
+					fiveValue := Int(5)
 					query := &AssociatedKeyValuesQuery{
 						KeyValueSelection: &KeyValueSelection{
 							KeyValues: map[string]Value{
@@ -725,8 +724,8 @@ func Test_AssociatedKeyValuesQuery_MatchTags(t *testing.T) {
 					}
 					g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-					tags := datatypes.KeyValues{
-						"one": datatypes.Int(1),
+					tags := KeyValues{
+						"one": Int(1),
 					}
 
 					g.Expect(query.MatchTags(tags)).To(BeFalse())
@@ -735,7 +734,7 @@ func Test_AssociatedKeyValuesQuery_MatchTags(t *testing.T) {
 
 			t.Run("Context GreaterThanOrEqualMatchType", func(t *testing.T) {
 				t.Run("It returns true if the tags are greater than or equal the query", func(t *testing.T) {
-					fiftyValue := datatypes.Int(50)
+					fiftyValue := Int(50)
 					query := &AssociatedKeyValuesQuery{
 						KeyValueSelection: &KeyValueSelection{
 							KeyValues: map[string]Value{
@@ -745,15 +744,15 @@ func Test_AssociatedKeyValuesQuery_MatchTags(t *testing.T) {
 					}
 					g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-					tags := datatypes.KeyValues{
-						"one": datatypes.Int(50),
+					tags := KeyValues{
+						"one": Int(50),
 					}
 
 					g.Expect(query.MatchTags(tags)).To(BeTrue())
 				})
 
 				t.Run("It returns false if the tags are less than the query", func(t *testing.T) {
-					zeroValue := datatypes.Int(0)
+					zeroValue := Int(0)
 					query := &AssociatedKeyValuesQuery{
 						KeyValueSelection: &KeyValueSelection{
 							KeyValues: map[string]Value{
@@ -763,8 +762,8 @@ func Test_AssociatedKeyValuesQuery_MatchTags(t *testing.T) {
 					}
 					g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-					tags := datatypes.KeyValues{
-						"one": datatypes.Int(-1),
+					tags := KeyValues{
+						"one": Int(-1),
 					}
 
 					g.Expect(query.MatchTags(tags)).To(BeFalse())
@@ -772,7 +771,7 @@ func Test_AssociatedKeyValuesQuery_MatchTags(t *testing.T) {
 
 				t.Run("It returns false if the Values type do not match", func(t *testing.T) {
 					// value type less than
-					zeroValue := datatypes.Int64(0)
+					zeroValue := Int64(0)
 					query1 := &AssociatedKeyValuesQuery{
 						KeyValueSelection: &KeyValueSelection{
 							KeyValues: map[string]Value{
@@ -783,7 +782,7 @@ func Test_AssociatedKeyValuesQuery_MatchTags(t *testing.T) {
 					g.Expect(query1.Validate()).ToNot(HaveOccurred())
 
 					// value type greater than
-					floatZeroValue := datatypes.Float32(0.0)
+					floatZeroValue := Float32(0.0)
 					query2 := &AssociatedKeyValuesQuery{
 						KeyValueSelection: &KeyValueSelection{
 							KeyValues: map[string]Value{
@@ -793,8 +792,8 @@ func Test_AssociatedKeyValuesQuery_MatchTags(t *testing.T) {
 					}
 					g.Expect(query2.Validate()).ToNot(HaveOccurred())
 
-					tags := datatypes.KeyValues{
-						"one": datatypes.Int(2),
+					tags := KeyValues{
+						"one": Int(2),
 					}
 
 					g.Expect(query1.MatchTags(tags)).To(BeFalse())
@@ -807,7 +806,7 @@ func Test_AssociatedKeyValuesQuery_MatchTags(t *testing.T) {
 
 	t.Run("Context when only AND is set", func(t *testing.T) {
 		t.Run("It returns true only if all checks pass", func(t *testing.T) {
-			oneValue := datatypes.Int(1)
+			oneValue := Int(1)
 			numberOfKeys := 1
 			query := &AssociatedKeyValuesQuery{
 				And: []AssociatedKeyValuesQuery{
@@ -829,13 +828,13 @@ func Test_AssociatedKeyValuesQuery_MatchTags(t *testing.T) {
 			}
 			g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-			validTags := datatypes.KeyValues{
-				"one": datatypes.Int(1),
+			validTags := KeyValues{
+				"one": Int(1),
 			}
 
-			invalidTags := datatypes.KeyValues{
-				"one": datatypes.Int(1),
-				"two": datatypes.Float64(2.0),
+			invalidTags := KeyValues{
+				"one": Int(1),
+				"two": Float64(2.0),
 			}
 
 			g.Expect(query.MatchTags(validTags)).To(BeTrue())
@@ -845,7 +844,7 @@ func Test_AssociatedKeyValuesQuery_MatchTags(t *testing.T) {
 
 	t.Run("Context when only OR is set", func(t *testing.T) {
 		t.Run("It returns true if any checks pass", func(t *testing.T) {
-			oneValue := datatypes.Int(1)
+			oneValue := Int(1)
 			numberOfKeys := 1
 			query := &AssociatedKeyValuesQuery{
 				Or: []AssociatedKeyValuesQuery{
@@ -867,13 +866,13 @@ func Test_AssociatedKeyValuesQuery_MatchTags(t *testing.T) {
 			}
 			g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-			validTags1 := datatypes.KeyValues{
-				"one": datatypes.Int(1),
+			validTags1 := KeyValues{
+				"one": Int(1),
 			}
 
-			validTags2 := datatypes.KeyValues{
-				"one": datatypes.Int(1),
-				"two": datatypes.Float64(2.0),
+			validTags2 := KeyValues{
+				"one": Int(1),
+				"two": Float64(2.0),
 			}
 
 			g.Expect(query.MatchTags(validTags1)).To(BeTrue())
@@ -883,7 +882,7 @@ func Test_AssociatedKeyValuesQuery_MatchTags(t *testing.T) {
 
 	t.Run("Context when WHERE and AND is set", func(t *testing.T) {
 		t.Run("It returns true by performing a join on al the values", func(t *testing.T) {
-			oneValue := datatypes.Int(1)
+			oneValue := Int(1)
 			numberOfKeys := 1
 			query := &AssociatedKeyValuesQuery{
 				KeyValueSelection: &KeyValueSelection{
@@ -903,13 +902,13 @@ func Test_AssociatedKeyValuesQuery_MatchTags(t *testing.T) {
 			}
 			g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-			validTags := datatypes.KeyValues{
-				"one": datatypes.Int(1),
+			validTags := KeyValues{
+				"one": Int(1),
 			}
 
-			invalidTags := datatypes.KeyValues{
-				"one": datatypes.Int(1),
-				"two": datatypes.Float64(2.0),
+			invalidTags := KeyValues{
+				"one": Int(1),
+				"two": Float64(2.0),
 			}
 
 			g.Expect(query.MatchTags(validTags)).To(BeTrue())

@@ -11,7 +11,6 @@ import (
 
 	"github.com/DanLavine/willow/pkg/models/api/v1locker"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
-	"github.com/DanLavine/willow/pkg/models/query"
 	. "github.com/onsi/gomega"
 )
 
@@ -74,7 +73,7 @@ func TestGeneralLocker_ObtainLocks(t *testing.T) {
 			return true
 		}
 
-		g.Expect(generalLocker.locks.Query(query.AssociatedKeyValuesQuery{}, lockCounter)).ToNot(HaveOccurred())
+		g.Expect(generalLocker.locks.Query(datatypes.AssociatedKeyValuesQuery{}, lockCounter)).ToNot(HaveOccurred())
 		g.Expect(counter).To(Equal(1))
 	})
 
@@ -105,7 +104,7 @@ func TestGeneralLocker_ObtainLocks(t *testing.T) {
 					return true
 				}
 
-				g.Expect(generalLocker.locks.Query(query.AssociatedKeyValuesQuery{}, lockCounter)).ToNot(HaveOccurred())
+				g.Expect(generalLocker.locks.Query(datatypes.AssociatedKeyValuesQuery{}, lockCounter)).ToNot(HaveOccurred())
 				g.Expect(counter).To(Equal(1))
 			})
 		})
@@ -137,7 +136,7 @@ func TestGeneralLocker_ObtainLocks(t *testing.T) {
 					return true
 				}
 
-				g.Expect(generalLocker.locks.Query(query.AssociatedKeyValuesQuery{}, lockCounter)).ToNot(HaveOccurred())
+				g.Expect(generalLocker.locks.Query(datatypes.AssociatedKeyValuesQuery{}, lockCounter)).ToNot(HaveOccurred())
 				g.Expect(counter).To(Equal(1))
 			})
 		})
