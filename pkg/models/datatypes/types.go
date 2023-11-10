@@ -214,7 +214,7 @@ func (edt EncapsulatedData) Validate() error {
 			return fmt.Errorf("EncapsulatedData has a string data type, but the Value is a: %s", kind.String())
 		}
 	case T_nil:
-		if edt.Value != nil {
+		if edt.Value != struct{}{} {
 			return fmt.Errorf("EncapsulatedData has a 'nil' data type and requires the Value to be nil")
 		}
 	default:
@@ -335,10 +335,11 @@ func String(value string) EncapsulatedData {
 	}
 }
 
+// DSL TODO: rename to Empty()?
 // NIL types
 func Nil() EncapsulatedData {
 	return EncapsulatedData{
 		DataType: T_nil,
-		Value:    nil,
+		Value:    struct{}{}, // NOTE: we really use the empty struct here to account for all values
 	}
 }

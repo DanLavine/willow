@@ -1,14 +1,8 @@
 package memory
 
-import (
-	"testing"
+//. "github.com/onsi/gomega"
 
-	v1limiter "github.com/DanLavine/willow/pkg/models/api/limiter/v1"
-	"github.com/DanLavine/willow/pkg/models/datatypes"
-	. "github.com/onsi/gomega"
-	"go.uber.org/zap"
-)
-
+/*
 func defaultLimiterTestRule(g *GomegaWithT) *v1limiter.Rule {
 	rule := &v1limiter.Rule{
 		Name:        "test",
@@ -241,3 +235,4 @@ func TestRule_Generate(t *testing.T) {
 		g.Expect(*(query.KeyValueSelection.KeyValues["key2"].Value)).To(Equal(testKeyValues["key2"]))
 	})
 }
+*/

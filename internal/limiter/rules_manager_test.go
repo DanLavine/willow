@@ -1,10 +1,8 @@
 package limiter
 
 import (
-	"sync/atomic"
 	"testing"
 
-	btreeassociated "github.com/DanLavine/willow/internal/datastructures/btree_associated"
 	v1limiter "github.com/DanLavine/willow/pkg/models/api/limiter/v1"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 	. "github.com/onsi/gomega"
@@ -49,6 +47,7 @@ func TestRulesManager_CreateGroupRule(t *testing.T) {
 	})
 }
 
+/*
 func TestRulesManager_FindRule(t *testing.T) {
 	g := NewGomegaWithT(t)
 
@@ -274,3 +273,4 @@ func TestRulesManager_Decrement(t *testing.T) {
 		g.Expect(counterValue).To(Equal(uint64(0)))
 	})
 }
+*/

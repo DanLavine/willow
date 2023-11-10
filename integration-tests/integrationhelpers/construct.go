@@ -49,6 +49,16 @@ func NewIntrgrationLockerTestConstruct(g *WithT) *IntegrationTestConstruct {
 	}
 }
 
+func NewIntrgrationLimiterTestConstruct(g *WithT) *IntegrationTestConstruct {
+	lockerPath, err := gexec.Build("github.com/DanLavine/willow/cmd/limiter", "--race")
+	g.Expect(err).ToNot(HaveOccurred())
+
+	return &IntegrationTestConstruct{
+		ServerPath: lockerPath,
+		ServerURL:  "https://127.0.0.1:8082",
+	}
+}
+
 func (itc *IntegrationTestConstruct) StartWillow(g *WithT) {
 	tmpDir, err := os.MkdirTemp("", "")
 	g.Expect(err).ToNot(HaveOccurred())
@@ -97,6 +107,33 @@ func (itc *IntegrationTestConstruct) StartLocker(g *WithT) {
 	session, err := gexec.Start(lockerExe, itc.ServerStdout, itc.ServerStderr)
 	g.Expect(err).ToNot(HaveOccurred())
 	g.Eventually(session.Out).Should(gbytes.Say("Locker TCP server running"))
+	time.Sleep(100 * time.Millisecond)
+
+	// record start configuration
+	itc.Session = session
+}
+
+func (itc *IntegrationTestConstruct) StartLimiter(g *WithT) {
+	tmpDir, err := os.MkdirTemp("", "")
+	g.Expect(err).ToNot(HaveOccurred())
+	itc.dataDir = tmpDir
+
+	_, currentDir, _, _ := runtime.Caller(0)
+
+	cmdLineFlags := []string{
+		"-log-level", "debug",
+		"-limiter-ca", filepath.Join(currentDir, "..", "..", "..", "testhelpers", "tls-keys", "ca.crt"),
+		"-limiter-server-key", filepath.Join(currentDir, "..", "..", "..", "testhelpers", "tls-keys", "server.key"),
+		"-limiter-server-crt", filepath.Join(currentDir, "..", "..", "..", "testhelpers", "tls-keys", "server.crt"),
+	}
+
+	lockerExe := exec.Command(itc.ServerPath, cmdLineFlags...)
+
+	itc.ServerStdout = new(bytes.Buffer)
+	itc.ServerStderr = new(bytes.Buffer)
+	session, err := gexec.Start(lockerExe, itc.ServerStdout, itc.ServerStderr)
+	g.Expect(err).ToNot(HaveOccurred())
+	g.Eventually(session.Out).Should(gbytes.Say("Limiter TCP server running"))
 	time.Sleep(100 * time.Millisecond)
 
 	// record start configuration

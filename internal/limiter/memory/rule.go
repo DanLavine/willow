@@ -14,7 +14,10 @@ import (
 
 type rule struct {
 	ruleModelLock *sync.RWMutex
-	ruleModel     *v1limiter.Rule
+	name          string
+	groupBy       []string
+	queryFilter   datatypes.AssociatedKeyValuesQuery
+	limit         uint64
 
 	// all values in the overrides are of type 'ruleOverride'
 	overrides btreeassociated.BTreeAssociated
@@ -30,7 +33,10 @@ type ruleOverride struct {
 func NewRule(ruleModel *v1limiter.Rule) *rule {
 	return &rule{
 		ruleModelLock: new(sync.RWMutex),
-		ruleModel:     ruleModel,
+		name:          ruleModel.Name,
+		groupBy:       ruleModel.GroupBy,
+		queryFilter:   ruleModel.QueryFilter,
+		limit:         ruleModel.Limit,
 		overrides:     btreeassociated.NewThreadSafe(),
 	}
 }
@@ -39,14 +45,14 @@ func (r *rule) Update(logger *zap.Logger, newLimit uint64) {
 	r.ruleModelLock.Lock()
 	defer r.ruleModelLock.Unlock()
 
-	r.ruleModel.Limit = uint64(newLimit)
+	r.limit = uint64(newLimit)
 }
 
 func (r *rule) SetOverride(logger *zap.Logger, override *v1limiter.Override) *api.Error {
 	logger = logger.Named("SetOverride")
 
 	// set an override iff the tags aare valid
-	if !r.ruleModel.QueryFilter.MatchTags(override.KeyValues) {
+	if !r.queryFilter.MatchTags(override.KeyValues) {
 		return api.NotAcceptable.With("the provided keys values to match the rule query", "provided will never be found by the rule query")
 	}
 
@@ -89,7 +95,7 @@ func (r *rule) DeleteOverride(logger *zap.Logger, query datatypes.AssociatedKeyV
 
 func (r *rule) FindLimit(logger *zap.Logger, keyValues datatypes.KeyValues) uint64 {
 	r.ruleModelLock.RLock()
-	limit := r.ruleModel.Limit
+	limit := r.limit
 	r.ruleModelLock.RUnlock()
 
 	onFind := func(item any) {
@@ -108,14 +114,14 @@ func (r *rule) FindLimit(logger *zap.Logger, keyValues datatypes.KeyValues) uint
 
 func (r *rule) TagsMatch(logger *zap.Logger, keyValues datatypes.KeyValues) bool {
 	// ensure that all the "group by" keys exists
-	for _, key := range r.ruleModel.GroupBy {
+	for _, key := range r.groupBy {
 		if _, ok := keyValues[key]; !ok {
 			return false
 		}
 	}
 
 	// ensure that the selection doesn't filter out the request
-	return r.ruleModel.QueryFilter.MatchTags(keyValues)
+	return r.queryFilter.MatchTags(keyValues)
 }
 
 func (r *rule) Lock() {
@@ -133,7 +139,7 @@ func (r *rule) GenerateQuery(keyValues datatypes.KeyValues) datatypes.Associated
 		},
 	}
 
-	for _, key := range r.ruleModel.GroupBy {
+	for _, key := range r.groupBy {
 		value := keyValues[key]
 		selectQuery.KeyValueSelection.KeyValues[key] = datatypes.Value{Value: &value, ValueComparison: datatypes.EqualsPtr()}
 	}
@@ -166,9 +172,9 @@ func (r *rule) GetRuleResponse(includeOverrides bool) *v1limiter.Rule {
 	}
 
 	ruleResponse := &v1limiter.Rule{
-		Name:      r.ruleModel.Name,
-		GroupBy:   r.ruleModel.GroupBy,
-		Limit:     r.ruleModel.Limit,
+		Name:      r.name,
+		GroupBy:   r.groupBy,
+		Limit:     r.limit,
 		Overrides: overrides,
 	}
 
