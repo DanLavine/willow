@@ -1,10 +1,14 @@
 package v1server
 
 import (
+	"fmt"
 	"net/http"
+	"strconv"
 
+	"github.com/DanLavine/urlrouter"
 	"github.com/DanLavine/willow/internal/limiter"
 	"github.com/DanLavine/willow/internal/logger"
+	"github.com/DanLavine/willow/pkg/models/api"
 	v1limiter "github.com/DanLavine/willow/pkg/models/api/limiter/v1"
 	"go.uber.org/zap"
 )
@@ -17,6 +21,7 @@ type LimitRuleHandler interface {
 	Create(w http.ResponseWriter, r *http.Request)
 	Update(w http.ResponseWriter, r *http.Request)
 	Delete(w http.ResponseWriter, r *http.Request)
+	Get(w http.ResponseWriter, r *http.Request)
 	Find(w http.ResponseWriter, r *http.Request)
 
 	// overide operations
@@ -64,6 +69,41 @@ func (grh *groupRuleHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusCreated)
+}
+
+func (grh *groupRuleHandler) Get(w http.ResponseWriter, r *http.Request) {
+	logger := logger.AddRequestID(grh.logger.Named("Get"), r)
+	logger.Debug("starting request")
+	defer logger.Debug("processed request")
+
+	namedParameters := urlrouter.GetNamedParamters(r.Context())
+	includeOverridesString := r.URL.Query().Get("includeOverrides")
+
+	var err error
+	var includeOverrides bool
+
+	if includeOverridesString != "" {
+		includeOverrides, err = strconv.ParseBool(includeOverridesString)
+		if err != nil {
+			err := &api.Error{Message: fmt.Sprintf("failed to parse query parameter includeOverrides: %s", err.Error())}
+			logger.Warn("failed to parse query paramters", zap.String("parameter", "includeOverrides"), zap.Error(err))
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write(err.ToBytes())
+			return
+		}
+	}
+
+	// find the group rule
+	rule := grh.rulesManager.Get(logger, namedParameters["name"], includeOverrides)
+	if rule == nil {
+		err := &api.Error{Message: fmt.Sprintf("rule with name '%s' could not be found", namedParameters["name"])}
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		w.Write(err.ToBytes())
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write(rule.ToBytes())
 }
 
 func (grh *groupRuleHandler) Update(w http.ResponseWriter, r *http.Request) {

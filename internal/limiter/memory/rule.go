@@ -172,10 +172,11 @@ func (r *rule) GetRuleResponse(includeOverrides bool) *v1limiter.Rule {
 	}
 
 	ruleResponse := &v1limiter.Rule{
-		Name:      r.name,
-		GroupBy:   r.groupBy,
-		Limit:     r.limit,
-		Overrides: overrides,
+		Name:        r.name,
+		GroupBy:     r.groupBy,
+		Limit:       r.limit,
+		QueryFilter: r.queryFilter,
+		Overrides:   overrides,
 	}
 
 	return ruleResponse

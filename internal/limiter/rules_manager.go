@@ -32,6 +32,7 @@ type RulesManager interface {
 	CreateGroupRule(logger *zap.Logger, rule *v1limiter.Rule) *api.Error
 
 	// read
+	Get(logger *zap.Logger, name string, includeOverrides bool) *v1limiter.Rule
 	FindRule(logger *zap.Logger, name string) Rule
 	ListRules(logger *zap.Logger) []Rule
 
@@ -80,6 +81,26 @@ func (rm *rulesManger) CreateGroupRule(logger *zap.Logger, rule *v1limiter.Rule)
 		logger.Error("failed to create or find a new rule", zap.Error(err))
 		return (&api.Error{Message: "rule already exists", StatusCode: http.StatusUnprocessableEntity}).With(fmt.Sprintf("name %s to not be in use", rule.Name), "")
 
+	}
+
+	return nil
+}
+
+// Get a group rule by name
+func (rm *rulesManger) Get(logger *zap.Logger, name string, includeOverrides bool) *v1limiter.Rule {
+	logger = logger.Named("Get")
+
+	var rule Rule
+	onFind := func(item any) {
+		rule = item.(*btreeassociated.AssociatedKeyValues).Value().(Rule)
+	}
+
+	if err := rm.rules.FindByAssociatedID(name, onFind); err != nil {
+		logger.Error("failed to find rule by associatedid", zap.String("name", name), zap.Error(err))
+	}
+
+	if rule != nil {
+		return rule.GetRuleResponse(includeOverrides)
 	}
 
 	return nil

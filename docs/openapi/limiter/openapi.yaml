@@ -61,6 +61,12 @@ paths:
   /v1/limiter/rules/:name:
     get:
       operationId: get Rule
+      parameters:
+        - name: includeOverrides
+          in: query
+          schema:
+            type: boolean
+            default: false
       responses:
         200:
           description: |
@@ -68,9 +74,9 @@ paths:
           content:
             appplication/json:
               schema:
-                $ref: "#/components/schemas/ListRulesResponse"
+                $ref: "#/components/schemas/RulesResponse"
         400:
-          description: Error parsing or validating the request
+          description: Error parsing or validating the request parameters
           content:
             appplication/json:
               schema:
@@ -393,32 +399,35 @@ components:
           type: boolean
           default: false
     # Find rule response
+    RulesResponse:
+      type: object
+      properties:
+        Name:
+          type: string
+        GroupBy:
+          type: array
+          items:
+            type: string
+        Query:
+          $ref: "#/components/schemas/AssociatedKeyValuesQuery"
+        Limit:
+          type: integer
+          format: uint64
+        RuleOverrides:
+          type: array
+          items:
+            type: object
+            properties:
+              KeyValues:
+                $ref: "#/components/schemas/KeyValues"
+              Limit:
+                type: integer
+                format: uint64
+
     ListRulesResponse:
       type: array
       items:
-        type: object
-        properties:
-          Name:
-            type: string
-          GroupBy:
-            type: array
-            items:
-              type: string
-          Query:
-            $ref: "#/components/schemas/AssociatedKeyValuesQuery"
-          Limit:
-            type: integer
-            format: uint64
-          RuleOverrides:
-            type: array
-            items:
-              type: object
-              properties:
-                KeyValues:
-                  $ref: "#/components/schemas/KeyValues"
-                Limit:
-                  type: integer
-                  format: uint64
+        $ref: "#/components/schemas/RulesResponse"
 
     # create a new rule request
     RuleOverride:

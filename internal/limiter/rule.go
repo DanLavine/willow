@@ -41,5 +41,5 @@ type Rule interface {
 	GenerateQuery(keyValues datatypes.KeyValues) datatypes.AssociatedKeyValuesQuery
 
 	// Get a rule response for Read operations
-	GetRuleResponse(includeOverrides bool) v1limiter.Rules
+	GetRuleResponse(includeOverrides bool) *v1limiter.Rule
 }
