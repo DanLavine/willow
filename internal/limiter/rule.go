@@ -33,13 +33,9 @@ type Rule interface {
 	//AddClientWaiting(logger *zap.Logger, keyValues datatypes.KeyValues) <-chan struct{} // client calls when trying to "increment", but a limit is blocked, sets up a callback that triggers another "increment" call
 	//TriggerClientWaiting(keyValues datatypes.KeyValues)                                 // decrement calls these whenever that happens. Can als be called on an override increase change
 
-	// locking operation from the manager when checking limits
-	Lock()
-	Unlock()
-
 	// Need to generate a query on what to search for
 	GenerateQuery(keyValues datatypes.KeyValues) datatypes.AssociatedKeyValuesQuery
 
 	// Get a rule response for Read operations
-	GetRuleResponse(includeOverrides bool) *v1limiter.Rule
+	Get(includeOverrides bool) *v1limiter.Rule
 }

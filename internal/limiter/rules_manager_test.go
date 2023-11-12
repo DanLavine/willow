@@ -9,7 +9,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func TestRulesManager_CreateGroupRule(t *testing.T) {
+func TestRulesManager_Create(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	t.Run("It returns nil when successfully creating a new rule", func(t *testing.T) {
@@ -44,6 +44,55 @@ func TestRulesManager_CreateGroupRule(t *testing.T) {
 		err = rulesManager.Create(zap.NewNop(), createRequest)
 		g.Expect(err).To(HaveOccurred())
 		g.Expect(err.Error()).To(ContainSubstring("rule already exists"))
+	})
+}
+
+func TestRulesManager_Get(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	t.Run("It returns nil when a rule doesn't exist", func(t *testing.T) {
+		rulesManager := NewRulesManger()
+
+		rule := rulesManager.Get(zap.NewNop(), "doesn't exist", false)
+		g.Expect(rule).To(BeNil())
+	})
+
+	t.Run("Context override lookups", func(t *testing.T) {
+		rulesManager := NewRulesManger()
+
+		// create the rule
+		createRequest := &v1limiter.Rule{
+			Name:        "test",
+			GroupBy:     []string{"key1", "key2"},
+			QueryFilter: datatypes.AssociatedKeyValuesQuery{},
+			Limit:       5,
+		}
+		g.Expect(createRequest.ValidateRequest()).ToNot(HaveOccurred())
+		g.Expect(rulesManager.Create(zap.NewNop(), createRequest)).ToNot(HaveOccurred())
+
+		// create an override
+		overrideRequest := v1limiter.Override{
+			Name: "override1",
+			KeyValues: datatypes.KeyValues{
+				"three": datatypes.Float64(52.123),
+			},
+			Limit: 87,
+		}
+		g.Expect(overrideRequest.ValidateRequest()).ToNot(HaveOccurred())
+		g.Expect(rulesManager.CreateOverride(zap.NewNop(), "test", &overrideRequest)).ToNot(HaveOccurred())
+
+		t.Run("It does not include any overrides when FALSE", func(t *testing.T) {
+			rule := rulesManager.Get(zap.NewNop(), "test", false)
+			g.Expect(rule).ToNot(BeNil())
+			g.Expect(len(rule.Overrides)).To(Equal(0))
+		})
+
+		t.Run("It includes any overrides when TRUE", func(t *testing.T) {
+			rule := rulesManager.Get(zap.NewNop(), "test", true)
+			g.Expect(rule).ToNot(BeNil())
+			g.Expect(len(rule.Overrides)).To(Equal(1))
+			g.Expect(rule.Overrides[0].Name).To(Equal("override1"))
+		})
 	})
 }
 

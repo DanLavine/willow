@@ -41,7 +41,7 @@ func ParseOverrideRequest(reader io.ReadCloser) (*Override, *api.Error) {
 
 func (or *Override) ValidateRequest() *api.Error {
 	if or.Name == "" {
-		return api.InvalidRequestBody.With("Name to be rpovided", "received empty sting")
+		return api.InvalidRequestBody.With("Name to be provided", "received empty sting")
 	}
 
 	if len(or.KeyValues) == 0 {

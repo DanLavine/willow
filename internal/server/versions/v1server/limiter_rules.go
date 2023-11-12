@@ -197,27 +197,22 @@ func (grh *groupRuleHandler) SetOverride(w http.ResponseWriter, r *http.Request)
 	logger.Debug("starting request")
 	defer logger.Debug("processed request")
 
-	w.WriteHeader(http.StatusNotImplemented)
+	ruleOverrideRequest, err := v1limiter.ParseOverrideRequest(r.Body)
+	if err != nil {
+		w.WriteHeader(err.StatusCode)
+		w.Write(err.ToBytes())
+		return
+	}
 
-	//ruleOverrideRequest, err := v1limiter.ParseOverrideRequest(r.Body)
-	//if err != nil {
-	//	w.WriteHeader(err.StatusCode)
-	//	w.Write(err.ToBytes())
-	//	return
-	//}
-	//
-	//namedParameters := urlrouter.GetNamedParamters(r.Context())
-	//
-	//rule := grh.rulesManager.FindRule(logger, namedParameters["_associated_id"])
-	//if rule == nil {
-	//	err = &api.Error{Message: "rule not found", StatusCode: http.StatusBadRequest}
-	//	w.WriteHeader(err.StatusCode)
-	//	w.Write(err.ToBytes())
-	//	return
-	//}
-	//
-	//rule.Update(logger, ruleOverrideRequest.Limit)
-	//w.WriteHeader(http.StatusCreated)
+	namedParameters := urlrouter.GetNamedParamters(r.Context())
+
+	if err := grh.rulesManager.CreateOverride(logger, namedParameters["_associated_id"], ruleOverrideRequest); err != nil {
+		w.WriteHeader(err.StatusCode)
+		w.Write(err.ToBytes())
+		return
+	}
+
+	w.WriteHeader(http.StatusCreated)
 }
 
 func (grh *groupRuleHandler) DeleteOverride(w http.ResponseWriter, r *http.Request) {

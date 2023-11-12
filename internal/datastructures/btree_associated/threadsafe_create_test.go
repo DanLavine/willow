@@ -350,7 +350,7 @@ func TestAssociatedTree_CreateWithID_FailedToCreate(t *testing.T) {
 		g.Expect(err).To(BeNil())
 
 		err = associatedTree.CreateWithID("key", KeyValues{datatypes.String("4"): datatypes.Int(4)}, noOpOnCreate)
-		g.Expect(err).To(Equal(ErrorAssociatedKeyAlreadyExistts))
+		g.Expect(err).To(Equal(ErrorAssociatedIDAlreadyExists))
 
 		// ensure the proper value still exists
 		found := false

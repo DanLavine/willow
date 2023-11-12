@@ -10,6 +10,7 @@ import (
 )
 
 type LimiterClient interface {
+	// rule operations
 	CreateRule(rule *v1limiter.Rule) error
 
 	GetRule(ruleName string, includeOverrides bool) (*v1limiter.Rule, error)
@@ -17,6 +18,9 @@ type LimiterClient interface {
 	UpdateRule(ruleName string, ruleUpdate *v1limiter.RuleUpdate) error
 
 	DeleteRule(ruleName string) error
+
+	// override operations
+	CreateOverride(ruleName string, override *v1limiter.Override) error
 }
 
 type limiterClient struct {

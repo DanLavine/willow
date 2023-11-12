@@ -8,7 +8,7 @@ import (
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 )
 
-var ErrorAssociatedKeyAlreadyExistts = fmt.Errorf("associated key already exists")
+var ErrorAssociatedIDAlreadyExists = fmt.Errorf("associated id already exists")
 var ErrorCreateFailureKeyValuesExist = fmt.Errorf("keyValues already exist with an associated item")
 
 // callback for when a "value" is found
@@ -268,7 +268,7 @@ func (tsat *threadsafeAssociatedTree) CreateWithID(associatedID string, keyValue
 				panic(err)
 			}
 
-			return ErrorAssociatedKeyAlreadyExistts
+			return ErrorAssociatedIDAlreadyExists
 		}
 
 		// unlock the IDs

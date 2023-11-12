@@ -42,6 +42,9 @@ type RulesManager interface {
 	// delete operations
 	Delete(logger *zap.Logger, name string) *api.Error
 
+	// override operations
+	CreateOverride(logger *zap.Logger, ruleName string, override *v1limiter.Override) *api.Error
+
 	// increment a partiular group of tags
 	Increment(logger *zap.Logger, increment *v1limiter.RuleCounterRequest) *api.Error
 
@@ -93,20 +96,16 @@ func (rm *rulesManger) Create(logger *zap.Logger, rule *v1limiter.Rule) *api.Err
 func (rm *rulesManger) Get(logger *zap.Logger, name string, includeOverrides bool) *v1limiter.Rule {
 	logger = logger.Named("Get")
 
-	var rule Rule
+	var rule *v1limiter.Rule
 	onFind := func(item any) {
-		rule = item.(*btreeassociated.AssociatedKeyValues).Value().(Rule)
+		rule = item.(*btreeassociated.AssociatedKeyValues).Value().(Rule).Get(includeOverrides)
 	}
 
 	if err := rm.rules.FindByAssociatedID(name, onFind); err != nil {
 		logger.Error("failed to find rule by associatedid", zap.String("name", name), zap.Error(err))
 	}
 
-	if rule != nil {
-		return rule.GetRuleResponse(includeOverrides)
-	}
-
-	return nil
+	return rule
 }
 
 // Update a rule by name
@@ -151,6 +150,24 @@ func (rm *rulesManger) Delete(logger *zap.Logger, name string) *api.Error {
 	}
 
 	return nil
+}
+
+// Create an override for a rule by name
+func (rm *rulesManger) CreateOverride(logger *zap.Logger, ruleName string, override *v1limiter.Override) *api.Error {
+	logger = logger.Named("CreateOverride")
+
+	var overrideErr *api.Error
+	onFind := func(item any) {
+		rule := item.(*btreeassociated.AssociatedKeyValues).Value().(Rule)
+		overrideErr = rule.SetOverride(logger, override)
+	}
+
+	if err := rm.rules.FindByAssociatedID(ruleName, onFind); err != nil {
+		logger.Error("failed to find rule by associatedid", zap.String("name", ruleName), zap.Error(err))
+		return (&api.Error{Message: "failed to find rule by name", StatusCode: http.StatusUnprocessableEntity}).With(fmt.Sprintf("name %s", ruleName), "no rule found by that name")
+	}
+
+	return overrideErr
 }
 
 func (rm *rulesManger) FindRule(logger *zap.Logger, name string) Rule {
