@@ -13,6 +13,8 @@ type LimiterClient interface {
 	CreateRule(rule *v1limiter.Rule) error
 
 	GetRule(ruleName string, includeOverrides bool) (*v1limiter.Rule, error)
+
+	UpdateRule(ruleName string, ruleUpdate *v1limiter.RuleUpdate) error
 }
 
 type limiterClient struct {

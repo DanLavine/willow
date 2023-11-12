@@ -48,6 +48,7 @@ func NewGroupRuleHandler(logger *zap.Logger, rulesManager limiter.RulesManager) 
 	}
 }
 
+// Create a new rule handler
 func (grh *groupRuleHandler) Create(w http.ResponseWriter, r *http.Request) {
 	logger := logger.AddRequestID(grh.logger.Named("Create"), r)
 	logger.Debug("starting request")
@@ -62,7 +63,7 @@ func (grh *groupRuleHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// create the group rule. On find, return an error that the rule already exists
-	if err = grh.rulesManager.CreateGroupRule(logger, limiterCreateReqquest); err != nil {
+	if err = grh.rulesManager.Create(logger, limiterCreateReqquest); err != nil {
 		w.WriteHeader(err.StatusCode)
 		w.Write(err.ToBytes())
 		return
@@ -71,6 +72,7 @@ func (grh *groupRuleHandler) Create(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusCreated)
 }
 
+// Get a rule by name handler
 func (grh *groupRuleHandler) Get(w http.ResponseWriter, r *http.Request) {
 	logger := logger.AddRequestID(grh.logger.Named("Get"), r)
 	logger.Debug("starting request")
@@ -106,34 +108,31 @@ func (grh *groupRuleHandler) Get(w http.ResponseWriter, r *http.Request) {
 	w.Write(rule.ToBytes())
 }
 
+// Update a rule by name handler
 func (grh *groupRuleHandler) Update(w http.ResponseWriter, r *http.Request) {
 	logger := logger.AddRequestID(grh.logger.Named("Update"), r)
 	logger.Debug("starting request")
 	defer logger.Debug("processed request")
 
-	w.WriteHeader(http.StatusNotImplemented)
+	limiterUpdateRequest, err := v1limiter.ParseRuleUpdateRequest(r.Body)
+	if err != nil {
+		w.WriteHeader(err.StatusCode)
+		w.Write(err.ToBytes())
+		return
+	}
 
-	//limiterUpdateRequest, err := v1limiter.ParseRuleUpdateRequest(r.Body)
-	//if err != nil {
-	//	w.WriteHeader(err.StatusCode)
-	//	w.Write(err.ToBytes())
-	//	return
-	//}
-	//
-	//namedParameters := urlrouter.GetNamedParamters(r.Context())
-	//
-	//// find the specific limiter group rule
-	//limiterRule := grh.rulesManager.FindRule(logger, namedParameters["name"])
-	//if limiterRule == nil {
-	//	err = &api.Error{Message: "rule not found", StatusCode: http.StatusUnprocessableEntity}
-	//	w.WriteHeader(err.StatusCode)
-	//	w.Write(err.ToBytes())
-	//	return
-	//}
-	//
-	//// create the group rule. On find, return an error that the rule already exists
-	//limiterRule.Update(logger, limiterUpdateRequest.Limit)
-	//w.WriteHeader(http.StatusOK)
+	namedParameters := urlrouter.GetNamedParamters(r.Context())
+
+	// find the specific limiter group rule
+	err = grh.rulesManager.Update(logger, namedParameters["name"], limiterUpdateRequest)
+	if err != nil {
+		w.WriteHeader(err.StatusCode)
+		w.Write(err.ToBytes())
+		return
+	}
+
+	// successfully updated the group rule
+	w.WriteHeader(http.StatusOK)
 }
 
 func (grh *groupRuleHandler) Find(w http.ResponseWriter, r *http.Request) {

@@ -29,7 +29,10 @@ type RulesManager interface {
 	// TODO: add an API for listing current limits
 
 	// create
-	CreateGroupRule(logger *zap.Logger, rule *v1limiter.Rule) *api.Error
+	Create(logger *zap.Logger, rule *v1limiter.Rule) *api.Error
+
+	// update
+	Update(logger *zap.Logger, name string, update *v1limiter.RuleUpdate) *api.Error
 
 	// read
 	Get(logger *zap.Logger, name string, includeOverrides bool) *v1limiter.Rule
@@ -62,7 +65,7 @@ func NewRulesManger() *rulesManger {
 }
 
 // Create new group rule operation
-func (rm *rulesManger) CreateGroupRule(logger *zap.Logger, rule *v1limiter.Rule) *api.Error {
+func (rm *rulesManger) Create(logger *zap.Logger, rule *v1limiter.Rule) *api.Error {
 	logger = logger.Named("CreateGroupRule")
 	onCreate := func() any {
 		return memory.NewRule(rule)
@@ -101,6 +104,22 @@ func (rm *rulesManger) Get(logger *zap.Logger, name string, includeOverrides boo
 
 	if rule != nil {
 		return rule.GetRuleResponse(includeOverrides)
+	}
+
+	return nil
+}
+
+func (rm *rulesManger) Update(logger *zap.Logger, name string, update *v1limiter.RuleUpdate) *api.Error {
+	logger = logger.Named("Update")
+
+	onFind := func(item any) {
+		rule := item.(*btreeassociated.AssociatedKeyValues).Value().(Rule)
+		rule.Update(logger, update)
+	}
+
+	if err := rm.rules.FindByAssociatedID(name, onFind); err != nil {
+		logger.Error("failed to find rule by associatedid", zap.String("name", name), zap.Error(err))
+		return (&api.Error{Message: "failed to find rule by name", StatusCode: http.StatusUnprocessableEntity}).With(fmt.Sprintf("name %s", name), "no rule found by that name")
 	}
 
 	return nil

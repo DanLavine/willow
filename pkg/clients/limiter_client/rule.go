@@ -96,3 +96,34 @@ func (lc *limiterClient) GetRule(ruleName string, includeOverrides bool) (*v1lim
 		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
 }
+
+func (lc *limiterClient) UpdateRule(ruleName string, ruleUpdate *v1limiter.RuleUpdate) error {
+	reqBody := ruleUpdate.ToBytes()
+
+	// setup and make request
+	request, err := http.NewRequest("PUT", fmt.Sprintf("%s/v1/limiter/rules/%s", lc.url, ruleName), bytes.NewBuffer(reqBody))
+	if err != nil {
+		// this should never actually hit
+		return fmt.Errorf("internal error setting up http request: %w", err)
+	}
+
+	resp, err := lc.client.Do(request)
+	if err != nil {
+		return fmt.Errorf("unable to make request to limiter service: %w", err)
+	}
+
+	// parse the response
+	switch resp.StatusCode {
+	case http.StatusOK:
+		return nil
+	case http.StatusBadRequest, http.StatusUnprocessableEntity:
+		apiErr, err := api.ParseError(resp.Body)
+		if err != nil {
+			return err
+		}
+
+		return apiErr
+	default:
+		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+}

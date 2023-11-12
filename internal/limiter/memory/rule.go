@@ -41,11 +41,11 @@ func NewRule(ruleModel *v1limiter.Rule) *rule {
 	}
 }
 
-func (r *rule) Update(logger *zap.Logger, newLimit uint64) {
+func (r *rule) Update(logger *zap.Logger, update *v1limiter.RuleUpdate) {
 	r.ruleModelLock.Lock()
 	defer r.ruleModelLock.Unlock()
 
-	r.limit = uint64(newLimit)
+	r.limit = uint64(update.Limit)
 }
 
 func (r *rule) SetOverride(logger *zap.Logger, override *v1limiter.Override) *api.Error {

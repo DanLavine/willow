@@ -9,7 +9,7 @@ import (
 
 type Rule interface {
 	// Update a particualr rule's default limit values
-	Update(logger *zap.Logger, newLimit uint64)
+	Update(logger *zap.Logger, update *v1limiter.RuleUpdate)
 
 	// set an override for a particualr group of tags
 	SetOverride(logger *zap.Logger, override *v1limiter.Override) *api.Error

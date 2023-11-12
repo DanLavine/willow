@@ -1,7 +1,6 @@
 package limter_integration_tests
 
 import (
-	"fmt"
 	"path/filepath"
 	"runtime"
 	"testing"
@@ -64,11 +63,6 @@ func Test_Limiter_Rules_Get(t *testing.T) {
 		testConstruct.StartLimiter(g)
 		defer testConstruct.Shutdown(g)
 
-		defer func() {
-			fmt.Println(string(testConstruct.Session.Out.Contents()))
-			fmt.Println(string(testConstruct.Session.Err.Contents()))
-		}()
-
 		// setup client
 		limiterClient := setupClient(g, testConstruct.ServerURL)
 
@@ -87,6 +81,55 @@ func Test_Limiter_Rules_Get(t *testing.T) {
 		g.Expect(rule.Name).To(Equal("rule1"))
 		g.Expect(rule.GroupBy).To(Equal([]string{"key1", "key2"}))
 		g.Expect(rule.Limit).To(Equal(uint64(5)))
+		g.Expect(rule.Overrides).To(BeNil())
+		g.Expect(rule.QueryFilter).To(Equal(datatypes.AssociatedKeyValuesQuery{}))
+	})
+}
+
+func Test_Limiter_Rules_Update(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	testConstruct := NewIntrgrationLimiterTestConstruct(g)
+	defer testConstruct.Cleanup(g)
+
+	t.Run("It can update a rule that already exists", func(t *testing.T) {
+		testConstruct.StartLimiter(g)
+		defer testConstruct.Shutdown(g)
+
+		// setup client
+		limiterClient := setupClient(g, testConstruct.ServerURL)
+
+		// create the rule
+		rule := &v1.Rule{
+			Name:    "rule1",
+			GroupBy: []string{"key1", "key2"},
+			Limit:   5,
+		}
+		err := limiterClient.CreateRule(rule)
+		g.Expect(err).ToNot(HaveOccurred())
+
+		// get the rule and ensure the basic defaults
+		rule, err = limiterClient.GetRule("rule1", false)
+		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(rule.Name).To(Equal("rule1"))
+		g.Expect(rule.GroupBy).To(Equal([]string{"key1", "key2"}))
+		g.Expect(rule.Limit).To(Equal(uint64(5)))
+		g.Expect(rule.Overrides).To(BeNil())
+		g.Expect(rule.QueryFilter).To(Equal(datatypes.AssociatedKeyValuesQuery{}))
+
+		// update the rule
+		updateRule := &v1.RuleUpdate{
+			Limit: 231,
+		}
+		err = limiterClient.UpdateRule("rule1", updateRule)
+		g.Expect(err).ToNot(HaveOccurred())
+
+		// get the rule and ensure the update took
+		rule, err = limiterClient.GetRule("rule1", false)
+		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(rule.Name).To(Equal("rule1"))
+		g.Expect(rule.GroupBy).To(Equal([]string{"key1", "key2"}))
+		g.Expect(rule.Limit).To(Equal(uint64(231)))
 		g.Expect(rule.Overrides).To(BeNil())
 		g.Expect(rule.QueryFilter).To(Equal(datatypes.AssociatedKeyValuesQuery{}))
 	})
