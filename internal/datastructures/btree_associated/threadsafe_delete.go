@@ -156,7 +156,41 @@ func (tsat *threadsafeAssociatedTree) Delete(keyValuePairs KeyValues, canDelete 
 	return nil
 }
 
-// delete KeyValues from the tree, but not the associatedID
+// DSL TODO: Is there a better way to do this? I always want to go from least to greates KeyValue
+// walking to ensure thread safety. So this doing an extra lookup to find the KeyValues then
+// delete doesn't feel great, but does ensure thread safety
+//
+// DeleteByAssociatedID removes an item from the associated tree by the associatedID.
+// This is thread safe to call with any other functions for this object
+//
+// PARAMS:
+// - associatedID - string value for the associatedID to remove
+// - canDalete - optional parameter to check if an item is found, whether or not the item can be deleted
+//
+// RETURNS:
+// - error - any errors encountered with parameters
+func (tsat *threadsafeAssociatedTree) DeleteByAssociatedID(assocaitedID string, canDelete datastructures.CanDelete) error {
+	var keyValues KeyValues
+
+	onFind := func(item any) {
+		associatedKeyValues := item.(*AssociatedKeyValues)
+		fmt.Println("found key values:", associatedKeyValues.keyValues)
+		keyValues = associatedKeyValues.KeyValues().StripAssociatedID()
+		fmt.Println("stripped key values:", keyValues)
+	}
+
+	if err := tsat.FindByAssociatedID(assocaitedID, onFind); err != nil {
+		return err
+	}
+
+	if keyValues != nil {
+		return tsat.Delete(keyValues, canDelete)
+	}
+
+	return nil
+}
+
+// delete KeyValues from te tree, but not the associatedID
 //
 // PARAMS:
 // - keyValuePair - is a map of key value pairs that compose an object to be deleted if found

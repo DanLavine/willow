@@ -40,7 +40,7 @@ type RulesManager interface {
 	ListRules(logger *zap.Logger) []Rule
 
 	// delete operations
-	DeleteGroupRule(logger *zap.Logger, name string)
+	Delete(logger *zap.Logger, name string) *api.Error
 
 	// increment a partiular group of tags
 	Increment(logger *zap.Logger, increment *v1limiter.RuleCounterRequest) *api.Error
@@ -109,6 +109,7 @@ func (rm *rulesManger) Get(logger *zap.Logger, name string, includeOverrides boo
 	return nil
 }
 
+// Update a rule by name
 func (rm *rulesManger) Update(logger *zap.Logger, name string, update *v1limiter.RuleUpdate) *api.Error {
 	logger = logger.Named("Update")
 
@@ -120,6 +121,33 @@ func (rm *rulesManger) Update(logger *zap.Logger, name string, update *v1limiter
 	if err := rm.rules.FindByAssociatedID(name, onFind); err != nil {
 		logger.Error("failed to find rule by associatedid", zap.String("name", name), zap.Error(err))
 		return (&api.Error{Message: "failed to find rule by name", StatusCode: http.StatusUnprocessableEntity}).With(fmt.Sprintf("name %s", name), "no rule found by that name")
+	}
+
+	return nil
+}
+
+// Delete a rule by name
+func (rm *rulesManger) Delete(logger *zap.Logger, name string) *api.Error {
+	logger = logger.Named("DeleteGroupRule")
+
+	delete := false
+	canDelete := func(item any) bool {
+		// DSL TODO: once we have the overrides, need to delete those
+		//rule := item.(*btreeassociated.AssociatedKeyValues).Value().(Rule)
+		//rule.Delete(logger)
+		delete = true
+		return true
+	}
+
+	if err := rm.rules.DeleteByAssociatedID(name, canDelete); err != nil {
+		logger.Error("failed to delete rule by associatedid", zap.String("name", name), zap.Error(err))
+		return (&api.Error{Message: "failed to delete rule by name", StatusCode: http.StatusInternalServerError}).With(fmt.Sprintf("name %s", name), "no rule found by that name")
+	}
+
+	if delete {
+		logger.Info("deleted rule", zap.String("name", name))
+	} else {
+		logger.Warn("Did not delete rule", zap.String("name", name))
 	}
 
 	return nil
@@ -153,16 +181,6 @@ func (rm *rulesManger) ListRules(logger *zap.Logger) []Rule {
 	//return limiterRules
 
 	return nil
-}
-
-func (rm *rulesManger) DeleteGroupRule(logger *zap.Logger, name string) {
-	//logger = logger.Named("DeleteGroupRule")
-	//canDelte := func(item any) bool {
-	//	// nothing to block deleting a group rule. So just automatically delete it
-	//	return true
-	//}
-	//
-	//_ = rm.rules.Delete(datatypes.String(name), canDelte)
 }
 
 // Increment trys to add to a group of key value pairs, and blocks if any rules have hit the limit

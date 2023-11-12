@@ -83,7 +83,12 @@ type BTreeAssociated interface {
 
 	// Delete an item in the association tree
 	Delete(keyValuePairs KeyValues, canDelete datastructures.CanDelete) error
-	//Delete(query query.Query, canDelete datastructures.CanDelete) error
+
+	// Delete an item in the association tree by the AssociatedID
+	DeleteByAssociatedID(associatedID string, canDelete datastructures.CanDelete) error
+
+	// delete an number of items that match a particular query
+	//DeleteByQuery(query datatypes.AssociatedKeyValuesQuery, canDelete datastructures.CanDelete) error
 }
 
 func ConverDatatypesKeyValues(keyValuePairs datatypes.KeyValues) KeyValues {
@@ -130,6 +135,22 @@ func (kv KeyValues) RetrieveCustomDataTypes() map[datatypes.EncapsulatedData]dat
 }
 
 // The inverse of ConverDatatypesKeyValues. Can be used to obtain the original values before conversion
+func (kv KeyValues) StripAssociatedID() KeyValues {
+	keyValuePairs := KeyValues{}
+
+	for key, value := range kv {
+		if key.DataType == datatypes.T_string {
+			if key.Value.(string) != ReservedID {
+				keyValuePairs[key] = value
+			}
+		} else {
+			keyValuePairs[key] = value
+		}
+	}
+
+	return keyValuePairs
+}
+
 func (kv KeyValues) RetrieveStringDataType() datatypes.KeyValues {
 	keyValuePairs := datatypes.KeyValues{}
 

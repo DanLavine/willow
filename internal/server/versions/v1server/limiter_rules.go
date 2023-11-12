@@ -72,7 +72,7 @@ func (grh *groupRuleHandler) Create(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusCreated)
 }
 
-// Get a rule by name handler
+// Get a rule by name hendler
 func (grh *groupRuleHandler) Get(w http.ResponseWriter, r *http.Request) {
 	logger := logger.AddRequestID(grh.logger.Named("Get"), r)
 	logger.Debug("starting request")
@@ -108,7 +108,7 @@ func (grh *groupRuleHandler) Get(w http.ResponseWriter, r *http.Request) {
 	w.Write(rule.ToBytes())
 }
 
-// Update a rule by name handler
+// Update a rule by name handelr
 func (grh *groupRuleHandler) Update(w http.ResponseWriter, r *http.Request) {
 	logger := logger.AddRequestID(grh.logger.Named("Update"), r)
 	logger.Debug("starting request")
@@ -133,6 +133,24 @@ func (grh *groupRuleHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 	// successfully updated the group rule
 	w.WriteHeader(http.StatusOK)
+}
+
+// Delete a rule by name handler
+func (grh *groupRuleHandler) Delete(w http.ResponseWriter, r *http.Request) {
+	logger := logger.AddRequestID(grh.logger.Named("Delete"), r)
+	logger.Debug("starting request")
+	defer logger.Debug("processed request")
+
+	namedParameters := urlrouter.GetNamedParamters(r.Context())
+	logger.Info("namedParameters", zap.Any("values", namedParameters))
+
+	if err := grh.rulesManager.Delete(logger, namedParameters["name"]); err != nil {
+		w.WriteHeader(err.StatusCode)
+		w.Write(err.ToBytes())
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (grh *groupRuleHandler) Find(w http.ResponseWriter, r *http.Request) {
@@ -173,30 +191,6 @@ func (grh *groupRuleHandler) Find(w http.ResponseWriter, r *http.Request) {
 	//
 	//w.WriteHeader(http.StatusOK)
 	//w.Write(data)
-}
-
-func (grh *groupRuleHandler) Delete(w http.ResponseWriter, r *http.Request) {
-	logger := logger.AddRequestID(grh.logger.Named("Delete"), r)
-	logger.Debug("starting CreateGroupRule request")
-	defer logger.Debug("processed CreateGroupRule request")
-
-	w.WriteHeader(http.StatusNotImplemented)
-
-	// switch method := r.Method; method {
-	// case "DELETE":
-	// 	ruleName := r.URL.Query().Get("name")
-	// 	if ruleName == "" {
-	// 		err := api.InvalidRequestBody.With("Name to be provided", "recieved empty string")
-	// 		w.WriteHeader(err.StatusCode)
-	// 		w.Write(err.ToBytes())
-	// 		return
-	// 	}
-
-	// 	grh.rulesManager.DeleteGroupRule(logger, ruleName)
-	// 	w.WriteHeader(http.StatusNoContent)
-	// default:
-	// 	w.WriteHeader(http.StatusNotFound)
-	// }
 }
 
 func (grh *groupRuleHandler) SetOverride(w http.ResponseWriter, r *http.Request) {

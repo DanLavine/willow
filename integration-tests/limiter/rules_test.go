@@ -134,3 +134,42 @@ func Test_Limiter_Rules_Update(t *testing.T) {
 		g.Expect(rule.QueryFilter).To(Equal(datatypes.AssociatedKeyValuesQuery{}))
 	})
 }
+
+func Test_Limiter_Rules_Delete(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	testConstruct := NewIntrgrationLimiterTestConstruct(g)
+	defer testConstruct.Cleanup(g)
+
+	t.Run("It can delete a rule that already exists", func(t *testing.T) {
+		testConstruct.StartLimiter(g)
+		defer testConstruct.Shutdown(g)
+
+		// setup client
+		limiterClient := setupClient(g, testConstruct.ServerURL)
+
+		// create the rule
+		rule := &v1.Rule{
+			Name:    "rule1",
+			GroupBy: []string{"key1", "key2"},
+			Limit:   5,
+		}
+		err := limiterClient.CreateRule(rule)
+		g.Expect(err).ToNot(HaveOccurred())
+
+		// ensure that the rule exists
+		rule, err = limiterClient.GetRule("rule1", false)
+		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(rule.Name).To(Equal("rule1"))
+
+		// delete the rule
+		err = limiterClient.DeleteRule("rule1")
+		g.Expect(err).ToNot(HaveOccurred())
+
+		// ensure the rule no longer exists
+		deleteRule, err := limiterClient.GetRule("rule1", false)
+		g.Expect(err).To(HaveOccurred())
+		g.Expect(err.Error()).To(ContainSubstring("rule with name 'rule1' could not be found"))
+		g.Expect(deleteRule).To(BeNil())
+	})
+}

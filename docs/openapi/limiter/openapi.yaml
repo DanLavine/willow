@@ -131,6 +131,15 @@ paths:
       responses:
         204:
           description: Successfully deleted the rule and all associatted overrides
+        500:
+          description: Unexpected error service side
+          content:
+            appplication/json:
+              schema:
+                type: object
+                properties:
+                  ApiError:
+                    $ref: "#/components/schemas/ApiError"
   /v1/limiter/rules/:name/overrides:
     post:
       operationId: create Rule Override

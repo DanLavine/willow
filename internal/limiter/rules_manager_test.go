@@ -23,7 +23,7 @@ func TestRulesManager_CreateGroupRule(t *testing.T) {
 		}
 		g.Expect(createRequest.ValidateRequest()).ToNot(HaveOccurred())
 
-		err := rulesManager.CreateGroupRule(zap.NewNop(), createRequest)
+		err := rulesManager.Create(zap.NewNop(), createRequest)
 		g.Expect(err).ToNot(HaveOccurred())
 	})
 
@@ -38,10 +38,10 @@ func TestRulesManager_CreateGroupRule(t *testing.T) {
 		}
 		g.Expect(createRequest.ValidateRequest()).ToNot(HaveOccurred())
 
-		err := rulesManager.CreateGroupRule(zap.NewNop(), createRequest)
+		err := rulesManager.Create(zap.NewNop(), createRequest)
 		g.Expect(err).ToNot(HaveOccurred())
 
-		err = rulesManager.CreateGroupRule(zap.NewNop(), createRequest)
+		err = rulesManager.Create(zap.NewNop(), createRequest)
 		g.Expect(err).To(HaveOccurred())
 		g.Expect(err.Error()).To(ContainSubstring("rule already exists"))
 	})

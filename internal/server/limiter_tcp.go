@@ -109,8 +109,8 @@ func (limiter *limiterTCP) Execute(ctx context.Context) error {
 
 	// create an override for a specific rule
 	//mux.HandleFunc("GET", "/v1/limiter/rules/:rule_name/overrides", limiter.v1ruleHandler.SetOverride)
-	mux.HandleFunc("POST", "/v1/limiter/rules/:rule_name/overrides", limiter.v1ruleHandler.SetOverride)
-	mux.HandleFunc("DELETE", "/v1/limiter/rules/:rule_name/overrides/:override_name", limiter.v1ruleHandler.DeleteOverride)
+	//mux.HandleFunc("POST", "/v1/limiter/rules/:rule_name/overrides", limiter.v1ruleHandler.SetOverride)
+	//mux.HandleFunc("DELETE", "/v1/limiter/rules/:rule_name/overrides/:override_name", limiter.v1ruleHandler.DeleteOverride)
 
 	// operations to check items against arbitrary rules
 	mux.HandleFunc("POST", "/v1/limiter/items", limiter.v1ruleHandler.Increment)
