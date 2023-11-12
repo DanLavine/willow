@@ -96,9 +96,9 @@ func (grh *groupRuleHandler) Get(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// find the group rule
-	rule := grh.rulesManager.Get(logger, namedParameters["name"], includeOverrides)
+	rule := grh.rulesManager.Get(logger, namedParameters["rule_name"], includeOverrides)
 	if rule == nil {
-		err := &api.Error{Message: fmt.Sprintf("rule with name '%s' could not be found", namedParameters["name"])}
+		err := &api.Error{Message: fmt.Sprintf("rule with name '%s' could not be found", namedParameters["rule_name"])}
 		w.WriteHeader(http.StatusUnprocessableEntity)
 		w.Write(err.ToBytes())
 		return
@@ -124,7 +124,7 @@ func (grh *groupRuleHandler) Update(w http.ResponseWriter, r *http.Request) {
 	namedParameters := urlrouter.GetNamedParamters(r.Context())
 
 	// find the specific limiter group rule
-	err = grh.rulesManager.Update(logger, namedParameters["name"], limiterUpdateRequest)
+	err = grh.rulesManager.Update(logger, namedParameters["rule_name"], limiterUpdateRequest)
 	if err != nil {
 		w.WriteHeader(err.StatusCode)
 		w.Write(err.ToBytes())
@@ -142,9 +142,8 @@ func (grh *groupRuleHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	defer logger.Debug("processed request")
 
 	namedParameters := urlrouter.GetNamedParamters(r.Context())
-	logger.Info("namedParameters", zap.Any("values", namedParameters))
 
-	if err := grh.rulesManager.Delete(logger, namedParameters["name"]); err != nil {
+	if err := grh.rulesManager.Delete(logger, namedParameters["rule_name"]); err != nil {
 		w.WriteHeader(err.StatusCode)
 		w.Write(err.ToBytes())
 		return
