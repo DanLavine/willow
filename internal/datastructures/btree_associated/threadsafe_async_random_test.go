@@ -171,7 +171,7 @@ func TestAssociated_Random_Create(t *testing.T) {
 	noOpOnFind := func(item any) {}
 
 	t.Run("It is threadsafe when adding many entries asynchronously", func(t *testing.T) {
-		t.Parallel()
+		//t.Parallel()
 		associatedTree := NewThreadSafe()
 		wg := new(sync.WaitGroup)
 
@@ -254,7 +254,7 @@ func TestAssociated_Random_Find(t *testing.T) {
 	testCounter := 10_000
 
 	t.Run("It is threadsafe when finding many entries asynchronously", func(t *testing.T) {
-		t.Parallel()
+		//t.Parallel()
 		associatedTree := NewThreadSafe()
 		wg := new(sync.WaitGroup)
 
@@ -379,7 +379,7 @@ func TestAssociated_Random_Find(t *testing.T) {
 	})
 
 	t.Run("It is threadsafe when finding and inserting many entries asynchronously", func(t *testing.T) {
-		t.Parallel()
+		//t.Parallel()
 		associatedTree := NewThreadSafe()
 		wg := new(sync.WaitGroup)
 
@@ -575,9 +575,10 @@ func TestAssociated_Random_Delete(t *testing.T) {
 		associatedTree := NewThreadSafe()
 		wg := new(sync.WaitGroup)
 
-		// create 10k entries
+		// create 30k entries
 		for i := 0; i < testCounter; i++ {
 			wg.Add(1)
+			// create or find
 			go func(tNum int) {
 				defer wg.Done()
 
@@ -600,6 +601,7 @@ func TestAssociated_Random_Delete(t *testing.T) {
 			}(i)
 
 			wg.Add(1)
+			// create
 			go func(tNum int) {
 				defer wg.Done()
 
@@ -611,6 +613,7 @@ func TestAssociated_Random_Delete(t *testing.T) {
 			}(i)
 
 			wg.Add(1)
+			// create with ID
 			go func(tNum int) {
 				defer wg.Done()
 
@@ -635,7 +638,6 @@ func TestAssociated_Random_Delete(t *testing.T) {
 				// generate a key with a few different types
 				createOrFindKeys := KeyValues{}
 				createKeys := KeyValues{}
-				createWithIDKeys := KeyValues{}
 				for i := 0; i < modInt; i++ {
 					switch tNum % 2 {
 					case 0:
@@ -644,13 +646,11 @@ func TestAssociated_Random_Delete(t *testing.T) {
 						createOrFindKeys[datatypes.String(fmt.Sprintf("%d", i))] = datatypes.Int(tNum)
 					}
 				}
-
 				createKeys[datatypes.String(fmt.Sprintf("%d", tNum+testCounter))] = datatypes.String(fmt.Sprintf("%d", tNum))
-				createWithIDKeys[datatypes.String(fmt.Sprintf("%d", tNum+(2*testCounter)))] = datatypes.String(fmt.Sprintf("%d", tNum))
 
 				g.Expect(associatedTree.Delete(createOrFindKeys, nil)).ToNot(HaveOccurred())
 				g.Expect(associatedTree.Delete(createKeys, nil)).ToNot(HaveOccurred())
-				g.Expect(associatedTree.Delete(createWithIDKeys, nil)).ToNot(HaveOccurred())
+				g.Expect(associatedTree.DeleteByAssociatedID(fmt.Sprintf("%d", tNum), nil)).ToNot(HaveOccurred())
 
 			}(i)
 		}
@@ -730,7 +730,6 @@ func TestAssociated_Random_AllActions(t *testing.T) {
 				// generate a key with a few different types
 				createOrFindKeys := KeyValues{}
 				createKeys := KeyValues{}
-				createWithIDKeys := KeyValues{}
 				for i := 0; i < modInt; i++ {
 					switch tNum % 2 {
 					case 0:
@@ -741,11 +740,10 @@ func TestAssociated_Random_AllActions(t *testing.T) {
 				}
 
 				createKeys[datatypes.String(fmt.Sprintf("%d", tNum+testCounter))] = datatypes.String(fmt.Sprintf("%d", tNum))
-				createWithIDKeys[datatypes.String(fmt.Sprintf("%d", tNum+(2*testCounter)))] = datatypes.String(fmt.Sprintf("%d", tNum))
 
 				g.Expect(associatedTree.Delete(createOrFindKeys, nil)).ToNot(HaveOccurred())
 				g.Expect(associatedTree.Delete(createKeys, nil)).ToNot(HaveOccurred())
-				g.Expect(associatedTree.Delete(createWithIDKeys, nil)).ToNot(HaveOccurred())
+				g.Expect(associatedTree.DeleteByAssociatedID(fmt.Sprintf("%d", tNum), nil)).ToNot(HaveOccurred())
 			}(i)
 
 			// find

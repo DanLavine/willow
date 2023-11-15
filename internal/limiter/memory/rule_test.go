@@ -189,6 +189,39 @@ func TestRule_SetOverride(t *testing.T) {
 	})
 }
 
+func TestRule_DeleteOverride(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	t.Run("It returns nil if there was no item to delete", func(t *testing.T) {
+		rule := NewRule(defaultLimiterTestRule(g))
+
+		err := rule.DeleteOverride(zap.NewNop(), "doesn't exist")
+		g.Expect(err).ToNot(HaveOccurred())
+	})
+
+	t.Run("It can delte an override by name", func(t *testing.T) {
+		rule := NewRule(defaultLimiterTestRule(g))
+
+		// create the override
+		override := &v1limiter.Override{
+			Name:      "override name",
+			KeyValues: defaultValidKeyValues(g),
+			Limit:     72,
+		}
+
+		err := rule.SetOverride(zap.NewNop(), override)
+		g.Expect(err).ToNot(HaveOccurred())
+
+		// delete the override
+		err = rule.DeleteOverride(zap.NewNop(), "override name")
+		g.Expect(err).ToNot(HaveOccurred())
+
+		// ensure the override was deleted
+		foundRule := rule.Get(true)
+		g.Expect(len(foundRule.Overrides)).To(Equal(0))
+	})
+}
+
 /*
 // func TestRule_DeleteOverride(t *testing.T) {
 // 	g := NewGomegaWithT(t)

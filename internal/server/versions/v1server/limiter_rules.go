@@ -206,7 +206,7 @@ func (grh *groupRuleHandler) SetOverride(w http.ResponseWriter, r *http.Request)
 
 	namedParameters := urlrouter.GetNamedParamters(r.Context())
 
-	if err := grh.rulesManager.CreateOverride(logger, namedParameters["_associated_id"], ruleOverrideRequest); err != nil {
+	if err := grh.rulesManager.CreateOverride(logger, namedParameters["rule_name"], ruleOverrideRequest); err != nil {
 		w.WriteHeader(err.StatusCode)
 		w.Write(err.ToBytes())
 		return
@@ -216,7 +216,19 @@ func (grh *groupRuleHandler) SetOverride(w http.ResponseWriter, r *http.Request)
 }
 
 func (grh *groupRuleHandler) DeleteOverride(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusNotImplemented)
+	logger := logger.AddRequestID(grh.logger.Named("DeleteOverride"), r)
+	logger.Debug("starting request")
+	defer logger.Debug("processed request")
+
+	namedParameters := urlrouter.GetNamedParamters(r.Context())
+
+	if err := grh.rulesManager.DeleteOverride(logger, namedParameters["rule_name"], namedParameters["override_name"]); err != nil {
+		w.WriteHeader(err.StatusCode)
+		w.Write(err.ToBytes())
+		return
+	}
+
+	w.WriteHeader(http.StatusCreated)
 }
 
 func (grh *groupRuleHandler) Increment(w http.ResponseWriter, r *http.Request) {

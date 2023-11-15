@@ -1,7 +1,10 @@
 package limiter
 
 import (
+	"fmt"
+	"runtime"
 	"testing"
+	"unsafe"
 
 	v1limiter "github.com/DanLavine/willow/pkg/models/api/limiter/v1"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
@@ -43,7 +46,7 @@ func TestRulesManager_Create(t *testing.T) {
 
 		err = rulesManager.Create(zap.NewNop(), createRequest)
 		g.Expect(err).To(HaveOccurred())
-		g.Expect(err.Error()).To(ContainSubstring("rule already exists"))
+		g.Expect(err.Error()).To(ContainSubstring("failed to create rule"))
 	})
 }
 
@@ -92,6 +95,141 @@ func TestRulesManager_Get(t *testing.T) {
 			g.Expect(rule).ToNot(BeNil())
 			g.Expect(len(rule.Overrides)).To(Equal(1))
 			g.Expect(rule.Overrides[0].Name).To(Equal("override1"))
+		})
+	})
+}
+
+func TestRulesManager_Update(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	t.Run("It returns an error when failing to find the rule by name", func(t *testing.T) {
+		rulesManager := NewRulesManger()
+
+		ruleUpdate := &v1limiter.RuleUpdate{
+			Limit: 12,
+		}
+
+		err := rulesManager.Update(zap.NewNop(), "doesn't exist", ruleUpdate)
+		g.Expect(err).ToNot(BeNil())
+		g.Expect(err.Error()).To(ContainSubstring("failed to find rule by name"))
+	})
+
+	t.Run("It can update a rule by name", func(t *testing.T) {
+		rulesManager := NewRulesManger()
+
+		// create the rule
+		createRequest := &v1limiter.Rule{
+			Name:        "test",
+			GroupBy:     []string{"key1", "key2"},
+			QueryFilter: datatypes.AssociatedKeyValuesQuery{},
+			Limit:       5,
+		}
+		g.Expect(createRequest.ValidateRequest()).ToNot(HaveOccurred())
+		g.Expect(rulesManager.Create(zap.NewNop(), createRequest)).ToNot(HaveOccurred())
+
+		// update the ru;e
+		ruleUpdate := &v1limiter.RuleUpdate{
+			Limit: 12,
+		}
+		err := rulesManager.Update(zap.NewNop(), "test", ruleUpdate)
+		g.Expect(err).ToNot(HaveOccurred())
+
+		// ensure the rule was updated
+		rule := rulesManager.Get(zap.NewNop(), "test", true)
+		g.Expect(rule.Limit).To(Equal(uint64(12)))
+	})
+}
+
+func TestRulesManager_Delete(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	t.Run("It returns nil if the rule does not exist", func(t *testing.T) {
+		rulesManager := NewRulesManger()
+
+		err := rulesManager.Delete(zap.NewNop(), "not found")
+		g.Expect(err).ToNot(HaveOccurred())
+	})
+
+	t.Run("It deletes the rule if it exists", func(t *testing.T) {
+		rulesManager := NewRulesManger()
+
+		// create the rule
+		createRequest := &v1limiter.Rule{
+			Name:        "test",
+			GroupBy:     []string{"key1", "key2"},
+			QueryFilter: datatypes.AssociatedKeyValuesQuery{},
+			Limit:       5,
+		}
+		g.Expect(createRequest.ValidateRequest()).ToNot(HaveOccurred())
+		g.Expect(rulesManager.Create(zap.NewNop(), createRequest)).ToNot(HaveOccurred())
+
+		// delete the rule
+		err := rulesManager.Delete(zap.NewNop(), "test")
+		g.Expect(err).ToNot(HaveOccurred())
+
+		// ensure the rule was deleted
+		rule := rulesManager.Get(zap.NewNop(), "test", true)
+		g.Expect(rule).To(BeNil())
+	})
+
+	t.Run("Context when the rule also has overrides", func(t *testing.T) {
+		t.Run("It also deletes all the overrides for the rule", func(t *testing.T) {
+			rulesManager := NewRulesManger()
+			fmt.Printf("1st rule manager size size: %T, %d\n", rulesManager, unsafe.Sizeof(rulesManager))
+
+			endMem := &runtime.MemStats{}
+			startMem := &runtime.MemStats{}
+
+			runtime.GC()
+			runtime.ReadMemStats(startMem)
+
+			// create the rule
+			createRequest := &v1limiter.Rule{
+				Name:        "test",
+				GroupBy:     []string{"key1", "key2"},
+				QueryFilter: datatypes.AssociatedKeyValuesQuery{},
+				Limit:       5,
+			}
+			g.Expect(createRequest.ValidateRequest()).ToNot(HaveOccurred())
+			g.Expect(rulesManager.Create(zap.NewNop(), createRequest)).ToNot(HaveOccurred())
+
+			// add many overrides to the rule
+			for i := 0; i < 100; i++ {
+				override := &v1limiter.Override{
+					Name: fmt.Sprintf("%d", i),
+					KeyValues: datatypes.KeyValues{
+						fmt.Sprintf("%d", i): datatypes.Int(i),
+					},
+				}
+				g.Expect(override.ValidateRequest()).ToNot(HaveOccurred())
+				g.Expect(rulesManager.CreateOverride(zap.NewNop(), "test", override)).ToNot(HaveOccurred())
+			}
+
+			fmt.Printf("2nd rule manager size size: %T, %d\n", rulesManager, unsafe.Sizeof(rulesManager))
+
+			// delete the rule
+			err := rulesManager.Delete(zap.NewNop(), "test")
+			g.Expect(err).ToNot(HaveOccurred())
+
+			fmt.Printf("3rd rule manager size size: %T, %d\n", rulesManager, unsafe.Sizeof(rulesManager))
+
+			// ensure the rule was deleted
+			rule := rulesManager.Get(zap.NewNop(), "test", true)
+			g.Expect(rule).To(BeNil())
+
+			// force garbage collection
+			runtime.GC()
+
+			runtime.ReadMemStats(endMem)
+
+			bToMb := func(b uint64) uint64 {
+				return b
+			}
+
+			fmt.Printf("start mem: %d\n", bToMb(startMem.Alloc))
+			fmt.Printf("end mem: %d\n", bToMb(endMem.Alloc))
+
+			g.Fail("boo")
 		})
 	})
 }

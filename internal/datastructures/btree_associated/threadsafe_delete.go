@@ -174,9 +174,7 @@ func (tsat *threadsafeAssociatedTree) DeleteByAssociatedID(assocaitedID string, 
 
 	onFind := func(item any) {
 		associatedKeyValues := item.(*AssociatedKeyValues)
-		fmt.Println("found key values:", associatedKeyValues.keyValues)
 		keyValues = associatedKeyValues.KeyValues().StripAssociatedID()
-		fmt.Println("stripped key values:", keyValues)
 	}
 
 	if err := tsat.FindByAssociatedID(assocaitedID, onFind); err != nil {

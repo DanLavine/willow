@@ -91,6 +91,7 @@ func (r *rule) Update(logger *zap.Logger, update *v1limiter.RuleUpdate) {
 	defer r.ruleModelLock.Unlock()
 
 	r.limit = uint64(update.Limit)
+	logger.Debug("updated rule")
 }
 
 // Create an override for a specific rule.
@@ -131,17 +132,31 @@ func (r *rule) SetOverride(logger *zap.Logger, override *v1limiter.Override) *ap
 	return nil
 }
 
-func (r *rule) DeleteOverride(logger *zap.Logger, query datatypes.AssociatedKeyValuesQuery) *api.Error {
-	logger = logger.Named("DeleteOverride")
+func (r *rule) DeleteOverride(logger *zap.Logger, overrideName string) *api.Error {
+	logger = logger.Named("DeleteOverride").With(zap.String("override name", overrideName))
 
-	// if err := r.overrides.Delete(override.KeyValues, func(_ any) bool { return true }); err != nil {
-	// 	logger.Error("failed to delete a rule override", zap.Error(err))
-	// 	return errors.InternalServerError.With("", err.Error())
-	// }
+	deleted := false
+	canDelete := func(item any) bool {
+		// need to lock just to ensure an update isn't taking place at the same time
+		override := item.(*btreeassociated.AssociatedKeyValues).Value().(*ruleOverride)
+		override.lock.Lock()
+		defer override.lock.Unlock()
 
-	// return nil
+		logger.Debug("Successfully deleted override")
+		deleted = true
+		return true
+	}
 
-	return &api.Error{Message: "not implemented delete override", StatusCode: http.StatusNotImplemented}
+	if err := r.overrides.DeleteByAssociatedID(overrideName, canDelete); err != nil {
+		logger.Error("Failed to delete override. Unexpected error from BtreeAssociated", zap.Error(err))
+		return (&api.Error{Message: "failed to delete override. Internal server error", StatusCode: http.StatusInternalServerError}).With("", err.Error())
+	}
+
+	if !deleted {
+		logger.Debug("Failed to delete the override. Could not find by the requested name")
+	}
+
+	return nil
 }
 
 func (r *rule) FindLimit(logger *zap.Logger, keyValues datatypes.KeyValues) uint64 {

@@ -15,7 +15,7 @@ type Rule interface {
 	SetOverride(logger *zap.Logger, override *v1limiter.Override) *api.Error
 
 	// delete an override for a particualr group of tags
-	DeleteOverride(logger *zap.Logger, query datatypes.AssociatedKeyValuesQuery) *api.Error
+	DeleteOverride(logger *zap.Logger, overrideName string) *api.Error
 
 	// Find the limit for a particualr group of tags when checking the limits
 	FindLimit(logger *zap.Logger, keyValues datatypes.KeyValues) uint64

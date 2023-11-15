@@ -44,6 +44,7 @@ type RulesManager interface {
 
 	// override operations
 	CreateOverride(logger *zap.Logger, ruleName string, override *v1limiter.Override) *api.Error
+	DeleteOverride(logger *zap.Logger, ruleName string, overrideName string) *api.Error
 
 	// increment a partiular group of tags
 	Increment(logger *zap.Logger, increment *v1limiter.RuleCounterRequest) *api.Error
@@ -84,9 +85,14 @@ func (rm *rulesManger) Create(logger *zap.Logger, rule *v1limiter.Rule) *api.Err
 
 	// create the rule only if the name is free
 	if err := rm.rules.CreateWithID(rule.Name, keyValues, onCreate); err != nil {
-		logger.Error("failed to create or find a new rule", zap.Error(err))
-		return (&api.Error{Message: "rule already exists", StatusCode: http.StatusUnprocessableEntity}).With(fmt.Sprintf("name %s to not be in use", rule.Name), "")
-
+		switch err {
+		case btreeassociated.ErrorCreateFailureKeyValuesExist, btreeassociated.ErrorAssociatedIDAlreadyExists:
+			logger.Warn("failed to create or find a new rule", zap.Error(err))
+			return (&api.Error{Message: "failed to create rule.", StatusCode: http.StatusUnprocessableEntity}).With("name to not be in use", "name is already in use by another rule")
+		default:
+			logger.Error("failed to create or find a new rule", zap.Error(err))
+			return (&api.Error{Message: "failed to create, unexpected error.", StatusCode: http.StatusInternalServerError}).With("", err.Error())
+		}
 	}
 
 	return nil
@@ -94,7 +100,7 @@ func (rm *rulesManger) Create(logger *zap.Logger, rule *v1limiter.Rule) *api.Err
 
 // Get a group rule by name
 func (rm *rulesManger) Get(logger *zap.Logger, name string, includeOverrides bool) *v1limiter.Rule {
-	logger = logger.Named("Get")
+	logger = logger.Named("Get").With(zap.String("name", name))
 
 	var rule *v1limiter.Rule
 	onFind := func(item any) {
@@ -102,7 +108,11 @@ func (rm *rulesManger) Get(logger *zap.Logger, name string, includeOverrides boo
 	}
 
 	if err := rm.rules.FindByAssociatedID(name, onFind); err != nil {
-		logger.Error("failed to find rule by associatedid", zap.String("name", name), zap.Error(err))
+		logger.Error("failed to lokup rule.", zap.Error(err))
+	}
+
+	if rule == nil {
+		logger.Warn("failed to find rule by AssociatedID.")
 	}
 
 	return rule
@@ -110,15 +120,22 @@ func (rm *rulesManger) Get(logger *zap.Logger, name string, includeOverrides boo
 
 // Update a rule by name
 func (rm *rulesManger) Update(logger *zap.Logger, name string, update *v1limiter.RuleUpdate) *api.Error {
-	logger = logger.Named("Update")
+	logger = logger.Named("Update").With(zap.String("rule_name", name))
 
+	found := false
 	onFind := func(item any) {
+		found = true
 		rule := item.(*btreeassociated.AssociatedKeyValues).Value().(Rule)
 		rule.Update(logger, update)
 	}
 
 	if err := rm.rules.FindByAssociatedID(name, onFind); err != nil {
-		logger.Error("failed to find rule by associatedid", zap.String("name", name), zap.Error(err))
+		logger.Error("failed to find rule by AssociatedID because of an internal server error", zap.Error(err))
+		return &api.Error{Message: "failed to find rule by name because of an internal server error", StatusCode: http.StatusInternalServerError}
+	}
+
+	if !found {
+		logger.Warn("failed to find rule by AssociatedID")
 		return (&api.Error{Message: "failed to find rule by name", StatusCode: http.StatusUnprocessableEntity}).With(fmt.Sprintf("name %s", name), "no rule found by that name")
 	}
 
@@ -127,26 +144,27 @@ func (rm *rulesManger) Update(logger *zap.Logger, name string, update *v1limiter
 
 // Delete a rule by name
 func (rm *rulesManger) Delete(logger *zap.Logger, name string) *api.Error {
-	logger = logger.Named("DeleteGroupRule")
+	logger = logger.Named("DeleteGroupRule").With(zap.String("rule_name", name))
 
 	delete := false
 	canDelete := func(item any) bool {
-		// DSL TODO: once we have the overrides, need to delete those
-		//rule := item.(*btreeassociated.AssociatedKeyValues).Value().(Rule)
-		//rule.Delete(logger)
+		logger.Debug("deleted rule")
+
+		// is there actually anything to delete for the overrides or will they all just be gabage collected?
+
 		delete = true
 		return true
 	}
 
 	if err := rm.rules.DeleteByAssociatedID(name, canDelete); err != nil {
-		logger.Error("failed to delete rule by associatedid", zap.String("name", name), zap.Error(err))
-		return (&api.Error{Message: "failed to delete rule by name", StatusCode: http.StatusInternalServerError}).With(fmt.Sprintf("name %s", name), "no rule found by that name")
+		logger.Error("failed to lookup rule for deletion", zap.String("name", name), zap.Error(err))
+		return &api.Error{Message: "failed to delete rule by name", StatusCode: http.StatusInternalServerError}
 	}
 
 	if delete {
-		logger.Info("deleted rule", zap.String("name", name))
+		logger.Debug("Deleted rule")
 	} else {
-		logger.Warn("Did not delete rule", zap.String("name", name))
+		logger.Warn("Did not delete rule")
 	}
 
 	return nil
@@ -164,6 +182,24 @@ func (rm *rulesManger) CreateOverride(logger *zap.Logger, ruleName string, overr
 
 	if err := rm.rules.FindByAssociatedID(ruleName, onFind); err != nil {
 		logger.Error("failed to find rule by associatedid", zap.String("name", ruleName), zap.Error(err))
+		return (&api.Error{Message: "failed to find rule by name", StatusCode: http.StatusUnprocessableEntity}).With(fmt.Sprintf("name %s", ruleName), "no rule found by that name")
+	}
+
+	return overrideErr
+}
+
+// Delete an override
+func (rm *rulesManger) DeleteOverride(logger *zap.Logger, ruleName string, overrideName string) *api.Error {
+	logger = logger.Named("DeleteOverride")
+
+	var overrideErr *api.Error
+	onFind := func(item any) {
+		rule := item.(*btreeassociated.AssociatedKeyValues).Value().(Rule)
+		overrideErr = rule.DeleteOverride(logger, overrideName)
+	}
+
+	if err := rm.rules.FindByAssociatedID(ruleName, onFind); err != nil {
+		logger.Error("failed to find rule by AssociatedID", zap.String("name", ruleName), zap.Error(err))
 		return (&api.Error{Message: "failed to find rule by name", StatusCode: http.StatusUnprocessableEntity}).With(fmt.Sprintf("name %s", ruleName), "no rule found by that name")
 	}
 
