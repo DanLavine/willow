@@ -6,17 +6,17 @@ import (
 )
 
 // user defined interface that needs to implemented for each custom data type
-type ComparableDataType interface {
-	// compare the objects including type and value
-	Less(item ComparableDataType) bool
+// type ComparableDataType interface {
+// 	// compare the objects including type and value
+// 	Less(item ComparableDataType) bool
 
-	// check if the compared object is Less then the object's type
-	LessType(item ComparableDataType) bool
+// 	// check if the compared object is Less then the object's type
+// 	LessType(item ComparableDataType) bool
 
-	// compare the objects' Values. This will panic if not coomparing the same types. So needs a
-	// few checks against the LessType to know if this is safe.
-	LessValue(item ComparableDataType) bool
-}
+// 	// compare the objects' Values. This will panic if not coomparing the same types. So needs a
+// 	// few checks against the LessType to know if this is safe.
+// 	LessValue(item ComparableDataType) bool
+// }
 
 type DataType int
 

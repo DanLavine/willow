@@ -38,7 +38,7 @@ func Test_Limiter_Overrides_Create(t *testing.T) {
 			Name:  "override1",
 			Limit: 32,
 			KeyValues: datatypes.KeyValues{
-				"other": datatypes.Float64(32),
+				"other": datatypes.Float32(32),
 			},
 		}
 

@@ -1,6 +1,7 @@
 package datatypes
 
 import (
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"runtime"
@@ -197,5 +198,40 @@ func TestKeyValues_GenerateTagPairs(t *testing.T) {
 		for index, value := range expectedTags {
 			g.Expect(generatedTagGroups[index]).To(Equal(value), fmt.Sprintf("index: %d", index))
 		}
+	})
+}
+
+func TestKeyValues_DataEncoding(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	t.Run("It encodes data properly through JSON", func(t *testing.T) {
+		// data to encode
+		keyValues := KeyValues{
+			"uint8":   Uint8(1),
+			"uint16":  Uint16(1),
+			"uint32":  Uint32(1),
+			"uint64":  Uint64(1),
+			"uint":    Uint(1),
+			"Int8":    Int8(1),
+			"Int16":   Int16(1),
+			"Int32":   Int32(1),
+			"Int64":   Int64(1),
+			"Int":     Int(1),
+			"Float32": Float32(1),
+			"Float64": Float64(1),
+			"String":  String("1"),
+			"Nil":     Nil(),
+		}
+
+		data, err := json.Marshal(keyValues)
+		g.Expect(err).ToNot(HaveOccurred())
+
+		// decode the data
+		decodedKeyValues := KeyValues{}
+		err = json.Unmarshal(data, &decodedKeyValues)
+		g.Expect(err).ToNot(HaveOccurred())
+
+		// ensure bothe values match
+		g.Expect(keyValues).To(Equal(decodedKeyValues))
 	})
 }

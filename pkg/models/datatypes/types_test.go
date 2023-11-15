@@ -15,7 +15,7 @@ func (at customTest) Less(item any) bool {
 	return at.value < item.(customTest).value
 }
 
-func TestComparable_Less(t *testing.T) {
+func TestEncapsulatedData_Less(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	// custom
@@ -184,7 +184,7 @@ func TestComparable_Less(t *testing.T) {
 	})
 }
 
-func TestComparable_LessType(t *testing.T) {
+func TestEncapsulatedData_LessType(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	// custom
@@ -271,7 +271,7 @@ func TestComparable_LessType(t *testing.T) {
 	})
 }
 
-func TestComparable_LessValue(t *testing.T) {
+func TestEncapsulatedData_LessValue(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	// custom
@@ -396,7 +396,7 @@ func TestComparable_LessValue(t *testing.T) {
 	})
 }
 
-func TestComparable_Validate(t *testing.T) {
+func TestEncapsulatedData_Validate(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	t.Run("it returns an error if the Value is nil", func(t *testing.T) {

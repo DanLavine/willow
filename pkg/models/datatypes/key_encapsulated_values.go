@@ -1,8 +1,10 @@
 package datatypes
 
 import (
+	"encoding/json"
 	"fmt"
 	"sort"
+	"strconv"
 )
 
 type KeyValues map[string]EncapsulatedData
@@ -38,6 +40,195 @@ func (kv KeyValues) StripKey(removeKey string) KeyValues {
 	}
 
 	return returnMap
+}
+
+func (kv KeyValues) MarshalJSON() ([]byte, error) {
+
+	if err := kv.Validate(); err != nil {
+		return nil, err
+	}
+
+	// setup parsable string representation of data
+	mapKeyValues := map[string]EncapsulatedData{}
+
+	for key, value := range kv {
+		switch value.DataType {
+		case T_uint8:
+			mapKeyValues[key] = EncapsulatedData{
+				DataType: value.DataType,
+				Value:    strconv.FormatUint(uint64(value.Value.(uint8)), 10),
+			}
+		case T_uint16:
+			mapKeyValues[key] = EncapsulatedData{
+				DataType: value.DataType,
+				Value:    strconv.FormatUint(uint64(value.Value.(uint16)), 10),
+			}
+		case T_uint32:
+			mapKeyValues[key] = EncapsulatedData{
+				DataType: value.DataType,
+				Value:    strconv.FormatUint(uint64(value.Value.(uint32)), 10),
+			}
+		case T_uint64:
+			mapKeyValues[key] = EncapsulatedData{
+				DataType: value.DataType,
+				Value:    strconv.FormatUint(uint64(value.Value.(uint64)), 10),
+			}
+		case T_uint:
+			mapKeyValues[key] = EncapsulatedData{
+				DataType: value.DataType,
+				Value:    strconv.FormatUint(uint64(value.Value.(uint)), 10),
+			}
+		case T_int8:
+			mapKeyValues[key] = EncapsulatedData{
+				DataType: value.DataType,
+				Value:    strconv.FormatInt(int64(value.Value.(int8)), 10),
+			}
+		case T_int16:
+			mapKeyValues[key] = EncapsulatedData{
+				DataType: value.DataType,
+				Value:    strconv.FormatInt(int64(value.Value.(int16)), 10),
+			}
+		case T_int32:
+			mapKeyValues[key] = EncapsulatedData{
+				DataType: value.DataType,
+				Value:    strconv.FormatInt(int64(value.Value.(int32)), 10),
+			}
+		case T_int64:
+			mapKeyValues[key] = EncapsulatedData{
+				DataType: value.DataType,
+				Value:    strconv.FormatInt(int64(value.Value.(int64)), 10),
+			}
+		case T_int:
+			mapKeyValues[key] = EncapsulatedData{
+				DataType: value.DataType,
+				Value:    strconv.FormatInt(int64(value.Value.(int)), 10),
+			}
+		case T_float32:
+			mapKeyValues[key] = EncapsulatedData{
+				DataType: value.DataType,
+				Value:    strconv.FormatFloat(float64(value.Value.(float32)), 'E', -1, 32),
+			}
+		case T_float64:
+			mapKeyValues[key] = EncapsulatedData{
+				DataType: value.DataType,
+				Value:    strconv.FormatFloat(float64(value.Value.(float64)), 'E', -1, 64),
+			}
+		case T_string:
+			mapKeyValues[key] = value
+		case T_nil:
+			fmt.Println("setting value:", value)
+			mapKeyValues[key] = EncapsulatedData{
+				DataType: value.DataType,
+				Value:    nil,
+			}
+		}
+	}
+
+	return json.Marshal(mapKeyValues)
+}
+
+func (kv *KeyValues) UnmarshalJSON(b []byte) error {
+	// parse the original request into a middle object
+	custom := map[string]EncapsulatedData{}
+	if err := json.Unmarshal(b, &custom); err != nil {
+		return err
+	}
+
+	if len(custom) == 0 {
+		return nil
+	}
+
+	if *kv == nil {
+		*kv = KeyValues{}
+	}
+
+	for key, value := range custom {
+		switch value.DataType {
+		case T_uint8:
+			parsedValue, err := strconv.ParseUint(value.Value.(string), 10, 64)
+			if err != nil {
+				return err
+			}
+			(*kv)[key] = Uint8(uint8(parsedValue))
+		case T_uint16:
+			parsedValue, err := strconv.ParseUint(value.Value.(string), 10, 64)
+			if err != nil {
+				return err
+			}
+			(*kv)[key] = Uint16(uint16(parsedValue))
+		case T_uint32:
+			parsedValue, err := strconv.ParseUint(value.Value.(string), 10, 64)
+			if err != nil {
+				return err
+			}
+			(*kv)[key] = Uint32(uint32(parsedValue))
+		case T_uint64:
+			parsedValue, err := strconv.ParseUint(value.Value.(string), 10, 64)
+			if err != nil {
+				return err
+			}
+			(*kv)[key] = Uint64(uint64(parsedValue))
+		case T_uint:
+			parsedValue, err := strconv.ParseUint(value.Value.(string), 10, 64)
+			if err != nil {
+				return err
+			}
+			(*kv)[key] = Uint(uint(parsedValue))
+		case T_int8:
+			parsedValue, err := strconv.ParseInt(value.Value.(string), 10, 64)
+			if err != nil {
+				return err
+			}
+			(*kv)[key] = Int8(int8(parsedValue))
+		case T_int16:
+			parsedValue, err := strconv.ParseInt(value.Value.(string), 10, 64)
+			if err != nil {
+				return err
+			}
+			(*kv)[key] = Int16(int16(parsedValue))
+		case T_int32:
+			parsedValue, err := strconv.ParseInt(value.Value.(string), 10, 64)
+			if err != nil {
+				return err
+			}
+			(*kv)[key] = Int32(int32(parsedValue))
+		case T_int64:
+			parsedValue, err := strconv.ParseInt(value.Value.(string), 10, 64)
+			if err != nil {
+				return err
+			}
+			(*kv)[key] = Int64(int64(parsedValue))
+		case T_int:
+			parsedValue, err := strconv.ParseInt(value.Value.(string), 10, 64)
+			if err != nil {
+				return err
+			}
+			(*kv)[key] = Int(int(parsedValue))
+		case T_float32:
+			parsedValue, err := strconv.ParseFloat(value.Value.(string), 32)
+			if err != nil {
+				return err
+			}
+			(*kv)[key] = Float32(float32(parsedValue))
+		case T_float64:
+			parsedValue, err := strconv.ParseFloat(value.Value.(string), 64)
+			if err != nil {
+				return err
+			}
+			(*kv)[key] = Float64(float64(parsedValue))
+		case T_string:
+			(*kv)[key] = value
+		case T_nil:
+			if value.Value != nil {
+				return fmt.Errorf("key %s requires a nil value", key)
+			}
+			(*kv)[key] = Nil()
+		default:
+			return fmt.Errorf("unkown data type: %d", value.DataType)
+		}
+	}
+
+	return nil
 }
 
 func (kv KeyValues) Validate() error {

@@ -2,6 +2,7 @@ package v1
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 
 	"github.com/DanLavine/willow/pkg/models/api"
@@ -45,6 +46,7 @@ func (or *Override) ValidateRequest() *api.Error {
 	}
 
 	if len(or.KeyValues) == 0 {
+		fmt.Printf("Override: %#v", or)
 		return api.InvalidRequestBody.With("KeyValues tags to be provided", "received empty set")
 	}
 
