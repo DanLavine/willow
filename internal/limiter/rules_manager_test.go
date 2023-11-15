@@ -1,22 +1,40 @@
 package limiter
 
 import (
-	"fmt"
-	"runtime"
+	"net/http"
 	"testing"
-	"unsafe"
 
+	"github.com/DanLavine/willow/internal/limiter/rules"
+	"github.com/DanLavine/willow/internal/limiter/rules/rulefakes"
+	"github.com/DanLavine/willow/pkg/models/api"
 	v1limiter "github.com/DanLavine/willow/pkg/models/api/limiter/v1"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 	. "github.com/onsi/gomega"
+	"go.uber.org/mock/gomock"
 	"go.uber.org/zap"
 )
+
+// mock constructor and rule
+func setupMocks(t *testing.T) (*gomock.Controller, *rulefakes.MockRuleConstructor, *rulefakes.MockRule) {
+	mockController := gomock.NewController(t)
+
+	fakeRule := rulefakes.NewMockRule(mockController)
+	fakeRuleConstructor := rulefakes.NewMockRuleConstructor(mockController)
+
+	fakeRuleConstructor.EXPECT().New(gomock.Any()).DoAndReturn(func(createParams *v1limiter.Rule) rules.Rule {
+		return fakeRule
+	}).AnyTimes()
+
+	return mockController, fakeRuleConstructor, fakeRule
+}
 
 func TestRulesManager_Create(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	t.Run("It returns nil when successfully creating a new rule", func(t *testing.T) {
-		rulesManager := NewRulesManger()
+		constructor, err := rules.NewRuleConstructor("memory")
+		g.Expect(err).ToNot(HaveOccurred())
+		rulesManager := NewRulesManger(constructor)
 
 		createRequest := &v1limiter.Rule{
 			Name:        "test",
@@ -26,12 +44,14 @@ func TestRulesManager_Create(t *testing.T) {
 		}
 		g.Expect(createRequest.ValidateRequest()).ToNot(HaveOccurred())
 
-		err := rulesManager.Create(zap.NewNop(), createRequest)
+		err = rulesManager.Create(zap.NewNop(), createRequest)
 		g.Expect(err).ToNot(HaveOccurred())
 	})
 
 	t.Run("It returns an error when trying to create rule with the same name", func(t *testing.T) {
-		rulesManager := NewRulesManger()
+		constructor, err := rules.NewRuleConstructor("memory")
+		g.Expect(err).ToNot(HaveOccurred())
+		rulesManager := NewRulesManger(constructor)
 
 		createRequest := &v1limiter.Rule{
 			Name:        "test",
@@ -41,7 +61,7 @@ func TestRulesManager_Create(t *testing.T) {
 		}
 		g.Expect(createRequest.ValidateRequest()).ToNot(HaveOccurred())
 
-		err := rulesManager.Create(zap.NewNop(), createRequest)
+		err = rulesManager.Create(zap.NewNop(), createRequest)
 		g.Expect(err).ToNot(HaveOccurred())
 
 		err = rulesManager.Create(zap.NewNop(), createRequest)
@@ -54,14 +74,18 @@ func TestRulesManager_Get(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	t.Run("It returns nil when a rule doesn't exist", func(t *testing.T) {
-		rulesManager := NewRulesManger()
+		constructor, err := rules.NewRuleConstructor("memory")
+		g.Expect(err).ToNot(HaveOccurred())
+		rulesManager := NewRulesManger(constructor)
 
 		rule := rulesManager.Get(zap.NewNop(), "doesn't exist", false)
 		g.Expect(rule).To(BeNil())
 	})
 
 	t.Run("Context override lookups", func(t *testing.T) {
-		rulesManager := NewRulesManger()
+		constructor, err := rules.NewRuleConstructor("memory")
+		g.Expect(err).ToNot(HaveOccurred())
+		rulesManager := NewRulesManger(constructor)
 
 		// create the rule
 		createRequest := &v1limiter.Rule{
@@ -86,12 +110,14 @@ func TestRulesManager_Get(t *testing.T) {
 
 		t.Run("It does not include any overrides when FALSE", func(t *testing.T) {
 			rule := rulesManager.Get(zap.NewNop(), "test", false)
+
 			g.Expect(rule).ToNot(BeNil())
 			g.Expect(len(rule.Overrides)).To(Equal(0))
 		})
 
 		t.Run("It includes any overrides when TRUE", func(t *testing.T) {
 			rule := rulesManager.Get(zap.NewNop(), "test", true)
+
 			g.Expect(rule).ToNot(BeNil())
 			g.Expect(len(rule.Overrides)).To(Equal(1))
 			g.Expect(rule.Overrides[0].Name).To(Equal("override1"))
@@ -103,19 +129,23 @@ func TestRulesManager_Update(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	t.Run("It returns an error when failing to find the rule by name", func(t *testing.T) {
-		rulesManager := NewRulesManger()
+		constructor, err := rules.NewRuleConstructor("memory")
+		g.Expect(err).ToNot(HaveOccurred())
+		rulesManager := NewRulesManger(constructor)
 
 		ruleUpdate := &v1limiter.RuleUpdate{
 			Limit: 12,
 		}
 
-		err := rulesManager.Update(zap.NewNop(), "doesn't exist", ruleUpdate)
+		err = rulesManager.Update(zap.NewNop(), "doesn't exist", ruleUpdate)
 		g.Expect(err).ToNot(BeNil())
 		g.Expect(err.Error()).To(ContainSubstring("failed to find rule by name"))
 	})
 
 	t.Run("It can update a rule by name", func(t *testing.T) {
-		rulesManager := NewRulesManger()
+		constructor, err := rules.NewRuleConstructor("memory")
+		g.Expect(err).ToNot(HaveOccurred())
+		rulesManager := NewRulesManger(constructor)
 
 		// create the rule
 		createRequest := &v1limiter.Rule{
@@ -127,11 +157,11 @@ func TestRulesManager_Update(t *testing.T) {
 		g.Expect(createRequest.ValidateRequest()).ToNot(HaveOccurred())
 		g.Expect(rulesManager.Create(zap.NewNop(), createRequest)).ToNot(HaveOccurred())
 
-		// update the ru;e
+		// update the rule
 		ruleUpdate := &v1limiter.RuleUpdate{
 			Limit: 12,
 		}
-		err := rulesManager.Update(zap.NewNop(), "test", ruleUpdate)
+		err = rulesManager.Update(zap.NewNop(), "test", ruleUpdate)
 		g.Expect(err).ToNot(HaveOccurred())
 
 		// ensure the rule was updated
@@ -144,14 +174,18 @@ func TestRulesManager_Delete(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	t.Run("It returns nil if the rule does not exist", func(t *testing.T) {
-		rulesManager := NewRulesManger()
+		constructor, err := rules.NewRuleConstructor("memory")
+		g.Expect(err).ToNot(HaveOccurred())
+		rulesManager := NewRulesManger(constructor)
 
-		err := rulesManager.Delete(zap.NewNop(), "not found")
+		err = rulesManager.Delete(zap.NewNop(), "not found")
 		g.Expect(err).ToNot(HaveOccurred())
 	})
 
 	t.Run("It deletes the rule if it exists", func(t *testing.T) {
-		rulesManager := NewRulesManger()
+		constructor, err := rules.NewRuleConstructor("memory")
+		g.Expect(err).ToNot(HaveOccurred())
+		rulesManager := NewRulesManger(constructor)
 
 		// create the rule
 		createRequest := &v1limiter.Rule{
@@ -164,7 +198,7 @@ func TestRulesManager_Delete(t *testing.T) {
 		g.Expect(rulesManager.Create(zap.NewNop(), createRequest)).ToNot(HaveOccurred())
 
 		// delete the rule
-		err := rulesManager.Delete(zap.NewNop(), "test")
+		err = rulesManager.Delete(zap.NewNop(), "test")
 		g.Expect(err).ToNot(HaveOccurred())
 
 		// ensure the rule was deleted
@@ -172,16 +206,17 @@ func TestRulesManager_Delete(t *testing.T) {
 		g.Expect(rule).To(BeNil())
 	})
 
-	t.Run("Context when the rule also has overrides", func(t *testing.T) {
+	t.Run("Context when the cascade delete operation passes", func(t *testing.T) {
 		t.Run("It also deletes all the overrides for the rule", func(t *testing.T) {
-			rulesManager := NewRulesManger()
-			fmt.Printf("1st rule manager size size: %T, %d\n", rulesManager, unsafe.Sizeof(rulesManager))
+			mockController, mockConstructor, mockRule := setupMocks(t)
+			defer mockController.Finish()
 
-			endMem := &runtime.MemStats{}
-			startMem := &runtime.MemStats{}
+			// ensure cascade delete is called
+			mockRule.EXPECT().CascadeDeletion(gomock.Any()).DoAndReturn(func(logger *zap.Logger) *api.Error {
+				return nil
+			}).Times(1)
 
-			runtime.GC()
-			runtime.ReadMemStats(startMem)
+			rulesManager := NewRulesManger(mockConstructor)
 
 			// create the rule
 			createRequest := &v1limiter.Rule{
@@ -193,43 +228,49 @@ func TestRulesManager_Delete(t *testing.T) {
 			g.Expect(createRequest.ValidateRequest()).ToNot(HaveOccurred())
 			g.Expect(rulesManager.Create(zap.NewNop(), createRequest)).ToNot(HaveOccurred())
 
-			// add many overrides to the rule
-			for i := 0; i < 100; i++ {
-				override := &v1limiter.Override{
-					Name: fmt.Sprintf("%d", i),
-					KeyValues: datatypes.KeyValues{
-						fmt.Sprintf("%d", i): datatypes.Int(i),
-					},
-				}
-				g.Expect(override.ValidateRequest()).ToNot(HaveOccurred())
-				g.Expect(rulesManager.CreateOverride(zap.NewNop(), "test", override)).ToNot(HaveOccurred())
-			}
-
-			fmt.Printf("2nd rule manager size size: %T, %d\n", rulesManager, unsafe.Sizeof(rulesManager))
-
 			// delete the rule
 			err := rulesManager.Delete(zap.NewNop(), "test")
 			g.Expect(err).ToNot(HaveOccurred())
 
-			fmt.Printf("3rd rule manager size size: %T, %d\n", rulesManager, unsafe.Sizeof(rulesManager))
-
 			// ensure the rule was deleted
 			rule := rulesManager.Get(zap.NewNop(), "test", true)
 			g.Expect(rule).To(BeNil())
+		})
+	})
 
-			// force garbage collection
-			runtime.GC()
+	t.Run("Context when the cascade delete operation fails", func(t *testing.T) {
+		t.Run("It does not deletes the rule and reports the error", func(t *testing.T) {
+			mockController, mockConstructor, mockRule := setupMocks(t)
+			defer mockController.Finish()
 
-			runtime.ReadMemStats(endMem)
+			// ensure cascade delete and Get are called
+			mockRule.EXPECT().CascadeDeletion(gomock.Any()).DoAndReturn(func(logger *zap.Logger) *api.Error {
+				return &api.Error{Message: "failed to cascade delete", StatusCode: http.StatusInternalServerError}
+			}).Times(1)
+			mockRule.EXPECT().Get(gomock.Any()).DoAndReturn(func(includeOverrides bool) *v1limiter.Rule {
+				return &v1limiter.Rule{}
+			}).Times(1)
 
-			bToMb := func(b uint64) uint64 {
-				return b
+			rulesManager := NewRulesManger(mockConstructor)
+
+			// create the rule
+			createRequest := &v1limiter.Rule{
+				Name:        "test",
+				GroupBy:     []string{"key1", "key2"},
+				QueryFilter: datatypes.AssociatedKeyValuesQuery{},
+				Limit:       5,
 			}
+			g.Expect(createRequest.ValidateRequest()).ToNot(HaveOccurred())
+			g.Expect(rulesManager.Create(zap.NewNop(), createRequest)).ToNot(HaveOccurred())
 
-			fmt.Printf("start mem: %d\n", bToMb(startMem.Alloc))
-			fmt.Printf("end mem: %d\n", bToMb(endMem.Alloc))
+			// delete the rule
+			err := rulesManager.Delete(zap.NewNop(), "test")
+			g.Expect(err).To(HaveOccurred())
+			g.Expect(err.Error()).To(ContainSubstring("failed to cascade delete"))
 
-			g.Fail("boo")
+			// ensure the rule was not deleted
+			rule := rulesManager.Get(zap.NewNop(), "test", true)
+			g.Expect(rule).ToNot(BeNil())
 		})
 	})
 }

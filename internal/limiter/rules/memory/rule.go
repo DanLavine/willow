@@ -159,6 +159,14 @@ func (r *rule) DeleteOverride(logger *zap.Logger, overrideName string) *api.Erro
 	return nil
 }
 
+// CascadeDeletion is called when the Rule itself is being deleted. On the memory implementation
+// we don't need to do anything as the object will be garbage collected
+func (r *rule) CascadeDeletion(logger *zap.Logger) *api.Error {
+	return nil
+}
+
+// DSL: these are unused right now, but might become relevant again, so keep for now
+
 func (r *rule) FindLimit(logger *zap.Logger, keyValues datatypes.KeyValues) uint64 {
 	r.ruleModelLock.RLock()
 	limit := r.limit

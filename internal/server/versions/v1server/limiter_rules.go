@@ -228,7 +228,7 @@ func (grh *groupRuleHandler) DeleteOverride(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	w.WriteHeader(http.StatusCreated)
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (grh *groupRuleHandler) Increment(w http.ResponseWriter, r *http.Request) {

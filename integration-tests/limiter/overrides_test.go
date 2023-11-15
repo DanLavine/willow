@@ -46,3 +46,46 @@ func Test_Limiter_Overrides_Create(t *testing.T) {
 		g.Expect(err).ToNot(HaveOccurred())
 	})
 }
+
+func Test_Limiter_Overrides_Delete(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	testConstruct := NewIntrgrationLimiterTestConstruct(g)
+	defer testConstruct.Cleanup(g)
+
+	t.Run("It can delete an override for a rule", func(t *testing.T) {
+		testConstruct.StartLimiter(g)
+		defer testConstruct.Shutdown(g)
+
+		// setup client
+		limiterClient := setupClient(g, testConstruct.ServerURL)
+
+		// create rule
+		rule := &v1.Rule{
+			Name:    "rule1",
+			GroupBy: []string{"key1", "key2"},
+			Limit:   5,
+		}
+		g.Expect(limiterClient.CreateRule(rule)).ToNot(HaveOccurred())
+
+		// create override
+		override := &v1.Override{
+			Name:  "override1",
+			Limit: 32,
+			KeyValues: datatypes.KeyValues{
+				"other": datatypes.Float32(32),
+			},
+		}
+		g.Expect(limiterClient.CreateOverride("rule1", override)).ToNot(HaveOccurred())
+
+		// delete override
+		err := limiterClient.DeleteOverride("rule1", "override1")
+		g.Expect(err).ToNot(HaveOccurred())
+
+		// get the rule with overrides to ensure it is deleted
+		rule, err = limiterClient.GetRule("rule1", true)
+		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(rule.Name).To(Equal("rule1"))
+		g.Expect(rule.Overrides).To(BeNil())
+	})
+}

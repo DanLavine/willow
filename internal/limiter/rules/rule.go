@@ -1,4 +1,4 @@
-package limiter
+package rules
 
 import (
 	"github.com/DanLavine/willow/pkg/models/api"
@@ -7,6 +7,7 @@ import (
 	"go.uber.org/zap"
 )
 
+//go:generate mockgen -destination=rulefakes/rule_mock.go -package=rulefakes github.com/DanLavine/willow/internal/limiter/rules Rule
 type Rule interface {
 	// Update a particualr rule's default limit values
 	Update(logger *zap.Logger, update *v1limiter.RuleUpdate)
@@ -14,8 +15,11 @@ type Rule interface {
 	// set an override for a particualr group of tags
 	SetOverride(logger *zap.Logger, override *v1limiter.Override) *api.Error
 
-	// delete an override for a particualr group of tags
+	// Delete an override for a particualr group of tags
 	DeleteOverride(logger *zap.Logger, overrideName string) *api.Error
+
+	// Operation that is calledfor cascading deletes because the rule is being deleted
+	CascadeDeletion(logger *zap.Logger) *api.Error
 
 	// Find the limit for a particualr group of tags when checking the limits
 	FindLimit(logger *zap.Logger, keyValues datatypes.KeyValues) uint64

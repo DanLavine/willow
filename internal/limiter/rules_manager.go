@@ -5,16 +5,12 @@ import (
 	"net/http"
 
 	btreeassociated "github.com/DanLavine/willow/internal/datastructures/btree_associated"
-	"github.com/DanLavine/willow/internal/limiter/memory"
+	"github.com/DanLavine/willow/internal/limiter/rules"
 	"github.com/DanLavine/willow/pkg/models/api"
 	v1limiter "github.com/DanLavine/willow/pkg/models/api/limiter/v1"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 	"go.uber.org/zap"
 )
-
-// TODO (quality of life improvement): On the iterations, it would be nice to get all the "keys" that make up a collection.
-// this way we can easily report which rule "name" is blocking a request. Also the "overrides key values" in the rule's themselves
-// wouldn't need to save that information which is just a lot of extra space...
 
 type nameRule struct {
 	name string
@@ -36,8 +32,8 @@ type RulesManager interface {
 
 	// read
 	Get(logger *zap.Logger, name string, includeOverrides bool) *v1limiter.Rule
-	FindRule(logger *zap.Logger, name string) Rule
-	ListRules(logger *zap.Logger) []Rule
+	FindRule(logger *zap.Logger, name string) rules.Rule
+	ListRules(logger *zap.Logger) []rules.Rule
 
 	// delete operations
 	Delete(logger *zap.Logger, name string) *api.Error
@@ -54,6 +50,9 @@ type RulesManager interface {
 }
 
 type rulesManger struct {
+	// rule constructor for creating and managing rules in a proper configuration
+	ruleConstructor rules.RuleConstructor
+
 	// all possible rules a user had created
 	rules btreeassociated.BTreeAssociated
 
@@ -61,10 +60,11 @@ type rulesManger struct {
 	counters btreeassociated.BTreeAssociated
 }
 
-func NewRulesManger() *rulesManger {
+func NewRulesManger(ruleConstructor rules.RuleConstructor) *rulesManger {
 	return &rulesManger{
-		rules:    btreeassociated.NewThreadSafe(),
-		counters: btreeassociated.NewThreadSafe(),
+		ruleConstructor: ruleConstructor,
+		rules:           btreeassociated.NewThreadSafe(),
+		counters:        btreeassociated.NewThreadSafe(),
 	}
 }
 
@@ -72,7 +72,7 @@ func NewRulesManger() *rulesManger {
 func (rm *rulesManger) Create(logger *zap.Logger, rule *v1limiter.Rule) *api.Error {
 	logger = logger.Named("CreateGroupRule")
 	onCreate := func() any {
-		return memory.NewRule(rule)
+		return rm.ruleConstructor.New(rule)
 	}
 
 	// record the name as a value. This will make the group by + name unique keys
@@ -104,7 +104,7 @@ func (rm *rulesManger) Get(logger *zap.Logger, name string, includeOverrides boo
 
 	var rule *v1limiter.Rule
 	onFind := func(item any) {
-		rule = item.(*btreeassociated.AssociatedKeyValues).Value().(Rule).Get(includeOverrides)
+		rule = item.(*btreeassociated.AssociatedKeyValues).Value().(rules.Rule).Get(includeOverrides)
 	}
 
 	if err := rm.rules.FindByAssociatedID(name, onFind); err != nil {
@@ -125,7 +125,7 @@ func (rm *rulesManger) Update(logger *zap.Logger, name string, update *v1limiter
 	found := false
 	onFind := func(item any) {
 		found = true
-		rule := item.(*btreeassociated.AssociatedKeyValues).Value().(Rule)
+		rule := item.(*btreeassociated.AssociatedKeyValues).Value().(rules.Rule)
 		rule.Update(logger, update)
 	}
 
@@ -146,14 +146,22 @@ func (rm *rulesManger) Update(logger *zap.Logger, name string, update *v1limiter
 func (rm *rulesManger) Delete(logger *zap.Logger, name string) *api.Error {
 	logger = logger.Named("DeleteGroupRule").With(zap.String("rule_name", name))
 
-	delete := false
+	deleteCalled := false
+	var cascadeError *api.Error
 	canDelete := func(item any) bool {
-		logger.Debug("deleted rule")
+		deleteCalled = true
 
-		// is there actually anything to delete for the overrides or will they all just be gabage collected?
+		rule := item.(*btreeassociated.AssociatedKeyValues).Value().(rules.Rule)
+		cascadeError = rule.CascadeDeletion(logger)
 
-		delete = true
-		return true
+		if cascadeError == nil {
+			logger.Debug("deleted rule")
+			return true
+		}
+
+		logger.Warn("faled to deleted rule")
+
+		return false
 	}
 
 	if err := rm.rules.DeleteByAssociatedID(name, canDelete); err != nil {
@@ -161,13 +169,11 @@ func (rm *rulesManger) Delete(logger *zap.Logger, name string) *api.Error {
 		return &api.Error{Message: "failed to delete rule by name", StatusCode: http.StatusInternalServerError}
 	}
 
-	if delete {
-		logger.Debug("Deleted rule")
-	} else {
-		logger.Warn("Did not delete rule")
+	if !deleteCalled {
+		logger.Warn("failed to find rule for deletion")
 	}
 
-	return nil
+	return cascadeError
 }
 
 // Create an override for a rule by name
@@ -176,7 +182,7 @@ func (rm *rulesManger) CreateOverride(logger *zap.Logger, ruleName string, overr
 
 	var overrideErr *api.Error
 	onFind := func(item any) {
-		rule := item.(*btreeassociated.AssociatedKeyValues).Value().(Rule)
+		rule := item.(*btreeassociated.AssociatedKeyValues).Value().(rules.Rule)
 		overrideErr = rule.SetOverride(logger, override)
 	}
 
@@ -194,7 +200,7 @@ func (rm *rulesManger) DeleteOverride(logger *zap.Logger, ruleName string, overr
 
 	var overrideErr *api.Error
 	onFind := func(item any) {
-		rule := item.(*btreeassociated.AssociatedKeyValues).Value().(Rule)
+		rule := item.(*btreeassociated.AssociatedKeyValues).Value().(rules.Rule)
 		overrideErr = rule.DeleteOverride(logger, overrideName)
 	}
 
@@ -206,9 +212,9 @@ func (rm *rulesManger) DeleteOverride(logger *zap.Logger, ruleName string, overr
 	return overrideErr
 }
 
-func (rm *rulesManger) FindRule(logger *zap.Logger, name string) Rule {
+func (rm *rulesManger) FindRule(logger *zap.Logger, name string) rules.Rule {
 	//logger = logger.Named("FindGroupRule")
-	var limiterRules Rule
+	var limiterRules rules.Rule
 
 	//onFind := func(item any) {
 	//	limiterRules = item.(Rule)
@@ -219,7 +225,7 @@ func (rm *rulesManger) FindRule(logger *zap.Logger, name string) Rule {
 }
 
 // list all group rules
-func (rm *rulesManger) ListRules(logger *zap.Logger) []Rule {
+func (rm *rulesManger) ListRules(logger *zap.Logger) []rules.Rule {
 	//logger = logger.Named("ListGroupRules")
 	//limiterRules := []Rule{}
 	//

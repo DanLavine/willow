@@ -21,6 +21,7 @@ type LimiterClient interface {
 
 	// override operations
 	CreateOverride(ruleName string, override *v1limiter.Override) error
+	DeleteOverride(ruleName string, overrideName string) error
 }
 
 type limiterClient struct {
