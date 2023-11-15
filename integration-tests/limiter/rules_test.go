@@ -1,6 +1,7 @@
 package limter_integration_tests
 
 import (
+	"fmt"
 	"path/filepath"
 	"runtime"
 	"testing"
@@ -59,7 +60,7 @@ func Test_Limiter_Rules_Get(t *testing.T) {
 	testConstruct := NewIntrgrationLimiterTestConstruct(g)
 	defer testConstruct.Cleanup(g)
 
-	t.Run("It can retrieve a rule that exists", func(t *testing.T) {
+	t.Run("It can retrieve a rule that exists with no overrides", func(t *testing.T) {
 		testConstruct.StartLimiter(g)
 		defer testConstruct.Shutdown(g)
 
@@ -82,6 +83,44 @@ func Test_Limiter_Rules_Get(t *testing.T) {
 		g.Expect(rule.GroupBy).To(Equal([]string{"key1", "key2"}))
 		g.Expect(rule.Limit).To(Equal(uint64(5)))
 		g.Expect(rule.Overrides).To(BeNil())
+		g.Expect(rule.QueryFilter).To(Equal(datatypes.AssociatedKeyValuesQuery{}))
+	})
+
+	t.Run("It can retrieve a rule that exists with all overrides", func(t *testing.T) {
+		testConstruct.StartLimiter(g)
+		defer testConstruct.Shutdown(g)
+
+		// setup client
+		limiterClient := setupClient(g, testConstruct.ServerURL)
+
+		// create the rule
+		rule := &v1.Rule{
+			Name:    "rule1",
+			GroupBy: []string{"key1", "key2"},
+			Limit:   5,
+		}
+		err := limiterClient.CreateRule(rule)
+		g.Expect(err).ToNot(HaveOccurred())
+
+		// create a number of overrides
+		for i := 0; i < 100; i++ {
+			override := &v1.Override{
+				Name:  fmt.Sprintf("override%d", i),
+				Limit: 32,
+				KeyValues: datatypes.KeyValues{
+					fmt.Sprintf("other%d", i): datatypes.Float32(32),
+				},
+			}
+			g.Expect(limiterClient.CreateOverride("rule1", override)).ToNot(HaveOccurred())
+		}
+
+		// get the rule
+		rule, err = limiterClient.GetRule("rule1", true)
+		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(rule.Name).To(Equal("rule1"))
+		g.Expect(rule.GroupBy).To(Equal([]string{"key1", "key2"}))
+		g.Expect(rule.Limit).To(Equal(uint64(5)))
+		g.Expect(len(rule.Overrides)).To(Equal(100))
 		g.Expect(rule.QueryFilter).To(Equal(datatypes.AssociatedKeyValuesQuery{}))
 	})
 }
