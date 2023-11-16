@@ -20,6 +20,12 @@ type LimiterConfig struct {
 	LimiterServerKey *string
 	LimiterServerCRT *string
 
+	// certificates for locker client
+	LockerURL       *string
+	LockerClientCA  *string
+	LockerClientKey *string
+	LockerClientCRT *string
+
 	// use http instead of https
 	LimiterInsecureHTTP *bool
 }
@@ -35,11 +41,19 @@ All flags will use the env vars if they are set instead of command line paramete
 	}
 
 	limiterConfig := &LimiterConfig{
-		logLevel:            limiterFlagSet.String("log-level", "info", "log level [debug | info]. Can be set by env var LOG_LEVEL"),
-		LimiterPort:         limiterFlagSet.String("limiter-port", "8082", "default port for the limitter server to run on. Can be set by env var LIMITER_PORT"),
-		LimiterCA:           limiterFlagSet.String("limiter-ca", "", "CA file used to generate server certs iff one was used. Can be set by env var LIMITER_CA"),
-		LimiterServerKey:    limiterFlagSet.String("limiter-server-key", "", "Server private key location on disk. Can be set by env var LIMITER_SERVER_KEY"),
-		LimiterServerCRT:    limiterFlagSet.String("limiter-server-crt", "", "Server ssl certificate location on disk. Can be st by env var LIMITER_SERVER_CRT"),
+		logLevel: limiterFlagSet.String("log-level", "info", "log level [debug | info]. Can be set by env var LOG_LEVEL"),
+
+		LimiterPort: limiterFlagSet.String("limiter-port", "8082", "default port for the limitter server to run on. Can be set by env var LIMITER_PORT"),
+
+		LimiterCA:        limiterFlagSet.String("limiter-ca", "", "CA file used to generate server certs iff one was used. Can be set by env var LIMITER_CA"),
+		LimiterServerKey: limiterFlagSet.String("limiter-server-key", "", "Server private key location on disk. Can be set by env var LIMITER_SERVER_KEY"),
+		LimiterServerCRT: limiterFlagSet.String("limiter-server-crt", "", "Server ssl certificate location on disk. Can be st by env var LIMITER_SERVER_CRT"),
+
+		LockerURL:       limiterFlagSet.String("limiter-locker-url", "", "CA file used to generate server certs iff one was used. Can be set by env var LIMITER_LOCKER_URL"),
+		LockerClientCA:  limiterFlagSet.String("limiter-locker-client-ca", "", "CA file used to generate server certs iff one was used. Can be set by env var LIMITER_LOCKER_CLIENT_CA"),
+		LockerClientKey: limiterFlagSet.String("limiter-locker-client-key", "", "Client private key location on disk. Can be set by env var LIMITER_LOCKER_CLIENT_KEY"),
+		LockerClientCRT: limiterFlagSet.String("limiter-locker-client-crt", "", "Client ssl certificate location on disk. Can be st by env var LIMITER_LOCKER_CIENT_CRT"),
+
 		LimiterInsecureHTTP: limiterFlagSet.Bool("limiter-insecure-http", false, "Can be used to run the server in an unsecure http mode. Can be set be env var LIMITER_INSECURE_HTTP"),
 	}
 
@@ -69,7 +83,7 @@ func (lc *LimiterConfig) parseEnv() {
 		lc.LimiterPort = &LimiterPort
 	}
 
-	// keys
+	// server keys
 	//// ca key
 	if limiterCA := os.Getenv("LIMITER_CA"); limiterCA != "" {
 		lc.LimiterCA = &limiterCA
@@ -81,6 +95,26 @@ func (lc *LimiterConfig) parseEnv() {
 	//// tls certificate
 	if limiterServerCRT := os.Getenv("LIMITER_SERVER_CRT"); limiterServerCRT != "" {
 		lc.LimiterServerCRT = &limiterServerCRT
+	}
+
+	// locker client
+	//// url
+	if lockerURL := os.Getenv("LIMITER_LOCKER_URL"); lockerURL != "" {
+		lc.LockerURL = &lockerURL
+	}
+
+	//// http
+	//// ca key
+	if lockerCA := os.Getenv("LIMITER_LOCKER_CA"); lockerCA != "" {
+		lc.LockerClientCA = &lockerCA
+	}
+	//// tls key
+	if lockerKey := os.Getenv("LIMITER_LOCKER_CLIENT_KEY"); lockerKey != "" {
+		lc.LockerClientKey = &lockerKey
+	}
+	//// tls certificate
+	if lockerCRT := os.Getenv("LIMITER_LOCKER_CLIENT_CRT"); lockerCRT != "" {
+		lc.LockerClientCRT = &lockerCRT
 	}
 
 	// Insecure settings
@@ -137,6 +171,9 @@ func (lc *LimiterConfig) validate() error {
 			return fmt.Errorf("param 'limiter-server-crt' is not set")
 		}
 	}
+
+	// clients
+	//// nothing to do here. that will be validated on the client's config
 
 	return nil
 }

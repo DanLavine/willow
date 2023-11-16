@@ -13,7 +13,7 @@ type RuleCounterRequest struct {
 	KeyValues datatypes.KeyValues
 }
 
-func ParseRuleCounterRequest(reader io.ReadCloser) (*RuleCounterRequest, *api.Error) {
+func ParseCounterRequest(reader io.ReadCloser) (*RuleCounterRequest, *api.Error) {
 	requestBody, err := io.ReadAll(reader)
 	if err != nil {
 		return nil, api.ReadRequestBodyError.With("", err.Error())
@@ -34,6 +34,10 @@ func ParseRuleCounterRequest(reader io.ReadCloser) (*RuleCounterRequest, *api.Er
 func (rcr *RuleCounterRequest) Validate() *api.Error {
 	if len(rcr.KeyValues) == 0 {
 		return api.InvalidRequestBody.With("KeyValues to be provided", "recieved empty KeyValues set")
+	}
+
+	if err := rcr.KeyValues.Validate(); err != nil {
+		return api.InvalidRequestBody.With("Key values to be valid", err.Error())
 	}
 
 	return nil

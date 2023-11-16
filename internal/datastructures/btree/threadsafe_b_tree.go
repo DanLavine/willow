@@ -33,7 +33,7 @@ type threadSafeBNode struct {
 
 // keyValue is the information stored in the threadSafeBTree provided by the end user
 type keyValue struct {
-	// lookup key for the provided value
+	// lookup key for the provided key
 	key datatypes.EncapsulatedData
 
 	// value client saves and performs operations on in the tree

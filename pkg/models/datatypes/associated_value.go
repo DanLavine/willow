@@ -55,7 +55,7 @@ type Value struct {
 	ExistsType *DataType
 
 	// specific value for a particular key
-	Value *EncapsulatedData
+	Value *EncapsulatedValue
 	// what type of comparison to run on a particualr value [=, !=, <, < MATCH, <=, <= MATCH, >, > MATCH, >=, >= MATCH]
 	ValueComparison *Comparison
 }
@@ -115,7 +115,7 @@ func (v *Value) validateReservedKey() error {
 		return fmt.Errorf(": requires a string Value to match against")
 	}
 
-	if v.Value.DataType != T_string {
+	if v.Value.DataType() != T_string {
 		return fmt.Errorf(": requires a string Value to match against")
 	}
 

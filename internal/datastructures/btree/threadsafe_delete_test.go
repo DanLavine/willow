@@ -16,7 +16,7 @@ func TestBTree_Delete_ParamChecks(t *testing.T) {
 		bTree, err := NewThreadSafe(2)
 		g.Expect(err).ToNot(HaveOccurred())
 
-		err = bTree.Delete(datatypes.EncapsulatedData{DataType: -1, Value: "bad"}, nil)
+		err = bTree.Delete(datatypes.EncapsulatedValue{Type: -1, Data: "bad"}, nil)
 		g.Expect(err).To(HaveOccurred())
 		g.Expect(err.Error()).To(ContainSubstring("key is invalid:"))
 	})

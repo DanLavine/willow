@@ -17,7 +17,7 @@ type AssociatedKeyValues struct {
 }
 
 func (associatedKeyValues *AssociatedKeyValues) AssociatedID() string {
-	return associatedKeyValues.keyValues[datatypes.String(ReservedID)].Value.(string)
+	return associatedKeyValues.keyValues[datatypes.String(ReservedID)].Value().(string)
 }
 
 func (associatedKeyValues *AssociatedKeyValues) KeyValues() KeyValues {

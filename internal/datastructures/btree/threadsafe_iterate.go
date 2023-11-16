@@ -79,12 +79,12 @@ func (bn *threadSafeBNode) iterateMatchType(dataType datatypes.DataType, callbac
 	var i int
 	for i = 0; i < bn.numberOfValues; i++ {
 		// the key in the tree is less then the value we are looking for, iterate to the next value if it exists
-		if bn.keyValues[i].key.DataType.Less(dataType) {
+		if bn.keyValues[i].key.DataType().Less(dataType) {
 			continue
 		}
 
 		// the key we are searching for is less than the key in the tree. Try the less than tree and return
-		if dataType.Less(bn.keyValues[i].key.DataType) {
+		if dataType.Less(bn.keyValues[i].key.DataType()) {
 			if startIndex == -1 {
 				startIndex = i
 			}

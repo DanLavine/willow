@@ -92,6 +92,11 @@ func (locker *LockerTCP) Execute(ctx context.Context) error {
 	logger := locker.logger
 	mux := urlrouter.New()
 
+	// health api
+	mux.HandleFunc("GET", "/health", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+
 	// OpenAPI endpoints
 	// api url to server all the OpenAPI files
 	mux.HandleFunc("GET", "/docs/openapi/", func(w http.ResponseWriter, r *http.Request) {

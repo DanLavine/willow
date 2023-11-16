@@ -13,8 +13,8 @@ type Override struct {
 	// name for the override. Must be unique for all overrides attached to a rule
 	Name string
 
-	// They key value parings we are making the override for
-	// NOTE: these must match the GroupBy keys in the original Rule
+	// When checking a rule, if it has these exact keys, then the limit will be applied.
+	// In the case of an override matchin many key values, the smallest Limit will be enforced
 	KeyValues datatypes.KeyValues
 
 	// The new limit to use for the paricular mapping

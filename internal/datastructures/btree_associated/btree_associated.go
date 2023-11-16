@@ -126,7 +126,7 @@ func (kv KeyValues) RetrieveCustomDataTypes() map[datatypes.EncapsulatedData]dat
 	keyValuePairs := KeyValues{}
 
 	for key, value := range kv {
-		if key.DataType == datatypes.T_custom {
+		if key.DataType() == datatypes.T_custom {
 			keyValuePairs[key] = value
 		}
 	}
@@ -139,8 +139,8 @@ func (kv KeyValues) StripAssociatedID() KeyValues {
 	keyValuePairs := KeyValues{}
 
 	for key, value := range kv {
-		if key.DataType == datatypes.T_string {
-			if key.Value.(string) != ReservedID {
+		if key.DataType() == datatypes.T_string {
+			if key.Value().(string) != ReservedID {
 				keyValuePairs[key] = value
 			}
 		} else {
@@ -155,8 +155,8 @@ func (kv KeyValues) RetrieveStringDataType() datatypes.KeyValues {
 	keyValuePairs := datatypes.KeyValues{}
 
 	for key, value := range kv {
-		if key.DataType == datatypes.T_string {
-			keyValuePairs[key.Value.(string)] = value
+		if key.DataType() == datatypes.T_string {
+			keyValuePairs[key.Value().(string)] = value.(datatypes.EncapsulatedValue)
 		}
 	}
 

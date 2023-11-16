@@ -17,7 +17,7 @@ func TestBTree_Create_ParameterChecks(t *testing.T) {
 		bTree, err := NewThreadSafe(2)
 		g.Expect(err).ToNot(HaveOccurred())
 
-		err = bTree.Create(datatypes.EncapsulatedData{DataType: -1, Value: "bad"}, onCreate)
+		err = bTree.Create(datatypes.EncapsulatedValue{Type: -1, Data: "bad"}, onCreate)
 		g.Expect(err).To(HaveOccurred())
 		g.Expect(err.Error()).To(ContainSubstring("key is invalid:"))
 	})
@@ -946,7 +946,7 @@ func TestBTree_CreateOrFind_ParameterChecks(t *testing.T) {
 		bTree, err := NewThreadSafe(2)
 		g.Expect(err).ToNot(HaveOccurred())
 
-		err = bTree.CreateOrFind(datatypes.EncapsulatedData{DataType: -1, Value: "bad"}, onCreate, onFind)
+		err = bTree.CreateOrFind(datatypes.EncapsulatedValue{Type: -1, Data: "bad"}, onCreate, onFind)
 		g.Expect(err).To(HaveOccurred())
 		g.Expect(err.Error()).To(ContainSubstring("key is invalid:"))
 	})

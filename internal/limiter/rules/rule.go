@@ -42,4 +42,8 @@ type Rule interface {
 
 	// Get a rule response for Read operations
 	Get(includeOverrides bool) *v1limiter.Rule
+
+	// Inernal operations
+	//GroupBy() []string
+	//Limits()
 }

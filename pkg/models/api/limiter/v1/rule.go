@@ -71,9 +71,18 @@ type Rule struct {
 	// Name of the rule
 	Name string // save this as the _associated_id in the the tree?
 
-	// These can be used to create a rule groupiing that any tags will have to match agains
-	GroupBy []string // now these can just be normal "key values"
+	// These can be used to create a rule groupiing that any tags will have to match against
+	GroupBy []string // these are the logical keys to know what values we are checking against
 
+	// If I was to just save this. It should error if there is a query that already has the exact query
+	// values saved? But what if one query is a subseet of another to perform more specific operations on a
+	// set of key values? Should those belong to the "overrides" setion, so it gets around that use case?
+	//
+	// or do we allow for saving of any queries, because its the "group by" in this case that we care about
+	// for enforcing the policies. or should the "group by", be used to check that the query filter selects those values?
+	//
+	// group by is nice for the initial setup of the rule
+	//
 	// When comparing tags, use this selection to figure out if a rule applies to them
 	QueryFilter datatypes.AssociatedKeyValuesQuery
 

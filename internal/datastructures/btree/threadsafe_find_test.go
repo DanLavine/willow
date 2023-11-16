@@ -25,7 +25,7 @@ func TestBTree_Find(t *testing.T) {
 	t.Run("it returns an error if the key is invalid", func(t *testing.T) {
 		bTree := setupTree(g)
 
-		err := bTree.Find(datatypes.EncapsulatedData{DataType: -1, Value: "bad"}, OnFindTest)
+		err := bTree.Find(datatypes.EncapsulatedValue{Type: -1, Data: "bad"}, OnFindTest)
 		g.Expect(err).To(HaveOccurred())
 		g.Expect(err.Error()).To(ContainSubstring("key is invalid:"))
 	})
@@ -83,7 +83,7 @@ func TestBTree_FindNotEqual(t *testing.T) {
 	t.Run("it returns an error if the key is invalid", func(t *testing.T) {
 		bTree := setupTree(g)
 
-		err := bTree.FindNotEqual(datatypes.EncapsulatedData{DataType: -1, Value: "bad"}, func(items any) bool { return true })
+		err := bTree.FindNotEqual(datatypes.EncapsulatedValue{Type: -1, Data: "bad"}, func(items any) bool { return true })
 		g.Expect(err).To(HaveOccurred())
 		g.Expect(err.Error()).To(ContainSubstring("key is invalid:"))
 	})
@@ -155,7 +155,7 @@ func TestBTree_FindNotEqualMatchType(t *testing.T) {
 	t.Run("it returns an error if the key is invalid", func(t *testing.T) {
 		bTree := setupTree(g)
 
-		err := bTree.FindNotEqualMatchType(datatypes.EncapsulatedData{DataType: -1, Value: "bad"}, func(items any) bool { return true })
+		err := bTree.FindNotEqualMatchType(datatypes.EncapsulatedValue{Type: -1, Data: "bad"}, func(items any) bool { return true })
 		g.Expect(err).To(HaveOccurred())
 		g.Expect(err.Error()).To(ContainSubstring("key is invalid:"))
 	})
@@ -244,7 +244,7 @@ func TestBTree_FindLessThan(t *testing.T) {
 	t.Run("it returns an error if the key is invalid", func(t *testing.T) {
 		bTree := setupTree(g)
 
-		err := bTree.FindLessThan(datatypes.EncapsulatedData{DataType: -1, Value: "bad"}, func(item any) bool { return true })
+		err := bTree.FindLessThan(datatypes.EncapsulatedValue{Type: -1, Data: "bad"}, func(item any) bool { return true })
 		g.Expect(err).To(HaveOccurred())
 		g.Expect(err.Error()).To(ContainSubstring("key is invalid:"))
 	})
@@ -328,7 +328,7 @@ func TestBTree_FindLessThanMatchType(t *testing.T) {
 	t.Run("it returns an error if the key is invalid", func(t *testing.T) {
 		bTree := setupTree(g)
 
-		err := bTree.FindLessThanMatchType(datatypes.EncapsulatedData{DataType: -1, Value: "bad"}, func(item any) bool { return true })
+		err := bTree.FindLessThanMatchType(datatypes.EncapsulatedValue{Type: -1, Data: "bad"}, func(item any) bool { return true })
 		g.Expect(err).To(HaveOccurred())
 		g.Expect(err.Error()).To(ContainSubstring("key is invalid:"))
 	})
@@ -412,7 +412,7 @@ func TestBTree_FindLessThanOrEqual(t *testing.T) {
 	t.Run("it returns an error if the key is invalid", func(t *testing.T) {
 		bTree := setupTree(g)
 
-		err := bTree.FindLessThanOrEqual(datatypes.EncapsulatedData{DataType: -1, Value: "bad"}, func(item any) bool { return true })
+		err := bTree.FindLessThanOrEqual(datatypes.EncapsulatedValue{Type: -1, Data: "bad"}, func(item any) bool { return true })
 		g.Expect(err).To(HaveOccurred())
 		g.Expect(err.Error()).To(ContainSubstring("key is invalid:"))
 	})
@@ -496,7 +496,7 @@ func TestBTree_FindLessThanOrEqualMatchType(t *testing.T) {
 	t.Run("it returns an error if the key is invalid", func(t *testing.T) {
 		bTree := setupTree(g)
 
-		err := bTree.FindLessThanOrEqualMatchType(datatypes.EncapsulatedData{DataType: -1, Value: "bad"}, func(item any) bool { return true })
+		err := bTree.FindLessThanOrEqualMatchType(datatypes.EncapsulatedValue{Type: -1, Data: "bad"}, func(item any) bool { return true })
 		g.Expect(err).To(HaveOccurred())
 		g.Expect(err.Error()).To(ContainSubstring("key is invalid:"))
 	})
@@ -583,7 +583,7 @@ func TestBTree_FindGreaterThan(t *testing.T) {
 	t.Run("it returns an error if the key is invalid", func(t *testing.T) {
 		bTree := setupTree(g)
 
-		err := bTree.FindGreaterThan(datatypes.EncapsulatedData{DataType: -1, Value: "bad"}, func(item any) bool { return true })
+		err := bTree.FindGreaterThan(datatypes.EncapsulatedValue{Type: -1, Data: "bad"}, func(item any) bool { return true })
 		g.Expect(err).To(HaveOccurred())
 		g.Expect(err.Error()).To(ContainSubstring("key is invalid:"))
 	})
@@ -667,7 +667,7 @@ func TestBTree_FindGreaterThanMatchType(t *testing.T) {
 	t.Run("it returns an error if the key is invalid", func(t *testing.T) {
 		bTree := setupTree(g)
 
-		err := bTree.FindGreaterThanMatchType(datatypes.EncapsulatedData{DataType: -1, Value: "bad"}, func(item any) bool { return true })
+		err := bTree.FindGreaterThanMatchType(datatypes.EncapsulatedValue{Type: -1, Data: "bad"}, func(item any) bool { return true })
 		g.Expect(err).To(HaveOccurred())
 		g.Expect(err.Error()).To(ContainSubstring("key is invalid:"))
 	})
@@ -754,7 +754,7 @@ func TestBTree_FindGreaterThanOrEqual(t *testing.T) {
 	t.Run("it returns an error if the key is invalid", func(t *testing.T) {
 		bTree := setupTree(g)
 
-		err := bTree.FindGreaterThanOrEqual(datatypes.EncapsulatedData{DataType: -1, Value: "bad"}, func(item any) bool { return true })
+		err := bTree.FindGreaterThanOrEqual(datatypes.EncapsulatedValue{Type: -1, Data: "bad"}, func(item any) bool { return true })
 		g.Expect(err).To(HaveOccurred())
 		g.Expect(err.Error()).To(ContainSubstring("key is invalid:"))
 	})
@@ -845,7 +845,7 @@ func TestBTree_FindGreaterThanOrEqualMatchType(t *testing.T) {
 	t.Run("it returns an error if the key is invalid", func(t *testing.T) {
 		bTree := setupTree(g)
 
-		err := bTree.FindGreaterThanOrEqualMatchType(datatypes.EncapsulatedData{DataType: -1, Value: "bad"}, func(item any) bool { return true })
+		err := bTree.FindGreaterThanOrEqualMatchType(datatypes.EncapsulatedValue{Type: -1, Data: "bad"}, func(item any) bool { return true })
 		g.Expect(err).To(HaveOccurred())
 		g.Expect(err.Error()).To(ContainSubstring("key is invalid:"))
 	})

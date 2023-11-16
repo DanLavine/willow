@@ -6,6 +6,7 @@ import (
 
 	btreeassociated "github.com/DanLavine/willow/internal/datastructures/btree_associated"
 	"github.com/DanLavine/willow/internal/limiter/rules"
+	lockerclient "github.com/DanLavine/willow/pkg/clients/locker_client"
 	"github.com/DanLavine/willow/pkg/models/api"
 	v1limiter "github.com/DanLavine/willow/pkg/models/api/limiter/v1"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
@@ -43,13 +44,16 @@ type RulesManager interface {
 	DeleteOverride(logger *zap.Logger, ruleName string, overrideName string) *api.Error
 
 	// increment a partiular group of tags
-	Increment(logger *zap.Logger, increment *v1limiter.RuleCounterRequest) *api.Error
+	IncrementKeyValues(logger *zap.Logger, increment *v1limiter.RuleCounterRequest) *api.Error
 
 	// decrement a particular group of tags
-	Decrement(logger *zap.Logger, decrement *v1limiter.RuleCounterRequest)
+	DecrementKeyValues(logger *zap.Logger, decrement *v1limiter.RuleCounterRequest)
 }
 
 type rulesManger struct {
+	// locker client to ensure that all locks are respected
+	lockerClient lockerclient.LockerClient
+
 	// rule constructor for creating and managing rules in a proper configuration
 	ruleConstructor rules.RuleConstructor
 
@@ -60,8 +64,9 @@ type rulesManger struct {
 	counters btreeassociated.BTreeAssociated
 }
 
-func NewRulesManger(ruleConstructor rules.RuleConstructor) *rulesManger {
+func NewRulesManger(ruleConstructor rules.RuleConstructor, lockerClient lockerclient.LockerClient) *rulesManger {
 	return &rulesManger{
+		lockerClient:    lockerClient,
 		ruleConstructor: ruleConstructor,
 		rules:           btreeassociated.NewThreadSafe(),
 		counters:        btreeassociated.NewThreadSafe(),
@@ -250,119 +255,115 @@ func (rm *rulesManger) ListRules(logger *zap.Logger) []rules.Rule {
 //
 // Adding a "Sorted [asc|dec]" in the BTreeAssociated I don't think fixes this, because we loop through values as soon as we find
 // them, not after we grab all the IDs... This is also a stupid hard problem in how I am thinking about Horizontal Scaling
-func (rm *rulesManger) Increment(logger *zap.Logger, increment *v1limiter.RuleCounterRequest) *api.Error {
-	//logger = logger.Named("Increment")
+func (rm *rulesManger) IncrementKeyValues(logger *zap.Logger, increment *v1limiter.RuleCounterRequest) *api.Error {
+	logger = logger.Named("IncrementKeyValues")
+
+	// Something isn't quite right here. Should the override itself be a query? or is it an exact key value match.
+	// If it is an exact match, then that isn't going to work in the case of UCB, wher I want to verride a specifc
+	// orgID since there are going to be many key value pairs other than just that like branch name, project name, etc.
 	//
-	//// This is better since there are no locks, but there is still an issue, where 2+ different requests trying to update different values
-	//// cause any number of requests to fail when some should succeed.
-	////
-	//// I.E. have a "group_by = 'key1'"
-	//// * in parallel 20 requests all add a different 'key = [index]' value.
-	//// * the searches on the 'OnFindPagination' will all fail if all inserts succeed before any queryes are made.
-	////
-	//// This is why I initialy had the lock on the 'rule'. But unless all the rule's IDs are found at the same time,
-	//// doing any sorting is pointless. This problem will come back around when trying to make any number of tag groups that
-	//// are split across different nodes and we want to limit the # of items in a single queue.
-	////
-	//// What I had actually would work before since I'm locking on the "iterate"  operation for "rules" which is in a guranteed order
-	//// But it is slow as shit since we do an exlusive lock for all updates which is insane... This needs to be thought about more
-	//
-	///*
-	//	Rule 1: Group_By ["key1"], Limit: 1
-	//	Rule 2: Group_By ["key3"], Limit: 5
-	//
-	//	if a request has ["key1", "key2", "key3"] -> both rules
-	//	if a request has ["key1"] -> first rule
-	//	if a request has ["key2", "key3"] -> 2nd rule
-	//
-	//	Issue is I don't know what rules a key value grouping belongs to.
-	//
-	//	...
-	//
-	//	Solutions
-	//
-	//	I could grab "locks" for all possible key value combination? This would gurantess that any other possible rules for the
-	//	same tags are waiting till one collection goes through?
-	//
-	//*/
-	//
-	//// 1. always perform an insert/update to the counter
-	//var initialCount uint64
-	//var initialCounter *atomic.Uint64
-	//
-	//// there are no rules, so just record the value incrementation
-	//onCreate := func() any {
-	//	counter := new(atomic.Uint64)
-	//	initialCounter = counter
-	//	initialCount = counter.Add(1)
-	//
-	//	return counter
-	//}
-	//
-	//// update the counter
-	//onFind := func(item any) {
-	//	counter := item.(*btreeassociated.AssociatedKeyValues).Value().(*atomic.Uint64)
-	//	initialCounter = counter
-	//	initialCount = counter.Add(1)
-	//}
-	//
-	//_, _ = rm.counters.CreateOrFind(btreeassociated.ConverDatatypesKeyValues(increment.KeyValues), onCreate, onFind)
-	//
-	//// 2. sort through all the rules to know if we are at the limit
-	//limitReached := false
-	//OnFindPagination := func(item any) bool {
-	//	rule := item.(Rule)
-	//	totalCount := initialCount
-	//
-	//	// if the rule matches the tags we are incrementing, we need to check that the limits are not already reached
-	//	if rule.TagsMatch(logger, increment.KeyValues) {
-	//		ruleLimit := rule.FindLimit(logger, increment.KeyValues)
-	//
-	//		// callback to count all known values
-	//		countPagination := func(item any) bool {
-	//			counter := item.(*btreeassociated.AssociatedKeyValues).Value().(*atomic.Uint64)
-	//			if initialCounter != counter {
-	//				totalCount += counter.Load()
-	//			}
-	//
-	//			// chek if we reached the rule limit
-	//			return totalCount < ruleLimit
-	//		}
-	//
-	//		_ = rm.counters.Query(rule.GenerateQuery(increment.KeyValues), countPagination)
-	//
-	//		// the rule we are on has failed, need to setup a trigger for the decrement case
-	//		if totalCount > ruleLimit {
-	//			limitReached = true
-	//			return false
-	//		}
-	//	}
-	//
-	//	return true
-	//}
-	//
-	//_ = rm.rules.Iterate(OnFindPagination)
-	//
-	//// at this point, the last rule is blocking because the limit has been reached
-	//if limitReached {
-	//	// need to decrement the inital value since we failed
-	//	canDelete := func(item any) bool {
-	//		counter := item.(*btreeassociated.AssociatedKeyValues).Value().(*atomic.Uint64)
-	//		counter.Add(^uint64(0))
-	//
-	//		return counter.Load() == 0
-	//	}
-	//
-	//	_ = rm.counters.Delete(btreeassociated.ConverDatatypesKeyValues(increment.KeyValues), canDelete)
-	//
-	//	return &api.Error{Message: "Unable to process limit request. The limits are already reached", StatusCode: http.StatusLocked}
-	//}
+	// ugh. what a pin to try and think through all this.
+
+	// 1. query the rules that match the tags for our key values
+	var foundRules []rules.Rule
+	onFindMatchingRule := func(item any) bool {
+		rule := item.(*btreeassociated.AssociatedKeyValues).Value().(rules.Rule)
+
+		foundRules = append(foundRules, rule)
+		return true
+	}
+
+	if err := rm.rules.Query(keyValuesToRuleQuery(increment.KeyValues), onFindMatchingRule); err != nil {
+		return nil
+	}
+
+	// 2.a. if there are no rules, then we can just increment the counter on the key values and reeturn
+
+	// 2.b. there are rules with limits. We need to grab a lock for all matched rules
+
+	// 3. count all possible values that match our rule
+
+	// 4.a if under the limit, then increment our key values
+
+	// 4.b if over the limit, then we can return an error, or do we block this request and setup a trigger when something is available?
+
+	// // 1. always perform an insert/update to the counter
+	// var initialCount uint64
+	// var initialCounter *atomic.Uint64
+
+	// // there are no rules, so just record the value incrementation
+	// onCreate := func() any {
+	// 	counter := new(atomic.Uint64)
+	// 	initialCounter = counter
+	// 	initialCount = counter.Add(1)
+
+	// 	return counter
+	// }
+
+	// // update the counter
+	// onFind := func(item any) {
+	// 	counter := item.(*btreeassociated.AssociatedKeyValues).Value().(*atomic.Uint64)
+	// 	initialCounter = counter
+	// 	initialCount = counter.Add(1)
+	// }
+
+	// _, _ = rm.counters.CreateOrFind(btreeassociated.ConverDatatypesKeyValues(increment.KeyValues), onCreate, onFind)
+
+	// // 2. sort through all the rules to know if we are at the limit
+	// limitReached := false
+	// OnFindPagination := func(item any) bool {
+	// 	rule := item.(*btreeassociated.AssociatedKeyValues).Value().(rules.Rule)
+	// 	totalCount := initialCount
+
+	// 	// if the rule matches the tags we are incrementing, we need to check that the limits are not already reached
+	// 	if rule.TagsMatch(logger, increment.KeyValues) {
+	// 		ruleLimit := rule.FindLimit(logger, increment.KeyValues)
+
+	// 		// callback to count all known values
+	// 		countPagination := func(item any) bool {
+	// 			counter := item.(*btreeassociated.AssociatedKeyValues).Value().(*atomic.Uint64)
+	// 			if initialCounter != counter {
+	// 				totalCount += counter.Load()
+	// 			}
+
+	// 			// chek if we reached the rule limit
+	// 			return totalCount < ruleLimit
+	// 		}
+
+	// 		_ = rm.counters.Query(rule.GenerateQuery(increment.KeyValues), countPagination)
+
+	// 		// the rule we are on has failed, need to setup a trigger for the decrement case
+	// 		if totalCount > ruleLimit {
+	// 			limitReached = true
+	// 			return false
+	// 		}
+	// 	}
+
+	// 	return true
+	// }
+
+	// _ = rm.rules.Iterate(OnFindPagination)
+
+	// // at this point, the last rule is blocking because the limit has been reached
+	// if limitReached {
+	// 	// need to decrement the inital value since we failed
+	// 	canDelete := func(item any) bool {
+	// 		counter := item.(*btreeassociated.AssociatedKeyValues).Value().(*atomic.Uint64)
+	// 		counter.Add(^uint64(0))
+
+	// 		return counter.Load() == 0
+	// 	}
+
+	// 	_ = rm.counters.Delete(btreeassociated.ConverDatatypesKeyValues(increment.KeyValues), canDelete)
+
+	// 	return &api.Error{Message: "Unable to process limit request. The limits are already reached", StatusCode: http.StatusLocked}
+	// }
 
 	return nil
 }
 
 // Increment trys to add to a group of key value pairs, and blocks if any rules have hit the limit
-func (rm *rulesManger) Decrement(logger *zap.Logger, decrement *v1limiter.RuleCounterRequest) {
+func (rm *rulesManger) DecrementKeyValues(logger *zap.Logger, decrement *v1limiter.RuleCounterRequest) {
 	//logger = logger.Named("Decrement")
 	//canDelete := func(item any) bool {
 	//	counter := item.(*btreeassociated.AssociatedKeyValues).Value().(*atomic.Uint64)
@@ -372,4 +373,32 @@ func (rm *rulesManger) Decrement(logger *zap.Logger, decrement *v1limiter.RuleCo
 	//}
 	//
 	//_ = rm.counters.Delete(btreeassociated.ConverDatatypesKeyValues(decrement.KeyValues), canDelete)
+}
+
+// TODO DSL: this can be optimized on the BtreeAssociated. Wher I could do a lookup all keys that these match for. then
+// perform a filter for matching the values. But for now, this is fine to prove out the API.
+func keyValuesToRuleQuery(keyValues datatypes.KeyValues) datatypes.AssociatedKeyValuesQuery {
+	query := datatypes.AssociatedKeyValuesQuery{}
+
+	// generate all possible key value tag pairs
+	keyValueCombinations := keyValues.GenerateTagPairs()
+
+	// setup a query to find any rules have the tags to match
+	exists := true
+	for _, keyValueCombo := range keyValueCombinations {
+
+		orQuery := datatypes.AssociatedKeyValuesQuery{
+			KeyValueSelection: &datatypes.KeyValueSelection{
+				KeyValues: map[string]datatypes.Value{},
+			},
+		}
+
+		for key, _ := range keyValueCombo {
+			orQuery.KeyValueSelection.KeyValues[key] = datatypes.Value{Exists: &exists}
+		}
+
+		query.Or = append(query.Or, orQuery)
+	}
+
+	return query
 }

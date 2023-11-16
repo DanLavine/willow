@@ -15,7 +15,7 @@ func (at customTest) Less(item any) bool {
 	return at.value < item.(customTest).value
 }
 
-func TestEncapsulatedData_Less(t *testing.T) {
+func TestEncapsulatedValue_Less(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	// custom
@@ -184,7 +184,7 @@ func TestEncapsulatedData_Less(t *testing.T) {
 	})
 }
 
-func TestEncapsulatedData_LessType(t *testing.T) {
+func TestEncapsulatedValue_LessType(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	// custom
@@ -271,7 +271,7 @@ func TestEncapsulatedData_LessType(t *testing.T) {
 	})
 }
 
-func TestEncapsulatedData_LessValue(t *testing.T) {
+func TestEncapsulatedValue_LessValue(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	// custom
@@ -396,93 +396,93 @@ func TestEncapsulatedData_LessValue(t *testing.T) {
 	})
 }
 
-func TestEncapsulatedData_Validate(t *testing.T) {
+func TestEncapsulatedValue_Validate(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	t.Run("it returns an error if the Value is nil", func(t *testing.T) {
-		encapsulatedData := EncapsulatedData{DataType: T_int, Value: nil}
+		encapsulatedData := EncapsulatedValue{Type: T_int, Data: nil}
 
 		err := encapsulatedData.Validate()
 		g.Expect(err).To(HaveOccurred())
-		g.Expect(err.Error()).To(Equal("EncapsulatedData has a nil data Value"))
+		g.Expect(err.Error()).To(Equal("EncapsulatedValue has a nil data Value"))
 	})
 
 	t.Run("it returns an error if the DataTypes is unknown", func(t *testing.T) {
-		encapsulatedData := EncapsulatedData{DataType: DataType(1_000_000), Value: "something"}
+		encapsulatedData := EncapsulatedValue{Type: DataType(1_000_000), Data: "something"}
 
 		err := encapsulatedData.Validate()
 		g.Expect(err).To(HaveOccurred())
-		g.Expect(err.Error()).To(Equal("EncapsulatedData has an unkown data type"))
+		g.Expect(err.Error()).To(Equal("EncapsulatedValue has an unkown data type"))
 	})
 
 	t.Run("it returns an error if the DataType and value don't match", func(t *testing.T) {
 		// custom
-		err := EncapsulatedData{DataType: T_custom, Value: "bad"}.Validate()
+		err := EncapsulatedValue{Type: T_custom, Data: "bad"}.Validate()
 		g.Expect(err).To(HaveOccurred())
-		g.Expect(err.Error()).To(Equal("EncapsulatedData has a custom data type which dos not implement: CheckLess"))
+		g.Expect(err.Error()).To(Equal("EncapsulatedValue has a custom data type which dos not implement: CheckLess"))
 
 		// ints
 		//// int
-		err = EncapsulatedData{DataType: T_int, Value: "nope"}.Validate()
+		err = EncapsulatedValue{Type: T_int, Data: "nope"}.Validate()
 		g.Expect(err).To(HaveOccurred())
-		g.Expect(err.Error()).To(Equal("EncapsulatedData has an int data type, but the Value is a: string"))
+		g.Expect(err.Error()).To(Equal("EncapsulatedValue has an int data type, but the Value is a: string"))
 		//// int8
-		err = EncapsulatedData{DataType: T_int8, Value: "nope"}.Validate()
+		err = EncapsulatedValue{Type: T_int8, Data: "nope"}.Validate()
 		g.Expect(err).To(HaveOccurred())
-		g.Expect(err.Error()).To(Equal("EncapsulatedData has an int8 data type, but the Value is a: string"))
+		g.Expect(err.Error()).To(Equal("EncapsulatedValue has an int8 data type, but the Value is a: string"))
 		//// int16
-		err = EncapsulatedData{DataType: T_int16, Value: "nope"}.Validate()
+		err = EncapsulatedValue{Type: T_int16, Data: "nope"}.Validate()
 		g.Expect(err).To(HaveOccurred())
-		g.Expect(err.Error()).To(Equal("EncapsulatedData has an int16 data type, but the Value is a: string"))
+		g.Expect(err.Error()).To(Equal("EncapsulatedValue has an int16 data type, but the Value is a: string"))
 		//// int32
-		err = EncapsulatedData{DataType: T_int32, Value: "nope"}.Validate()
+		err = EncapsulatedValue{Type: T_int32, Data: "nope"}.Validate()
 		g.Expect(err).To(HaveOccurred())
-		g.Expect(err.Error()).To(Equal("EncapsulatedData has an int32 data type, but the Value is a: string"))
+		g.Expect(err.Error()).To(Equal("EncapsulatedValue has an int32 data type, but the Value is a: string"))
 		//// int64
-		err = EncapsulatedData{DataType: T_int64, Value: "nope"}.Validate()
+		err = EncapsulatedValue{Type: T_int64, Data: "nope"}.Validate()
 		g.Expect(err).To(HaveOccurred())
-		g.Expect(err.Error()).To(Equal("EncapsulatedData has an int64 data type, but the Value is a: string"))
+		g.Expect(err.Error()).To(Equal("EncapsulatedValue has an int64 data type, but the Value is a: string"))
 
 		// uints
 		//// uint
-		err = EncapsulatedData{DataType: T_uint, Value: "nope"}.Validate()
+		err = EncapsulatedValue{Type: T_uint, Data: "nope"}.Validate()
 		g.Expect(err).To(HaveOccurred())
-		g.Expect(err.Error()).To(Equal("EncapsulatedData has a uint data type, but the Value is a: string"))
+		g.Expect(err.Error()).To(Equal("EncapsulatedValue has a uint data type, but the Value is a: string"))
 		//// uint8
-		err = EncapsulatedData{DataType: T_uint8, Value: "nope"}.Validate()
+		err = EncapsulatedValue{Type: T_uint8, Data: "nope"}.Validate()
 		g.Expect(err).To(HaveOccurred())
-		g.Expect(err.Error()).To(Equal("EncapsulatedData has a uint8 data type, but the Value is a: string"))
+		g.Expect(err.Error()).To(Equal("EncapsulatedValue has a uint8 data type, but the Value is a: string"))
 		//// uint16
-		err = EncapsulatedData{DataType: T_uint16, Value: "nope"}.Validate()
+		err = EncapsulatedValue{Type: T_uint16, Data: "nope"}.Validate()
 		g.Expect(err).To(HaveOccurred())
-		g.Expect(err.Error()).To(Equal("EncapsulatedData has a uint16 data type, but the Value is a: string"))
+		g.Expect(err.Error()).To(Equal("EncapsulatedValue has a uint16 data type, but the Value is a: string"))
 		//// uint32
-		err = EncapsulatedData{DataType: T_uint32, Value: "nope"}.Validate()
+		err = EncapsulatedValue{Type: T_uint32, Data: "nope"}.Validate()
 		g.Expect(err).To(HaveOccurred())
-		g.Expect(err.Error()).To(Equal("EncapsulatedData has a uint32 data type, but the Value is a: string"))
+		g.Expect(err.Error()).To(Equal("EncapsulatedValue has a uint32 data type, but the Value is a: string"))
 		//// uint64
-		err = EncapsulatedData{DataType: T_uint64, Value: "nope"}.Validate()
+		err = EncapsulatedValue{Type: T_uint64, Data: "nope"}.Validate()
 		g.Expect(err).To(HaveOccurred())
-		g.Expect(err.Error()).To(Equal("EncapsulatedData has a uint64 data type, but the Value is a: string"))
+		g.Expect(err.Error()).To(Equal("EncapsulatedValue has a uint64 data type, but the Value is a: string"))
 
 		// floats
 		//// float32
-		err = EncapsulatedData{DataType: T_float32, Value: "nope"}.Validate()
+		err = EncapsulatedValue{Type: T_float32, Data: "nope"}.Validate()
 		g.Expect(err).To(HaveOccurred())
-		g.Expect(err.Error()).To(Equal("EncapsulatedData has a float32 data type, but the Value is a: string"))
+		g.Expect(err.Error()).To(Equal("EncapsulatedValue has a float32 data type, but the Value is a: string"))
 		//// float64
-		err = EncapsulatedData{DataType: T_float64, Value: "nope"}.Validate()
+		err = EncapsulatedValue{Type: T_float64, Data: "nope"}.Validate()
 		g.Expect(err).To(HaveOccurred())
-		g.Expect(err.Error()).To(Equal("EncapsulatedData has a float64 data type, but the Value is a: string"))
+		g.Expect(err.Error()).To(Equal("EncapsulatedValue has a float64 data type, but the Value is a: string"))
 
 		// string
-		err = EncapsulatedData{DataType: T_string, Value: int(42)}.Validate()
+		err = EncapsulatedValue{Type: T_string, Data: int(42)}.Validate()
 		g.Expect(err).To(HaveOccurred())
-		g.Expect(err.Error()).To(Equal("EncapsulatedData has a string data type, but the Value is a: int"))
+		g.Expect(err.Error()).To(Equal("EncapsulatedValue has a string data type, but the Value is a: int"))
 
 		// nil
-		err = EncapsulatedData{DataType: T_nil, Value: int(42)}.Validate()
+		err = EncapsulatedValue{Type: T_nil, Data: int(42)}.Validate()
 		g.Expect(err).To(HaveOccurred())
-		g.Expect(err.Error()).To(Equal("EncapsulatedData has a 'nil' data type and requires the Value to be nil"))
+		g.Expect(err.Error()).To(Equal("EncapsulatedValue has a 'nil' data type and requires the Value to be nil"))
 	})
 }

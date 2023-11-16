@@ -214,7 +214,7 @@ func (tsat *threadsafeAssociatedTree) findIDs(dbQuery datatypes.AssociatedKeyVal
 			// special case for the _reserved_id
 			if key == ReservedID {
 				onFind := func(item any) {
-					strValue := value.Value.Value.(string)
+					strValue := value.Value.Value().(string)
 
 					switch validCounter {
 					case 0:
@@ -241,7 +241,7 @@ func (tsat *threadsafeAssociatedTree) findIDs(dbQuery datatypes.AssociatedKeyVal
 					validCounter++
 				}
 
-				_ = tsat.associatedIDs.Find(datatypes.String(value.Value.Value.(string)), onFind)
+				_ = tsat.associatedIDs.Find(datatypes.String(value.Value.Value().(string)), onFind)
 
 				continue
 			}

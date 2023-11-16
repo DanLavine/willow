@@ -20,6 +20,8 @@ import (
 )
 
 type LockerClient interface {
+	Healthy() error
+
 	ObtainLock(ctx context.Context, keyValues datatypes.KeyValues, timeout time.Duration) (Lock, error)
 
 	Done() <-chan struct{}
@@ -91,6 +93,28 @@ func NewLockerClient(ctx context.Context, cfg *clients.Config, heartbeatErrorCal
 	}()
 
 	return lockerClient, nil
+}
+
+func (lc *lockerclient) Healthy() error {
+	// setup and make request
+	request, err := http.NewRequest("POST", fmt.Sprintf("%s/health", lc.url), nil)
+	if err != nil {
+		// this should never actually hit
+		return fmt.Errorf("internal error setting up http request: %w", err)
+	}
+
+	resp, err := lc.client.Do(request)
+	if err != nil {
+		return fmt.Errorf("unable to make request to locker service: %w", err)
+	}
+
+	// parse the response
+	switch resp.StatusCode {
+	case http.StatusOK:
+		return nil
+	default:
+		return fmt.Errorf("unexpected status code checking health: %d", resp.StatusCode)
+	}
 }
 
 //	PARAMS:

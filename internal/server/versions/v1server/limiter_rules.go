@@ -54,7 +54,7 @@ func (grh *groupRuleHandler) Create(w http.ResponseWriter, r *http.Request) {
 	logger.Debug("starting request")
 	defer logger.Debug("processed request")
 
-	limiterCreateReqquest, err := v1limiter.ParseRuleRequest(r.Body)
+	limiterCreateRequest, err := v1limiter.ParseRuleRequest(r.Body)
 	if err != nil {
 		w.WriteHeader(err.StatusCode)
 		w.Write(err.ToBytes())
@@ -63,7 +63,7 @@ func (grh *groupRuleHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// create the group rule. On find, return an error that the rule already exists
-	if err = grh.rulesManager.Create(logger, limiterCreateReqquest); err != nil {
+	if err = grh.rulesManager.Create(logger, limiterCreateRequest); err != nil {
 		w.WriteHeader(err.StatusCode)
 		w.Write(err.ToBytes())
 		return
@@ -154,7 +154,9 @@ func (grh *groupRuleHandler) Delete(w http.ResponseWriter, r *http.Request) {
 
 func (grh *groupRuleHandler) Find(w http.ResponseWriter, r *http.Request) {
 	logger := logger.AddRequestID(grh.logger.Named("Find"), r)
-	logger.Debug("starting CreateGroupRule request")
+	logger.Debug("starting request")
+	defer logger.Debug("processed request")
+
 	w.WriteHeader(http.StatusNotImplemented)
 	//defer logger.Debug("processed CreateGroupRule request")
 	//
@@ -236,7 +238,22 @@ func (grh *groupRuleHandler) Increment(w http.ResponseWriter, r *http.Request) {
 	logger.Debug("starting request")
 	defer logger.Debug("processed request")
 
-	w.WriteHeader(http.StatusNotImplemented)
+	counterRequest, err := v1limiter.ParseCounterRequest(r.Body)
+	if err != nil {
+		w.WriteHeader(err.StatusCode)
+		w.Write(err.ToBytes())
+
+		return
+	}
+
+	// create the group rule. On find, return an error that the rule already exists
+	if err = grh.rulesManager.IncrementKeyValues(logger, counterRequest); err != nil {
+		w.WriteHeader(err.StatusCode)
+		w.Write(err.ToBytes())
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
 }
 
 func (grh *groupRuleHandler) Decrement(w http.ResponseWriter, r *http.Request) {

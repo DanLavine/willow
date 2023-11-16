@@ -34,7 +34,7 @@ func TestRulesManager_Create(t *testing.T) {
 	t.Run("It returns nil when successfully creating a new rule", func(t *testing.T) {
 		constructor, err := rules.NewRuleConstructor("memory")
 		g.Expect(err).ToNot(HaveOccurred())
-		rulesManager := NewRulesManger(constructor)
+		rulesManager := NewRulesManger(constructor, nil)
 
 		createRequest := &v1limiter.Rule{
 			Name:        "test",
@@ -51,7 +51,7 @@ func TestRulesManager_Create(t *testing.T) {
 	t.Run("It returns an error when trying to create rule with the same name", func(t *testing.T) {
 		constructor, err := rules.NewRuleConstructor("memory")
 		g.Expect(err).ToNot(HaveOccurred())
-		rulesManager := NewRulesManger(constructor)
+		rulesManager := NewRulesManger(constructor, nil)
 
 		createRequest := &v1limiter.Rule{
 			Name:        "test",
@@ -76,7 +76,7 @@ func TestRulesManager_Get(t *testing.T) {
 	t.Run("It returns nil when a rule doesn't exist", func(t *testing.T) {
 		constructor, err := rules.NewRuleConstructor("memory")
 		g.Expect(err).ToNot(HaveOccurred())
-		rulesManager := NewRulesManger(constructor)
+		rulesManager := NewRulesManger(constructor, nil)
 
 		rule := rulesManager.Get(zap.NewNop(), "doesn't exist", false)
 		g.Expect(rule).To(BeNil())
@@ -85,7 +85,7 @@ func TestRulesManager_Get(t *testing.T) {
 	t.Run("Context override lookups", func(t *testing.T) {
 		constructor, err := rules.NewRuleConstructor("memory")
 		g.Expect(err).ToNot(HaveOccurred())
-		rulesManager := NewRulesManger(constructor)
+		rulesManager := NewRulesManger(constructor, nil)
 
 		// create the rule
 		createRequest := &v1limiter.Rule{
@@ -131,7 +131,7 @@ func TestRulesManager_Update(t *testing.T) {
 	t.Run("It returns an error when failing to find the rule by name", func(t *testing.T) {
 		constructor, err := rules.NewRuleConstructor("memory")
 		g.Expect(err).ToNot(HaveOccurred())
-		rulesManager := NewRulesManger(constructor)
+		rulesManager := NewRulesManger(constructor, nil)
 
 		ruleUpdate := &v1limiter.RuleUpdate{
 			Limit: 12,
@@ -145,7 +145,7 @@ func TestRulesManager_Update(t *testing.T) {
 	t.Run("It can update a rule by name", func(t *testing.T) {
 		constructor, err := rules.NewRuleConstructor("memory")
 		g.Expect(err).ToNot(HaveOccurred())
-		rulesManager := NewRulesManger(constructor)
+		rulesManager := NewRulesManger(constructor, nil)
 
 		// create the rule
 		createRequest := &v1limiter.Rule{
@@ -176,7 +176,7 @@ func TestRulesManager_Delete(t *testing.T) {
 	t.Run("It returns nil if the rule does not exist", func(t *testing.T) {
 		constructor, err := rules.NewRuleConstructor("memory")
 		g.Expect(err).ToNot(HaveOccurred())
-		rulesManager := NewRulesManger(constructor)
+		rulesManager := NewRulesManger(constructor, nil)
 
 		err = rulesManager.Delete(zap.NewNop(), "not found")
 		g.Expect(err).ToNot(HaveOccurred())
@@ -185,7 +185,7 @@ func TestRulesManager_Delete(t *testing.T) {
 	t.Run("It deletes the rule if it exists", func(t *testing.T) {
 		constructor, err := rules.NewRuleConstructor("memory")
 		g.Expect(err).ToNot(HaveOccurred())
-		rulesManager := NewRulesManger(constructor)
+		rulesManager := NewRulesManger(constructor, nil)
 
 		// create the rule
 		createRequest := &v1limiter.Rule{
@@ -216,7 +216,7 @@ func TestRulesManager_Delete(t *testing.T) {
 				return nil
 			}).Times(1)
 
-			rulesManager := NewRulesManger(mockConstructor)
+			rulesManager := NewRulesManger(mockConstructor, nil)
 
 			// create the rule
 			createRequest := &v1limiter.Rule{
@@ -251,7 +251,7 @@ func TestRulesManager_Delete(t *testing.T) {
 				return &v1limiter.Rule{}
 			}).Times(1)
 
-			rulesManager := NewRulesManger(mockConstructor)
+			rulesManager := NewRulesManger(mockConstructor, nil)
 
 			// create the rule
 			createRequest := &v1limiter.Rule{

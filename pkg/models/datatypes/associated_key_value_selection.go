@@ -89,7 +89,7 @@ func (kvs *KeyValueSelection) MatchTags(tags KeyValues) bool {
 			case true:
 				if tagValue, ok := tags[key]; ok {
 					if keysValue.ExistsType != nil {
-						if tagValue.DataType != *keysValue.ExistsType {
+						if tagValue.DataType() != *keysValue.ExistsType {
 							// the required data type does not match so instantly fail
 							return false
 						}
@@ -102,7 +102,7 @@ func (kvs *KeyValueSelection) MatchTags(tags KeyValues) bool {
 				// if the value exists in the provided tags, instantly fail
 				if tagValue, ok := tags[key]; ok {
 					if keysValue.ExistsType != nil {
-						if tagValue.DataType == *keysValue.ExistsType {
+						if tagValue.DataType() == *keysValue.ExistsType {
 							return false
 						}
 					} else {

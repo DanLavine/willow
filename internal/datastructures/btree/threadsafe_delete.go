@@ -106,8 +106,8 @@ func (bn *threadSafeBNode) remove(releaseParentLock func(), nodeSize int, keyToD
 
 				// try and delete the value if we can
 				if canDelete == nil || canDelete(bn.keyValues[index].value) {
-					if bn.removeNodeItem(recurseUnlock, keyToDelete.Value, index) {
-						return bn.rebalance(releaseParentLock, keyToDelete.Value, index)
+					if bn.removeNodeItem(recurseUnlock, keyToDelete.DataType(), index) {
+						return bn.rebalance(releaseParentLock, keyToDelete.DataType(), index)
 					}
 				}
 
@@ -133,7 +133,7 @@ func (bn *threadSafeBNode) remove(releaseParentLock func(), nodeSize int, keyToD
 	switch bn.children[index].remove(recurseUnlock, nodeSize, keyToDelete, canDelete) {
 	case true:
 		// need to rebalance
-		return bn.rebalance(releaseParentLock, keyToDelete.Value, index)
+		return bn.rebalance(releaseParentLock, keyToDelete.Value(), index)
 	default:
 		// no more need to rebalance
 		return false
