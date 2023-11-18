@@ -133,8 +133,8 @@ func (q *Queue) Dequeue(logger *zap.Logger, cancelContext context.Context, selec
 	// remove the channelOperations when this function returns
 	defer q.removeClientWaiting(channelOperations)
 
-	onFindPagination := func(item any) bool {
-		tagGroup := item.(*btreeassociated.AssociatedKeyValues).Value().(*tagGroup)
+	onFindPagination := func(item *btreeassociated.AssociatedKeyValues) bool {
+		tagGroup := item.Value().(*tagGroup)
 
 		select {
 		case response := <-tagGroup.dequeueChannel:
@@ -211,8 +211,8 @@ func (q *Queue) Metrics() *v1willow.QueueMetricsResponse {
 		DeadLetterQueueMetrics: nil,
 	}
 
-	metricsFunc := func(item any) bool {
-		tagGroup := item.(*btreeassociated.AssociatedKeyValues).Value().(*tagGroup)
+	metricsFunc := func(item *btreeassociated.AssociatedKeyValues) bool {
+		tagGroup := item.Value().(*tagGroup)
 		metrics.Tags = append(metrics.Tags, tagGroup.Metrics())
 
 		return true

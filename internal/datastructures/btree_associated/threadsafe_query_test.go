@@ -1,6 +1,8 @@
 package btreeassociated
 
 import (
+	"fmt"
+	"sync"
 	"testing"
 
 	"github.com/DanLavine/willow/pkg/models/datatypes"
@@ -12,7 +14,7 @@ func TestAssociatedTree_Query_ParamCheck(t *testing.T) {
 
 	validSelection := datatypes.AssociatedKeyValuesQuery{}
 	invalidSelection := datatypes.AssociatedKeyValuesQuery{KeyValueSelection: &datatypes.KeyValueSelection{}}
-	onFindPagination := func(items any) bool { return true }
+	onFindPagination := func(value *AssociatedKeyValues) bool { return true }
 
 	t.Run("it returns an error if the select query is invalid", func(t *testing.T) {
 		associatedTree := NewThreadSafe()
@@ -71,8 +73,8 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 			associatedTree := setupQuery(g)
 
 			var foundItem *AssociatedKeyValues
-			onFindPagination := func(item any) bool {
-				foundItem = item.(*AssociatedKeyValues)
+			onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+				foundItem = associatedKeyValues
 				return true
 			}
 
@@ -97,8 +99,8 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 			associatedTree := setupQuery(g)
 
 			var foundItem *AssociatedKeyValues
-			onFindPagination := func(item any) bool {
-				foundItem = item.(*AssociatedKeyValues)
+			onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+				foundItem = associatedKeyValues
 				return true
 			}
 
@@ -126,8 +128,8 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 			associatedTree := setupQuery(g)
 
 			var foundItem *AssociatedKeyValues
-			onFindPagination := func(item any) bool {
-				foundItem = item.(*AssociatedKeyValues)
+			onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+				foundItem = associatedKeyValues
 				return true
 			}
 
@@ -155,8 +157,8 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 				associatedTree := setupQuery(g)
 
 				var foundItem *AssociatedKeyValues
-				onFindPagination := func(item any) bool {
-					foundItem = item.(*AssociatedKeyValues)
+				onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+					foundItem = associatedKeyValues
 					return true
 				}
 
@@ -190,8 +192,8 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 				g.Expect(err).ToNot(HaveOccurred())
 
 				var foundItem *AssociatedKeyValues
-				onFindPagination := func(item any) bool {
-					foundItem = item.(*AssociatedKeyValues)
+				onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+					foundItem = associatedKeyValues
 					return true
 				}
 
@@ -222,8 +224,8 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 				g.Expect(err).ToNot(HaveOccurred())
 
 				var foundItem *AssociatedKeyValues
-				onFindPagination := func(item any) bool {
-					foundItem = item.(*AssociatedKeyValues)
+				onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+					foundItem = associatedKeyValues
 					return true
 				}
 
@@ -258,8 +260,8 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 				g.Expect(err).ToNot(HaveOccurred())
 
 				var foundItem *AssociatedKeyValues
-				onFindPagination := func(item any) bool {
-					foundItem = item.(*AssociatedKeyValues)
+				onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+					foundItem = associatedKeyValues
 					return true
 				}
 
@@ -287,8 +289,8 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 				associatedTree := setupQuery(g)
 
 				var foundItem *AssociatedKeyValues
-				onFindPagination := func(item any) bool {
-					foundItem = item.(*AssociatedKeyValues)
+				onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+					foundItem = associatedKeyValues
 					return true
 				}
 
@@ -316,8 +318,8 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 			associatedTree := setupQuery(g)
 
 			var foundItems []any
-			onFindPagination := func(item any) bool {
-				foundItems = append(foundItems, item.(*AssociatedKeyValues).Value())
+			onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+				foundItems = append(foundItems, associatedKeyValues.Value())
 				return true
 			}
 
@@ -333,8 +335,8 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 			associatedTree := setupQuery(g)
 
 			var foundItems []any
-			onFindPagination := func(item any) bool {
-				foundItems = append(foundItems, item.(*AssociatedKeyValues).Value())
+			onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+				foundItems = append(foundItems, associatedKeyValues.Value())
 				return false
 			}
 
@@ -354,8 +356,8 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 					associatedTree := setupQuery(g)
 
 					var foundItems []any
-					onFindPagination := func(item any) bool {
-						foundItems = append(foundItems, item.(*AssociatedKeyValues).Value())
+					onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+						foundItems = append(foundItems, associatedKeyValues.Value())
 						return true
 					}
 
@@ -378,8 +380,8 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 					associatedTree := setupQuery(g)
 
 					var foundItems []any
-					onFindPagination := func(item any) bool {
-						foundItems = append(foundItems, item.(*AssociatedKeyValues).Value())
+					onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+						foundItems = append(foundItems, associatedKeyValues.Value())
 						return false
 					}
 
@@ -403,8 +405,8 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 
 						one := 1
 						var foundItems []any
-						onFindPagination := func(item any) bool {
-							foundItems = append(foundItems, item.(*AssociatedKeyValues).Value())
+						onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+							foundItems = append(foundItems, associatedKeyValues.Value())
 							return true
 						}
 
@@ -432,8 +434,8 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 						associatedTree := setupQuery(g)
 
 						var foundItems []any
-						onFindPagination := func(item any) bool {
-							foundItems = append(foundItems, item.(*AssociatedKeyValues).Value())
+						onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+							foundItems = append(foundItems, associatedKeyValues.Value())
 							return true
 						}
 
@@ -457,8 +459,8 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 						associatedTree := setupQuery(g)
 
 						var foundItems []any
-						onFindPagination := func(item any) bool {
-							foundItems = append(foundItems, item.(*AssociatedKeyValues).Value())
+						onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+							foundItems = append(foundItems, associatedKeyValues.Value())
 							return true
 						}
 
@@ -484,8 +486,8 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 					associatedTree := setupQuery(g)
 
 					var foundItems []any
-					onFindPagination := func(item any) bool {
-						foundItems = append(foundItems, item.(*AssociatedKeyValues).Value())
+					onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+						foundItems = append(foundItems, associatedKeyValues.Value())
 						return true
 					}
 
@@ -510,8 +512,8 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 
 						one := 1
 						var foundItems []any
-						onFindPagination := func(item any) bool {
-							foundItems = append(foundItems, item.(*AssociatedKeyValues).Value())
+						onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+							foundItems = append(foundItems, associatedKeyValues.Value())
 							return true
 						}
 
@@ -539,8 +541,8 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 						associatedTree := setupQuery(g)
 
 						var foundItems []any
-						onFindPagination := func(item any) bool {
-							foundItems = append(foundItems, item.(*AssociatedKeyValues).Value())
+						onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+							foundItems = append(foundItems, associatedKeyValues.Value())
 							return true
 						}
 
@@ -572,8 +574,8 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 						associatedTree.CreateOrFind(keyValues3, func() any { return "2" }, noOpOnFind)
 
 						var foundItems []any
-						onFindPagination := func(item any) bool {
-							foundItems = append(foundItems, item.(*AssociatedKeyValues).Value())
+						onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+							foundItems = append(foundItems, associatedKeyValues.Value())
 							return true
 						}
 
@@ -600,8 +602,8 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 					associatedTree := setupQuery(g)
 
 					var foundItems []any
-					onFindPagination := func(item any) bool {
-						foundItems = append(foundItems, item.(*AssociatedKeyValues).Value())
+					onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+						foundItems = append(foundItems, associatedKeyValues.Value())
 						return true
 					}
 
@@ -626,8 +628,8 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 
 						one := 1
 						var foundItems []any
-						onFindPagination := func(item any) bool {
-							foundItems = append(foundItems, item.(*AssociatedKeyValues).Value())
+						onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+							foundItems = append(foundItems, associatedKeyValues.Value())
 							return true
 						}
 
@@ -655,8 +657,8 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 						associatedTree := setupQuery(g)
 
 						var foundItems []any
-						onFindPagination := func(item any) bool {
-							foundItems = append(foundItems, item.(*AssociatedKeyValues).Value())
+						onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+							foundItems = append(foundItems, associatedKeyValues.Value())
 							return true
 						}
 
@@ -680,8 +682,8 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 						associatedTree := setupQuery(g)
 
 						var foundItems []any
-						onFindPagination := func(item any) bool {
-							foundItems = append(foundItems, item.(*AssociatedKeyValues).Value())
+						onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+							foundItems = append(foundItems, associatedKeyValues.Value())
 							return true
 						}
 
@@ -707,8 +709,8 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 					associatedTree := setupQuery(g)
 
 					var foundItems []any
-					onFindPagination := func(item any) bool {
-						foundItems = append(foundItems, item.(*AssociatedKeyValues).Value())
+					onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+						foundItems = append(foundItems, associatedKeyValues.Value())
 						return true
 					}
 
@@ -733,8 +735,8 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 
 						one := 1
 						var foundItems []any
-						onFindPagination := func(item any) bool {
-							foundItems = append(foundItems, item.(*AssociatedKeyValues).Value())
+						onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+							foundItems = append(foundItems, associatedKeyValues.Value())
 							return true
 						}
 
@@ -762,8 +764,8 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 						associatedTree := setupQuery(g)
 
 						var foundItems []any
-						onFindPagination := func(item any) bool {
-							foundItems = append(foundItems, item.(*AssociatedKeyValues).Value())
+						onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+							foundItems = append(foundItems, associatedKeyValues.Value())
 							return true
 						}
 
@@ -795,8 +797,8 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 						associatedTree.CreateOrFind(keyValues3, func() any { return "3" }, noOpOnFind)
 
 						var foundItems []any
-						onFindPagination := func(item any) bool {
-							foundItems = append(foundItems, item.(*AssociatedKeyValues).Value())
+						onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+							foundItems = append(foundItems, associatedKeyValues.Value())
 							return true
 						}
 
@@ -823,8 +825,8 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 				associatedTree := setupQuery(g)
 
 				var foundItems []any
-				onFindPagination := func(item any) bool {
-					foundItems = append(foundItems, item.(*AssociatedKeyValues).Value())
+				onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+					foundItems = append(foundItems, associatedKeyValues.Value())
 					return true
 				}
 
@@ -854,8 +856,8 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 					associatedTree := setupQuery(g)
 
 					var foundItems []any
-					onFindPagination := func(item any) bool {
-						foundItems = append(foundItems, item.(*AssociatedKeyValues).Value())
+					onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+						foundItems = append(foundItems, associatedKeyValues.Value())
 						return true
 					}
 
@@ -880,8 +882,8 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 						associatedTree := setupQuery(g)
 
 						var foundItems []any
-						onFindPagination := func(item any) bool {
-							foundItems = append(foundItems, item.(*AssociatedKeyValues).Value())
+						onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+							foundItems = append(foundItems, associatedKeyValues.Value())
 							return true
 						}
 
@@ -907,8 +909,8 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 						associatedTree := setupQuery(g)
 
 						var foundItems []any
-						onFindPagination := func(item any) bool {
-							foundItems = append(foundItems, item.(*AssociatedKeyValues).Value())
+						onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+							foundItems = append(foundItems, associatedKeyValues.Value())
 							return true
 						}
 
@@ -932,8 +934,8 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 						associatedTree := setupQuery(g)
 
 						var foundItems []any
-						onFindPagination := func(item any) bool {
-							foundItems = append(foundItems, item.(*AssociatedKeyValues).Value())
+						onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+							foundItems = append(foundItems, associatedKeyValues.Value())
 							return true
 						}
 
@@ -960,8 +962,8 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 					associatedTree := setupQuery(g)
 
 					var foundItems []any
-					onFindPagination := func(item any) bool {
-						foundItems = append(foundItems, item.(*AssociatedKeyValues).Value())
+					onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+						foundItems = append(foundItems, associatedKeyValues.Value())
 						return true
 					}
 
@@ -985,8 +987,8 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 					associatedTree := setupQuery(g)
 
 					var foundItems []any
-					onFindPagination := func(item any) bool {
-						foundItems = append(foundItems, item.(*AssociatedKeyValues).Value())
+					onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+						foundItems = append(foundItems, associatedKeyValues.Value())
 						return true
 					}
 
@@ -1011,8 +1013,8 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 						associatedTree := setupQuery(g)
 
 						var foundItems []any
-						onFindPagination := func(item any) bool {
-							foundItems = append(foundItems, item.(*AssociatedKeyValues).Value())
+						onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+							foundItems = append(foundItems, associatedKeyValues.Value())
 							return true
 						}
 
@@ -1057,8 +1059,8 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 						associatedTree := setupQuery(g)
 
 						var foundItems []any
-						onFindPagination := func(item any) bool {
-							foundItems = append(foundItems, item.(*AssociatedKeyValues).Value())
+						onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+							foundItems = append(foundItems, associatedKeyValues.Value())
 							return true
 						}
 
@@ -1086,8 +1088,8 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 					associatedTree := setupQuery(g)
 
 					var foundItems []any
-					onFindPagination := func(item any) bool {
-						foundItems = append(foundItems, item.(*AssociatedKeyValues).Value())
+					onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+						foundItems = append(foundItems, associatedKeyValues.Value())
 						return true
 					}
 
@@ -1113,8 +1115,8 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 					associatedTree := setupQuery(g)
 
 					var foundItems []any
-					onFindPagination := func(item any) bool {
-						foundItems = append(foundItems, item.(*AssociatedKeyValues).Value())
+					onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+						foundItems = append(foundItems, associatedKeyValues.Value())
 						return true
 					}
 
@@ -1140,8 +1142,8 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 					associatedTree := setupQuery(g)
 
 					var foundItems []any
-					onFindPagination := func(item any) bool {
-						foundItems = append(foundItems, item.(*AssociatedKeyValues).Value())
+					onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+						foundItems = append(foundItems, associatedKeyValues.Value())
 						return true
 					}
 
@@ -1167,8 +1169,8 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 					associatedTree := setupQuery(g)
 
 					var foundItems []any
-					onFindPagination := func(item any) bool {
-						foundItems = append(foundItems, item.(*AssociatedKeyValues).Value())
+					onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+						foundItems = append(foundItems, associatedKeyValues.Value())
 						return true
 					}
 
@@ -1194,8 +1196,8 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 					associatedTree := setupQuery(g)
 
 					var foundItems []any
-					onFindPagination := func(item any) bool {
-						foundItems = append(foundItems, item.(*AssociatedKeyValues).Value())
+					onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+						foundItems = append(foundItems, associatedKeyValues.Value())
 						return true
 					}
 
@@ -1221,8 +1223,8 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 					associatedTree := setupQuery(g)
 
 					var foundItems []any
-					onFindPagination := func(item any) bool {
-						foundItems = append(foundItems, item.(*AssociatedKeyValues).Value())
+					onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+						foundItems = append(foundItems, associatedKeyValues.Value())
 						return true
 					}
 
@@ -1248,8 +1250,8 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 					associatedTree := setupQuery(g)
 
 					var foundItems []any
-					onFindPagination := func(item any) bool {
-						foundItems = append(foundItems, item.(*AssociatedKeyValues).Value())
+					onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+						foundItems = append(foundItems, associatedKeyValues.Value())
 						return true
 					}
 
@@ -1275,8 +1277,8 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 					associatedTree := setupQuery(g)
 
 					var foundItems []any
-					onFindPagination := func(item any) bool {
-						foundItems = append(foundItems, item.(*AssociatedKeyValues).Value())
+					onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+						foundItems = append(foundItems, associatedKeyValues.Value())
 						return true
 					}
 
@@ -1301,8 +1303,8 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 				associatedTree := setupQuery(g)
 
 				var foundItems []any
-				onFindPagination := func(item any) bool {
-					foundItems = append(foundItems, item.(*AssociatedKeyValues).Value())
+				onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+					foundItems = append(foundItems, associatedKeyValues.Value())
 					return true
 				}
 
@@ -1373,8 +1375,8 @@ func TestAssociatedTree_Query_JoinAND(t *testing.T) {
 		associatedTree := setupQuery(g)
 
 		var foundItems []any
-		onFindPagination := func(item any) bool {
-			foundItems = append(foundItems, item.(*AssociatedKeyValues).Value())
+		onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+			foundItems = append(foundItems, associatedKeyValues.Value())
 			return true
 		}
 
@@ -1398,8 +1400,8 @@ func TestAssociatedTree_Query_JoinAND(t *testing.T) {
 		associatedTree := setupQuery(g)
 
 		var foundItems []any
-		onFindPagination := func(item any) bool {
-			foundItems = append(foundItems, item.(*AssociatedKeyValues).Value())
+		onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+			foundItems = append(foundItems, associatedKeyValues.Value())
 			return true
 		}
 
@@ -1423,8 +1425,8 @@ func TestAssociatedTree_Query_JoinAND(t *testing.T) {
 		associatedTree := setupQuery(g)
 
 		var foundItems []any
-		onFindPagination := func(item any) bool {
-			foundItems = append(foundItems, item.(*AssociatedKeyValues).Value())
+		onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+			foundItems = append(foundItems, associatedKeyValues.Value())
 			return true
 		}
 
@@ -1469,8 +1471,8 @@ func TestAssociatedTree_Query_JoinAND(t *testing.T) {
 		associatedTree := setupQuery(g)
 
 		var foundItems []any
-		onFindPagination := func(item any) bool {
-			foundItems = append(foundItems, item.(*AssociatedKeyValues).Value())
+		onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+			foundItems = append(foundItems, associatedKeyValues.Value())
 			return true
 		}
 
@@ -1558,8 +1560,8 @@ func TestAssociatedTree_Query_JoinOR(t *testing.T) {
 		associatedTree := setupQuery(g)
 
 		var foundItems []any
-		onFindPagination := func(item any) bool {
-			foundItems = append(foundItems, item.(*AssociatedKeyValues).Value())
+		onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+			foundItems = append(foundItems, associatedKeyValues.Value())
 			return true
 		}
 
@@ -1583,8 +1585,8 @@ func TestAssociatedTree_Query_JoinOR(t *testing.T) {
 		associatedTree := setupQuery(g)
 
 		var foundItems []any
-		onFindPagination := func(item any) bool {
-			foundItems = append(foundItems, item.(*AssociatedKeyValues).Value())
+		onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+			foundItems = append(foundItems, associatedKeyValues.Value())
 			return true
 		}
 
@@ -1608,8 +1610,8 @@ func TestAssociatedTree_Query_JoinOR(t *testing.T) {
 		associatedTree := setupQuery(g)
 
 		var foundItems []any
-		onFindPagination := func(item any) bool {
-			foundItems = append(foundItems, item.(*AssociatedKeyValues).Value())
+		onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+			foundItems = append(foundItems, associatedKeyValues.Value())
 			return true
 		}
 
@@ -1676,8 +1678,8 @@ func TestAssociatedTree_Query_AND_OR_joins(t *testing.T) {
 		associatedTree := setupQuery(g)
 
 		var foundItems []any
-		onFindPagination := func(item any) bool {
-			foundItems = append(foundItems, item.(*AssociatedKeyValues).Value())
+		onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+			foundItems = append(foundItems, associatedKeyValues.Value())
 			return true
 		}
 
@@ -1705,8 +1707,8 @@ func TestAssociatedTree_Query_AND_OR_joins(t *testing.T) {
 		associatedTree := setupQuery(g)
 
 		var foundItems []any
-		onFindPagination := func(item any) bool {
-			foundItems = append(foundItems, item.(*AssociatedKeyValues).Value())
+		onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+			foundItems = append(foundItems, associatedKeyValues.Value())
 			return true
 		}
 
@@ -1750,5 +1752,65 @@ func TestAssociatedTree_Query_AND_OR_joins(t *testing.T) {
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(len(foundItems)).To(Equal(4))
 		g.Expect(foundItems).To(ContainElements("3", "9", "11", "13"))
+	})
+}
+
+func TestAssociated_Query_LargeJoinsAreFast(t *testing.T) {
+	g := NewGomegaWithT(t)
+	baicCreate := func() any { return true }
+	testCounter := 10_000
+
+	t.Run("It runs reasonably fast", func(t *testing.T) {
+		associatedTree := NewThreadSafe()
+		wg := new(sync.WaitGroup)
+
+		// 1. create 10k entries in the tree with up to 10 key values making up a single associated id
+		for i := 0; i < testCounter; i++ {
+			wg.Add(1)
+			go func(numberOfKeys, tNum int) {
+				defer wg.Done()
+				keys := KeyValues{}
+
+				for i := 0; i <= numberOfKeys; i++ {
+					keys[datatypes.String(fmt.Sprintf("%d", tNum))] = datatypes.String(fmt.Sprintf("%d", tNum))
+				}
+
+				err := associatedTree.CreateWithID(fmt.Sprintf("%d", tNum), keys, baicCreate)
+				g.Expect(err).ToNot(HaveOccurred())
+			}(i%10, i)
+		}
+		wg.Wait()
+
+		// 2. generate a massive list of key value pairs
+		largeKeyValues := datatypes.KeyValues{}
+		for i := 0; i < 6; i++ {
+			largeKeyValues[fmt.Sprintf("%d", i)] = datatypes.String(fmt.Sprintf("%d", i))
+		}
+
+		fmt.Println(len(largeKeyValues.GenerateTagPairs()))
+		g.Fail("boo")
+
+		// 3. generate a massive query to run
+		query := datatypes.AssociatedKeyValuesQuery{}
+		for _, keyValues := range largeKeyValues.GenerateTagPairs() {
+			associatedQuery := datatypes.AssociatedKeyValuesQuery{
+				KeyValueSelection: &datatypes.KeyValueSelection{KeyValues: map[string]datatypes.Value{}},
+			}
+
+			for key, value := range keyValues {
+				associatedQuery.KeyValueSelection.KeyValues[key] = datatypes.Value{Value: &value, ValueComparison: datatypes.EqualsPtr()}
+			}
+
+			query.Or = append(query.Or, associatedQuery)
+		}
+
+		// 4. run the query
+		//counter := 0
+		//g.Expect(associatedTree.Query(query, func(item *AssociatedKeyValues) bool {
+		//	counter++
+		//	return true
+		//})).ToNot(HaveOccurred())
+		//
+		//g.Expect(counter).To(Equal(1000))
 	})
 }

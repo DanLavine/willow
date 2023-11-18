@@ -9,27 +9,13 @@ import (
 	"go.uber.org/zap"
 )
 
-func defaultLimiterTestRule(g *GomegaWithT) *v1limiter.Rule {
-	existFalse := false
-	maxKeys := 5
-
-	rule := &v1limiter.Rule{
+func defaultLimiterTestRule(g *GomegaWithT) *v1limiter.RuleRequest {
+	rule := &v1limiter.RuleRequest{
 		Name:    "test",
 		GroupBy: []string{"key1", "key2"},
-		QueryFilter: datatypes.AssociatedKeyValuesQuery{
-			KeyValueSelection: &datatypes.KeyValueSelection{
-				KeyValues: map[string]datatypes.Value{
-					"key3": datatypes.Value{Exists: &existFalse},
-				},
-				Limits: &datatypes.KeyLimits{
-					NumberOfKeys: &maxKeys,
-				},
-			},
-		},
-		Limit: 5,
+		Limit:   5,
 	}
-
-	g.Expect(rule.ValidateRequest()).ToNot(HaveOccurred())
+	g.Expect(rule.Validate()).ToNot(HaveOccurred())
 
 	return rule
 }
@@ -57,7 +43,7 @@ func Test_Defaults(t *testing.T) {
 	})
 }
 
-func TestRule_GetRuleResponse(t *testing.T) {
+func TestRule_Get(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	// create the initial rule
@@ -71,21 +57,29 @@ func TestRule_GetRuleResponse(t *testing.T) {
 		},
 		Limit: 87,
 	}
-	g.Expect(overrideRequest.ValidateRequest()).ToNot(HaveOccurred())
+	g.Expect(overrideRequest.Validate()).ToNot(HaveOccurred())
 	g.Expect(rule.SetOverride(zap.NewNop(), &overrideRequest)).ToNot(HaveOccurred())
 
-	t.Run("Context includeOverrides == false", func(t *testing.T) {
-		t.Run("It only returns the Rule ", func(t *testing.T) {
-			foundRule := rule.Get(false)
+	t.Run("Context includeOverrides == ''", func(t *testing.T) {
+		t.Run("It only returns the Rule", func(t *testing.T) {
+			query := &v1limiter.RuleQuery{}
+			g.Expect(query.Validate()).ToNot(HaveOccurred())
+
+			foundRule := rule.Get(query)
 			g.Expect(foundRule.Name).To(Equal("test"))
 			g.Expect(len(foundRule.Overrides)).To(Equal(0))
 
 		})
 	})
 
-	t.Run("Context includeOverrides == true", func(t *testing.T) {
+	t.Run("Context includeOverrides == all", func(t *testing.T) {
 		t.Run("It includes all rule overrides ", func(t *testing.T) {
-			foundRule := rule.Get(true)
+			query := &v1limiter.RuleQuery{
+				OverrideQuery: v1limiter.All,
+			}
+			g.Expect(query.Validate()).ToNot(HaveOccurred())
+
+			foundRule := rule.Get(query)
 			g.Expect(foundRule.Name).To(Equal("test"))
 			g.Expect(len(foundRule.Overrides)).To(Equal(1))
 			g.Expect(foundRule.Overrides[0].Name).To(Equal("override1"))
@@ -95,6 +89,56 @@ func TestRule_GetRuleResponse(t *testing.T) {
 				},
 			))
 			g.Expect(foundRule.Overrides[0].Limit).To(Equal(uint64(87)))
+		})
+	})
+
+	t.Run("Context includeOverrides == match", func(t *testing.T) {
+		// set an additional override for the rule
+		overrideRequest := v1limiter.Override{
+			Name: "override2",
+			KeyValues: datatypes.KeyValues{
+				"one": datatypes.String("1"),
+			},
+			Limit: 2,
+		}
+		g.Expect(overrideRequest.Validate()).ToNot(HaveOccurred())
+		g.Expect(rule.SetOverride(zap.NewNop(), &overrideRequest)).ToNot(HaveOccurred())
+
+		t.Run("It includes only overrides that match the key value permutations", func(t *testing.T) {
+			query := &v1limiter.RuleQuery{
+				KeyValues: &datatypes.KeyValues{
+					"one": datatypes.String("1"),
+				},
+				OverrideQuery: v1limiter.Match,
+			}
+			g.Expect(query.Validate()).ToNot(HaveOccurred())
+
+			foundRule := rule.Get(query)
+			g.Expect(foundRule.Name).To(Equal("test"))
+			g.Expect(len(foundRule.Overrides)).To(Equal(1))
+			g.Expect(foundRule.Overrides[0].Name).To(Equal("override2"))
+			g.Expect(foundRule.Overrides[0].KeyValues).To(Equal(
+				datatypes.KeyValues{
+					"one": datatypes.String("1"),
+				},
+			))
+			g.Expect(foundRule.Overrides[0].Limit).To(Equal(uint64(2)))
+		})
+
+		t.Run("It does not include the override if the limits are reched on the override", func(t *testing.T) {
+			query := &v1limiter.RuleQuery{
+				KeyValues: &datatypes.KeyValues{
+					"one":   datatypes.String("1"),
+					"two":   datatypes.Int(2),
+					"three": datatypes.Float64(37.89),
+				},
+				OverrideQuery: v1limiter.Match,
+			}
+			g.Expect(query.Validate()).ToNot(HaveOccurred())
+
+			foundRule := rule.Get(query)
+			g.Expect(foundRule.Name).To(Equal("test"))
+			g.Expect(len(foundRule.Overrides)).To(Equal(0))
 		})
 	})
 }
@@ -131,22 +175,6 @@ func TestRule_SetOverride(t *testing.T) {
 
 		err := rule.SetOverride(zap.NewNop(), override)
 		g.Expect(err).ToNot(HaveOccurred())
-	})
-
-	t.Run("It returns an error if the query filter already ignores the override", func(t *testing.T) {
-		rule := NewRule(defaultLimiterTestRule(g))
-
-		override := &v1limiter.Override{
-			Name: "different name",
-			KeyValues: datatypes.KeyValues{
-				"key3": datatypes.String("key3 value"),
-			},
-			Limit: 72,
-		}
-
-		err := rule.SetOverride(zap.NewNop(), override)
-		g.Expect(err).To(HaveOccurred())
-		g.Expect(err.Error()).To(Equal("Invalid request. Expected: the provided keys values to match the rule query. Actual: provided will never be found by the rule query."))
 	})
 
 	t.Run("It returns an error if a rule override already exists by a certain name", func(t *testing.T) {
@@ -217,9 +245,96 @@ func TestRule_DeleteOverride(t *testing.T) {
 		g.Expect(err).ToNot(HaveOccurred())
 
 		// ensure the override was deleted
-		foundRule := rule.Get(true)
+		foundRule := rule.Get(&v1limiter.RuleQuery{OverrideQuery: v1limiter.All})
 		g.Expect(len(foundRule.Overrides)).To(Equal(0))
 	})
+}
+
+func TestRule_FindLimit(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	t.Run("It returns the Rule limit if an override cannot be found", func(t *testing.T) {
+		rule := NewRule(defaultLimiterTestRule(g))
+
+		keyValues := datatypes.KeyValues{
+			"one": datatypes.String("1"),
+		}
+
+		limit, err := rule.FindLimit(zap.NewNop(), keyValues)
+		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(limit).To(Equal(rule.limit))
+	})
+
+	//t.Run("It returns the Override limit if an override can be found", func(t *testing.T) {
+	//	rule := NewRule(defaultLimiterTestRule(g))
+	//
+	//	// set one overide that matches
+	//	override := &v1limiter.Override{
+	//		Name: "name",
+	//		KeyValues: datatypes.KeyValues{
+	//			"key4": datatypes.String("key4 value"),
+	//		},
+	//		Limit: 72,
+	//	}
+	//	g.Expect(override.Validate()).ToNot(HaveOccurred())
+	//	g.Expect(rule.SetOverride(zap.NewNop(), override)).ToNot(HaveOccurred())
+	//
+	//	// set one overide that does not match
+	//	override = &v1limiter.Override{
+	//		Name: "different name",
+	//		KeyValues: datatypes.KeyValues{
+	//			"key4": datatypes.String("key4 value"),
+	//			"key5": datatypes.String("key5 value"),
+	//		},
+	//		Limit: 13,
+	//	}
+	//	g.Expect(override.Validate()).ToNot(HaveOccurred())
+	//	g.Expect(rule.SetOverride(zap.NewNop(), override)).ToNot(HaveOccurred())
+	//
+	//	// check limit
+	//	keyValues := datatypes.KeyValues{
+	//		"key4": datatypes.String("key4 value"),
+	//	}
+	//
+	//	limit, err := rule.FindLimit(zap.NewNop(), keyValues)
+	//	g.Expect(err).ToNot(HaveOccurred())
+	//	g.Expect(limit).To(Equal(uint64(72)))
+	//})
+
+	//t.Run("Context when multiple overrides match", func(t *testing.T) {
+	//	t.Run("It selects the lowest override limit", func(t *testing.T) {
+	//		rule := NewRule(defaultLimiterTestRule(g))
+	//
+	//		// set one overide that matches
+	//		override := &v1limiter.Override{
+	//			Name: "name",
+	//			KeyValues: datatypes.KeyValues{
+	//				"key4": datatypes.String("key4 value"),
+	//			},
+	//			Limit: 72,
+	//		}
+	//		g.Expect(override.Validate()).ToNot(HaveOccurred())
+	//		g.Expect(rule.SetOverride(zap.NewNop(), override)).ToNot(HaveOccurred())
+	//
+	//		// set one overide that does not match
+	//		override = &v1limiter.Override{
+	//			Name:      "different name",
+	//			KeyValues: datatypes.KeyValues{},
+	//			Limit:     1,
+	//		}
+	//		g.Expect(override.Validate()).ToNot(HaveOccurred())
+	//		g.Expect(rule.SetOverride(zap.NewNop(), override)).ToNot(HaveOccurred())
+	//
+	//		// check limit
+	//		keyValues := datatypes.KeyValues{
+	//			"key4": datatypes.String("key4 value"),
+	//		}
+	//
+	//		limit, err := rule.FindLimit(zap.NewNop(), keyValues)
+	//		g.Expect(err).ToNot(HaveOccurred())
+	//		g.Expect(limit).To(Equal(uint64(1)))
+	//	})
+	//})
 }
 
 /*

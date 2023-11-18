@@ -311,15 +311,15 @@ func TestBTree_Random_AllActions(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	onFindNoOp := func(item any) {}
-	onFindPaginateTrue := func(_ any) bool { return true }
-	onFindPaginateFalse := func(_ any) bool { return false }
+	onFindPaginateTrue := func(_ datatypes.EncapsulatedData, _ any) bool { return true }
+	onFindPaginateFalse := func(_ datatypes.EncapsulatedData, _ any) bool { return false }
 
 	t.Run("it can run all actions with a nodeSize of 2", func(t *testing.T) {
 		bTree, err := NewThreadSafe(2)
 		g.Expect(err).ToNot(HaveOccurred())
 
 		wg := new(sync.WaitGroup)
-		var onFindPaginate func(item any) bool
+		var onFindPaginate func(key datatypes.EncapsulatedData, item any) bool
 		for i := 0; i < 10_000; i++ {
 			switch i % 3 {
 			case 0:
@@ -356,77 +356,77 @@ func TestBTree_Random_AllActions(t *testing.T) {
 
 			// find not equal
 			wg.Add(1)
-			go func(tKey datatypes.EncapsulatedData, callback func(any) bool) {
+			go func(tKey datatypes.EncapsulatedData, callback func(_ datatypes.EncapsulatedData, _ any) bool) {
 				defer wg.Done()
 				g.Expect(bTree.FindNotEqual(tKey, callback)).ToNot(HaveOccurred())
 			}(datatypes.Int(i), onFindPaginate)
 
 			// find not equal match type
 			wg.Add(1)
-			go func(tKey datatypes.EncapsulatedData, callback func(any) bool) {
+			go func(tKey datatypes.EncapsulatedData, callback func(datatypes.EncapsulatedData, any) bool) {
 				defer wg.Done()
 				g.Expect(bTree.FindNotEqualMatchType(tKey, callback)).ToNot(HaveOccurred())
 			}(datatypes.Int(i), onFindPaginate)
 
 			// find not equal match type
 			wg.Add(1)
-			go func(tKey datatypes.EncapsulatedData, callback func(any) bool) {
+			go func(tKey datatypes.EncapsulatedData, callback func(datatypes.EncapsulatedData, any) bool) {
 				defer wg.Done()
 				g.Expect(bTree.FindNotEqualMatchType(tKey, callback)).ToNot(HaveOccurred())
 			}(datatypes.Int(i), onFindPaginate)
 
 			// find less than
 			wg.Add(1)
-			go func(tKey datatypes.EncapsulatedData, callback func(any) bool) {
+			go func(tKey datatypes.EncapsulatedData, callback func(datatypes.EncapsulatedData, any) bool) {
 				defer wg.Done()
 				g.Expect(bTree.FindLessThan(tKey, callback)).ToNot(HaveOccurred())
 			}(datatypes.Int(i), onFindPaginate)
 
 			// find less than match type
 			wg.Add(1)
-			go func(tKey datatypes.EncapsulatedData, callback func(any) bool) {
+			go func(tKey datatypes.EncapsulatedData, callback func(datatypes.EncapsulatedData, any) bool) {
 				defer wg.Done()
 				g.Expect(bTree.FindLessThanMatchType(tKey, callback)).ToNot(HaveOccurred())
 			}(datatypes.Int(i), onFindPaginate)
 
 			// find less than or equal
 			wg.Add(1)
-			go func(tKey datatypes.EncapsulatedData, callback func(any) bool) {
+			go func(tKey datatypes.EncapsulatedData, callback func(datatypes.EncapsulatedData, any) bool) {
 				defer wg.Done()
 				g.Expect(bTree.FindLessThanOrEqual(tKey, callback)).ToNot(HaveOccurred())
 			}(datatypes.Int(i), onFindPaginate)
 
 			// find less than or equal match type
 			wg.Add(1)
-			go func(tKey datatypes.EncapsulatedData, callback func(any) bool) {
+			go func(tKey datatypes.EncapsulatedData, callback func(datatypes.EncapsulatedData, any) bool) {
 				defer wg.Done()
 				g.Expect(bTree.FindLessThanOrEqualMatchType(tKey, callback)).ToNot(HaveOccurred())
 			}(datatypes.Int(i), onFindPaginate)
 
 			// find greater than
 			wg.Add(1)
-			go func(tKey datatypes.EncapsulatedData, callback func(any) bool) {
+			go func(tKey datatypes.EncapsulatedData, callback func(datatypes.EncapsulatedData, any) bool) {
 				defer wg.Done()
 				g.Expect(bTree.FindGreaterThan(tKey, callback)).ToNot(HaveOccurred())
 			}(datatypes.Int(i), onFindPaginate)
 
 			// find greater than match type
 			wg.Add(1)
-			go func(tKey datatypes.EncapsulatedData, callback func(any) bool) {
+			go func(tKey datatypes.EncapsulatedData, callback func(datatypes.EncapsulatedData, any) bool) {
 				defer wg.Done()
 				g.Expect(bTree.FindGreaterThanMatchType(tKey, callback)).ToNot(HaveOccurred())
 			}(datatypes.Int(i), onFindPaginate)
 
 			// find greater than or equal
 			wg.Add(1)
-			go func(tKey datatypes.EncapsulatedData, callback func(any) bool) {
+			go func(tKey datatypes.EncapsulatedData, callback func(datatypes.EncapsulatedData, any) bool) {
 				defer wg.Done()
 				g.Expect(bTree.FindGreaterThanOrEqual(tKey, callback)).ToNot(HaveOccurred())
 			}(datatypes.Int(i), onFindPaginate)
 
 			// find greater than or equal match type
 			wg.Add(1)
-			go func(tKey datatypes.EncapsulatedData, callback func(any) bool) {
+			go func(tKey datatypes.EncapsulatedData, callback func(datatypes.EncapsulatedData, any) bool) {
 				defer wg.Done()
 				g.Expect(bTree.FindGreaterThanOrEqualMatchType(tKey, callback)).ToNot(HaveOccurred())
 			}(datatypes.Int(i), onFindPaginate)
@@ -448,7 +448,7 @@ func TestBTree_Random_AllActions(t *testing.T) {
 		g.Expect(err).ToNot(HaveOccurred())
 
 		wg := new(sync.WaitGroup)
-		var onFindPaginate func(item any) bool
+		var onFindPaginate func(key datatypes.EncapsulatedData, item any) bool
 		for i := 0; i < 10_000; i++ {
 			switch i % 3 {
 			case 0:
@@ -486,77 +486,77 @@ func TestBTree_Random_AllActions(t *testing.T) {
 			// find not equal
 
 			wg.Add(1)
-			go func(tKey datatypes.EncapsulatedData, callback func(any) bool) {
+			go func(tKey datatypes.EncapsulatedData, callback func(datatypes.EncapsulatedData, any) bool) {
 				defer wg.Done()
 				g.Expect(bTree.FindNotEqual(tKey, callback)).ToNot(HaveOccurred())
 			}(datatypes.Int(i), onFindPaginate)
 
 			// find not equal match type
 			wg.Add(1)
-			go func(tKey datatypes.EncapsulatedData, callback func(any) bool) {
+			go func(tKey datatypes.EncapsulatedData, callback func(datatypes.EncapsulatedData, any) bool) {
 				defer wg.Done()
 				g.Expect(bTree.FindNotEqualMatchType(tKey, callback)).ToNot(HaveOccurred())
 			}(datatypes.Int(i), onFindPaginate)
 
 			// find not equal match type
 			wg.Add(1)
-			go func(tKey datatypes.EncapsulatedData, callback func(any) bool) {
+			go func(tKey datatypes.EncapsulatedData, callback func(datatypes.EncapsulatedData, any) bool) {
 				defer wg.Done()
 				g.Expect(bTree.FindNotEqualMatchType(tKey, callback)).ToNot(HaveOccurred())
 			}(datatypes.Int(i), onFindPaginate)
 
 			// find less than
 			wg.Add(1)
-			go func(tKey datatypes.EncapsulatedData, callback func(any) bool) {
+			go func(tKey datatypes.EncapsulatedData, callback func(datatypes.EncapsulatedData, any) bool) {
 				defer wg.Done()
 				g.Expect(bTree.FindLessThan(tKey, callback)).ToNot(HaveOccurred())
 			}(datatypes.Int(i), onFindPaginate)
 
 			// find less than match type
 			wg.Add(1)
-			go func(tKey datatypes.EncapsulatedData, callback func(any) bool) {
+			go func(tKey datatypes.EncapsulatedData, callback func(datatypes.EncapsulatedData, any) bool) {
 				defer wg.Done()
 				g.Expect(bTree.FindLessThanMatchType(tKey, callback)).ToNot(HaveOccurred())
 			}(datatypes.Int(i), onFindPaginate)
 
 			// find less than or equal
 			wg.Add(1)
-			go func(tKey datatypes.EncapsulatedData, callback func(any) bool) {
+			go func(tKey datatypes.EncapsulatedData, callback func(datatypes.EncapsulatedData, any) bool) {
 				defer wg.Done()
 				g.Expect(bTree.FindLessThanOrEqual(tKey, callback)).ToNot(HaveOccurred())
 			}(datatypes.Int(i), onFindPaginate)
 
 			// find less than or equal match type
 			wg.Add(1)
-			go func(tKey datatypes.EncapsulatedData, callback func(any) bool) {
+			go func(tKey datatypes.EncapsulatedData, callback func(datatypes.EncapsulatedData, any) bool) {
 				defer wg.Done()
 				g.Expect(bTree.FindLessThanOrEqualMatchType(tKey, callback)).ToNot(HaveOccurred())
 			}(datatypes.Int(i), onFindPaginate)
 
 			// find greater than
 			wg.Add(1)
-			go func(tKey datatypes.EncapsulatedData, callback func(any) bool) {
+			go func(tKey datatypes.EncapsulatedData, callback func(datatypes.EncapsulatedData, any) bool) {
 				defer wg.Done()
 				g.Expect(bTree.FindGreaterThan(tKey, callback)).ToNot(HaveOccurred())
 			}(datatypes.Int(i), onFindPaginate)
 
 			// find greater than match type
 			wg.Add(1)
-			go func(tKey datatypes.EncapsulatedData, callback func(any) bool) {
+			go func(tKey datatypes.EncapsulatedData, callback func(datatypes.EncapsulatedData, any) bool) {
 				defer wg.Done()
 				g.Expect(bTree.FindGreaterThanMatchType(tKey, callback)).ToNot(HaveOccurred())
 			}(datatypes.Int(i), onFindPaginate)
 
 			// find greater than or equal
 			wg.Add(1)
-			go func(tKey datatypes.EncapsulatedData, callback func(any) bool) {
+			go func(tKey datatypes.EncapsulatedData, callback func(datatypes.EncapsulatedData, any) bool) {
 				defer wg.Done()
 				g.Expect(bTree.FindGreaterThanOrEqual(tKey, callback)).ToNot(HaveOccurred())
 			}(datatypes.Int(i), onFindPaginate)
 
 			// find greater than or equal match type
 			wg.Add(1)
-			go func(tKey datatypes.EncapsulatedData, callback func(any) bool) {
+			go func(tKey datatypes.EncapsulatedData, callback func(datatypes.EncapsulatedData, any) bool) {
 				defer wg.Done()
 				g.Expect(bTree.FindGreaterThanOrEqualMatchType(tKey, callback)).ToNot(HaveOccurred())
 			}(datatypes.Int(i), onFindPaginate)
@@ -578,7 +578,7 @@ func TestBTree_Random_AllActions(t *testing.T) {
 		g.Expect(err).ToNot(HaveOccurred())
 
 		wg := new(sync.WaitGroup)
-		var onFindPaginate func(item any) bool
+		var onFindPaginate func(key datatypes.EncapsulatedData, item any) bool
 		for i := 0; i < 10_000; i++ {
 			switch i % 3 {
 			case 0:
@@ -616,77 +616,77 @@ func TestBTree_Random_AllActions(t *testing.T) {
 			// find not equal
 
 			wg.Add(1)
-			go func(tKey datatypes.EncapsulatedData, callback func(any) bool) {
+			go func(tKey datatypes.EncapsulatedData, callback func(datatypes.EncapsulatedData, any) bool) {
 				defer wg.Done()
 				g.Expect(bTree.FindNotEqual(tKey, callback)).ToNot(HaveOccurred())
 			}(datatypes.Int(i), onFindPaginate)
 
 			// find not equal match type
 			wg.Add(1)
-			go func(tKey datatypes.EncapsulatedData, callback func(any) bool) {
+			go func(tKey datatypes.EncapsulatedData, callback func(datatypes.EncapsulatedData, any) bool) {
 				defer wg.Done()
 				g.Expect(bTree.FindNotEqualMatchType(tKey, callback)).ToNot(HaveOccurred())
 			}(datatypes.Int(i), onFindPaginate)
 
 			// find not equal match type
 			wg.Add(1)
-			go func(tKey datatypes.EncapsulatedData, callback func(any) bool) {
+			go func(tKey datatypes.EncapsulatedData, callback func(datatypes.EncapsulatedData, any) bool) {
 				defer wg.Done()
 				g.Expect(bTree.FindNotEqualMatchType(tKey, callback)).ToNot(HaveOccurred())
 			}(datatypes.Int(i), onFindPaginate)
 
 			// find less than
 			wg.Add(1)
-			go func(tKey datatypes.EncapsulatedData, callback func(any) bool) {
+			go func(tKey datatypes.EncapsulatedData, callback func(datatypes.EncapsulatedData, any) bool) {
 				defer wg.Done()
 				g.Expect(bTree.FindLessThan(tKey, callback)).ToNot(HaveOccurred())
 			}(datatypes.Int(i), onFindPaginate)
 
 			// find less than match type
 			wg.Add(1)
-			go func(tKey datatypes.EncapsulatedData, callback func(any) bool) {
+			go func(tKey datatypes.EncapsulatedData, callback func(datatypes.EncapsulatedData, any) bool) {
 				defer wg.Done()
 				g.Expect(bTree.FindLessThanMatchType(tKey, callback)).ToNot(HaveOccurred())
 			}(datatypes.Int(i), onFindPaginate)
 
 			// find less than or equal
 			wg.Add(1)
-			go func(tKey datatypes.EncapsulatedData, callback func(any) bool) {
+			go func(tKey datatypes.EncapsulatedData, callback func(datatypes.EncapsulatedData, any) bool) {
 				defer wg.Done()
 				g.Expect(bTree.FindLessThanOrEqual(tKey, callback)).ToNot(HaveOccurred())
 			}(datatypes.Int(i), onFindPaginate)
 
 			// find less than or equal match type
 			wg.Add(1)
-			go func(tKey datatypes.EncapsulatedData, callback func(any) bool) {
+			go func(tKey datatypes.EncapsulatedData, callback func(datatypes.EncapsulatedData, any) bool) {
 				defer wg.Done()
 				g.Expect(bTree.FindLessThanOrEqualMatchType(tKey, callback)).ToNot(HaveOccurred())
 			}(datatypes.Int(i), onFindPaginate)
 
 			// find greater than
 			wg.Add(1)
-			go func(tKey datatypes.EncapsulatedData, callback func(any) bool) {
+			go func(tKey datatypes.EncapsulatedData, callback func(datatypes.EncapsulatedData, any) bool) {
 				defer wg.Done()
 				g.Expect(bTree.FindGreaterThan(tKey, callback)).ToNot(HaveOccurred())
 			}(datatypes.Int(i), onFindPaginate)
 
 			// find greater than match type
 			wg.Add(1)
-			go func(tKey datatypes.EncapsulatedData, callback func(any) bool) {
+			go func(tKey datatypes.EncapsulatedData, callback func(datatypes.EncapsulatedData, any) bool) {
 				defer wg.Done()
 				g.Expect(bTree.FindGreaterThanMatchType(tKey, callback)).ToNot(HaveOccurred())
 			}(datatypes.Int(i), onFindPaginate)
 
 			// find greater than or equal
 			wg.Add(1)
-			go func(tKey datatypes.EncapsulatedData, callback func(any) bool) {
+			go func(tKey datatypes.EncapsulatedData, callback func(datatypes.EncapsulatedData, any) bool) {
 				defer wg.Done()
 				g.Expect(bTree.FindGreaterThanOrEqual(tKey, callback)).ToNot(HaveOccurred())
 			}(datatypes.Int(i), onFindPaginate)
 
 			// find greater than or equal match type
 			wg.Add(1)
-			go func(tKey datatypes.EncapsulatedData, callback func(any) bool) {
+			go func(tKey datatypes.EncapsulatedData, callback func(datatypes.EncapsulatedData, any) bool) {
 				defer wg.Done()
 				g.Expect(bTree.FindGreaterThanOrEqualMatchType(tKey, callback)).ToNot(HaveOccurred())
 			}(datatypes.Int(i), onFindPaginate)

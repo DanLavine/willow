@@ -19,7 +19,13 @@ paths:
               $ref: "#/components/schemas/CreateRuleRequest"
       responses:
         201:
-          description: Created a new limiter rule
+          description: |
+            Created a new limiter rule. When adding a counter, each Rule that matches the the Counter.KeyValues request
+            is evaluated to ensure that the specific Rule's GroupBy slection has not hit the limit. It is importnat to
+            note that if multiple rules all match the same Counter.KeyValues they will all be evaluated.
+
+            There is specual logic when a Rule has a Limit = 0. In this case the service will respond quickly rejecting
+            The request saying the limit has been reached
         400:
           description: Error parsing or validating the request body
           content:
@@ -36,12 +42,12 @@ paths:
       operationId: list Rules
       requestBody:
         description: |
-          Query rules that match any particular Key Values
+          List any Rules that match the particular Key Values and optional overrides
         required: true
         content:
           appplication/json:
             schema:
-              $ref: "#/components/schemas/ListRulesRequest"
+              $ref: "#/components/schemas/RuleQuery"
       responses:
         200:
           description: Successfully searched for any rules that matched the query
@@ -61,12 +67,14 @@ paths:
   /v1/limiter/rules/:name:
     get:
       operationId: get Rule
-      parameters:
-        - name: includeOverrides
-          in: query
-          schema:
-            type: boolean
-            default: false
+      requestBody:
+        description: |
+          Get the Rule by name and any optional overrides
+        required: true
+        content:
+          appplication/json:
+            schema:
+              $ref: "#/components/schemas/RuleQuery"
       responses:
         200:
           description: |
@@ -145,7 +153,8 @@ paths:
       operationId: create Rule Override
       requestBody:
         description: |
-          Create a new Override rule for a specifc set of Key Value pairs
+          Create a new Override rule for a set of Key Value pairs. If multiple Overrides all match
+          the same Create.KeyValues then the lowest value will be selected
         required: true
         content:
           appplication/json:
@@ -377,9 +386,6 @@ components:
           type: array
           items:
             type: string
-        QueryFilter:
-          description: "Optional query to select specific or filter out unwanted Key Values"
-          $ref: "#/components/schemas/AssociatedKeyValuesQuery"
         Limit:
           description: "Max limit for any Key Value Group"
           type: integer
@@ -397,16 +403,24 @@ components:
           description: default limit that all rules adhere to
 
     # List rules that match the provided key values
-    ListRulesRequest:
+    RuleQuery:
       type: object
       properties:
         KeyValues:
           description: "Key Values to match rules against"
           $ref: "#/components/schemas/KeyValues"
-        IncludeOverrides:
-          description: "Include any override values that match the provided key values as well"
-          type: boolean
-          default: false
+        OverrideQuery:
+          description: |
+            "Include overrides for the found rule.
+            - '' - don't include any overrides
+            - "all" - includes all overrides for a rule
+            - "match" - includes all overrides that also match the provided KeyValues
+          type: string
+          default: ""
+          enum:
+            - ""
+            - "all"
+            - "match"
     # Find rule response
     RulesResponse:
       type: object

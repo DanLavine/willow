@@ -30,7 +30,8 @@ func main() {
 	defer logger.Sync()
 
 	// setup shutdown signa
-	shutdown, _ := signal.NotifyContext(context.Background(), syscall.SIGINT)
+	shutdown, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT)
+	defer cancel()
 
 	// setup locker client
 	constructor, err := rules.NewRuleConstructor("memory")

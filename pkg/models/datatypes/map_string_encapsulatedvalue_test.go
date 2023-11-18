@@ -220,7 +220,6 @@ func TestKeyValues_DataEncoding(t *testing.T) {
 			"Float32": Float32(1),
 			"Float64": Float64(1),
 			"String":  String("1"),
-			"Nil":     Nil(),
 		}
 
 		data, err := json.Marshal(keyValues)

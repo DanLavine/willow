@@ -113,7 +113,7 @@ func (itc *IntegrationTestConstruct) StartLocker(g *WithT) {
 	itc.Session = session
 }
 
-func (itc *IntegrationTestConstruct) StartLimiter(g *WithT) {
+func (itc *IntegrationTestConstruct) StartLimiter(g *WithT, lockerURL string) {
 	tmpDir, err := os.MkdirTemp("", "")
 	g.Expect(err).ToNot(HaveOccurred())
 	itc.dataDir = tmpDir
@@ -122,6 +122,10 @@ func (itc *IntegrationTestConstruct) StartLimiter(g *WithT) {
 
 	cmdLineFlags := []string{
 		"-log-level", "debug",
+		"-limiter-locker-url", lockerURL,
+		"-limiter-locker-client-ca", filepath.Join(currentDir, "..", "..", "..", "testhelpers", "tls-keys", "ca.crt"),
+		"-limiter-locker-client-key", filepath.Join(currentDir, "..", "..", "..", "testhelpers", "tls-keys", "client.key"),
+		"-limiter-locker-client-crt", filepath.Join(currentDir, "..", "..", "..", "testhelpers", "tls-keys", "client.crt"),
 		"-limiter-ca", filepath.Join(currentDir, "..", "..", "..", "testhelpers", "tls-keys", "ca.crt"),
 		"-limiter-server-key", filepath.Join(currentDir, "..", "..", "..", "testhelpers", "tls-keys", "server.key"),
 		"-limiter-server-crt", filepath.Join(currentDir, "..", "..", "..", "testhelpers", "tls-keys", "server.crt"),
@@ -144,7 +148,7 @@ func (itc *IntegrationTestConstruct) Shutdown(g *WithT) {
 	session := itc.Session.Interrupt()
 	time.Sleep(time.Second)
 
-	g.Eventually(session, "20s").Should(gexec.Exit(0), string(itc.Session.Out.Contents()))
+	g.Eventually(session, "2s").Should(gexec.Exit(0), itc.ServerStderr.String())
 
 	g.Expect(os.RemoveAll(itc.dataDir)).ToNot(HaveOccurred())
 }

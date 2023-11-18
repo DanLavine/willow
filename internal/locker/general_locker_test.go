@@ -9,6 +9,7 @@ import (
 
 	"github.com/DanLavine/goasync"
 
+	btreeassociated "github.com/DanLavine/willow/internal/datastructures/btree_associated"
 	"github.com/DanLavine/willow/pkg/models/api/v1locker"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 	. "github.com/onsi/gomega"
@@ -68,7 +69,7 @@ func TestGeneralLocker_ObtainLocks(t *testing.T) {
 		g.Expect(lockResp.Timeout).To(Equal(15 * time.Second)) // default values
 
 		counter := 0
-		lockCounter := func(_ any) bool {
+		lockCounter := func(_ *btreeassociated.AssociatedKeyValues) bool {
 			counter++
 			return true
 		}
@@ -99,7 +100,7 @@ func TestGeneralLocker_ObtainLocks(t *testing.T) {
 				g.Expect(lockResp).ToNot(BeNil())
 
 				counter := 0
-				lockCounter := func(_ any) bool {
+				lockCounter := func(_ *btreeassociated.AssociatedKeyValues) bool {
 					counter++
 					return true
 				}
@@ -131,7 +132,7 @@ func TestGeneralLocker_ObtainLocks(t *testing.T) {
 				g.Expect(lockResp).ToNot(BeNil())
 
 				counter := 0
-				lockCounter := func(_ any) bool {
+				lockCounter := func(_ *btreeassociated.AssociatedKeyValues) bool {
 					counter++
 					return true
 				}

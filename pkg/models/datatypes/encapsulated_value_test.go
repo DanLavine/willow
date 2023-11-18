@@ -15,11 +15,19 @@ func (at customTest) Less(item any) bool {
 	return at.value < item.(customTest).value
 }
 
+func (at customTest) Encode() []byte {
+	return nil
+}
+
+func (at customTest) Decode(b []byte) (any, error) {
+	return nil, nil
+}
+
 func TestEncapsulatedValue_Less(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	// custom
-	tCustom := Custom(customTest{value: "custom"})
+	//tCustom := Custom(customTest{value: "custom"})
 
 	// ints
 	tInt := Int(1)
@@ -42,13 +50,10 @@ func TestEncapsulatedValue_Less(t *testing.T) {
 	// string
 	tString := String("a")
 
-	// nil
-	tNil := Nil()
-
 	t.Run("keys of the same values are always equal", func(t *testing.T) {
 		// custom
-		g.Expect(tCustom.Less(Custom(customTest{value: "custom"}))).To(BeFalse())
-		g.Expect(Custom(customTest{value: "custom"}).Less(tCustom)).To(BeFalse())
+		//g.Expect(tCustom.Less(Custom(customTest{value: "custom"}))).To(BeFalse())
+		//g.Expect(Custom(customTest{value: "custom"}).Less(tCustom)).To(BeFalse())
 
 		// ints
 		//// int
@@ -95,15 +100,11 @@ func TestEncapsulatedValue_Less(t *testing.T) {
 		// string
 		g.Expect(tString.Less(String("a"))).To(BeFalse())
 		g.Expect(String("a").Less(tString)).To(BeFalse())
-
-		// nil
-		g.Expect(tNil.Less(Nil())).To(BeFalse())
-		g.Expect(Nil().Less(tNil)).To(BeFalse())
 	})
 
 	t.Run("keys of the same type have proper Less than values", func(t *testing.T) {
 		// custom
-		g.Expect(tCustom.Less(Custom(customTest{value: "customMore"}))).To(BeTrue())
+		//g.Expect(tCustom.Less(Custom(customTest{value: "customMore"}))).To(BeTrue())
 
 		// ints
 		//// int
@@ -137,14 +138,11 @@ func TestEncapsulatedValue_Less(t *testing.T) {
 
 		// string
 		g.Expect(tString.Less(String("b"))).To(BeTrue())
-
-		// nil
-		g.Expect(tNil.Less(Nil())).To(BeFalse())
 	})
 
 	t.Run("keys of the same type respect greater than values", func(t *testing.T) {
 		// custom
-		g.Expect(tCustom.Less(Custom(customTest{value: "custo"}))).To(BeFalse())
+		//g.Expect(tCustom.Less(Custom(customTest{value: "custo"}))).To(BeFalse())
 
 		// ints
 		//// int
@@ -178,9 +176,6 @@ func TestEncapsulatedValue_Less(t *testing.T) {
 
 		// string
 		g.Expect(tString.Less(String("0"))).To(BeFalse())
-
-		// nil
-		g.Expect(tNil.Less(Nil())).To(BeFalse())
 	})
 }
 
@@ -188,7 +183,7 @@ func TestEncapsulatedValue_LessType(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	// custom
-	tCustom := Custom(customTest{value: "custom"})
+	//tCustom := Custom(customTest{value: "custom"})
 
 	// ints
 	tInt := Int(1)
@@ -211,13 +206,10 @@ func TestEncapsulatedValue_LessType(t *testing.T) {
 	// string
 	tString := String("a")
 
-	// nil
-	tNil := Nil()
-
 	t.Run("type of the same values are always equal", func(t *testing.T) {
 		// custom
-		g.Expect(tCustom.LessType(Custom(customTest{value: "custom"}))).To(BeFalse())
-		g.Expect(Custom(customTest{value: "custom"}).LessType(tCustom)).To(BeFalse())
+		//g.Expect(tCustom.LessType(Custom(customTest{value: "custom"}))).To(BeFalse())
+		//g.Expect(Custom(customTest{value: "custom"}).LessType(tCustom)).To(BeFalse())
 
 		// ints
 		//// int
@@ -264,10 +256,6 @@ func TestEncapsulatedValue_LessType(t *testing.T) {
 		// string
 		g.Expect(tString.LessType(String("a"))).To(BeFalse())
 		g.Expect(String("a").LessType(tString)).To(BeFalse())
-
-		// nil
-		g.Expect(tNil.LessType(Nil())).To(BeFalse())
-		g.Expect(Nil().LessType(tNil)).To(BeFalse())
 	})
 }
 
@@ -275,7 +263,7 @@ func TestEncapsulatedValue_LessValue(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	// custom
-	tCustom := Custom(customTest{value: "custom"})
+	//tCustom := Custom(customTest{value: "custom"})
 
 	// ints
 	tInt := Int(1)
@@ -298,12 +286,9 @@ func TestEncapsulatedValue_LessValue(t *testing.T) {
 	// string
 	tString := String("a")
 
-	// nil
-	tNil := Nil()
-
 	t.Run("panics if they types are not the same", func(t *testing.T) {
 		// custom
-		g.Expect(func() { tInt.LessValue(Custom(customTest{value: "custom"})) }).To(Panic())
+		//g.Expect(func() { tInt.LessValue(Custom(customTest{value: "custom"})) }).To(Panic())
 
 		// ints
 		g.Expect(func() { tInt.LessValue(Int64(1)) }).To(Panic())
@@ -335,14 +320,14 @@ func TestEncapsulatedValue_LessValue(t *testing.T) {
 		// string
 		g.Expect(func() { tString.LessValue(Int(4)) }).To(Panic())
 
-		// nil
-		g.Expect(func() { tNil.LessValue(Int(1)) }).To(Panic())
+		// any
+		// nothing to test here since it is always false
 	})
 
 	t.Run("compares values properly when they are the same type", func(t *testing.T) {
 		// custom
-		g.Expect(tCustom.LessValue(Custom(customTest{value: "custom"}))).To(BeFalse())
-		g.Expect(Custom(customTest{value: "custom"}).LessValue(tCustom)).To(BeFalse())
+		//g.Expect(tCustom.LessValue(Custom(customTest{value: "custom"}))).To(BeFalse())
+		//g.Expect(Custom(customTest{value: "custom"}).LessValue(tCustom)).To(BeFalse())
 
 		// ints
 		//// int
@@ -389,10 +374,6 @@ func TestEncapsulatedValue_LessValue(t *testing.T) {
 		// string
 		g.Expect(tString.LessValue(String("a"))).To(BeFalse())
 		g.Expect(String("a").LessValue(tString)).To(BeFalse())
-
-		// nil
-		g.Expect(tNil.LessValue(Nil())).To(BeFalse())
-		g.Expect(Nil().LessValue(tNil)).To(BeFalse())
 	})
 }
 
@@ -412,18 +393,13 @@ func TestEncapsulatedValue_Validate(t *testing.T) {
 
 		err := encapsulatedData.Validate()
 		g.Expect(err).To(HaveOccurred())
-		g.Expect(err.Error()).To(Equal("EncapsulatedValue has an unkown data type"))
+		g.Expect(err.Error()).To(Equal("EncapsulatedValue has an unkown data type: 1000000"))
 	})
 
 	t.Run("it returns an error if the DataType and value don't match", func(t *testing.T) {
-		// custom
-		err := EncapsulatedValue{Type: T_custom, Data: "bad"}.Validate()
-		g.Expect(err).To(HaveOccurred())
-		g.Expect(err.Error()).To(Equal("EncapsulatedValue has a custom data type which dos not implement: CheckLess"))
-
 		// ints
 		//// int
-		err = EncapsulatedValue{Type: T_int, Data: "nope"}.Validate()
+		err := EncapsulatedValue{Type: T_int, Data: "nope"}.Validate()
 		g.Expect(err).To(HaveOccurred())
 		g.Expect(err.Error()).To(Equal("EncapsulatedValue has an int data type, but the Value is a: string"))
 		//// int8
@@ -479,10 +455,5 @@ func TestEncapsulatedValue_Validate(t *testing.T) {
 		err = EncapsulatedValue{Type: T_string, Data: int(42)}.Validate()
 		g.Expect(err).To(HaveOccurred())
 		g.Expect(err.Error()).To(Equal("EncapsulatedValue has a string data type, but the Value is a: int"))
-
-		// nil
-		err = EncapsulatedValue{Type: T_nil, Data: int(42)}.Validate()
-		g.Expect(err).To(HaveOccurred())
-		g.Expect(err.Error()).To(Equal("EncapsulatedValue has a 'nil' data type and requires the Value to be nil"))
 	})
 }

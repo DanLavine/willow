@@ -11,16 +11,17 @@ import (
 
 type LimiterClient interface {
 	// rule operations
-	CreateRule(rule *v1limiter.Rule) error
+	CreateRule(rule v1limiter.RuleRequest) error
 
-	GetRule(ruleName string, includeOverrides bool) (*v1limiter.Rule, error)
+	GetRule(ruleName string, query v1limiter.RuleQuery) (*v1limiter.RuleResponse, error)
+	ListRules(query v1limiter.RuleQuery) (v1limiter.Rules, error)
 
-	UpdateRule(ruleName string, ruleUpdate *v1limiter.RuleUpdate) error
+	UpdateRule(ruleName string, ruleUpdate v1limiter.RuleUpdate) error
 
 	DeleteRule(ruleName string) error
 
 	// override operations
-	CreateOverride(ruleName string, override *v1limiter.Override) error
+	CreateOverride(ruleName string, override v1limiter.Override) error
 	DeleteOverride(ruleName string, overrideName string) error
 }
 

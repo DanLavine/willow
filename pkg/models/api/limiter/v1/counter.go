@@ -8,19 +8,19 @@ import (
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 )
 
-type RuleCounterRequest struct {
+type Counter struct {
 	// Specific key values to add or remove a counter from
 	KeyValues datatypes.KeyValues
 }
 
-func ParseCounterRequest(reader io.ReadCloser) (*RuleCounterRequest, *api.Error) {
+func ParseCounterRequest(reader io.ReadCloser) (*Counter, *api.Error) {
 	requestBody, err := io.ReadAll(reader)
 	if err != nil {
 		return nil, api.ReadRequestBodyError.With("", err.Error())
 	}
 
-	obj := &RuleCounterRequest{}
-	if err := json.Unmarshal(requestBody, obj); err != nil {
+	obj := Counter{}
+	if err := json.Unmarshal(requestBody, &obj); err != nil {
 		return nil, api.ParseRequestBodyError.With("", err.Error())
 	}
 
@@ -28,15 +28,11 @@ func ParseCounterRequest(reader io.ReadCloser) (*RuleCounterRequest, *api.Error)
 		return nil, validateErr
 	}
 
-	return obj, nil
+	return &obj, nil
 }
 
-func (rcr *RuleCounterRequest) Validate() *api.Error {
-	if len(rcr.KeyValues) == 0 {
-		return api.InvalidRequestBody.With("KeyValues to be provided", "recieved empty KeyValues set")
-	}
-
-	if err := rcr.KeyValues.Validate(); err != nil {
+func (c Counter) Validate() *api.Error {
+	if err := c.KeyValues.Validate(); err != nil {
 		return api.InvalidRequestBody.With("Key values to be valid", err.Error())
 	}
 

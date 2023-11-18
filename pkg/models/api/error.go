@@ -10,10 +10,12 @@ import (
 var (
 	MarshelModelFailed = &Error{Message: "Failed to encode response.", StatusCode: http.StatusInternalServerError}
 
-	NotAcceptable         = &Error{Message: "Invalid request.", StatusCode: http.StatusNotAcceptable}
-	InvalidRequestBody    = &Error{Message: "Invalid request body.", StatusCode: http.StatusBadRequest}
-	ReadRequestBodyError  = &Error{Message: "Failed to read request body.", StatusCode: http.StatusInternalServerError}
-	ParseRequestBodyError = &Error{Message: "Failed to parse request body.", StatusCode: http.StatusBadRequest}
+	NotAcceptable          = &Error{Message: "Invalid request.", StatusCode: http.StatusNotAcceptable}
+	InvalidRequestBody     = &Error{Message: "Invalid request body.", StatusCode: http.StatusBadRequest}
+	ReadRequestBodyError   = &Error{Message: "Failed to read request body.", StatusCode: http.StatusInternalServerError}
+	ReadResponseBodyError  = &Error{Message: "Failed to read server response body.", StatusCode: http.StatusInternalServerError}
+	ParseRequestBodyError  = &Error{Message: "Failed to parse request.", StatusCode: http.StatusBadRequest}
+	ParseResponseBodyError = &Error{Message: "Failed to parse server response.", StatusCode: http.StatusBadRequest}
 )
 
 type Error struct {

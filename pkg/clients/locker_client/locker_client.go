@@ -97,7 +97,7 @@ func NewLockerClient(ctx context.Context, cfg *clients.Config, heartbeatErrorCal
 
 func (lc *lockerclient) Healthy() error {
 	// setup and make request
-	request, err := http.NewRequest("POST", fmt.Sprintf("%s/health", lc.url), nil)
+	request, err := http.NewRequest("GET", fmt.Sprintf("%s/health", lc.url), nil)
 	if err != nil {
 		// this should never actually hit
 		return fmt.Errorf("internal error setting up http request: %w", err)

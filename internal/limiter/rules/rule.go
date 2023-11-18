@@ -1,6 +1,8 @@
 package rules
 
 import (
+	"sort"
+
 	"github.com/DanLavine/willow/pkg/models/api"
 	v1limiter "github.com/DanLavine/willow/pkg/models/api/limiter/v1"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
@@ -9,6 +11,11 @@ import (
 
 //go:generate mockgen -destination=rulefakes/rule_mock.go -package=rulefakes github.com/DanLavine/willow/internal/limiter/rules Rule
 type Rule interface {
+	// retrieve the Name of the rules
+	Name() string
+	// retrieve the original group by keys
+	GetGroupByKeys() []string
+
 	// Update a particualr rule's default limit values
 	Update(logger *zap.Logger, update *v1limiter.RuleUpdate)
 
@@ -22,7 +29,7 @@ type Rule interface {
 	CascadeDeletion(logger *zap.Logger) *api.Error
 
 	// Find the limit for a particualr group of tags when checking the limits
-	FindLimit(logger *zap.Logger, keyValues datatypes.KeyValues) uint64
+	FindLimit(logger *zap.Logger, keyValues datatypes.KeyValues) (uint64, *api.Error)
 
 	// check if any tags coming in match the tag group
 	TagsMatch(logger *zap.Logger, keyValues datatypes.KeyValues) bool
@@ -41,9 +48,45 @@ type Rule interface {
 	GenerateQuery(keyValues datatypes.KeyValues) datatypes.AssociatedKeyValuesQuery
 
 	// Get a rule response for Read operations
-	Get(includeOverrides bool) *v1limiter.Rule
+	Get(includeOverrides *v1limiter.RuleQuery) *v1limiter.RuleResponse
 
 	// Inernal operations
 	//GroupBy() []string
 	//Limits()
+}
+
+func SortRulesGroupBy(rules []Rule) [][]string {
+	sortedGroupBy := [][]string{}
+
+	for _, rule := range rules {
+		sortedGroupBy = append(sortedGroupBy, rule.GetGroupByKeys())
+	}
+
+	// 1. sort by lenght of rules
+	// 2. sort by keys within each length
+	sort.SliceStable(sortedGroupBy, func(i, j int) bool {
+		if len(sortedGroupBy[i]) < len(sortedGroupBy[j]) {
+			return true
+		}
+
+		if len(sortedGroupBy[i]) == len(sortedGroupBy[j]) {
+			sortedKeysI := sort.StringSlice(sortedGroupBy[i])
+			sortedKeysJ := sort.StringSlice(sortedGroupBy[j])
+
+			for index, value := range sortedKeysI {
+				if value < sortedKeysJ[index] {
+					return true
+				} else if sortedKeysJ[index] < value {
+					return false
+				}
+			}
+
+			// at this point, all values must be in the proper order
+			return true
+		}
+
+		return false
+	})
+
+	return sortedGroupBy
 }

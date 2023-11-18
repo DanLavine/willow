@@ -3,7 +3,6 @@ package btreeassociated
 import (
 	"fmt"
 
-	"github.com/DanLavine/willow/internal/datastructures"
 	"github.com/DanLavine/willow/internal/datastructures/set"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 )
@@ -13,21 +12,26 @@ import (
 //
 // PARAMS:
 // - selection - the selection for the specified items to find. See the Select docs for this param specifically
-// - onFindPagination - is the callback used for an items found in the tree. It will recive the objects' value saved in the tree (what were originally provided)
+// - onQueryPagination - is the callback used for an items found in the tree. It will recive the objects' value saved in the tree (what were originally provided)
 //
 // RETURNS:
 // - error - any errors encountered with the parameters
-func (tsat *threadsafeAssociatedTree) Query(query datatypes.AssociatedKeyValuesQuery, onFindPagination datastructures.OnFindPagination) error {
+func (tsat *threadsafeAssociatedTree) Query(query datatypes.AssociatedKeyValuesQuery, onQueryPagination OnQueryPagination) error {
 	if err := query.Validate(); err != nil {
 		return err
 	}
-	if onFindPagination == nil {
-		return fmt.Errorf("onFindPagination cannot be nil")
+	if onQueryPagination == nil {
+		return fmt.Errorf("onQueryPagination cannot be nil")
 	}
 
 	if query.KeyValueSelection == nil && query.And == nil && query.Or == nil {
 		// select all
-		tsat.associatedIDs.Iterate(onFindPagination)
+		wrappedPagination := func(associatedId datatypes.EncapsulatedData, item any) bool {
+			// drop the associated id. its on the AssociatedKeyValues
+			return onQueryPagination(item.(*AssociatedKeyValues))
+		}
+
+		tsat.associatedIDs.Iterate(wrappedPagination)
 	} else {
 		// need to filter for key values
 		validIDs := tsat.query(query)
@@ -35,7 +39,7 @@ func (tsat *threadsafeAssociatedTree) Query(query datatypes.AssociatedKeyValuesQ
 		shouldContinue := true
 		for _, id := range validIDs.Values() {
 			tsat.associatedIDs.Find(datatypes.String(id), func(item any) {
-				shouldContinue = onFindPagination(item)
+				shouldContinue = onQueryPagination(item.(*AssociatedKeyValues))
 			})
 
 			// break querying more items
@@ -48,6 +52,10 @@ func (tsat *threadsafeAssociatedTree) Query(query datatypes.AssociatedKeyValuesQ
 	return nil
 }
 
+// query is used to construct a list of valid ID's to search for
+//
+//	PARAMS:
+//	- query - They user provided query to parse through
 func (tsat *threadsafeAssociatedTree) query(query datatypes.AssociatedKeyValuesQuery) set.Set[string] {
 	// need to filter for key values
 	var validIDs set.Set[string]
@@ -108,8 +116,8 @@ func (tsat *threadsafeAssociatedTree) findIDs(dbQuery datatypes.AssociatedKeyVal
 	if dbQuery.KeyValueSelection != nil {
 		keyValuesSelection := dbQuery.KeyValueSelection
 
-		getAllIDs := func(allIDs *[]string) func(item any) bool {
-			return func(item any) bool {
+		getAllIDs := func(allIDs *[]string) func(_ datatypes.EncapsulatedData, item any) bool {
+			return func(key datatypes.EncapsulatedData, item any) bool {
 				// always casting to an ID node when finding possible indexes
 				idNode := item.(*threadsafeIDNode)
 				idNode.lock.RLock()
@@ -207,14 +215,14 @@ func (tsat *threadsafeAssociatedTree) findIDs(dbQuery datatypes.AssociatedKeyVal
 		}
 
 		sortedKeys := keyValuesSelection.SortedKeys()
-		for _, key := range sortedKeys {
-			value := keyValuesSelection.KeyValues[key]
+		for _, queryKey := range sortedKeys {
+			queryValue := keyValuesSelection.KeyValues[queryKey]
 			allIDS := []string{}
 
 			// special case for the _reserved_id
-			if key == ReservedID {
+			if queryKey == ReservedID {
 				onFind := func(item any) {
-					strValue := value.Value.Value().(string)
+					strValue := queryValue.Value.Value().(string)
 
 					switch validCounter {
 					case 0:
@@ -241,23 +249,23 @@ func (tsat *threadsafeAssociatedTree) findIDs(dbQuery datatypes.AssociatedKeyVal
 					validCounter++
 				}
 
-				_ = tsat.associatedIDs.Find(datatypes.String(value.Value.Value().(string)), onFind)
+				_ = tsat.associatedIDs.Find(datatypes.String(queryValue.Value.Value().(string)), onFind)
 
 				continue
 			}
 
 			// existence check
-			if value.Exists != nil {
-				switch *value.Exists {
+			if queryValue.Exists != nil {
+				switch *queryValue.Exists {
 				case true:
 					inclusive = true
 
-					tsat.keys.Find(datatypes.String(key), func(item any) {
+					tsat.keys.Find(datatypes.String(queryKey), func(item any) {
 						valuesNode := item.(*threadsafeValuesNode)
 
-						if value.ExistsType != nil {
+						if queryValue.ExistsType != nil {
 							// add all values for the  desired type
-							valuesNode.values.IterateMatchType(*value.ExistsType, getAllIDs(&allIDS))
+							valuesNode.values.IterateMatchType(*queryValue.ExistsType, getAllIDs(&allIDS))
 						} else {
 							// add all values
 							valuesNode.values.Iterate(getAllIDs(&allIDS))
@@ -273,11 +281,11 @@ func (tsat *threadsafeAssociatedTree) findIDs(dbQuery datatypes.AssociatedKeyVal
 
 					validCounter++
 				case false:
-					tsat.keys.Find(datatypes.String(key), func(item any) {
+					tsat.keys.Find(datatypes.String(queryKey), func(item any) {
 						valuesNode := item.(*threadsafeValuesNode)
 
-						if value.ExistsType != nil {
-							valuesNode.values.IterateMatchType(*value.ExistsType, getAllIDs(&allIDS))
+						if queryValue.ExistsType != nil {
+							valuesNode.values.IterateMatchType(*queryValue.ExistsType, getAllIDs(&allIDS))
 						} else {
 							valuesNode.values.Iterate(getAllIDs(&allIDS))
 						}
@@ -297,17 +305,17 @@ func (tsat *threadsafeAssociatedTree) findIDs(dbQuery datatypes.AssociatedKeyVal
 			}
 
 			// comparison check
-			switch *value.ValueComparison {
+			switch *queryValue.ValueComparison {
 			case datatypes.Equals():
 				inclusive = true
 				found := false
 
 				// only need to match one key
-				tsat.keys.Find(datatypes.String(key), func(item any) {
+				tsat.keys.Find(datatypes.String(queryKey), func(item any) {
 					valuesNode := item.(*threadsafeValuesNode)
 
 					// only need to match the one value
-					valuesNode.values.Find(*value.Value, func(item any) {
+					valuesNode.values.Find(*queryValue.Value, func(item any) {
 						found = true
 						addValidIDs(item)
 					})
@@ -326,10 +334,10 @@ func (tsat *threadsafeAssociatedTree) findIDs(dbQuery datatypes.AssociatedKeyVal
 				found := false
 
 				// find the key to strip all values
-				tsat.keys.Find(datatypes.String(key), func(item any) {
+				tsat.keys.Find(datatypes.String(queryKey), func(item any) {
 					valuesNode := item.(*threadsafeValuesNode)
 
-					valuesNode.values.Find(*value.Value, func(item any) {
+					valuesNode.values.Find(*queryValue.Value, func(item any) {
 						found = true
 						addInvalidIDs(item)
 					})
@@ -345,9 +353,10 @@ func (tsat *threadsafeAssociatedTree) findIDs(dbQuery datatypes.AssociatedKeyVal
 			case datatypes.LessThan():
 				inclusive = true
 
-				tsat.keys.Find(datatypes.String(key), func(item any) {
+				tsat.keys.Find(datatypes.String(queryKey), func(item any) {
 					valuesNode := item.(*threadsafeValuesNode)
-					valuesNode.values.FindLessThan(*value.Value, getAllIDs(&allIDS))
+
+					valuesNode.values.FindLessThan(*queryValue.Value, getAllIDs(&allIDS))
 
 					switch validCounter {
 					case 0:
@@ -361,9 +370,10 @@ func (tsat *threadsafeAssociatedTree) findIDs(dbQuery datatypes.AssociatedKeyVal
 			case datatypes.LessThanMatchType():
 				inclusive = true
 
-				tsat.keys.Find(datatypes.String(key), func(item any) {
+				tsat.keys.Find(datatypes.String(queryKey), func(item any) {
 					valuesNode := item.(*threadsafeValuesNode)
-					valuesNode.values.FindLessThanMatchType(*value.Value, getAllIDs(&allIDS))
+
+					valuesNode.values.FindLessThanMatchType(*queryValue.Value, getAllIDs(&allIDS))
 
 					switch validCounter {
 					case 0:
@@ -377,9 +387,10 @@ func (tsat *threadsafeAssociatedTree) findIDs(dbQuery datatypes.AssociatedKeyVal
 			case datatypes.LessThanOrEqual():
 				inclusive = true
 
-				tsat.keys.Find(datatypes.String(key), func(item any) {
+				tsat.keys.Find(datatypes.String(queryKey), func(item any) {
 					valuesNode := item.(*threadsafeValuesNode)
-					valuesNode.values.FindLessThanOrEqual(*value.Value, getAllIDs(&allIDS))
+
+					valuesNode.values.FindLessThanOrEqual(*queryValue.Value, getAllIDs(&allIDS))
 
 					switch validCounter {
 					case 0:
@@ -393,9 +404,10 @@ func (tsat *threadsafeAssociatedTree) findIDs(dbQuery datatypes.AssociatedKeyVal
 			case datatypes.LessThanOrEqualMatchType():
 				inclusive = true
 
-				tsat.keys.Find(datatypes.String(key), func(item any) {
+				tsat.keys.Find(datatypes.String(queryKey), func(item any) {
 					valuesNode := item.(*threadsafeValuesNode)
-					valuesNode.values.FindLessThanOrEqualMatchType(*value.Value, getAllIDs(&allIDS))
+
+					valuesNode.values.FindLessThanOrEqualMatchType(*queryValue.Value, getAllIDs(&allIDS))
 
 					switch validCounter {
 					case 0:
@@ -409,9 +421,10 @@ func (tsat *threadsafeAssociatedTree) findIDs(dbQuery datatypes.AssociatedKeyVal
 			case datatypes.GreaterThan():
 				inclusive = true
 
-				tsat.keys.Find(datatypes.String(key), func(item any) {
+				tsat.keys.Find(datatypes.String(queryKey), func(item any) {
 					valuesNode := item.(*threadsafeValuesNode)
-					valuesNode.values.FindGreaterThan(*value.Value, getAllIDs(&allIDS))
+
+					valuesNode.values.FindGreaterThan(*queryValue.Value, getAllIDs(&allIDS))
 
 					switch validCounter {
 					case 0:
@@ -425,9 +438,10 @@ func (tsat *threadsafeAssociatedTree) findIDs(dbQuery datatypes.AssociatedKeyVal
 			case datatypes.GreaterThanMatchType():
 				inclusive = true
 
-				tsat.keys.Find(datatypes.String(key), func(item any) {
+				tsat.keys.Find(datatypes.String(queryKey), func(item any) {
 					valuesNode := item.(*threadsafeValuesNode)
-					valuesNode.values.FindGreaterThanMatchType(*value.Value, getAllIDs(&allIDS))
+
+					valuesNode.values.FindGreaterThanMatchType(*queryValue.Value, getAllIDs(&allIDS))
 
 					switch validCounter {
 					case 0:
@@ -441,9 +455,10 @@ func (tsat *threadsafeAssociatedTree) findIDs(dbQuery datatypes.AssociatedKeyVal
 			case datatypes.GreaterThanOrEqual():
 				inclusive = true
 
-				tsat.keys.Find(datatypes.String(key), func(item any) {
+				tsat.keys.Find(datatypes.String(queryKey), func(item any) {
 					valuesNode := item.(*threadsafeValuesNode)
-					valuesNode.values.FindGreaterThanOrEqual(*value.Value, getAllIDs(&allIDS))
+
+					valuesNode.values.FindGreaterThanOrEqual(*queryValue.Value, getAllIDs(&allIDS))
 
 					switch validCounter {
 					case 0:
@@ -457,9 +472,10 @@ func (tsat *threadsafeAssociatedTree) findIDs(dbQuery datatypes.AssociatedKeyVal
 			case datatypes.GreaterThanOrEqualMatchType():
 				inclusive = true
 
-				tsat.keys.Find(datatypes.String(key), func(item any) {
+				tsat.keys.Find(datatypes.String(queryKey), func(item any) {
 					valuesNode := item.(*threadsafeValuesNode)
-					valuesNode.values.FindGreaterThanOrEqualMatchType(*value.Value, getAllIDs(&allIDS))
+
+					valuesNode.values.FindGreaterThanOrEqualMatchType(*queryValue.Value, getAllIDs(&allIDS))
 
 					switch validCounter {
 					case 0:
@@ -479,14 +495,15 @@ func (tsat *threadsafeAssociatedTree) findIDs(dbQuery datatypes.AssociatedKeyVal
 		}
 
 		// Special case where the only query is a FALSE check. So need to also find all other IDs and to perform a union
+		// NOTE: also important to not update the IDNodes query here as this will be a lot of items to store additionally. So not worth the extra memory usage
 		if !inclusive {
 			allIDs := []string{}
-			tsat.keys.Iterate(func(item any) bool {
+			tsat.keys.Iterate(func(_ datatypes.EncapsulatedData, item any) bool {
 				valuesNode := item.(*threadsafeValuesNode)
 
-				valuesNode.values.Iterate(func(item any) bool {
+				valuesNode.values.Iterate(func(_ datatypes.EncapsulatedData, item any) bool {
 					// always return true here. the false is only for reaching limits, but we need to iterate over all values
-					_ = getAllIDs(&allIDs)(item)
+					_ = getAllIDs(&allIDs)(nil, item)
 					return true
 				})
 

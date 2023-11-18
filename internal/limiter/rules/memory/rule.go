@@ -15,7 +15,6 @@ type rule struct {
 	ruleModelLock *sync.RWMutex
 	name          string
 	groupBy       []string
-	queryFilter   datatypes.AssociatedKeyValuesQuery
 	limit         uint64
 
 	// all values in the overrides are of type 'ruleOverride'
@@ -28,12 +27,11 @@ type ruleOverride struct {
 	limit uint64
 }
 
-func NewRule(ruleModel *v1limiter.Rule) *rule {
+func NewRule(ruleModel *v1limiter.RuleRequest) *rule {
 	return &rule{
 		ruleModelLock: new(sync.RWMutex),
 		name:          ruleModel.Name,
 		groupBy:       ruleModel.GroupBy,
-		queryFilter:   ruleModel.QueryFilter,
 		limit:         ruleModel.Limit,
 		overrides:     btreeassociated.NewThreadSafe(),
 	}
@@ -41,49 +39,104 @@ func NewRule(ruleModel *v1limiter.Rule) *rule {
 
 // Get converts a rule to an API response.
 //
-// DSL TODO: Do I want to have some sor of actual query for the overrides to include?
-// perhaps at some point, but I don't think this is usefull right now other than validation/list everything
-//
 //	PARAMS:
 //	- includeOverrodes - iff true, will also include any rule overrides. This can be a SLOW operation.
-func (r *rule) Get(includeOverrides bool) *v1limiter.Rule {
+func (r *rule) Get(includeOverrides *v1limiter.RuleQuery) *v1limiter.RuleResponse {
 	r.ruleModelLock.RLock()
 	defer r.ruleModelLock.RUnlock()
 
 	var overrides []v1limiter.Override
+	onPagination := func(associatedKeyValues *btreeassociated.AssociatedKeyValues) bool {
+		ruleOverride := associatedKeyValues.Value().(*ruleOverride)
+		ruleOverride.lock.RLock()
+		defer ruleOverride.lock.RUnlock()
 
-	if includeOverrides {
-		onPagiination := func(item any) bool {
-			associatedKeyValues := item.(*btreeassociated.AssociatedKeyValues)
+		addOverride := true
+		switch includeOverrides.OverrideQuery {
+		case v1limiter.Match:
+			// match the rule's limit for the kay values with the provided query key values
+			if ruleOverride.limit < uint64(len(*includeOverrides.KeyValues)) {
+				addOverride = false
+			}
+		default: // v1limiter.All:
+			// fall through
+		}
 
-			ruleOverride := item.(*btreeassociated.AssociatedKeyValues).Value().(*ruleOverride)
-			ruleOverride.lock.Lock()
-			defer ruleOverride.lock.Unlock()
-
+		if addOverride {
 			overrides = append(overrides, v1limiter.Override{
 				Name:      associatedKeyValues.AssociatedID(),
 				KeyValues: associatedKeyValues.KeyValues().StripAssociatedID().RetrieveStringDataType(),
 				Limit:     ruleOverride.limit,
 			})
-
-			return true
 		}
 
+		return true
+	}
+
+	switch includeOverrides.OverrideQuery {
+	case v1limiter.None:
+		// nothing to do here
+	case v1limiter.Match:
+		// match all the key values
+		if err := r.overrides.MatchPermutations(btreeassociated.ConverDatatypesKeyValues(*includeOverrides.KeyValues), onPagination); err != nil {
+			panic(err)
+		}
+	case v1limiter.All:
 		// should not error. That only happens on param validation
-		if err := r.overrides.Query(datatypes.AssociatedKeyValuesQuery{}, onPagiination); err != nil {
+		if err := r.overrides.Query(datatypes.AssociatedKeyValuesQuery{}, onPagination); err != nil {
 			panic(err)
 		}
 	}
 
-	ruleResponse := &v1limiter.Rule{
-		Name:        r.name,
-		GroupBy:     r.groupBy,
-		Limit:       r.limit,
-		QueryFilter: r.queryFilter,
-		Overrides:   overrides,
+	ruleResponse := &v1limiter.RuleResponse{
+		Name:      r.name,
+		GroupBy:   r.groupBy,
+		Limit:     r.limit,
+		Overrides: overrides,
 	}
 
 	return ruleResponse
+}
+
+func (r *rule) FindLimit(logger *zap.Logger, keyValues datatypes.KeyValues) (uint64, *api.Error) {
+	r.ruleModelLock.RLock()
+	defer r.ruleModelLock.RUnlock()
+
+	limit := r.limit
+
+	// TODO: fix me
+	//onFind := func(item any) bool {
+	//	ruleOverride := item.(*btreeassociated.AssociatedKeyValues).Value().(*ruleOverride)
+	//	ruleOverride.lock.RLock()
+	//	defer ruleOverride.lock.RUnlock()
+	//
+	//	limit = ruleOverride.limit
+	//	return false
+	//}
+	//
+	//// setup the query for the override we are looking for
+	//lenKeyValues := len(keyValues)
+	//
+	//// This query also isn't correct. It should find all values. that match. Like in the manager to find the rules,
+	//// I need that special "match" query.
+	//query := datatypes.AssociatedKeyValuesQuery{
+	//	KeyValueSelection: &datatypes.KeyValueSelection{
+	//		KeyValues: map[string]datatypes.Value{},
+	//		Limits: &datatypes.KeyLimits{
+	//			NumberOfKeys: &lenKeyValues,
+	//		},
+	//	},
+	//}
+	//
+	//for key, value := range keyValues {
+	//	query.KeyValueSelection.KeyValues[key] = datatypes.Value{Value: &value, ValueComparison: datatypes.EqualsPtr()}
+	//}
+	//
+	//if err := r.overrides.Query(query, onFind); err != nil {
+	//	return 0, errors.InternalServerError
+	//}
+
+	return limit, nil
 }
 
 func (r *rule) Update(logger *zap.Logger, update *v1limiter.RuleUpdate) {
@@ -100,11 +153,6 @@ func (r *rule) Update(logger *zap.Logger, update *v1limiter.RuleUpdate) {
 // finding the inital rule to lookup
 func (r *rule) SetOverride(logger *zap.Logger, override *v1limiter.Override) *api.Error {
 	logger = logger.Named("SetOverride")
-
-	// set an override iff the tags are valid
-	if !r.queryFilter.MatchTags(override.KeyValues) {
-		return api.NotAcceptable.With("the provided keys values to match the rule query", "provided will never be found by the rule query")
-	}
 
 	// create custom override rule paramters
 	keyValues := btreeassociated.ConverDatatypesKeyValues(override.KeyValues)
@@ -159,32 +207,23 @@ func (r *rule) DeleteOverride(logger *zap.Logger, overrideName string) *api.Erro
 	return nil
 }
 
+// General helpers for the rule
+
 // CascadeDeletion is called when the Rule itself is being deleted. On the memory implementation
 // we don't need to do anything as the object will be garbage collected
 func (r *rule) CascadeDeletion(logger *zap.Logger) *api.Error {
 	return nil
 }
 
-// DSL: these are unused right now, but might become relevant again, so keep for now
-
-func (r *rule) FindLimit(logger *zap.Logger, keyValues datatypes.KeyValues) uint64 {
-	r.ruleModelLock.RLock()
-	limit := r.limit
-	r.ruleModelLock.RUnlock()
-
-	onFind := func(item any) {
-		ruleOverride := item.(*btreeassociated.AssociatedKeyValues).Value().(*ruleOverride)
-		ruleOverride.lock.RLock()
-		defer ruleOverride.lock.RUnlock()
-
-		limit = ruleOverride.limit
-	}
-
-	// ignore these errors... should make it so it just panics
-	_, _ = r.overrides.Find(btreeassociated.ConverDatatypesKeyValues(keyValues), onFind)
-
-	return limit
+func (r *rule) Name() string {
+	return r.name
 }
+
+func (r *rule) GetGroupByKeys() []string {
+	return r.groupBy
+}
+
+// DSL TODO: These are unused right now
 
 func (r *rule) TagsMatch(logger *zap.Logger, keyValues datatypes.KeyValues) bool {
 	// ensure that all the "group by" keys exists
@@ -194,8 +233,7 @@ func (r *rule) TagsMatch(logger *zap.Logger, keyValues datatypes.KeyValues) bool
 		}
 	}
 
-	// ensure that the selection doesn't filter out the request
-	return r.queryFilter.MatchTags(keyValues)
+	return true
 }
 
 func (r *rule) GenerateQuery(keyValues datatypes.KeyValues) datatypes.AssociatedKeyValuesQuery {

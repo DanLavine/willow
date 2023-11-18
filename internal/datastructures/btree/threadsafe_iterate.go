@@ -30,20 +30,21 @@ func (btree *threadSafeBTree) Iterate(callback datastructures.OnFindPagination) 
 
 func (bn *threadSafeBNode) iterate(callback datastructures.OnFindPagination) bool {
 	for i := 0; i < bn.numberOfValues; i++ {
-		if !callback(bn.keyValues[i].value) {
+		if !callback(bn.keyValues[i].key, bn.keyValues[i].value) {
 			bn.lock.RUnlock()
 			return false
 		}
 	}
 
-	for i := 0; i < bn.numberOfChildren; i++ {
+	numberChildren := bn.numberOfChildren
+	for i := 0; i < numberChildren; i++ {
 		bn.children[i].lock.RLock()
 	}
 
 	// have a lock on all the children at this point, can release the lock at this level
 	bn.lock.RUnlock()
 
-	for i := 0; i < bn.numberOfChildren; i++ {
+	for i := 0; i < numberChildren; i++ {
 		if !bn.children[i].iterate(callback) {
 			for unlockIndex := i + 1; unlockIndex < bn.numberOfChildren; unlockIndex++ {
 				bn.children[unlockIndex].lock.RUnlock()
@@ -103,7 +104,7 @@ func (bn *threadSafeBNode) iterateMatchType(dataType datatypes.DataType, callbac
 		}
 
 		// run the callback
-		if !callback(bn.keyValues[i].value) {
+		if !callback(bn.keyValues[i].key, bn.keyValues[i].value) {
 			if bn.numberOfChildren != 0 {
 				for unlockIndex := startIndex; unlockIndex < i; unlockIndex++ {
 					bn.children[unlockIndex].lock.RUnlock()
@@ -116,6 +117,7 @@ func (bn *threadSafeBNode) iterateMatchType(dataType datatypes.DataType, callbac
 	}
 
 	// always lock the index we broke on since we need to check the less than side, or is the last child node (greater than)
+	numberChildren := bn.numberOfChildren
 	if bn.numberOfChildren != 0 {
 		bn.children[i].lock.RLock()
 	}
@@ -124,7 +126,7 @@ func (bn *threadSafeBNode) iterateMatchType(dataType datatypes.DataType, callbac
 	bn.lock.RUnlock()
 
 	// if we go here, run one last check on the last greater than child tree
-	if bn.numberOfChildren != 0 {
+	if numberChildren != 0 {
 		if startIndex == -1 {
 			// key must be grater than all values we checked, must be on the greater than side
 			return bn.children[i].iterateMatchType(dataType, callback)

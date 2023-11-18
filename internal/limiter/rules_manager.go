@@ -1,10 +1,13 @@
 package limiter
 
 import (
+	"context"
 	"fmt"
 	"net/http"
+	"time"
 
 	btreeassociated "github.com/DanLavine/willow/internal/datastructures/btree_associated"
+	"github.com/DanLavine/willow/internal/limiter/counters"
 	"github.com/DanLavine/willow/internal/limiter/rules"
 	lockerclient "github.com/DanLavine/willow/pkg/clients/locker_client"
 	"github.com/DanLavine/willow/pkg/models/api"
@@ -13,28 +16,17 @@ import (
 	"go.uber.org/zap"
 )
 
-type nameRule struct {
-	name string
-}
-
-func (nr nameRule) Less(item any) bool {
-	return nr.name < item.(nameRule).name
-}
-
 // Handles CRUD backend logic for Limit operations
 type RulesManager interface {
-	// TODO: add an API for listing current limits
-
 	// create
-	Create(logger *zap.Logger, rule *v1limiter.Rule) *api.Error
+	Create(logger *zap.Logger, rule *v1limiter.RuleRequest) *api.Error
 
 	// update
 	Update(logger *zap.Logger, name string, update *v1limiter.RuleUpdate) *api.Error
 
 	// read
-	Get(logger *zap.Logger, name string, includeOverrides bool) *v1limiter.Rule
-	FindRule(logger *zap.Logger, name string) rules.Rule
-	ListRules(logger *zap.Logger) []rules.Rule
+	Get(logger *zap.Logger, name string, query *v1limiter.RuleQuery) *v1limiter.RuleResponse
+	List(logger *zap.Logger, query *v1limiter.RuleQuery) (v1limiter.Rules, *api.Error)
 
 	// delete operations
 	Delete(logger *zap.Logger, name string) *api.Error
@@ -44,10 +36,10 @@ type RulesManager interface {
 	DeleteOverride(logger *zap.Logger, ruleName string, overrideName string) *api.Error
 
 	// increment a partiular group of tags
-	IncrementKeyValues(logger *zap.Logger, increment *v1limiter.RuleCounterRequest) *api.Error
+	IncrementKeyValues(logger *zap.Logger, increment *v1limiter.Counter) *api.Error
 
 	// decrement a particular group of tags
-	DecrementKeyValues(logger *zap.Logger, decrement *v1limiter.RuleCounterRequest)
+	DecrementKeyValues(logger *zap.Logger, decrement *v1limiter.Counter)
 }
 
 type rulesManger struct {
@@ -74,25 +66,26 @@ func NewRulesManger(ruleConstructor rules.RuleConstructor, lockerClient lockercl
 }
 
 // Create new group rule operation
-func (rm *rulesManger) Create(logger *zap.Logger, rule *v1limiter.Rule) *api.Error {
-	logger = logger.Named("CreateGroupRule")
+func (rm *rulesManger) Create(logger *zap.Logger, rule *v1limiter.RuleRequest) *api.Error {
+	logger = logger.Named("Create")
 	onCreate := func() any {
 		return rm.ruleConstructor.New(rule)
 	}
 
 	// record the name as a value. This will make the group by + name unique keys
-	keyValues := btreeassociated.KeyValues{
-		datatypes.Custom(nameRule{name: "name"}): datatypes.String(rule.Name),
-	}
+	keyValues := btreeassociated.KeyValues{}
 	for _, groupByName := range rule.GroupBy {
-		keyValues[datatypes.String(groupByName)] = datatypes.Nil()
+		keyValues[datatypes.String(groupByName)] = datatypes.String("")
 	}
 
 	// create the rule only if the name is free
 	if err := rm.rules.CreateWithID(rule.Name, keyValues, onCreate); err != nil {
 		switch err {
-		case btreeassociated.ErrorCreateFailureKeyValuesExist, btreeassociated.ErrorAssociatedIDAlreadyExists:
-			logger.Warn("failed to create or find a new rule", zap.Error(err))
+		case btreeassociated.ErrorCreateFailureKeyValuesExist:
+			logger.Warn("failed to create new rule because keys exist", zap.Error(err))
+			return (&api.Error{Message: "failed to create rule.", StatusCode: http.StatusUnprocessableEntity}).With("group by keys to not be in use", "group by keys are in use by another rule")
+		case btreeassociated.ErrorAssociatedIDAlreadyExists:
+			logger.Warn("failed to create new rule because name exist", zap.Error(err))
 			return (&api.Error{Message: "failed to create rule.", StatusCode: http.StatusUnprocessableEntity}).With("name to not be in use", "name is already in use by another rule")
 		default:
 			logger.Error("failed to create or find a new rule", zap.Error(err))
@@ -104,12 +97,12 @@ func (rm *rulesManger) Create(logger *zap.Logger, rule *v1limiter.Rule) *api.Err
 }
 
 // Get a group rule by name
-func (rm *rulesManger) Get(logger *zap.Logger, name string, includeOverrides bool) *v1limiter.Rule {
+func (rm *rulesManger) Get(logger *zap.Logger, name string, query *v1limiter.RuleQuery) *v1limiter.RuleResponse {
 	logger = logger.Named("Get").With(zap.String("name", name))
 
-	var rule *v1limiter.Rule
+	var rule *v1limiter.RuleResponse
 	onFind := func(item any) {
-		rule = item.(*btreeassociated.AssociatedKeyValues).Value().(rules.Rule).Get(includeOverrides)
+		rule = item.(*btreeassociated.AssociatedKeyValues).Value().(rules.Rule).Get(query)
 	}
 
 	if err := rm.rules.FindByAssociatedID(name, onFind); err != nil {
@@ -121,6 +114,43 @@ func (rm *rulesManger) Get(logger *zap.Logger, name string, includeOverrides boo
 	}
 
 	return rule
+}
+
+// list all group rules that match the provided key values
+//
+// Can also include the overrides
+func (rm *rulesManger) List(logger *zap.Logger, query *v1limiter.RuleQuery) (v1limiter.Rules, *api.Error) {
+	logger = logger.Named("List")
+	foundRules := v1limiter.Rules{}
+
+	onFindMatchingRule := func(associatedKeyValues *btreeassociated.AssociatedKeyValues) bool {
+		rule := associatedKeyValues.Value().(rules.Rule)
+		foundRules = append(foundRules, rule.Get(query))
+
+		return true
+	}
+
+	switch query.KeyValues {
+	case nil:
+		if err := rm.rules.Query(datatypes.AssociatedKeyValuesQuery{}, onFindMatchingRule); err != nil {
+			logger.Error("faild to query for rules", zap.Error(err))
+			return v1limiter.Rules{}, &api.Error{Message: "Internal server error", StatusCode: http.StatusInternalServerError}
+		}
+	default:
+		// special match logic. we alwys need to look for empty strings as a 'Select All' operation
+		keyValues := btreeassociated.KeyValues{}
+		for key, _ := range *query.KeyValues {
+			keyValues[datatypes.String(key)] = datatypes.String("")
+		}
+
+		// these need to be converted to empty string. duh
+		if err := rm.rules.MatchPermutations(keyValues, onFindMatchingRule); err != nil {
+			logger.Error("faild to match for rules", zap.Error(err))
+			return v1limiter.Rules{}, &api.Error{Message: "Internal server error", StatusCode: http.StatusInternalServerError}
+		}
+	}
+
+	return foundRules, nil
 }
 
 // Update a rule by name
@@ -217,36 +247,6 @@ func (rm *rulesManger) DeleteOverride(logger *zap.Logger, ruleName string, overr
 	return overrideErr
 }
 
-func (rm *rulesManger) FindRule(logger *zap.Logger, name string) rules.Rule {
-	//logger = logger.Named("FindGroupRule")
-	var limiterRules rules.Rule
-
-	//onFind := func(item any) {
-	//	limiterRules = item.(Rule)
-	//}
-	//
-	//_ = rm.rules.Find(datatypes.String(name), onFind)
-	return limiterRules
-}
-
-// list all group rules
-func (rm *rulesManger) ListRules(logger *zap.Logger) []rules.Rule {
-	//logger = logger.Named("ListGroupRules")
-	//limiterRules := []Rule{}
-	//
-	//onFind := func(item any) bool {
-	//	rule := item.(Rule)
-	//	limiterRules = append(limiterRules, rule)
-	//	return true
-	//}
-	//
-	//_ = rm.rules.Iterate(onFind)
-	//
-	//return limiterRules
-
-	return nil
-}
-
 // Increment trys to add to a group of key value pairs, and blocks if any rules have hit the limit
 //
 // NOTE: This is a stupid hard Horizontaly scaling issue without a 3rd party lock on things. How do we quickly know if a limit would succeed.
@@ -255,21 +255,15 @@ func (rm *rulesManger) ListRules(logger *zap.Logger) []rules.Rule {
 //
 // Adding a "Sorted [asc|dec]" in the BTreeAssociated I don't think fixes this, because we loop through values as soon as we find
 // them, not after we grab all the IDs... This is also a stupid hard problem in how I am thinking about Horizontal Scaling
-func (rm *rulesManger) IncrementKeyValues(logger *zap.Logger, increment *v1limiter.RuleCounterRequest) *api.Error {
+func (rm *rulesManger) IncrementKeyValues(logger *zap.Logger, increment *v1limiter.Counter) *api.Error {
 	logger = logger.Named("IncrementKeyValues")
 
-	// Something isn't quite right here. Should the override itself be a query? or is it an exact key value match.
-	// If it is an exact match, then that isn't going to work in the case of UCB, wher I want to verride a specifc
-	// orgID since there are going to be many key value pairs other than just that like branch name, project name, etc.
-	//
-	// ugh. what a pin to try and think through all this.
-
-	// 1. query the rules that match the tags for our key values
+	// 1. query the rules that match the tags for our key values and record all the group by with their limit
 	var foundRules []rules.Rule
-	onFindMatchingRule := func(item any) bool {
-		rule := item.(*btreeassociated.AssociatedKeyValues).Value().(rules.Rule)
-
+	onFindMatchingRule := func(associatedKeyValues *btreeassociated.AssociatedKeyValues) bool {
+		rule := associatedKeyValues.Value().(rules.Rule)
 		foundRules = append(foundRules, rule)
+
 		return true
 	}
 
@@ -277,93 +271,97 @@ func (rm *rulesManger) IncrementKeyValues(logger *zap.Logger, increment *v1limit
 		return nil
 	}
 
-	// 2.a. if there are no rules, then we can just increment the counter on the key values and reeturn
+	// 2.a. if there are no rules, then we can just increment the counter on the key values and return
+	if len(foundRules) == 0 {
+		return nil
+	}
 
 	// 2.b. there are rules with limits. We need to grab a lock for all matched rules
+	var lockerLocks []lockerclient.Lock
+	defer func() { // ensure we release all the locks at the end
+		for _, lockerLock := range lockerLocks {
+			err := lockerLock.Release()
+			if err != nil {
+				logger.Error("failed to release locker service lock", zap.Error(err))
+			}
+		}
+	}()
 
-	// 3. count all possible values that match our rule
+	// grab a lock for all the grouped key values we care about with the Increment's KeyValues
+	for _, keys := range rules.SortRulesGroupBy(foundRules) {
+		// setup the group to lock
+		lockKeyValues := datatypes.KeyValues{}
+		for _, key := range keys {
+			lockKeyValues[key] = increment.KeyValues[key]
+		}
 
-	// 4.a if under the limit, then increment our key values
+		// obtain the required lock
+		lockerLock, err := rm.lockerClient.ObtainLock(context.Background(), lockKeyValues, 10*time.Second)
+		if err != nil {
+			logger.Error("failed to obtain a lock from the locker service", zap.Strings("keys", keys), zap.Error(err))
+			return &api.Error{Message: "Internal server error", StatusCode: http.StatusInternalServerError}
+		}
 
-	// 4.b if over the limit, then we can return an error, or do we block this request and setup a trigger when something is available?
+		// don't need to add the lock 2x if we already obtained one with the same key values
+		addLock := true
+		for _, lock := range lockerLocks {
+			if lock == lockerLock {
+				addLock = false
+				break
+			}
+		}
 
-	// // 1. always perform an insert/update to the counter
-	// var initialCount uint64
-	// var initialCounter *atomic.Uint64
+		if addLock {
+			lockerLocks = append(lockerLocks, lockerLock)
+		}
+	}
 
-	// // there are no rules, so just record the value incrementation
-	// onCreate := func() any {
-	// 	counter := new(atomic.Uint64)
-	// 	initialCounter = counter
-	// 	initialCount = counter.Add(1)
+	// 3. for each rule, find the limt and count all possible records
+	for _, rule := range foundRules {
+		limit, err := rule.FindLimit(logger, increment.KeyValues)
+		if err != nil {
+			return err
+		}
 
-	// 	return counter
-	// }
+		counter := uint64(0)
+		onFindPagination := func(associatedKeyValues *btreeassociated.AssociatedKeyValues) bool {
+			counter += associatedKeyValues.Value().(counters.Counter).Count
+			return true
+		}
 
-	// // update the counter
-	// onFind := func(item any) {
-	// 	counter := item.(*btreeassociated.AssociatedKeyValues).Value().(*atomic.Uint64)
-	// 	initialCounter = counter
-	// 	initialCount = counter.Add(1)
-	// }
+		query := datatypes.AssociatedKeyValuesQuery{}
+		for _, key := range rule.GetGroupByKeys() {
+			value := increment.KeyValues[key]
+			query.KeyValueSelection.KeyValues[key] = datatypes.Value{Value: &value, ValueComparison: datatypes.EqualsPtr()}
+		}
 
-	// _, _ = rm.counters.CreateOrFind(btreeassociated.ConverDatatypesKeyValues(increment.KeyValues), onCreate, onFind)
+		if err := rm.counters.Query(query, onFindPagination); err != nil {
+			logger.Error("failed to query counters", zap.Error(err))
+			return &api.Error{Message: "internal server error", StatusCode: http.StatusInternalServerError}
+		}
 
-	// // 2. sort through all the rules to know if we are at the limit
-	// limitReached := false
-	// OnFindPagination := func(item any) bool {
-	// 	rule := item.(*btreeassociated.AssociatedKeyValues).Value().(rules.Rule)
-	// 	totalCount := initialCount
+		if counter >= limit {
+			return &api.Error{Message: fmt.Sprintf("Limit reached for rule: %s", rule.Name()), StatusCode: http.StatusConflict}
+		}
+	}
 
-	// 	// if the rule matches the tags we are incrementing, we need to check that the limits are not already reached
-	// 	if rule.TagsMatch(logger, increment.KeyValues) {
-	// 		ruleLimit := rule.FindLimit(logger, increment.KeyValues)
+	// 4. we are under the limit, so update or create the requested tags
+	createCounter := func() any {
+		return counters.Counter{Count: 1}
+	}
 
-	// 		// callback to count all known values
-	// 		countPagination := func(item any) bool {
-	// 			counter := item.(*btreeassociated.AssociatedKeyValues).Value().(*atomic.Uint64)
-	// 			if initialCounter != counter {
-	// 				totalCount += counter.Load()
-	// 			}
+	incrementCounter := func(item any) {
+		counter := item.(*btreeassociated.AssociatedKeyValues).Value().(counters.Counter)
+		counter.Count += 1
+	}
 
-	// 			// chek if we reached the rule limit
-	// 			return totalCount < ruleLimit
-	// 		}
-
-	// 		_ = rm.counters.Query(rule.GenerateQuery(increment.KeyValues), countPagination)
-
-	// 		// the rule we are on has failed, need to setup a trigger for the decrement case
-	// 		if totalCount > ruleLimit {
-	// 			limitReached = true
-	// 			return false
-	// 		}
-	// 	}
-
-	// 	return true
-	// }
-
-	// _ = rm.rules.Iterate(OnFindPagination)
-
-	// // at this point, the last rule is blocking because the limit has been reached
-	// if limitReached {
-	// 	// need to decrement the inital value since we failed
-	// 	canDelete := func(item any) bool {
-	// 		counter := item.(*btreeassociated.AssociatedKeyValues).Value().(*atomic.Uint64)
-	// 		counter.Add(^uint64(0))
-
-	// 		return counter.Load() == 0
-	// 	}
-
-	// 	_ = rm.counters.Delete(btreeassociated.ConverDatatypesKeyValues(increment.KeyValues), canDelete)
-
-	// 	return &api.Error{Message: "Unable to process limit request. The limits are already reached", StatusCode: http.StatusLocked}
-	// }
+	rm.counters.CreateOrFind(btreeassociated.ConverDatatypesKeyValues(increment.KeyValues), createCounter, incrementCounter)
 
 	return nil
 }
 
 // Increment trys to add to a group of key value pairs, and blocks if any rules have hit the limit
-func (rm *rulesManger) DecrementKeyValues(logger *zap.Logger, decrement *v1limiter.RuleCounterRequest) {
+func (rm *rulesManger) DecrementKeyValues(logger *zap.Logger, decrement *v1limiter.Counter) {
 	//logger = logger.Named("Decrement")
 	//canDelete := func(item any) bool {
 	//	counter := item.(*btreeassociated.AssociatedKeyValues).Value().(*atomic.Uint64)
@@ -386,7 +384,6 @@ func keyValuesToRuleQuery(keyValues datatypes.KeyValues) datatypes.AssociatedKey
 	// setup a query to find any rules have the tags to match
 	exists := true
 	for _, keyValueCombo := range keyValueCombinations {
-
 		orQuery := datatypes.AssociatedKeyValuesQuery{
 			KeyValueSelection: &datatypes.KeyValueSelection{
 				KeyValues: map[string]datatypes.Value{},

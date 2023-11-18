@@ -292,7 +292,7 @@ func TestLocker_Async_API_Threading_Checks(t *testing.T) {
 		g.Expect(len(locks.Locks)).To(Equal(0))
 	})
 
-	t.Run("It can request many differnt lock combinationos many times", func(t *testing.T) {
+	t.Run("It can request many differnt lock combinations many times", func(t *testing.T) {
 		testConstruct.StartLocker(g)
 		defer testConstruct.Shutdown(g)
 

@@ -9,9 +9,9 @@ import (
 	v1limiter "github.com/DanLavine/willow/pkg/models/api/limiter/v1"
 )
 
-func (lc *limiterClient) CreateOverride(ruleName string, override *v1limiter.Override) error {
+func (lc *limiterClient) CreateOverride(ruleName string, override v1limiter.Override) error {
 	// always validate locally first
-	if err := override.ValidateRequest(); err != nil {
+	if err := override.Validate(); err != nil {
 		return err
 	}
 

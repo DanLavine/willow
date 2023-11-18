@@ -1,5 +1,7 @@
 package datastructures
 
+import "github.com/DanLavine/willow/pkg/models/datatypes"
+
 // Common way of interacting with any of the data structures
 
 // When using any of the tree's we have these special callbacks that can be used
@@ -37,11 +39,12 @@ type OnFind func(item any)
 // Callback for calling a function when a value is found in a tree during pagination
 //
 //	PARAMS:
-//	- item - the item saved in the key value store
+//	- key - the key that is iterated over
+//	- value - the item saved in the key value store
 //
 //	RETURNS:
 //	- bool - iff true, the pagination will stop processing.
-type OnFindPagination func(item any) bool
+type OnFindPagination func(key datatypes.EncapsulatedData, value any) bool
 
 // Callback to check that an item can actually be removed from a tree
 //

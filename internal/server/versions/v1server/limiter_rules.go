@@ -3,7 +3,6 @@ package v1server
 import (
 	"fmt"
 	"net/http"
-	"strconv"
 
 	"github.com/DanLavine/urlrouter"
 	"github.com/DanLavine/willow/internal/limiter"
@@ -22,16 +21,14 @@ type LimitRuleHandler interface {
 	Update(w http.ResponseWriter, r *http.Request)
 	Delete(w http.ResponseWriter, r *http.Request)
 	Get(w http.ResponseWriter, r *http.Request)
-	Find(w http.ResponseWriter, r *http.Request)
+	List(w http.ResponseWriter, r *http.Request)
 
 	// overide operations
 	SetOverride(w http.ResponseWriter, r *http.Request)
 	DeleteOverride(w http.ResponseWriter, r *http.Request)
 
-	// Increment a group of tags
+	// counter operations
 	Increment(w http.ResponseWriter, r *http.Request)
-
-	// Decrement a group of tags
 	Decrement(w http.ResponseWriter, r *http.Request)
 }
 
@@ -79,24 +76,16 @@ func (grh *groupRuleHandler) Get(w http.ResponseWriter, r *http.Request) {
 	defer logger.Debug("processed request")
 
 	namedParameters := urlrouter.GetNamedParamters(r.Context())
-	includeOverridesString := r.URL.Query().Get("includeOverrides")
 
-	var err error
-	var includeOverrides bool
-
-	if includeOverridesString != "" {
-		includeOverrides, err = strconv.ParseBool(includeOverridesString)
-		if err != nil {
-			err := &api.Error{Message: fmt.Sprintf("failed to parse query parameter includeOverrides: %s", err.Error())}
-			logger.Warn("failed to parse query paramters", zap.String("parameter", "includeOverrides"), zap.Error(err))
-			w.WriteHeader(http.StatusBadRequest)
-			w.Write(err.ToBytes())
-			return
-		}
+	query, err := v1limiter.ParseRuleQuery(r.Body)
+	if err != nil {
+		w.WriteHeader(err.StatusCode)
+		w.Write(err.ToBytes())
+		return
 	}
 
 	// find the group rule
-	rule := grh.rulesManager.Get(logger, namedParameters["rule_name"], includeOverrides)
+	rule := grh.rulesManager.Get(logger, namedParameters["rule_name"], query)
 	if rule == nil {
 		err := &api.Error{Message: fmt.Sprintf("rule with name '%s' could not be found", namedParameters["rule_name"])}
 		w.WriteHeader(http.StatusUnprocessableEntity)
@@ -152,46 +141,27 @@ func (grh *groupRuleHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func (grh *groupRuleHandler) Find(w http.ResponseWriter, r *http.Request) {
-	logger := logger.AddRequestID(grh.logger.Named("Find"), r)
+func (grh *groupRuleHandler) List(w http.ResponseWriter, r *http.Request) {
+	logger := logger.AddRequestID(grh.logger.Named("List"), r)
 	logger.Debug("starting request")
 	defer logger.Debug("processed request")
 
-	w.WriteHeader(http.StatusNotImplemented)
-	//defer logger.Debug("processed CreateGroupRule request")
-	//
-	//ruleName := r.URL.Query().Get("name")
-	//if ruleName == "" {
-	//	err := api.InvalidRequestBody.With("Name to be provided", "recieved empty string")
-	//	w.WriteHeader(err.StatusCode)
-	//	w.Write(err.ToBytes())
-	//	return
-	//}
-	//
-	//// find the specific limiter group rule
-	//limiterRule := grh.rulesManager.FindRule(logger, ruleName)
-	//if limiterRule == nil {
-	//	err := &api.Error{Message: "rule not found", StatusCode: http.StatusBadRequest}
-	//	w.WriteHeader(err.StatusCode)
-	//	w.Write(err.ToBytes())
-	//	return
-	//}
-	//
-	//data, jsonErr := json.Marshal(limiterRule)
-	//if jsonErr != nil {
-	//	logger.Error("Failed to JSON marshel response", zap.Error(jsonErr))
-	//	w.WriteHeader(http.StatusInternalServerError)
-	//	w.Write(errors.InternalServerError.With("", jsonErr.Error()).ToBytes())
-	//	return
-	//}
-	//
-	//if data == nil {
-	//	w.WriteHeader(http.StatusNoContent)
-	//	return
-	//}
-	//
-	//w.WriteHeader(http.StatusOK)
-	//w.Write(data)
+	query, err := v1limiter.ParseRuleQuery(r.Body)
+	if err != nil {
+		w.WriteHeader(err.StatusCode)
+		w.Write(err.ToBytes())
+		return
+	}
+
+	rules, err := grh.rulesManager.List(logger, query)
+	if err != nil {
+		w.WriteHeader(err.StatusCode)
+		w.Write(err.ToBytes())
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write(rules.ToBytes())
 }
 
 func (grh *groupRuleHandler) SetOverride(w http.ResponseWriter, r *http.Request) {

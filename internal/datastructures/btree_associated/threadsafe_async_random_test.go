@@ -18,10 +18,10 @@ func validateThreadSafeTree(g *GomegaWithT, associatedTree *threadsafeAssociated
 	identifiers := []map[string]int{}
 
 	// find all the ids and count them
-	associatedTree.keys.Iterate(func(item any) bool {
+	associatedTree.keys.Iterate(func(_ datatypes.EncapsulatedData, item any) bool {
 		valueNode := item.(*threadsafeValuesNode)
 
-		valueNode.values.Iterate(func(item any) bool {
+		valueNode.values.Iterate(func(_ datatypes.EncapsulatedData, item any) bool {
 			idNode := item.(*threadsafeIDNode)
 
 			for index, ids := range idNode.ids {
@@ -96,10 +96,10 @@ func validateThreadSafeTreeWithoutKeyLenght(g *GomegaWithT, associatedTree *thre
 	identifiers := []map[string]int{}
 
 	// find all the ids and count them
-	associatedTree.keys.Iterate(func(item any) bool {
+	associatedTree.keys.Iterate(func(_ datatypes.EncapsulatedData, item any) bool {
 		valueNode := item.(*threadsafeValuesNode)
 
-		valueNode.values.Iterate(func(item any) bool {
+		valueNode.values.Iterate(func(_ datatypes.EncapsulatedData, item any) bool {
 			idNode := item.(*threadsafeIDNode)
 
 			for index, ids := range idNode.ids {
@@ -171,7 +171,7 @@ func TestAssociated_Random_Create(t *testing.T) {
 	noOpOnFind := func(item any) {}
 
 	t.Run("It is threadsafe when adding many entries asynchronously", func(t *testing.T) {
-		//t.Parallel()
+		t.Parallel()
 		associatedTree := NewThreadSafe()
 		wg := new(sync.WaitGroup)
 
@@ -254,7 +254,8 @@ func TestAssociated_Random_Find(t *testing.T) {
 	testCounter := 10_000
 
 	t.Run("It is threadsafe when finding many entries asynchronously", func(t *testing.T) {
-		//t.Parallel()
+		t.Parallel()
+
 		associatedTree := NewThreadSafe()
 		wg := new(sync.WaitGroup)
 
@@ -379,7 +380,8 @@ func TestAssociated_Random_Find(t *testing.T) {
 	})
 
 	t.Run("It is threadsafe when finding and inserting many entries asynchronously", func(t *testing.T) {
-		//t.Parallel()
+		t.Parallel()
+
 		associatedTree := NewThreadSafe()
 		wg := new(sync.WaitGroup)
 
@@ -492,11 +494,83 @@ func TestAssociated_Random_Find(t *testing.T) {
 	})
 }
 
+func TestAssociated_Random_Match(t *testing.T) {
+	g := NewGomegaWithT(t)
+	noOpOnFind := func(item any) {}
+
+	t.Run("It is threadsafe when querying many entries asynchronously", func(t *testing.T) {
+		t.Parallel()
+
+		associatedTree := NewThreadSafe()
+		wg := new(sync.WaitGroup)
+
+		// create 10k entries
+		for i := 0; i < 10_000; i++ {
+			wg.Add(1)
+			go func(tNum int) {
+				defer wg.Done()
+
+				modInt := tNum % 5
+				modInt++
+
+				// generate a key with a few different types
+				keys := KeyValues{}
+				for i := 0; i < modInt; i++ {
+					switch tNum % 2 {
+					case 0:
+						keys[datatypes.String(fmt.Sprintf("%d", i))] = datatypes.String(fmt.Sprintf("%d", tNum))
+					default:
+						keys[datatypes.String(fmt.Sprintf("%d", i))] = datatypes.Int(tNum)
+					}
+				}
+
+				_, err := associatedTree.CreateOrFind(keys, func() any { return tNum }, noOpOnFind)
+				g.Expect(err).ToNot(HaveOccurred())
+			}(i)
+		}
+		wg.Wait()
+
+		// match 10k entries
+		for i := 0; i < 10_000; i++ {
+			wg.Add(1)
+			go func(tNum int) {
+				defer wg.Done()
+
+				modInt := tNum % 5
+				modInt++
+
+				// generate a key with a few different types
+				keyValues := KeyValues{}
+				for i := 0; i < modInt; i++ {
+					switch tNum % 2 {
+					case 0:
+						keyValues[datatypes.String(fmt.Sprintf("%d", i))] = datatypes.String(fmt.Sprintf("%d", tNum))
+					default:
+						keyValues[datatypes.String(fmt.Sprintf("%d", i))] = datatypes.Int(tNum)
+					}
+				}
+
+				findCounter := 0
+				g.Expect(associatedTree.MatchPermutations(keyValues, func(item *AssociatedKeyValues) bool {
+					findCounter++
+					return true
+				})).ToNot(HaveOccurred())
+				g.Expect(findCounter).To(BeNumerically(">=", 1), fmt.Sprintf("Index %d has an invalid match counter", tNum))
+			}(i)
+		}
+		wg.Wait()
+
+		validateThreadSafeTree(g, associatedTree)
+	})
+}
+
 func TestAssociated_Random_Query(t *testing.T) {
 	g := NewGomegaWithT(t)
 	noOpOnFind := func(item any) {}
 
 	t.Run("It is threadsafe when querying many entries asynchronously", func(t *testing.T) {
+		t.Parallel()
+
 		associatedTree := NewThreadSafe()
 		wg := new(sync.WaitGroup)
 
@@ -553,7 +627,7 @@ func TestAssociated_Random_Query(t *testing.T) {
 				g.Expect(queryDB.Validate()).ToNot(HaveOccurred())
 
 				findCounter := 0
-				g.Expect(associatedTree.Query(queryDB, func(item any) bool {
+				g.Expect(associatedTree.Query(queryDB, func(item *AssociatedKeyValues) bool {
 					findCounter++
 					return true
 				})).ToNot(HaveOccurred())
@@ -572,6 +646,8 @@ func TestAssociated_Random_Delete(t *testing.T) {
 	testCounter := 10_000
 
 	t.Run("It is threadsafe when deleting many entries asynchronously", func(t *testing.T) {
+		t.Parallel()
+
 		associatedTree := NewThreadSafe()
 		wg := new(sync.WaitGroup)
 
@@ -663,10 +739,12 @@ func TestAssociated_Random_Delete(t *testing.T) {
 func TestAssociated_Random_AllActions(t *testing.T) {
 	g := NewGomegaWithT(t)
 	noOpOnFind := func(item any) {}
-	baicCreate := func() any { return true }
+	basicCreate := func() any { return true }
 	testCounter := 10_000
 
 	t.Run("It is threadsafe when performing all operations in parallel", func(t *testing.T) {
+		t.Parallel()
+
 		associatedTree := NewThreadSafe()
 		wg := new(sync.WaitGroup)
 
@@ -702,7 +780,7 @@ func TestAssociated_Random_AllActions(t *testing.T) {
 				// generate a key with a few different types
 				keys := KeyValues{datatypes.String(fmt.Sprintf("%d", tNum+testCounter)): datatypes.String(fmt.Sprintf("%d", tNum))}
 
-				id, err := associatedTree.Create(keys, baicCreate)
+				id, err := associatedTree.Create(keys, basicCreate)
 				g.Expect(id).ToNot(Equal(""))
 				g.Expect(err).ToNot(HaveOccurred())
 			}(i)
@@ -715,7 +793,7 @@ func TestAssociated_Random_AllActions(t *testing.T) {
 				// generate a key with a few different types
 				keys := KeyValues{datatypes.String(fmt.Sprintf("%d", tNum+(2*testCounter))): datatypes.String(fmt.Sprintf("%d", tNum))}
 
-				err := associatedTree.CreateWithID(fmt.Sprintf("%d", tNum), keys, baicCreate)
+				err := associatedTree.CreateWithID(fmt.Sprintf("%d", tNum), keys, basicCreate)
 				g.Expect(err).ToNot(HaveOccurred())
 			}(i)
 
@@ -776,6 +854,34 @@ func TestAssociated_Random_AllActions(t *testing.T) {
 				g.Expect(err).ToNot(HaveOccurred())
 			}(i)
 
+			// match
+			wg.Add(1)
+			go func(tNum int) {
+				defer wg.Done()
+
+				modInt := tNum % 5
+				modInt++
+
+				// generate a key with a few different types
+				keyValues := KeyValues{}
+				for i := 0; i < modInt; i++ {
+					switch tNum % 2 {
+					case 0:
+						keyValues[datatypes.String(fmt.Sprintf("%d", i))] = datatypes.String(fmt.Sprintf("%d", tNum))
+					default:
+						keyValues[datatypes.String(fmt.Sprintf("%d", i))] = datatypes.Int(tNum)
+					}
+				}
+
+				g.Expect(associatedTree.MatchPermutations(keyValues, func(item *AssociatedKeyValues) bool {
+					for key, value := range keyValues {
+						g.Expect(item.KeyValues()).To(HaveKeyWithValue(key, value))
+					}
+
+					return true
+				})).ToNot(HaveOccurred())
+			}(i)
+
 			// query
 			wg.Add(1)
 			go func(tNum int) {
@@ -800,8 +906,9 @@ func TestAssociated_Random_AllActions(t *testing.T) {
 					}
 				}
 				g.Expect(queryDB.Validate()).ToNot(HaveOccurred())
-				g.Expect(associatedTree.Query(queryDB, func(item any) bool { return true })).ToNot(HaveOccurred())
+				g.Expect(associatedTree.Query(queryDB, func(item *AssociatedKeyValues) bool { return true })).ToNot(HaveOccurred())
 			}(i)
+
 		}
 		wg.Wait()
 

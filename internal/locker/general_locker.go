@@ -70,9 +70,7 @@ func NewGeneralLocker(tree btreeassociated.BTreeAssociated) *generalLocker {
 func (generalLocker *generalLocker) ListLocks() []v1locker.Lock {
 	var locks []v1locker.Lock
 
-	onPaginate := func(item any) bool {
-		associatedKeyValues := item.(*btreeassociated.AssociatedKeyValues)
-
+	onPaginate := func(associatedKeyValues *btreeassociated.AssociatedKeyValues) bool {
 		generalLock := associatedKeyValues.Value().(*generalLock)
 		generalLock.counterLock.RLock()
 		defer generalLock.counterLock.RUnlock()
@@ -176,8 +174,8 @@ func (generalLocker *generalLocker) ReleaseLock(lockID string) {
 	var keyValues datatypes.KeyValues
 
 	// only need to find the 1 item
-	onQuery := func(item any) bool {
-		keyValues = item.(*btreeassociated.AssociatedKeyValues).KeyValues().RetrieveStringDataType().StripKey(btreeassociated.ReservedID)
+	onQuery := func(associatedKeyValues *btreeassociated.AssociatedKeyValues) bool {
+		keyValues = associatedKeyValues.KeyValues().RetrieveStringDataType().StripKey(btreeassociated.ReservedID)
 		return false
 	}
 

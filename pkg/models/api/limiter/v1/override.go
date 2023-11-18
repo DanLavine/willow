@@ -2,13 +2,15 @@ package v1
 
 import (
 	"encoding/json"
-	"fmt"
 	"io"
 
 	"github.com/DanLavine/willow/pkg/models/api"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 )
 
+// Override can be thought of as a "sub query" for which the rule resides. Any request that matches all the
+// given tags for an override will use the new override value. If multiple overrides match a particular set of tags,
+// then the override with the lowest value will be used
 type Override struct {
 	// name for the override. Must be unique for all overrides attached to a rule
 	Name string
@@ -28,26 +30,21 @@ func ParseOverrideRequest(reader io.ReadCloser) (*Override, *api.Error) {
 		return nil, api.ReadRequestBodyError.With("", err.Error())
 	}
 
-	obj := &Override{}
-	if err := json.Unmarshal(requestBody, obj); err != nil {
+	obj := Override{}
+	if err := json.Unmarshal(requestBody, &obj); err != nil {
 		return nil, api.ParseRequestBodyError.With("", err.Error())
 	}
 
-	if validateErr := obj.ValidateRequest(); validateErr != nil {
+	if validateErr := obj.Validate(); validateErr != nil {
 		return nil, validateErr
 	}
 
-	return obj, nil
+	return &obj, nil
 }
 
-func (or *Override) ValidateRequest() *api.Error {
+func (or Override) Validate() *api.Error {
 	if or.Name == "" {
 		return api.InvalidRequestBody.With("Name to be provided", "received empty sting")
-	}
-
-	if len(or.KeyValues) == 0 {
-		fmt.Printf("Override: %#v", or)
-		return api.InvalidRequestBody.With("KeyValues tags to be provided", "received empty set")
 	}
 
 	if err := or.KeyValues.Validate(); err != nil {
@@ -57,7 +54,7 @@ func (or *Override) ValidateRequest() *api.Error {
 	return nil
 }
 
-func (or *Override) ToBytes() []byte {
+func (or Override) ToBytes() []byte {
 	data, _ := json.Marshal(or)
 	return data
 }

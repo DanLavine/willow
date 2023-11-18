@@ -7,12 +7,13 @@ import (
 
 type DataType int
 
-func (dt DataType) Less(dataType DataType) bool {
-	return dt < dataType
+func (dt DataType) Less(compare DataType) bool {
+	return dt < compare
 }
 
 var (
-	T_custom  DataType = -1 // custom is a way for callers to provide their own types
+	// these are the types that can be added
+	//T_custom  DataType = -1000 // custom is a way for services to provide their own types.
 	T_uint8   DataType = 0
 	T_uint16  DataType = 1
 	T_uint32  DataType = 2
@@ -26,13 +27,13 @@ var (
 	T_float32 DataType = 10
 	T_float64 DataType = 11
 	T_string  DataType = 12
-	T_nil     DataType = 13 // there is no "value". Used when we only care about keys all pointing to the same thing
 
 	// T_any might make sense, but for now I am not using it, so ignore that case
 	// T_bool doesn't make much sense since it can oonly ever be true or false
 )
 
-// implementation for the EncapsulatedData
+// EncapsulatedValue provides validation for all datatypes from uint8 to string.
+// It cacn be used to enforce that a proper single value is provided
 type EncapsulatedValue struct {
 	Type DataType
 
@@ -58,41 +59,7 @@ func (edv EncapsulatedValue) Less(comparableObj EncapsulatedData) bool {
 		return false
 	}
 
-	// when the EncapsulatedData and ComparableDataType are the same, check the actual values
-	switch edv.Type {
-	case T_custom:
-		return edv.Data.(CheckLess).Less(comparableObj.Value())
-	case T_uint8:
-		return edv.Data.(uint8) < comparableObj.Value().(uint8)
-	case T_uint16:
-		return edv.Data.(uint16) < comparableObj.Value().(uint16)
-	case T_uint32:
-		return edv.Data.(uint32) < comparableObj.Value().(uint32)
-	case T_uint64:
-		return edv.Data.(uint64) < comparableObj.Value().(uint64)
-	case T_uint:
-		return edv.Data.(uint) < comparableObj.Value().(uint)
-	case T_int8:
-		return edv.Data.(int8) < comparableObj.Value().(int8)
-	case T_int16:
-		return edv.Data.(int16) < comparableObj.Value().(int16)
-	case T_int32:
-		return edv.Data.(int32) < comparableObj.Value().(int32)
-	case T_int64:
-		return edv.Data.(int64) < comparableObj.Value().(int64)
-	case T_int:
-		return edv.Data.(int) < comparableObj.Value().(int)
-	case T_float32:
-		return edv.Data.(float32) < comparableObj.Value().(float32)
-	case T_float64:
-		return edv.Data.(float64) < comparableObj.Value().(float64)
-	case T_string:
-		return edv.Data.(string) < comparableObj.Value().(string)
-	default: // T_nil:
-		// NOTE: This is important to always return false. This way on a btree when doing the lookup, we will always
-		// find 1 copy of this item. The check is !item1.Less(item2) && !item2.Less(item1) -> returns true
-		return false
-	}
+	return edv.LessValue(comparableObj)
 }
 
 func (edv EncapsulatedValue) LessType(comparableObj EncapsulatedData) bool {
@@ -101,10 +68,9 @@ func (edv EncapsulatedValue) LessType(comparableObj EncapsulatedData) bool {
 }
 
 func (edv EncapsulatedValue) LessValue(comparableObj EncapsulatedData) bool {
-	// when the EncapsulatedData and ComparableDataType are the same, check the actual values
 	switch edv.Type {
-	case T_custom:
-		return edv.Data.(CheckLess).Less(comparableObj.Value())
+	//case T_custom:
+	//	return edv.Data.(CustomType).Less(comparableObj.Value())
 	case T_uint8:
 		return edv.Data.(uint8) < comparableObj.Value().(uint8)
 	case T_uint16:
@@ -131,20 +97,12 @@ func (edv EncapsulatedValue) LessValue(comparableObj EncapsulatedData) bool {
 		return edv.Data.(float64) < comparableObj.Value().(float64)
 	case T_string:
 		return edv.Data.(string) < comparableObj.Value().(string)
-	default: // T_nil
-		// NOTE: This is important to always return false. This way on a btree when doing the lookup, we will always
-		// find 1 copy of this item. The check is !item1.Less(item2) && !item2.Less(item1) -> returns true
-		if comparableObj.DataType() != T_nil {
-			panic("comparable object data type is not T_nil")
-		}
-
-		return false
+	default:
+		panic(fmt.Sprintf("Unexpected type %d", edv.Type))
 	}
 }
 
-// Validate that Encapsulated data is correct. This will fail if any datatypes have a T_reserved
-//
-// NOTE: call this on the BTree, to check the params. not eveery time less is called
+// Validate all Encpasulated data types inclusing custom
 func (edv EncapsulatedValue) Validate() error {
 	if edv.Data == nil {
 		return fmt.Errorf("EncapsulatedValue has a nil data Value")
@@ -153,10 +111,6 @@ func (edv EncapsulatedValue) Validate() error {
 	kind := reflect.ValueOf(edv.Data).Kind()
 
 	switch edv.Type {
-	case T_custom:
-		if !reflect.TypeOf(edv.Data).Implements(reflect.TypeOf((*CheckLess)(nil)).Elem()) {
-			return fmt.Errorf("EncapsulatedValue has a custom data type which dos not implement: CheckLess")
-		}
 	case T_uint8:
 		if kind != reflect.Uint8 {
 			return fmt.Errorf("EncapsulatedValue has a uint8 data type, but the Value is a: %s", kind.String())
@@ -209,32 +163,34 @@ func (edv EncapsulatedValue) Validate() error {
 		if kind != reflect.String {
 			return fmt.Errorf("EncapsulatedValue has a string data type, but the Value is a: %s", kind.String())
 		}
-	case T_nil:
-		if edv.Data != struct{}{} {
-			return fmt.Errorf("EncapsulatedValue has a 'nil' data type and requires the Value to be nil")
-		}
 	default:
-		return fmt.Errorf("EncapsulatedValue has an unkown data type")
+		return fmt.Errorf("EncapsulatedValue has an unkown data type: %d", edv.Type)
 	}
 
 	return nil
 }
 
 // CUSTOM types
-type CheckLess interface {
-	// only return true if the value is less than the parameter
-	Less(item any) bool
-}
-
-// Custom can be used by any Service when saving values to the AssociatedTree, and needs to create
-// keys that are guranteed to not collide with an end user's values. So it is important that no
-// APIs allow for receiving of this type.
-func Custom(value CheckLess) EncapsulatedValue {
-	return EncapsulatedValue{
-		Type: T_custom,
-		Data: value,
-	}
-}
+//type CustomType interface {
+//	// only return true if the value is less than the parameter
+//	Less(item any) bool
+//
+//	// // encode a value to transfer over an api call
+//	// Encode() []byte
+//	//
+//	// // decode the value transfered over an api call
+//	// Decode(b []byte) (any, error)
+//}
+//
+//// Custom can be used by any Service when saving values to the AssociatedTree, and needs to create
+//// keys that are guranteed to not collide with an end user's values. So it is important that no
+//// APIs allow for receiving of this type.
+//func Custom(value CustomType) EncapsulatedValue {
+//	return EncapsulatedValue{
+//		Type: T_custom,
+//		Data: value,
+//	}
+//}
 
 // UINT types
 func Uint8(value uint8) EncapsulatedValue {
@@ -328,14 +284,5 @@ func String(value string) EncapsulatedValue {
 	return EncapsulatedValue{
 		Type: T_string,
 		Data: value,
-	}
-}
-
-// DSL TODO: rename to Empty()?
-// NIL types
-func Nil() EncapsulatedValue {
-	return EncapsulatedValue{
-		Type: T_nil,
-		Data: struct{}{}, // NOTE: we really use the empty struct here to account for all values
 	}
 }

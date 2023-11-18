@@ -5,123 +5,33 @@ import (
 	"io"
 
 	"github.com/DanLavine/willow/pkg/models/api"
-	"github.com/DanLavine/willow/pkg/models/datatypes"
 )
 
-/*
-The name should be ignored on the "find queries"...
-OR, we could check Name EXISTS? That would solve the problem since
-it would be true for everything?s
-var K = datatypes.KeyValues{
-	"name":     datatypes.String("name"),
-	"groupBy1": datatypes.Nil(),
-	"groupBy2": datatypes.Nil(),
-	//...
-}
-
-// This would be the query to search for all possible rules that match above Find for Key Values
-var beTrue = true
-var two = 2
-var three = 3
-var TQuery = datatypes.AssociatedKeyValuesQuery{
-	Or: []datatypes.AssociatedKeyValuesQuery{
-		{
-			KeyValueSelection: &datatypes.KeyValueSelection{
-				KeyValues: map[string]datatypes.Value{
-					"groupBy1": datatypes.Value{Exists: &beTrue},
-				},
-				Limits: &datatypes.KeyLimits{
-					NumberOfKeys: &two, // this is the number + to account for the 'name'. Will always be this way
-				},
-			},
-			Or: []datatypes.AssociatedKeyValuesQuery{
-				{
-					KeyValueSelection: &datatypes.KeyValueSelection{
-						KeyValues: map[string]datatypes.Value{
-							"groupBy1": datatypes.Value{Exists: &beTrue},
-							"groupBy2": datatypes.Value{Exists: &beTrue},
-						},
-						Limits: &datatypes.KeyLimits{
-							NumberOfKeys: &three,
-						},
-					},
-				},
-			},
-		},
-		{
-			KeyValueSelection: &datatypes.KeyValueSelection{
-				KeyValues: map[string]datatypes.Value{
-					"groupBy2": datatypes.Value{Exists: &beTrue},
-				},
-				Limits: &datatypes.KeyLimits{
-					NumberOfKeys: &two,
-				},
-			},
-		},
-	},
-}
-
-Another option would be to have a new query option where where I lookup all the keys 1x since this query above is looking up
-each key N times which isn't great. Then save all the nodes /w the IDs and merge the combinations after as a "pure existene"
-check only.
-
-*/
-
-type Rule struct {
+type RuleRequest struct {
 	// Name of the rule
 	Name string // save this as the _associated_id in the the tree?
 
 	// These can be used to create a rule groupiing that any tags will have to match against
-	GroupBy []string // these are the logical keys to know what values we are checking against
+	GroupBy []string // these are the logical keys to know what values we are checking against on the counters
 
-	// If I was to just save this. It should error if there is a query that already has the exact query
-	// values saved? But what if one query is a subseet of another to perform more specific operations on a
-	// set of key values? Should those belong to the "overrides" setion, so it gets around that use case?
-	//
-	// or do we allow for saving of any queries, because its the "group by" in this case that we care about
-	// for enforcing the policies. or should the "group by", be used to check that the query filter selects those values?
-	//
-	// group by is nice for the initial setup of the rule
-	//
-	// When comparing tags, use this selection to figure out if a rule applies to them
-	QueryFilter datatypes.AssociatedKeyValuesQuery
-
-	// Limit Key is an optional param that can be used to dictate what value of the tags to use as a limiter
+	// Limit dictates what value of grouped counter tags to allow untill a limit is reached
 	Limit uint64
-
-	// This is a "Read Only" parameter and will be ignored on create operations
-	Overrides []Override
 }
 
 // Server side logic to parse a Rule to know it is valid
-func ParseRuleRequest(reader io.ReadCloser) (*Rule, *api.Error) {
+func ParseRuleRequest(reader io.ReadCloser) (*RuleRequest, *api.Error) {
 	requestBody, err := io.ReadAll(reader)
 	if err != nil {
 		return nil, api.ReadRequestBodyError.With("", err.Error())
 	}
 
-	obj := &Rule{}
+	obj := &RuleRequest{}
 	if err := json.Unmarshal(requestBody, obj); err != nil {
 		return nil, api.ParseRequestBodyError.With("", err.Error())
 	}
 
-	if validateErr := obj.ValidateRequest(); validateErr != nil {
+	if validateErr := obj.Validate(); validateErr != nil {
 		return nil, validateErr
-	}
-
-	return obj, nil
-}
-
-// Client side logic to parse a Rule
-func ParseRuleResponse(reader io.ReadCloser) (*Rule, *api.Error) {
-	requestBody, err := io.ReadAll(reader)
-	if err != nil {
-		return nil, api.ReadRequestBodyError.With("", err.Error())
-	}
-
-	obj := &Rule{}
-	if err := json.Unmarshal(requestBody, obj); err != nil {
-		return nil, api.ParseRequestBodyError.With("", err.Error())
 	}
 
 	return obj, nil
@@ -129,27 +39,53 @@ func ParseRuleResponse(reader io.ReadCloser) (*Rule, *api.Error) {
 
 // Used to validate on the server side that all parameters are valid. Client's can also call this
 // validation beforehand to ensure that the request is valid before sending
-func (rreq *Rule) ValidateRequest() *api.Error {
-	if rreq.Name == "" {
+func (rule RuleRequest) Validate() *api.Error {
+	if rule.Name == "" {
 		return api.InvalidRequestBody.With("Name to be provided", "recieved empty string")
 	}
 
-	if len(rreq.GroupBy) == 0 {
+	if len(rule.GroupBy) == 0 {
 		return api.InvalidRequestBody.With("GroupBy tags to be provided", "recieved empty tag grouping")
-	}
-
-	if err := rreq.QueryFilter.Validate(); err != nil {
-		return api.InvalidRequestBody.With("Selection query to be a valid expression", err.Error())
-	}
-
-	if len(rreq.Overrides) != 0 {
-		return api.InvalidRequestBody.With("Overrides must be empty", "recieved an override")
 	}
 
 	return nil
 }
 
-func (rule *Rule) ToBytes() []byte {
-	data, _ := json.Marshal(rule)
+func (ruleReq RuleRequest) ToBytes() []byte {
+	data, _ := json.Marshal(ruleReq)
+	return data
+}
+
+type RuleResponse struct {
+	// Name of the rule
+	Name string // save this as the _associated_id in the the tree?
+
+	// These can be used to create a rule groupiing that any tags will have to match against
+	GroupBy []string // these are the logical keys to know what values we are checking against on the counters
+
+	// Limit dictates what value of grouped counter tags to allow untill a limit is reached
+	Limit uint64
+
+	// This is a "Read Only" parameter and will be ignored on create operations
+	Overrides []Override
+}
+
+// Client side logic to parse a Rule
+func ParseRuleResponse(reader io.ReadCloser) (*RuleResponse, *api.Error) {
+	requestBody, err := io.ReadAll(reader)
+	if err != nil {
+		return nil, api.ReadRequestBodyError.With("", err.Error())
+	}
+
+	obj := &RuleResponse{}
+	if err := json.Unmarshal(requestBody, obj); err != nil {
+		return nil, api.ParseRequestBodyError.With("", err.Error())
+	}
+
+	return obj, nil
+}
+
+func (ruleRes RuleResponse) ToBytes() []byte {
+	data, _ := json.Marshal(ruleRes)
 	return data
 }

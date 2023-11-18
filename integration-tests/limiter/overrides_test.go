@@ -13,18 +13,23 @@ import (
 func Test_Limiter_Overrides_Create(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	testConstruct := NewIntrgrationLimiterTestConstruct(g)
-	defer testConstruct.Cleanup(g)
+	lockerTestConstruct := NewIntrgrationLockerTestConstruct(g)
+	defer lockerTestConstruct.Cleanup(g)
+
+	limiterTestConstruct := NewIntrgrationLimiterTestConstruct(g)
+	defer limiterTestConstruct.Cleanup(g)
 
 	t.Run("It can create an override for a rule", func(t *testing.T) {
-		testConstruct.StartLimiter(g)
-		defer testConstruct.Shutdown(g)
+		lockerTestConstruct.StartLocker(g)
+		defer lockerTestConstruct.Shutdown(g)
 
+		limiterTestConstruct.StartLimiter(g, lockerTestConstruct.ServerURL)
+		defer limiterTestConstruct.Shutdown(g)
 		// setup client
-		limiterClient := setupClient(g, testConstruct.ServerURL)
+		limiterClient := setupClient(g, limiterTestConstruct.ServerURL)
 
 		// create rule
-		rule := &v1.Rule{
+		rule := v1.RuleRequest{
 			Name:    "rule1",
 			GroupBy: []string{"key1", "key2"},
 			Limit:   5,
@@ -34,7 +39,7 @@ func Test_Limiter_Overrides_Create(t *testing.T) {
 		g.Expect(err).ToNot(HaveOccurred())
 
 		// create override
-		override := &v1.Override{
+		override := v1.Override{
 			Name:  "override1",
 			Limit: 32,
 			KeyValues: datatypes.KeyValues{
@@ -50,18 +55,24 @@ func Test_Limiter_Overrides_Create(t *testing.T) {
 func Test_Limiter_Overrides_Delete(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	testConstruct := NewIntrgrationLimiterTestConstruct(g)
-	defer testConstruct.Cleanup(g)
+	lockerTestConstruct := NewIntrgrationLockerTestConstruct(g)
+	defer lockerTestConstruct.Cleanup(g)
+
+	limiterTestConstruct := NewIntrgrationLimiterTestConstruct(g)
+	defer limiterTestConstruct.Cleanup(g)
 
 	t.Run("It can delete an override for a rule", func(t *testing.T) {
-		testConstruct.StartLimiter(g)
-		defer testConstruct.Shutdown(g)
+		lockerTestConstruct.StartLocker(g)
+		defer lockerTestConstruct.Shutdown(g)
+
+		limiterTestConstruct.StartLimiter(g, lockerTestConstruct.ServerURL)
+		defer limiterTestConstruct.Shutdown(g)
 
 		// setup client
-		limiterClient := setupClient(g, testConstruct.ServerURL)
+		limiterClient := setupClient(g, limiterTestConstruct.ServerURL)
 
 		// create rule
-		rule := &v1.Rule{
+		rule := v1.RuleRequest{
 			Name:    "rule1",
 			GroupBy: []string{"key1", "key2"},
 			Limit:   5,
@@ -69,7 +80,7 @@ func Test_Limiter_Overrides_Delete(t *testing.T) {
 		g.Expect(limiterClient.CreateRule(rule)).ToNot(HaveOccurred())
 
 		// create override
-		override := &v1.Override{
+		override := v1.Override{
 			Name:  "override1",
 			Limit: 32,
 			KeyValues: datatypes.KeyValues{
@@ -83,9 +94,9 @@ func Test_Limiter_Overrides_Delete(t *testing.T) {
 		g.Expect(err).ToNot(HaveOccurred())
 
 		// get the rule with overrides to ensure it is deleted
-		rule, err = limiterClient.GetRule("rule1", true)
+		ruleResp, err := limiterClient.GetRule("rule1", v1.RuleQuery{OverrideQuery: v1.All})
 		g.Expect(err).ToNot(HaveOccurred())
-		g.Expect(rule.Name).To(Equal("rule1"))
-		g.Expect(rule.Overrides).To(BeNil())
+		g.Expect(ruleResp.Name).To(Equal("rule1"))
+		g.Expect(ruleResp.Overrides).To(BeNil())
 	})
 }

@@ -16,14 +16,22 @@ type AssociatedKeyValues struct {
 	value any
 }
 
+// get the AssociatedID for the item
 func (associatedKeyValues *AssociatedKeyValues) AssociatedID() string {
 	return associatedKeyValues.keyValues[datatypes.String(ReservedID)].Value().(string)
 }
 
+// return the list of key values in a copy so they cannot be changed by the caller
 func (associatedKeyValues *AssociatedKeyValues) KeyValues() KeyValues {
-	return associatedKeyValues.keyValues
+	newKeyValues := KeyValues{}
+	for key, value := range associatedKeyValues.keyValues {
+		newKeyValues[key] = value
+	}
+
+	return newKeyValues
 }
 
+// get the Value that is saved in the AssociatedTree
 func (associatedKeyValues *AssociatedKeyValues) Value() any {
 	return associatedKeyValues.value
 }

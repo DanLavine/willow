@@ -99,7 +99,7 @@ func (bm *brokerManager) Find(logger *zap.Logger, queueName string) (queues.Queu
 func (m *brokerManager) Metrics() *v1willow.MetricsResponse {
 	metrics := &v1willow.MetricsResponse{}
 
-	iterator := func(value any) bool {
+	iterator := func(_ datatypes.EncapsulatedData, value any) bool {
 		managedQueue := value.(queues.ManagedQueue)
 		metrics.Queues = append(metrics.Queues, managedQueue.Metrics())
 		return true

@@ -36,7 +36,7 @@ func (m *MockRuleConstructor) EXPECT() *MockRuleConstructorMockRecorder {
 }
 
 // New mocks base method.
-func (m *MockRuleConstructor) New(arg0 *v1.Rule) rules.Rule {
+func (m *MockRuleConstructor) New(arg0 *v1.RuleRequest) rules.Rule {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "New", arg0)
 	ret0, _ := ret[0].(rules.Rule)

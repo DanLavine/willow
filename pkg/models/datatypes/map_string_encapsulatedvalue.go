@@ -115,11 +115,18 @@ func (kv KeyValues) MarshalJSON() ([]byte, error) {
 			}
 		case T_string:
 			mapKeyValues[key] = value
-		case T_nil:
-			mapKeyValues[key] = EncapsulatedValue{
-				Type: T_nil,
-				Data: nil,
-			}
+		// still no good way to decode this. the caller would need to pass a "decode" function for custom types
+		//case T_custom:
+		//	customEncoding := value.Value().(CustomType).Encode()
+		//	dst := make([]byte, base64.StdEncoding.EncodedLen(len(customEncoding)))
+		//
+		//	base64.StdEncoding.Encode(dst, customEncoding)
+		//	mapKeyValues[key] = EncapsulatedValue{
+		//		Type: T_custom,
+		//		Data: string(dst),
+		//	}
+		default:
+			return nil, fmt.Errorf("unknown data type: %d", value.DataType())
 		}
 	}
 
@@ -217,11 +224,6 @@ func (kv *KeyValues) UnmarshalJSON(b []byte) error {
 			(*kv)[key] = Float64(float64(parsedValue))
 		case T_string:
 			(*kv)[key] = value
-		case T_nil:
-			if value.Value() != nil {
-				return fmt.Errorf("key %s requires a nil value", key)
-			}
-			(*kv)[key] = Nil()
 		default:
 			return fmt.Errorf("unkown data type: %d", value.DataType())
 		}
@@ -240,20 +242,11 @@ func (kv KeyValues) Validate() error {
 	return nil
 }
 
-// TODO: think i will need something like this to check the GroupedBy[] in the lmiter requests.
-//
-//	but will also need to GenerateTagPairs
-func (kv KeyValues) ExistenceQuery() AssociatedKeyValuesQuery {
-	query := AssociatedKeyValuesQuery{}
-
-	return query
-}
-
 // GenerateGroupPairs can be used to go through a list of strings and create all unique ordered groupings.
 // The returned slice is sorted on length of key value pairs with the longest value always last
 //
 // Example:
-// * Tags{"b":"2", "a":"1", "c":"3"} -> [{"a":"1"}, {"b":"2"}, {"c":"3"}, {"a":"1", "b":"2"}, {"a":"1", "c":"3"}, {"b":"2", "c":"3"}, {"a":"1", "b":"2", "c":"3"}]
+// - Tags{"b":"2", "a":"1", "c":"3"} -> [{"a":"1"}, {"b":"2"}, {"c":"3"}, {"a":"1", "b":"2"}, {"a":"1", "c":"3"}, {"b":"2", "c":"3"}, {"a":"1", "b":"2", "c":"3"}]
 func (kv KeyValues) GenerateTagPairs() []KeyValues {
 	groupPairs := kv.generateTagPairs(kv.Keys())
 

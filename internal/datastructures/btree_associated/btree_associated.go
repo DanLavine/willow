@@ -13,6 +13,17 @@ import (
 // so we can still make queries against them
 type KeyValues map[datatypes.EncapsulatedData]datatypes.EncapsulatedData
 
+// Callback for calling a function when a value is found in a tree during query operations
+//
+//	PARAMS:
+//	- value - the item saved in the key value store
+//
+//	RETURNS:
+//	- bool - iff true, the pagination will stop processing.
+//
+// If I do this, then I can get rid of the wrapper around the value to know all the key values which would be nice.
+type OnQueryPagination func(value *AssociatedKeyValues) bool
+
 // bTreeAssociated is used to grouping arbitrary key values into a unique searchable data set.
 //
 // The tree is structured with these rules:
@@ -57,7 +68,7 @@ type KeyValues map[datatypes.EncapsulatedData]datatypes.EncapsulatedData
 type BTreeAssociated interface {
 	// Find an item in the assoociation tree
 	// TOOD: Remove this
-	Find(keyValuePairs KeyValues, onFind datastructures.OnFind) (string, error)
+	Find(keyValues KeyValues, onFind datastructures.OnFind) (string, error)
 
 	// Find an item in the assoociation tree by the assocaited id
 	// TOOD: Remove this
@@ -75,20 +86,25 @@ type BTreeAssociated interface {
 	CreateWithID(associatedID string, keyValues KeyValues, onCreate datastructures.OnCreate) error
 
 	// Create or Find an item in the association tree
-	CreateOrFind(keyValuePairs KeyValues, onCreate datastructures.OnCreate, onFind datastructures.OnFind) (string, error)
-
-	// Serch for any number of items in the assoociation tree
-	// todo: should be able to ad _associated_id to the queries as well
-	Query(query datatypes.AssociatedKeyValuesQuery, onFindPagination datastructures.OnFindPagination) error
+	CreateOrFind(keyValues KeyValues, onCreate datastructures.OnCreate, onFind datastructures.OnFind) (string, error)
 
 	// Delete an item in the association tree
-	Delete(keyValuePairs KeyValues, canDelete datastructures.CanDelete) error
+	Delete(keyValues KeyValues, canDelete datastructures.CanDelete) error
 
 	// Delete an item in the association tree by the AssociatedID
 	DeleteByAssociatedID(associatedID string, canDelete datastructures.CanDelete) error
 
 	// delete an number of items that match a particular query
 	//DeleteByQuery(query datatypes.AssociatedKeyValuesQuery, canDelete datastructures.CanDelete) error
+
+	// MatchKeys can be used to find any  any permutation of the KeyValues with items saved in the tree. This can be done via a query, but the
+	// query can be huge and slow. This is an optimization of finding any entries that mach all possible tag combinations
+	// of key values provided.
+	MatchPermutations(keyValues KeyValues, onQueryPagination OnQueryPagination) error
+
+	// Serch for any number of items in the assoociation tree
+	// todo: should be able to ad _associated_id to the queries as well
+	Query(query datatypes.AssociatedKeyValuesQuery, onQueryPagination OnQueryPagination) error
 }
 
 func ConverDatatypesKeyValues(keyValuePairs datatypes.KeyValues) KeyValues {
@@ -119,19 +135,6 @@ func (kv KeyValues) SortedKeys() []datatypes.EncapsulatedData {
 	})
 
 	return keys
-}
-
-// Retrieve the custom data for a particualr KeyValues. Can be used to find what th service added to the customers request
-func (kv KeyValues) RetrieveCustomDataTypes() map[datatypes.EncapsulatedData]datatypes.EncapsulatedData {
-	keyValuePairs := KeyValues{}
-
-	for key, value := range kv {
-		if key.DataType() == datatypes.T_custom {
-			keyValuePairs[key] = value
-		}
-	}
-
-	return keyValuePairs
 }
 
 // The inverse of ConverDatatypesKeyValues. Can be used to obtain the original values before conversion

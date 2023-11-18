@@ -111,7 +111,7 @@ func (bn *threadSafeBNode) findNotEqual(key datatypes.EncapsulatedData, onFind d
 		if !keyValue.key.Less(key) && !key.Less(keyValue.key) {
 			// nothing to do here, this is the value we don't want
 		} else {
-			if !onFind(keyValue.value) {
+			if !onFind(keyValue.key, keyValue.value) {
 				// caller wants to stop paginating, need to unlock everything
 				if bn.numberOfChildren != 0 {
 					for rev := 0; rev < len(children); rev++ {
@@ -210,7 +210,7 @@ func (bn *threadSafeBNode) findNotEqualMatchType(key datatypes.EncapsulatedData,
 		if !keyValue.key.LessValue(key) && !key.LessValue(keyValue.key) {
 			// nothing to do here, this is the value we don't want
 		} else {
-			if !onFind(keyValue.value) {
+			if !onFind(keyValue.key, keyValue.value) {
 				// caller wants to stop paginating, need to unlock everything
 				if bn.numberOfChildren != 0 {
 					for rev := 0; rev < len(children); rev++ {
@@ -289,7 +289,7 @@ func (bn *threadSafeBNode) findLessThan(key datatypes.EncapsulatedData, onFind d
 				children = append(children, bn.children[index])
 			}
 
-			if !onFind(keyValue.value) {
+			if !onFind(keyValue.key, keyValue.value) {
 				// caller wants to stop paginating, need to unlock everything
 				if bn.numberOfChildren != 0 {
 					for rev := 0; rev < len(children); rev++ {
@@ -383,7 +383,7 @@ func (bn *threadSafeBNode) findLessThanMatchType(key datatypes.EncapsulatedData,
 				children = append(children, bn.children[index])
 			}
 
-			if !onFind(keyValue.value) {
+			if !onFind(keyValue.key, keyValue.value) {
 				// caller wants to stop paginating, need to unlock everything
 				if bn.numberOfChildren != 0 {
 					for rev := 0; rev < len(children); rev++ {
@@ -465,7 +465,7 @@ func (bn *threadSafeBNode) findLessThanOrEqual(key datatypes.EncapsulatedData, o
 				children = append(children, bn.children[index])
 			}
 
-			if !onFind(keyValue.value) {
+			if !onFind(keyValue.key, keyValue.value) {
 				// caller wants to stop paginating, need to unlock everything
 				if bn.numberOfChildren != 0 {
 					for rev := 0; rev < len(children); rev++ {
@@ -479,7 +479,7 @@ func (bn *threadSafeBNode) findLessThanOrEqual(key datatypes.EncapsulatedData, o
 		} else {
 			// call the equals value for the key
 			if !key.Less(keyValue.key) {
-				if !onFind(keyValue.value) {
+				if !onFind(keyValue.key, keyValue.value) {
 					// caller wants to stop paginating, need to unlock everything
 					if bn.numberOfChildren != 0 {
 						for rev := 0; rev < len(children); rev++ {
@@ -574,7 +574,7 @@ func (bn *threadSafeBNode) findLessThanOrEqualMatchType(key datatypes.Encapsulat
 				children = append(children, bn.children[index])
 			}
 
-			if !onFind(keyValue.value) {
+			if !onFind(keyValue.key, keyValue.value) {
 				// caller wants to stop paginating, need to unlock everything
 				if bn.numberOfChildren != 0 {
 					for rev := 0; rev < len(children); rev++ {
@@ -588,7 +588,7 @@ func (bn *threadSafeBNode) findLessThanOrEqualMatchType(key datatypes.Encapsulat
 		} else {
 			// add the equals value for the key
 			if !key.LessValue(keyValue.key) {
-				if !onFind(keyValue.value) {
+				if !onFind(keyValue.key, keyValue.value) {
 					// caller wants to stop paginating, need to unlock everything
 					if bn.numberOfChildren != 0 {
 						for rev := 0; rev < len(children); rev++ {
@@ -679,7 +679,7 @@ func (bn *threadSafeBNode) findGreaterThan(key datatypes.EncapsulatedData, onFin
 				children = append(children, bn.children[index])
 			}
 
-			if !onFind(keyValue.value) {
+			if !onFind(keyValue.key, keyValue.value) {
 				// caller wants to stop paginating, need to unlock everything
 				if bn.numberOfChildren != 0 {
 					for rev := 0; rev < len(children); rev++ {
@@ -782,7 +782,7 @@ func (bn *threadSafeBNode) findGreaterThanMatchType(key datatypes.EncapsulatedDa
 				children = append(children, bn.children[index])
 			}
 
-			if !onFind(keyValue.value) {
+			if !onFind(keyValue.key, keyValue.value) {
 				// caller wants to stop paginating, need to unlock everything
 				if bn.numberOfChildren != 0 {
 					for rev := 0; rev < len(children); rev++ {
@@ -870,7 +870,7 @@ func (bn *threadSafeBNode) findGreaterThanOrEqual(key datatypes.EncapsulatedData
 				children = append(children, bn.children[index])
 			}
 
-			if !onFind(keyValue.value) {
+			if !onFind(keyValue.key, keyValue.value) {
 				// caller wants to stop paginating, need to unlock everything
 				if bn.numberOfChildren != 0 {
 					for rev := 0; rev < len(children); rev++ {
@@ -884,7 +884,7 @@ func (bn *threadSafeBNode) findGreaterThanOrEqual(key datatypes.EncapsulatedData
 		} else {
 			// this is the equal key
 			if !keyValue.key.Less(key) {
-				if !onFind(keyValue.value) {
+				if !onFind(keyValue.key, keyValue.value) {
 					// caller wants to stop paginating, need to unlock everything
 					if bn.numberOfChildren != 0 && startIndex != -1 {
 						for rev := 0; rev < len(children); rev++ {
@@ -987,7 +987,7 @@ func (bn *threadSafeBNode) findGreaterThanOrEqualMatchType(key datatypes.Encapsu
 				children = append(children, bn.children[index])
 			}
 
-			if !onFind(keyValue.value) {
+			if !onFind(keyValue.key, keyValue.value) {
 				// caller wants to stop paginating, need to unlock everything
 				if bn.numberOfChildren != 0 {
 					for rev := 0; rev < len(children); rev++ {
@@ -1001,7 +1001,7 @@ func (bn *threadSafeBNode) findGreaterThanOrEqualMatchType(key datatypes.Encapsu
 		} else {
 			// this is the equal key
 			if !keyValue.key.LessValue(key) {
-				if !onFind(keyValue.value) {
+				if !onFind(keyValue.key, keyValue.value) {
 					// caller wants to stop paginating, need to unlock everything
 					if bn.numberOfChildren != 0 && startIndex != -1 {
 						for rev := 0; rev < len(children); rev++ {

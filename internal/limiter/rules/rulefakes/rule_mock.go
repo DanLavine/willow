@@ -66,11 +66,12 @@ func (mr *MockRuleMockRecorder) DeleteOverride(arg0, arg1 interface{}) *gomock.C
 }
 
 // FindLimit mocks base method.
-func (m *MockRule) FindLimit(arg0 *zap.Logger, arg1 datatypes.KeyValues) uint64 {
+func (m *MockRule) FindLimit(arg0 *zap.Logger, arg1 datatypes.KeyValues) (uint64, *api.Error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "FindLimit", arg0, arg1)
 	ret0, _ := ret[0].(uint64)
-	return ret0
+	ret1, _ := ret[1].(*api.Error)
+	return ret0, ret1
 }
 
 // FindLimit indicates an expected call of FindLimit.
@@ -94,10 +95,10 @@ func (mr *MockRuleMockRecorder) GenerateQuery(arg0 interface{}) *gomock.Call {
 }
 
 // Get mocks base method.
-func (m *MockRule) Get(arg0 bool) *v1.Rule {
+func (m *MockRule) Get(arg0 *v1.RuleQuery) *v1.RuleResponse {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Get", arg0)
-	ret0, _ := ret[0].(*v1.Rule)
+	ret0, _ := ret[0].(*v1.RuleResponse)
 	return ret0
 }
 
@@ -105,6 +106,34 @@ func (m *MockRule) Get(arg0 bool) *v1.Rule {
 func (mr *MockRuleMockRecorder) Get(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockRule)(nil).Get), arg0)
+}
+
+// GetGroupByKeys mocks base method.
+func (m *MockRule) GetGroupByKeys() []string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetGroupByKeys")
+	ret0, _ := ret[0].([]string)
+	return ret0
+}
+
+// GetGroupByKeys indicates an expected call of GetGroupByKeys.
+func (mr *MockRuleMockRecorder) GetGroupByKeys() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetGroupByKeys", reflect.TypeOf((*MockRule)(nil).GetGroupByKeys))
+}
+
+// Name mocks base method.
+func (m *MockRule) Name() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Name")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// Name indicates an expected call of Name.
+func (mr *MockRuleMockRecorder) Name() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Name", reflect.TypeOf((*MockRule)(nil).Name))
 }
 
 // SetOverride mocks base method.

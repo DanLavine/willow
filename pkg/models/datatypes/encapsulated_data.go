@@ -1,11 +1,11 @@
 package datatypes
 
 type EncapsulatedData interface {
-	Validate() error
-
 	DataType() DataType
 
 	Value() any
+
+	Validate() error
 
 	Less(item EncapsulatedData) bool
 

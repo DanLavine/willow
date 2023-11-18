@@ -28,7 +28,7 @@ func ParseRuleUpdateRequest(reader io.ReadCloser) (*RuleUpdate, *api.Error) {
 }
 
 // Convert the RuleUpdate logic to bytes that both the Client and Server understand
-func (ru *RuleUpdate) ToBytes() []byte {
+func (ru RuleUpdate) ToBytes() []byte {
 	data, _ := json.Marshal(ru)
 	return data
 }

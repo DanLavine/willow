@@ -101,7 +101,7 @@ func (limiter *limiterTCP) Execute(ctx context.Context) error {
 	})
 
 	// crud operations for group rules
-	//mux.HandleFunc("GET", "/v1/limiter/rules", limiter.v1ruleHandler.Find)
+	mux.HandleFunc("GET", "/v1/limiter/rules", limiter.v1ruleHandler.List)
 	mux.HandleFunc("POST", "/v1/limiter/rules", limiter.v1ruleHandler.Create)
 	mux.HandleFunc("GET", "/v1/limiter/rules/:rule_name", limiter.v1ruleHandler.Get)
 	mux.HandleFunc("PUT", "/v1/limiter/rules/:rule_name", limiter.v1ruleHandler.Update)

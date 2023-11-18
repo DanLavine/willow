@@ -52,7 +52,7 @@ func (btree *threadSafeBTree) Create(key datatypes.EncapsulatedData, onCreate da
 	return nil
 }
 
-// Create a new value  in the BTree.
+// Create a new value in the BTree.
 // The threading unlock strategy follows a number of rules when determining if it can unlock a Node
 // or the parent Node(s) for parallel requests:
 //  1. Lock the Node with an exclusive lock since Crete can add a new value
