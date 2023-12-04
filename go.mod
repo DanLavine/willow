@@ -3,7 +3,7 @@ module github.com/DanLavine/willow
 go 1.19
 
 require (
-	github.com/DanLavine/channelops v0.0.0-20230914213205-26fbb4f14586
+	github.com/DanLavine/channelops v0.0.0-20231207200732-e28b846fd188
 	github.com/DanLavine/goasync v1.0.2
 	github.com/DanLavine/gonotify v0.0.0-20221228000906-77ad21d2336e
 	github.com/DanLavine/urlrouter v0.0.0-20231102214216-aa9c83986dc4

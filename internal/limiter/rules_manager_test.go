@@ -1,20 +1,33 @@
 package limiter
 
 import (
+	"context"
 	"fmt"
 	"net/http"
+	"net/http/httptest"
 	"reflect"
 	"testing"
+	"time"
 
+	btreeassociated "github.com/DanLavine/willow/internal/datastructures/btree_associated"
+	"github.com/DanLavine/willow/internal/errors"
+	"github.com/DanLavine/willow/internal/limiter/counters"
 	"github.com/DanLavine/willow/internal/limiter/rules"
 	"github.com/DanLavine/willow/internal/limiter/rules/rulefakes"
+	lockerclient "github.com/DanLavine/willow/pkg/clients/locker_client"
+	"github.com/DanLavine/willow/pkg/clients/locker_client/lockerclientfakes"
 	"github.com/DanLavine/willow/pkg/models/api"
 	v1limiter "github.com/DanLavine/willow/pkg/models/api/limiter/v1"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 	. "github.com/onsi/gomega"
 	"go.uber.org/mock/gomock"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest/observer"
 )
+
+func setupServerHttp(serverMux *http.ServeMux) *httptest.Server {
+	return httptest.NewServer(serverMux)
+}
 
 // mock constructor and rule
 func setupMocks(t *testing.T) (*gomock.Controller, *rulefakes.MockRuleConstructor, *rulefakes.MockRule) {
@@ -36,7 +49,7 @@ func TestRulesManager_Create(t *testing.T) {
 	t.Run("It returns nil when successfully creating a new rule", func(t *testing.T) {
 		constructor, err := rules.NewRuleConstructor("memory")
 		g.Expect(err).ToNot(HaveOccurred())
-		rulesManager := NewRulesManger(constructor, nil)
+		rulesManager := NewRulesManger(constructor)
 
 		createRequest := &v1limiter.RuleRequest{
 			Name:    "test",
@@ -52,7 +65,7 @@ func TestRulesManager_Create(t *testing.T) {
 	t.Run("It returns an error when trying to create rule with the same name", func(t *testing.T) {
 		constructor, err := rules.NewRuleConstructor("memory")
 		g.Expect(err).ToNot(HaveOccurred())
-		rulesManager := NewRulesManger(constructor, nil)
+		rulesManager := NewRulesManger(constructor)
 
 		createRequest := &v1limiter.RuleRequest{
 			Name:    "test",
@@ -72,7 +85,7 @@ func TestRulesManager_Create(t *testing.T) {
 	t.Run("It returns an error when trying to create rule with the same group by keys", func(t *testing.T) {
 		constructor, err := rules.NewRuleConstructor("memory")
 		g.Expect(err).ToNot(HaveOccurred())
-		rulesManager := NewRulesManger(constructor, nil)
+		rulesManager := NewRulesManger(constructor)
 
 		createRequest := &v1limiter.RuleRequest{
 			Name:    "test",
@@ -97,7 +110,7 @@ func TestRulesManager_Get(t *testing.T) {
 	t.Run("It returns nil when a rule doesn't exist", func(t *testing.T) {
 		constructor, err := rules.NewRuleConstructor("memory")
 		g.Expect(err).ToNot(HaveOccurred())
-		rulesManager := NewRulesManger(constructor, nil)
+		rulesManager := NewRulesManger(constructor)
 
 		query := &v1limiter.RuleQuery{
 			OverrideQuery: v1limiter.All,
@@ -111,7 +124,7 @@ func TestRulesManager_Get(t *testing.T) {
 	t.Run("Context when the rules exists", func(t *testing.T) {
 		constructor, err := rules.NewRuleConstructor("memory")
 		g.Expect(err).ToNot(HaveOccurred())
-		rulesManager := NewRulesManger(constructor, nil)
+		rulesManager := NewRulesManger(constructor)
 
 		// create the rule
 		createRequest := &v1limiter.RuleRequest{
@@ -126,6 +139,8 @@ func TestRulesManager_Get(t *testing.T) {
 		overrideRequest := v1limiter.Override{
 			Name: "override1",
 			KeyValues: datatypes.KeyValues{
+				"key1":  datatypes.Int(1),
+				"key2":  datatypes.Int(2),
 				"three": datatypes.Float64(52.123),
 			},
 			Limit: 87,
@@ -151,7 +166,7 @@ func TestRulesManager_List(t *testing.T) {
 	t.Run("It returns an empty list when no rules are found", func(t *testing.T) {
 		constructor, err := rules.NewRuleConstructor("memory")
 		g.Expect(err).ToNot(HaveOccurred())
-		rulesManager := NewRulesManger(constructor, nil)
+		rulesManager := NewRulesManger(constructor)
 
 		ruleQuery := &v1limiter.RuleQuery{
 			KeyValues: &datatypes.KeyValues{
@@ -169,7 +184,7 @@ func TestRulesManager_List(t *testing.T) {
 	t.Run("Context when there are a number of rules", func(t *testing.T) {
 		constructor, err := rules.NewRuleConstructor("memory")
 		g.Expect(err).ToNot(HaveOccurred())
-		rulesManager := NewRulesManger(constructor, nil)
+		rulesManager := NewRulesManger(constructor)
 
 		// create 5 rules with single group by keys
 		for i := 0; i < 5; i++ {
@@ -178,18 +193,19 @@ func TestRulesManager_List(t *testing.T) {
 			createRequest := &v1limiter.RuleRequest{
 				Name:    fmt.Sprintf("test%d", i),
 				GroupBy: []string{fmt.Sprintf("key%d", i)},
-				Limit:   5, // todo. make this optinal...
+				Limit:   5,
 			}
 			g.Expect(createRequest.Validate()).ToNot(HaveOccurred())
 			g.Expect(rulesManager.Create(zap.NewNop(), createRequest)).ToNot(HaveOccurred())
 
 			// up to KeyN -> Where N is the number of overrides
-			// overrides: { {"key0":0}, {"key1":1}, ...}
-			for k := 0; k <= i; k++ {
+			// overrides: { {"keyi":i, "keyi+1": i+1}, {"keyi+1":i+1, "keyi+2":i+2}, ...}
+			for k := i + 1; k <= i+5; k++ {
 				// create number of overrides
 				overrideRequest := v1limiter.Override{
 					Name: fmt.Sprintf("override%d", k),
 					KeyValues: datatypes.KeyValues{
+						fmt.Sprintf("key%d", i): datatypes.Int(i),
 						fmt.Sprintf("key%d", k): datatypes.Int(k),
 					},
 					Limit: 10,
@@ -199,6 +215,7 @@ func TestRulesManager_List(t *testing.T) {
 			}
 		}
 
+		// create 4 rules with multiple key values
 		keyValues := datatypes.KeyValues{"key0": datatypes.Int(0)}
 		for i := 1; i < 5; i++ {
 			// multi instance group by
@@ -212,12 +229,28 @@ func TestRulesManager_List(t *testing.T) {
 			g.Expect(createRequest.Validate()).ToNot(HaveOccurred())
 			g.Expect(rulesManager.Create(zap.NewNop(), createRequest)).ToNot(HaveOccurred())
 
-			// permutation for all key values as overrides
-			for index, keyValue := range keyValues.GenerateTagPairs() {
+			// add a number of overrides
+			newKeyValues := datatypes.KeyValues{}
+			for key, value := range keyValues {
+				newKeyValues[key] = value
+			}
+
+			// create override with the same key values
+			overrideRequest := v1limiter.Override{
+				Name:      "override0",
+				KeyValues: newKeyValues,
+				Limit:     10,
+			}
+			g.Expect(overrideRequest.Validate()).ToNot(HaveOccurred())
+			g.Expect(rulesManager.CreateOverride(zap.NewNop(), fmt.Sprintf("multi_test%d", i), &overrideRequest)).ToNot(HaveOccurred())
+
+			for k := i + 1; k <= i+4; k++ {
+				newKeyValues[fmt.Sprintf("key%d", k)] = datatypes.Int(k)
+
 				// create number of overrides
 				overrideRequest := v1limiter.Override{
-					Name:      fmt.Sprintf("override%d", index),
-					KeyValues: keyValue,
+					Name:      fmt.Sprintf("override%d", k),
+					KeyValues: newKeyValues,
 					Limit:     10,
 				}
 				g.Expect(overrideRequest.Validate()).ToNot(HaveOccurred())
@@ -246,25 +279,7 @@ func TestRulesManager_List(t *testing.T) {
 			g.Expect(err).ToNot(HaveOccurred())
 			g.Expect(len(rules)).To(Equal(9))
 			for i := 0; i < 9; i++ {
-				if reflect.DeepEqual(rules[i].GroupBy, []string{"key0"}) {
-					g.Expect(len(rules[i].Overrides)).To(Equal(1))
-				} else if reflect.DeepEqual(rules[i].GroupBy, []string{"key1"}) {
-					g.Expect(len(rules[i].Overrides)).To(Equal(2))
-				} else if reflect.DeepEqual(rules[i].GroupBy, []string{"key2"}) {
-					g.Expect(len(rules[i].Overrides)).To(Equal(3))
-				} else if reflect.DeepEqual(rules[i].GroupBy, []string{"key3"}) {
-					g.Expect(len(rules[i].Overrides)).To(Equal(4))
-				} else if reflect.DeepEqual(rules[i].GroupBy, []string{"key4"}) {
-					g.Expect(len(rules[i].Overrides)).To(Equal(5))
-				} else if reflect.DeepEqual(rules[i].GroupBy, []string{"key0", "key1"}) {
-					g.Expect(len(rules[i].Overrides)).To(Equal(3))
-				} else if reflect.DeepEqual(rules[i].GroupBy, []string{"key0", "key1", "key2"}) {
-					g.Expect(len(rules[i].Overrides)).To(Equal(7))
-				} else if reflect.DeepEqual(rules[i].GroupBy, []string{"key0", "key1", "key2", "key3"}) {
-					g.Expect(len(rules[i].Overrides)).To(Equal(15))
-				} else if reflect.DeepEqual(rules[i].GroupBy, []string{"key0", "key1", "key2", "key3", "key4"}) {
-					g.Expect(len(rules[i].Overrides)).To(Equal(31))
-				}
+				g.Expect(len(rules[i].Overrides)).To(Equal(5))
 			}
 		})
 
@@ -296,7 +311,7 @@ func TestRulesManager_List(t *testing.T) {
 					"key0": datatypes.Int(0),
 					"key1": datatypes.Int(1),
 				},
-				OverrideQuery: v1limiter.All,
+				OverrideQuery: v1limiter.Match,
 			}
 			g.Expect(ruleQuery.Validate()).ToNot(HaveOccurred())
 
@@ -312,9 +327,9 @@ func TestRulesManager_List(t *testing.T) {
 				if reflect.DeepEqual(rules[i].GroupBy, []string{"key0"}) {
 					g.Expect(len(rules[i].Overrides)).To(Equal(1))
 				} else if reflect.DeepEqual(rules[i].GroupBy, []string{"key1"}) {
-					g.Expect(len(rules[i].Overrides)).To(Equal(2))
+					g.Expect(len(rules[i].Overrides)).To(Equal(0))
 				} else {
-					g.Expect(len(rules[i].Overrides)).To(Equal(3))
+					g.Expect(len(rules[i].Overrides)).To(Equal(1))
 				}
 			}
 		})
@@ -327,7 +342,7 @@ func TestRulesManager_Update(t *testing.T) {
 	t.Run("It returns an error when failing to find the rule by name", func(t *testing.T) {
 		constructor, err := rules.NewRuleConstructor("memory")
 		g.Expect(err).ToNot(HaveOccurred())
-		rulesManager := NewRulesManger(constructor, nil)
+		rulesManager := NewRulesManger(constructor)
 
 		ruleUpdate := &v1limiter.RuleUpdate{
 			Limit: 12,
@@ -341,7 +356,7 @@ func TestRulesManager_Update(t *testing.T) {
 	t.Run("It can update a rule by name", func(t *testing.T) {
 		constructor, err := rules.NewRuleConstructor("memory")
 		g.Expect(err).ToNot(HaveOccurred())
-		rulesManager := NewRulesManger(constructor, nil)
+		rulesManager := NewRulesManger(constructor)
 
 		// create the rule
 		createRequest := &v1limiter.RuleRequest{
@@ -371,7 +386,7 @@ func TestRulesManager_Delete(t *testing.T) {
 	t.Run("It returns nil if the rule does not exist", func(t *testing.T) {
 		constructor, err := rules.NewRuleConstructor("memory")
 		g.Expect(err).ToNot(HaveOccurred())
-		rulesManager := NewRulesManger(constructor, nil)
+		rulesManager := NewRulesManger(constructor)
 
 		err = rulesManager.Delete(zap.NewNop(), "not found")
 		g.Expect(err).ToNot(HaveOccurred())
@@ -380,7 +395,7 @@ func TestRulesManager_Delete(t *testing.T) {
 	t.Run("It deletes the rule if it exists", func(t *testing.T) {
 		constructor, err := rules.NewRuleConstructor("memory")
 		g.Expect(err).ToNot(HaveOccurred())
-		rulesManager := NewRulesManger(constructor, nil)
+		rulesManager := NewRulesManger(constructor)
 
 		// create the rule
 		createRequest := &v1limiter.RuleRequest{
@@ -410,7 +425,7 @@ func TestRulesManager_Delete(t *testing.T) {
 				return nil
 			}).Times(1)
 
-			rulesManager := NewRulesManger(mockConstructor, nil)
+			rulesManager := NewRulesManger(mockConstructor)
 
 			// create the rule
 			createRequest := &v1limiter.RuleRequest{
@@ -444,7 +459,7 @@ func TestRulesManager_Delete(t *testing.T) {
 				return &v1limiter.RuleResponse{}
 			}).Times(1)
 
-			rulesManager := NewRulesManger(mockConstructor, nil)
+			rulesManager := NewRulesManger(mockConstructor)
 
 			// create the rule
 			createRequest := &v1limiter.RuleRequest{
@@ -467,230 +482,561 @@ func TestRulesManager_Delete(t *testing.T) {
 	})
 }
 
-/*
-func TestRulesManager_FindRule(t *testing.T) {
-	g := NewGomegaWithT(t)
-
-	t.Run("It returns nil when a rule doesn't exist", func(t *testing.T) {
-		rulesManager := NewRulesManger()
-
-		rule := rulesManager.FindRule(zap.NewNop(), "doesn't exist")
-		g.Expect(rule).To(BeNil())
-	})
-
-	t.Run("It returns the proper rule if it exists", func(t *testing.T) {
-		rulesManager := NewRulesManger()
-
-		createRequest := &v1limiter.Rule{
-			Name:        "test",
-			GroupBy:     []string{"key1", "key2"},
-			QueryFilter: datatypes.AssociatedKeyValuesQuery{},
-			Limit:       5,
-		}
-		g.Expect(createRequest.Validate()).ToNot(HaveOccurred())
-
-		err := rulesManager.CreateGroupRule(zap.NewNop(), createRequest)
-		g.Expect(err).ToNot(HaveOccurred())
-
-		rule := rulesManager.FindRule(zap.NewNop(), "test")
-		g.Expect(rule).ToNot(BeNil())
-	})
+func TestRulesManager_CreateOverride(t *testing.T) {
+	// DSL TODO:
 }
 
-func TestRulesManager_ListRules(t *testing.T) {
-	g := NewGomegaWithT(t)
-
-	t.Run("It returns an empty list when no rules exist", func(t *testing.T) {
-		rulesManager := NewRulesManger()
-
-		rules := rulesManager.ListRules(zap.NewNop())
-		g.Expect(len(rules)).To(Equal(0))
-	})
-
-	t.Run("It returns the proper rule if it exists", func(t *testing.T) {
-		rulesManager := NewRulesManger()
-
-		createRequest := &v1limiter.Rule{
-			Name:        "test",
-			GroupBy:     []string{"key1", "key2"},
-			QueryFilter: datatypes.AssociatedKeyValuesQuery{},
-			Limit:       5,
-		}
-		g.Expect(createRequest.Validate()).ToNot(HaveOccurred())
-
-		err := rulesManager.CreateGroupRule(zap.NewNop(), createRequest)
-		g.Expect(err).ToNot(HaveOccurred())
-
-		rules := rulesManager.ListRules(zap.NewNop())
-		g.Expect(len(rules)).To(Equal(1))
-	})
+func TestRulesManager_DeleteOverride(t *testing.T) {
+	// DSL TODO:
 }
 
-func TestRulesManager_DeleteGroupRule(t *testing.T) {
+func TestRulesManager_IncrementCounters(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	t.Run("It deletes a rule iff it exists by name", func(t *testing.T) {
-		rulesManager := NewRulesManger()
+	constructor, err := rules.NewRuleConstructor("memory")
+	g.Expect(err).ToNot(HaveOccurred())
 
-		createRequest := &v1limiter.Rule{
-			Name:        "test",
-			GroupBy:     []string{"key1", "key2"},
-			QueryFilter: datatypes.AssociatedKeyValuesQuery{},
-			Limit:       5,
-		}
-		g.Expect(createRequest.Validate()).ToNot(HaveOccurred())
-		g.Expect(rulesManager.CreateGroupRule(zap.NewNop(), createRequest)).ToNot(HaveOccurred())
+	t.Run("It returns nil if there are no rules to match against", func(t *testing.T) {
+		rulesManager := NewRulesManger(constructor)
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
 
-		rules := rulesManager.ListRules(zap.NewNop())
-		g.Expect(len(rules)).To(Equal(1))
-
-		rulesManager.DeleteGroupRule(zap.NewNop(), "test")
-
-		rules = rulesManager.ListRules(zap.NewNop())
-		g.Expect(len(rules)).To(Equal(0))
-	})
-}
-
-func TestRulesManager_Increment(t *testing.T) {
-	g := NewGomegaWithT(t)
-
-	t.Run("It can increment a anything if no rules exist", func(t *testing.T) {
-		rulesManager := NewRulesManger()
-
-		increment := &v1limiter.RuleCounterRequest{
-			KeyValues: datatypes.KeyValues{"key1": datatypes.String("first")},
+		counter := &v1limiter.Counter{
+			KeyValues: datatypes.KeyValues{
+				"key1": datatypes.String("1"),
+			},
 		}
 
-		err := rulesManager.Increment(zap.NewNop(), increment)
+		err := rulesManager.IncrementCounters(zap.NewNop(), ctx, nil, counter)
 		g.Expect(err).ToNot(HaveOccurred())
 	})
 
-	t.Run("It returns an error if a rule has reached its limit", func(t *testing.T) {
-		rulesManager := NewRulesManger()
+	t.Run("It returns a limit reached error if any matched rule has a limit of 0", func(t *testing.T) {
+		rulesManager := NewRulesManger(constructor)
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
 
-		createRequest := &v1limiter.Rule{
-			Name:        "test",
-			GroupBy:     []string{"key1", "key2"},
-			QueryFilter: datatypes.AssociatedKeyValuesQuery{},
-			Limit:       5,
+		for i := 0; i < 5; i++ {
+			// single instance rule group by
+			createRequest := &v1limiter.RuleRequest{
+				Name:    fmt.Sprintf("test%d", i),
+				GroupBy: []string{fmt.Sprintf("key%d", i)},
+				Limit:   uint64(i),
+			}
+			g.Expect(createRequest.Validate()).ToNot(HaveOccurred())
+			g.Expect(rulesManager.Create(zap.NewNop(), createRequest)).ToNot(HaveOccurred())
+		}
+
+		counter := &v1limiter.Counter{
+			KeyValues: datatypes.KeyValues{
+				"key0": datatypes.String("0"),
+				"key1": datatypes.String("1"),
+				"key2": datatypes.String("2"),
+			},
+		}
+
+		err := rulesManager.IncrementCounters(zap.NewNop(), ctx, nil, counter)
+		g.Expect(err).To(HaveOccurred())
+		g.Expect(err).To(Equal(LimitReached))
+	})
+
+	t.Run("It returns a limit reached error if any matched overrides have a limit of 0", func(t *testing.T) {
+		rulesManager := NewRulesManger(constructor)
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		// single instance rule group by
+		createRequest := &v1limiter.RuleRequest{
+			Name:    "test1",
+			GroupBy: []string{"key1"},
+			Limit:   15,
 		}
 		g.Expect(createRequest.Validate()).ToNot(HaveOccurred())
-		g.Expect(rulesManager.CreateGroupRule(zap.NewNop(), createRequest)).ToNot(HaveOccurred())
+		g.Expect(rulesManager.Create(zap.NewNop(), createRequest)).ToNot(HaveOccurred())
 
-		increment := &v1limiter.RuleCounterRequest{
-			KeyValues: datatypes.KeyValues{"key1": datatypes.String("first"), "key2": datatypes.Float64(3.4)},
+		// create 5 overrides
+		for k := 2; k < 7; k++ {
+			// create number of overrides
+			overrideRequest := v1limiter.Override{
+				Name: fmt.Sprintf("override%d", k),
+				KeyValues: datatypes.KeyValues{
+					"key1":                  datatypes.Int(1),
+					fmt.Sprintf("key%d", k): datatypes.Int(k),
+				},
+				Limit: uint64(k - 2),
+			}
+			g.Expect(overrideRequest.Validate()).ToNot(HaveOccurred())
+			g.Expect(rulesManager.CreateOverride(zap.NewNop(), "test1", &overrideRequest)).ToNot(HaveOccurred())
 		}
 
-		// setup to reach the limit of 5
-		g.Expect(rulesManager.Increment(zap.NewNop(), increment)).ToNot(HaveOccurred())
-		g.Expect(rulesManager.Increment(zap.NewNop(), increment)).ToNot(HaveOccurred())
-		g.Expect(rulesManager.Increment(zap.NewNop(), increment)).ToNot(HaveOccurred())
-		g.Expect(rulesManager.Increment(zap.NewNop(), increment)).ToNot(HaveOccurred())
-		g.Expect(rulesManager.Increment(zap.NewNop(), increment)).ToNot(HaveOccurred())
+		counter := &v1limiter.Counter{
+			KeyValues: datatypes.KeyValues{
+				"key1": datatypes.Int(1),
+				"key2": datatypes.Int(2),
+				"key3": datatypes.Int(3),
+				"key4": datatypes.Int(4),
+			},
+		}
 
-		// next call should error since the limit has been reached
-		err := rulesManager.Increment(zap.NewNop(), increment)
+		err := rulesManager.IncrementCounters(zap.NewNop(), ctx, nil, counter)
 		g.Expect(err).To(HaveOccurred())
-		g.Expect(err.Error()).To(ContainSubstring("Unable to process limit request. The limits are already reached"))
+		g.Expect(err).To(Equal(LimitReached))
 	})
 
-	t.Run("It returns an error if any rule has reached its limit", func(t *testing.T) {
-		rulesManager := NewRulesManger()
+	t.Run("Describe obtaining lock failures", func(t *testing.T) {
+		t.Run("It locks and releases each key value pair when trying to increment a counter", func(t *testing.T) {
+			rulesManager := NewRulesManger(constructor)
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
 
-		createRequest1 := &v1limiter.Rule{
-			Name:        "test",
-			GroupBy:     []string{"key1", "key2"},
-			QueryFilter: datatypes.AssociatedKeyValuesQuery{},
-			Limit:       5,
-		}
-		g.Expect(createRequest1.Validate()).ToNot(HaveOccurred())
-		g.Expect(rulesManager.CreateGroupRule(zap.NewNop(), createRequest1)).ToNot(HaveOccurred())
+			for i := 0; i < 5; i++ {
+				// single instance rule group by
+				createRequest := &v1limiter.RuleRequest{
+					Name:    fmt.Sprintf("test%d", i),
+					GroupBy: []string{fmt.Sprintf("key%d", i)},
+					Limit:   uint64(i),
+				}
+				g.Expect(createRequest.Validate()).ToNot(HaveOccurred())
+				g.Expect(rulesManager.Create(zap.NewNop(), createRequest)).ToNot(HaveOccurred())
+			}
 
-		createRequest2 := &v1limiter.Rule{
-			Name:        "test2",
-			GroupBy:     []string{"key1"},
-			QueryFilter: datatypes.AssociatedKeyValuesQuery{},
-			Limit:       1,
-		}
-		g.Expect(createRequest2.Validate()).ToNot(HaveOccurred())
-		g.Expect(rulesManager.CreateGroupRule(zap.NewNop(), createRequest2)).ToNot(HaveOccurred())
+			counter := &v1limiter.Counter{
+				KeyValues: datatypes.KeyValues{
+					"key1": datatypes.String("1"),
+					"key2": datatypes.String("2"),
+				},
+			}
 
-		increment := &v1limiter.RuleCounterRequest{
-			KeyValues: datatypes.KeyValues{"key1": datatypes.String("first"), "key2": datatypes.Float64(3.4)},
-		}
+			mockController := gomock.NewController(t)
+			defer mockController.Finish()
 
-		// setup to reach the limit of 1 from rule 2 with the stricter set of keys
-		g.Expect(rulesManager.Increment(zap.NewNop(), increment)).ToNot(HaveOccurred())
+			fakeLock := lockerclientfakes.NewMockLock(mockController)
+			fakeLock.EXPECT().Done().Times(2)
+			fakeLock.EXPECT().Release().Times(2)
 
-		// next call should error since the limit has been reached
-		err := rulesManager.Increment(zap.NewNop(), increment)
-		g.Expect(err).To(HaveOccurred())
-		g.Expect(err.Error()).To(ContainSubstring("Unable to process limit request. The limits are already reached"))
+			fakeLocker := lockerclientfakes.NewMockLockerClient(mockController)
+			fakeLocker.EXPECT().ObtainLock(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, keyValues datatypes.KeyValues, timeout time.Duration) (lockerclient.Lock, error) {
+				return fakeLock, nil
+			}).Times(2)
+
+			err := rulesManager.IncrementCounters(zap.NewNop(), ctx, fakeLocker, counter)
+			g.Expect(err).ToNot(HaveOccurred())
+		})
+
+		t.Run("Context when obtaining the lock fails", func(t *testing.T) {
+			t.Run("It returns an error and releases any locks currently held", func(t *testing.T) {
+				rulesManager := NewRulesManger(constructor)
+				ctx, cancel := context.WithCancel(context.Background())
+				defer cancel()
+
+				for i := 0; i < 5; i++ {
+					// single instance rule group by
+					createRequest := &v1limiter.RuleRequest{
+						Name:    fmt.Sprintf("test%d", i),
+						GroupBy: []string{fmt.Sprintf("key%d", i)},
+						Limit:   uint64(i),
+					}
+					g.Expect(createRequest.Validate()).ToNot(HaveOccurred())
+					g.Expect(rulesManager.Create(zap.NewNop(), createRequest)).ToNot(HaveOccurred())
+				}
+
+				counter := &v1limiter.Counter{
+					KeyValues: datatypes.KeyValues{
+						"key1": datatypes.String("1"),
+						"key2": datatypes.String("2"),
+					},
+				}
+
+				mockController := gomock.NewController(t)
+				defer mockController.Finish()
+
+				fakeLock := lockerclientfakes.NewMockLock(mockController)
+				fakeLock.EXPECT().Release().Times(1)
+				fakeLock.EXPECT().Done().MaxTimes(1)
+
+				obtainCount := 0
+				fakeLocker := lockerclientfakes.NewMockLockerClient(mockController)
+				fakeLocker.EXPECT().ObtainLock(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, keyValues datatypes.KeyValues, timeout time.Duration) (lockerclient.Lock, error) {
+					if obtainCount == 0 {
+						obtainCount++
+						return fakeLock, nil
+					} else {
+						return nil, fmt.Errorf("failed to obtain 2nd lock")
+					}
+				}).Times(2)
+
+				// observe the proper error message in the logs
+				testZapCore, testLogs := observer.New(zap.InfoLevel)
+				testLgger := zap.New(testZapCore)
+
+				err := rulesManager.IncrementCounters(testLgger, ctx, fakeLocker, counter)
+				g.Expect(err).To(HaveOccurred())
+				g.Expect(err).To(Equal(errors.InternalServerError))
+				g.Expect(len(testLogs.All())).To(Equal(1))
+				g.Expect(testLogs.All()[0].Message).To(ContainSubstring("failed to obtain a lock from the locker service"))
+			})
+		})
+
+		t.Run("Context when a lock is lost that was already obtained", func(t *testing.T) {
+			t.Run("It returns an error and releases any locks currently held", func(t *testing.T) {
+				// DSL: this is a bit of a flaky tests since we want to ensure a goroutine reads the done chan properly.
+
+				rulesManager := NewRulesManger(constructor)
+				ctx, cancel := context.WithCancel(context.Background())
+				defer cancel()
+
+				for i := 0; i < 5; i++ {
+					// single instance rule group by
+					createRequest := &v1limiter.RuleRequest{
+						Name:    fmt.Sprintf("test%d", i),
+						GroupBy: []string{fmt.Sprintf("key%d", i)},
+						Limit:   uint64(i),
+					}
+					g.Expect(createRequest.Validate()).ToNot(HaveOccurred())
+					g.Expect(rulesManager.Create(zap.NewNop(), createRequest)).ToNot(HaveOccurred())
+				}
+
+				counter := &v1limiter.Counter{
+					KeyValues: datatypes.KeyValues{
+						"key1": datatypes.String("1"),
+						"key2": datatypes.String("2"),
+					},
+				}
+
+				mockController := gomock.NewController(t)
+				defer mockController.Finish()
+
+				donechan := make(chan struct{})
+				close(donechan)
+
+				fakeLock := lockerclientfakes.NewMockLock(mockController)
+				fakeLock.EXPECT().Release().Times(2)
+				fakeLock.EXPECT().Done().DoAndReturn(func() <-chan struct{} {
+					return donechan
+				}).MaxTimes(2)
+
+				count := 0
+				fakeLocker := lockerclientfakes.NewMockLockerClient(mockController)
+				fakeLocker.EXPECT().ObtainLock(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, keyValues datatypes.KeyValues, timeout time.Duration) (lockerclient.Lock, error) {
+					if count == 0 {
+						count++
+					} else {
+						time.Sleep(100 * time.Millisecond)
+					}
+
+					return fakeLock, nil
+				}).Times(2)
+
+				// observe the proper error message in the logs
+				testZapCore, testLogs := observer.New(zap.InfoLevel)
+				testLgger := zap.New(testZapCore)
+
+				err := rulesManager.IncrementCounters(testLgger, ctx, fakeLocker, counter)
+				g.Expect(err).To(HaveOccurred())
+				g.Expect(err).To(Equal(errors.InternalServerError))
+				g.Expect(len(testLogs.All())).To(Equal(1))
+				g.Expect(testLogs.All()[0].Message).To(ContainSubstring("a lock was released unexpedily"))
+			})
+		})
 	})
 
-	t.Run("It returns an error if a rule is added after a group of key values are already past its limit", func(t *testing.T) {
-		rulesManager := NewRulesManger()
+	t.Run("Context rule limits", func(t *testing.T) {
+		mockController := gomock.NewController(t)
 
-		increment := &v1limiter.RuleCounterRequest{
-			KeyValues: datatypes.KeyValues{"key1": datatypes.String("first"), "key2": datatypes.Float64(3.4), "key3": datatypes.Int(2)},
-		}
+		fakeLock := lockerclientfakes.NewMockLock(mockController)
+		fakeLock.EXPECT().Release().AnyTimes()
+		fakeLock.EXPECT().Done().AnyTimes()
 
-		// setup to reach the limit of 5
-		g.Expect(rulesManager.Increment(zap.NewNop(), increment)).ToNot(HaveOccurred())
-		g.Expect(rulesManager.Increment(zap.NewNop(), increment)).ToNot(HaveOccurred())
-		g.Expect(rulesManager.Increment(zap.NewNop(), increment)).ToNot(HaveOccurred())
-		g.Expect(rulesManager.Increment(zap.NewNop(), increment)).ToNot(HaveOccurred())
-		g.Expect(rulesManager.Increment(zap.NewNop(), increment)).ToNot(HaveOccurred())
+		fakeLocker := lockerclientfakes.NewMockLockerClient(mockController)
+		fakeLocker.EXPECT().ObtainLock(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, keyValues datatypes.KeyValues, timeout time.Duration) (lockerclient.Lock, error) {
+			return fakeLock, nil
+		}).AnyTimes()
 
-		// create the rule
-		createRequest := &v1limiter.Rule{
-			Name:        "test",
-			GroupBy:     []string{"key1", "key2"},
-			QueryFilter: datatypes.AssociatedKeyValuesQuery{},
-			Limit:       5,
-		}
-		g.Expect(createRequest.Validate()).ToNot(HaveOccurred())
-		g.Expect(rulesManager.CreateGroupRule(zap.NewNop(), createRequest)).ToNot(HaveOccurred())
+		t.Run("It adds the counter if no rules have reached their limit", func(t *testing.T) {
+			rulesManager := NewRulesManger(constructor)
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
 
-		// next call should error since the limit has been reached
-		err := rulesManager.Increment(zap.NewNop(), increment)
-		g.Expect(err).To(HaveOccurred())
-		g.Expect(err.Error()).To(ContainSubstring("Unable to process limit request. The limits are already reached"))
+			// single instance rule group by
+			createRequest := &v1limiter.RuleRequest{
+				Name:    "test0",
+				GroupBy: []string{"key0", "key1"},
+				Limit:   5,
+			}
+			g.Expect(createRequest.Validate()).ToNot(HaveOccurred())
+			g.Expect(rulesManager.Create(zap.NewNop(), createRequest)).ToNot(HaveOccurred())
+
+			counter := &v1limiter.Counter{
+				KeyValues: datatypes.KeyValues{
+					"key0": datatypes.String("1"),
+					"key1": datatypes.String("2"),
+					"key3": datatypes.String("3"),
+				},
+			}
+
+			// counter shuold be added
+			err := rulesManager.IncrementCounters(zap.NewNop(), ctx, fakeLocker, counter)
+			g.Expect(err).ToNot(HaveOccurred())
+
+			// ensure the counter was added
+			found := false
+			onFind := func(item any) {
+				found = true
+			}
+
+			id, counterErr := rulesManager.counters.Find(btreeassociated.ConverDatatypesKeyValues(counter.KeyValues), onFind)
+			g.Expect(id).ToNot(Equal(""))
+			g.Expect(counterErr).ToNot(HaveOccurred())
+			g.Expect(found).To(BeTrue())
+		})
+
+		t.Run("It can update the limit for counters that are below all the rules", func(t *testing.T) {
+			rulesManager := NewRulesManger(constructor)
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+
+			// single instance rule group by
+			createRequest := &v1limiter.RuleRequest{
+				Name:    "test0",
+				GroupBy: []string{"key0", "key1"},
+				Limit:   5,
+			}
+			g.Expect(createRequest.Validate()).ToNot(HaveOccurred())
+			g.Expect(rulesManager.Create(zap.NewNop(), createRequest)).ToNot(HaveOccurred())
+
+			counter := &v1limiter.Counter{
+				KeyValues: datatypes.KeyValues{
+					"key0": datatypes.String("1"),
+					"key1": datatypes.String("2"),
+					"key3": datatypes.String("3"),
+				},
+			}
+
+			// counter shuold be added
+			g.Expect(rulesManager.IncrementCounters(zap.NewNop(), ctx, fakeLocker, counter)).ToNot(HaveOccurred())
+			g.Expect(rulesManager.IncrementCounters(zap.NewNop(), ctx, fakeLocker, counter)).ToNot(HaveOccurred())
+			g.Expect(rulesManager.IncrementCounters(zap.NewNop(), ctx, fakeLocker, counter)).ToNot(HaveOccurred())
+			g.Expect(rulesManager.IncrementCounters(zap.NewNop(), ctx, fakeLocker, counter)).ToNot(HaveOccurred())
+
+			// ensure the counter was added
+			count := uint64(0)
+			onFind := func(item any) {
+				count = item.(*btreeassociated.AssociatedKeyValues).Value().(*counters.Counter).Load()
+			}
+
+			id, counterErr := rulesManager.counters.Find(btreeassociated.ConverDatatypesKeyValues(counter.KeyValues), onFind)
+			g.Expect(id).ToNot(Equal(""))
+			g.Expect(counterErr).ToNot(HaveOccurred())
+			g.Expect(count).To(Equal(uint64(4)))
+		})
+
+		t.Run("It returns an error if the counter >= the limit", func(t *testing.T) {
+			rulesManager := NewRulesManger(constructor)
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+
+			// single instance rule group by
+			createRequest := &v1limiter.RuleRequest{
+				Name:    "test0",
+				GroupBy: []string{"key0", "key1"},
+				Limit:   1,
+			}
+			g.Expect(createRequest.Validate()).ToNot(HaveOccurred())
+			g.Expect(rulesManager.Create(zap.NewNop(), createRequest)).ToNot(HaveOccurred())
+
+			counter := &v1limiter.Counter{
+				KeyValues: datatypes.KeyValues{
+					"key0": datatypes.String("0"),
+					"key1": datatypes.String("1"),
+					//"key3": datatypes.String("3"),
+				},
+			}
+
+			// first counter should be added
+			err := rulesManager.IncrementCounters(zap.NewNop(), ctx, fakeLocker, counter)
+			g.Expect(err).ToNot(HaveOccurred())
+
+			// second counter should have an error
+			err = rulesManager.IncrementCounters(zap.NewNop(), ctx, fakeLocker, counter)
+			g.Expect(err).To(HaveOccurred())
+			g.Expect(err.Error()).To(ContainSubstring("Limit has already been reached for rule"))
+
+			// ensure the counter was only ever incremented 1 time
+			count := uint64(0)
+			onFind := func(item any) {
+				count = item.(*btreeassociated.AssociatedKeyValues).Value().(*counters.Counter).Load()
+			}
+
+			id, counterErr := rulesManager.counters.Find(btreeassociated.ConverDatatypesKeyValues(counter.KeyValues), onFind)
+			g.Expect(id).ToNot(Equal(""))
+			g.Expect(counterErr).ToNot(HaveOccurred())
+			g.Expect(count).To(Equal(uint64(1)))
+		})
+
+		t.Run("It returns an error if the counter >= the limit with any combination of different counters", func(t *testing.T) {
+			rulesManager := NewRulesManger(constructor)
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+
+			// single instance rule group by
+			createRequest := &v1limiter.RuleRequest{
+				Name:    "test0",
+				GroupBy: []string{"key0", "key1"},
+				Limit:   1,
+			}
+			g.Expect(createRequest.Validate()).ToNot(HaveOccurred())
+			g.Expect(rulesManager.Create(zap.NewNop(), createRequest)).ToNot(HaveOccurred())
+
+			counter1 := &v1limiter.Counter{
+				KeyValues: datatypes.KeyValues{
+					"key0": datatypes.String("0"),
+					"key1": datatypes.String("1"),
+					"key2": datatypes.String("2"),
+				},
+			}
+			counter2 := &v1limiter.Counter{
+				KeyValues: datatypes.KeyValues{
+					"key0": datatypes.String("0"),
+					"key1": datatypes.String("1"),
+					"key3": datatypes.String("3"),
+				},
+			}
+
+			// first counter should be added
+			err := rulesManager.IncrementCounters(zap.NewNop(), ctx, fakeLocker, counter1)
+			g.Expect(err).ToNot(HaveOccurred())
+
+			// second counter should have an error
+			err = rulesManager.IncrementCounters(zap.NewNop(), ctx, fakeLocker, counter2)
+			g.Expect(err).To(HaveOccurred())
+			g.Expect(err.Error()).To(ContainSubstring("Limit has already been reached for rule"))
+
+			// ensure the counter was only ever incremented 1 time
+			count := uint64(0)
+			onFind := func(item any) {
+				count = item.(*btreeassociated.AssociatedKeyValues).Value().(*counters.Counter).Load()
+			}
+
+			id, counterErr := rulesManager.counters.Find(btreeassociated.ConverDatatypesKeyValues(counter1.KeyValues), onFind)
+			g.Expect(id).ToNot(Equal(""))
+			g.Expect(counterErr).ToNot(HaveOccurred())
+			g.Expect(count).To(Equal(uint64(1)))
+
+			count = 0 // reset the counter
+			id, counterErr = rulesManager.counters.Find(btreeassociated.ConverDatatypesKeyValues(counter2.KeyValues), onFind)
+			g.Expect(id).To(Equal(""))
+			g.Expect(counterErr).ToNot(HaveOccurred())
+			g.Expect(count).To(Equal(uint64(0)))
+		})
+
+		t.Run("It returns an error if any rule has hit the limit", func(t *testing.T) {
+			rulesManager := NewRulesManger(constructor)
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+
+			// restrictive rule
+			createRequest := &v1limiter.RuleRequest{
+				Name:    "test0",
+				GroupBy: []string{"key0", "key1"},
+				Limit:   1,
+			}
+			g.Expect(createRequest.Validate()).ToNot(HaveOccurred())
+			g.Expect(rulesManager.Create(zap.NewNop(), createRequest)).ToNot(HaveOccurred())
+
+			// non restrictive rules
+			for i := 1; i < 5; i++ {
+				createRequest := &v1limiter.RuleRequest{
+					Name:    fmt.Sprintf("test%d", i),
+					GroupBy: []string{fmt.Sprintf("key%d", i), fmt.Sprintf("key%d", i+1)},
+					Limit:   uint64(i + 10),
+				}
+				g.Expect(createRequest.Validate()).ToNot(HaveOccurred())
+				g.Expect(rulesManager.Create(zap.NewNop(), createRequest)).ToNot(HaveOccurred())
+			}
+
+			counter := &v1limiter.Counter{
+				KeyValues: datatypes.KeyValues{
+					"key0": datatypes.String("0"),
+					"key1": datatypes.String("1"),
+					"key2": datatypes.String("2"),
+					"key3": datatypes.String("3"),
+				},
+			}
+
+			// first counter should be added
+			err := rulesManager.IncrementCounters(zap.NewNop(), ctx, fakeLocker, counter)
+			g.Expect(err).ToNot(HaveOccurred())
+
+			// second counter should have an error
+			err = rulesManager.IncrementCounters(zap.NewNop(), ctx, fakeLocker, counter)
+			g.Expect(err).To(HaveOccurred())
+			g.Expect(err.Error()).To(ContainSubstring("Limit has already been reached for rule"))
+
+			// ensure the counter was only ever incremented 1 time
+			count := uint64(0)
+			onFind := func(item any) {
+				count = item.(*btreeassociated.AssociatedKeyValues).Value().(*counters.Counter).Load()
+			}
+
+			id, counterErr := rulesManager.counters.Find(btreeassociated.ConverDatatypesKeyValues(counter.KeyValues), onFind)
+			g.Expect(id).ToNot(Equal(""))
+			g.Expect(counterErr).ToNot(HaveOccurred())
+			g.Expect(count).To(Equal(uint64(1)))
+		})
+
+		t.Run("It returns an error if any rule's overrides hit the limit", func(t *testing.T) {
+			rulesManager := NewRulesManger(constructor)
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+
+			// restrictive rule
+			createRequest := &v1limiter.RuleRequest{
+				Name:    "test0",
+				GroupBy: []string{"key0", "key1"},
+				Limit:   1,
+			}
+			g.Expect(createRequest.Validate()).ToNot(HaveOccurred())
+			g.Expect(rulesManager.Create(zap.NewNop(), createRequest)).ToNot(HaveOccurred())
+
+			// set override to allow for more values
+			override := &v1limiter.Override{
+				Name: "override1",
+				KeyValues: datatypes.KeyValues{
+					"key0": datatypes.String("0"),
+					"key1": datatypes.String("1"),
+				},
+				Limit: 5,
+			}
+			g.Expect(override.Validate()).ToNot(HaveOccurred())
+			g.Expect(rulesManager.CreateOverride(zap.NewNop(), "test0", override)).ToNot(HaveOccurred())
+
+			counter := &v1limiter.Counter{
+				KeyValues: datatypes.KeyValues{
+					"key0": datatypes.String("0"),
+					"key1": datatypes.String("1"),
+					"key2": datatypes.String("2"),
+				},
+			}
+
+			// first counter should be added
+			err := rulesManager.IncrementCounters(zap.NewNop(), ctx, fakeLocker, counter)
+			g.Expect(err).ToNot(HaveOccurred())
+
+			// second counter should be added as well
+			err = rulesManager.IncrementCounters(zap.NewNop(), ctx, fakeLocker, counter)
+			g.Expect(err).ToNot(HaveOccurred())
+
+			// ensure the counter was only ever incremented 1 time
+			count := uint64(0)
+			onFind := func(item any) {
+				count = item.(*btreeassociated.AssociatedKeyValues).Value().(*counters.Counter).Load()
+			}
+
+			id, counterErr := rulesManager.counters.Find(btreeassociated.ConverDatatypesKeyValues(counter.KeyValues), onFind)
+			g.Expect(id).ToNot(Equal(""))
+			g.Expect(counterErr).ToNot(HaveOccurred())
+			g.Expect(count).To(Equal(uint64(2)))
+		})
+
 	})
 }
-
-func TestRulesManager_Decrement(t *testing.T) {
-	g := NewGomegaWithT(t)
-
-	t.Run("It decreases the counter by 1 and removes an 'counters' if their limit hit 0", func(t *testing.T) {
-		rulesManager := NewRulesManger()
-
-		counter := &v1limiter.RuleCounterRequest{
-			KeyValues: datatypes.KeyValues{"key1": datatypes.String("first"), "key2": datatypes.Float64(3.4)},
-		}
-		g.Expect(rulesManager.Increment(zap.NewNop(), counter)).ToNot(HaveOccurred())
-		g.Expect(rulesManager.Increment(zap.NewNop(), counter)).ToNot(HaveOccurred())
-
-		var counterValue uint64
-		onFind := func(item any) bool {
-			counterValue = item.(*btreeassociated.AssociatedKeyValues).Value().(*atomic.Uint64).Load()
-			return true
-		}
-
-		// ensure we have a counter of 2
-		rulesManager.counters.Query(datatypes.AssociatedKeyValuesQuery{}, onFind)
-		g.Expect(counterValue).To(Equal(uint64(2)))
-
-		rulesManager.Decrement(zap.NewNop(), counter)
-		// ensure we have a counter of 1
-		rulesManager.counters.Query(datatypes.AssociatedKeyValuesQuery{}, onFind)
-		g.Expect(counterValue).To(Equal(uint64(1)))
-
-		rulesManager.Decrement(zap.NewNop(), counter)
-		// ensure we have a counter of 0
-		counterValue = 0
-		rulesManager.counters.Query(datatypes.AssociatedKeyValuesQuery{}, onFind)
-		g.Expect(counterValue).To(Equal(uint64(0)))
-	})
-}
-*/

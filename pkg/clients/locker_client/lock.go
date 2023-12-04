@@ -14,6 +14,7 @@ import (
 	"github.com/DanLavine/willow/pkg/models/api/v1locker"
 )
 
+//go:generate mockgen -destination=lockerclientfakes/lock_mock.go -package=lockerclientfakes github.com/DanLavine/willow/pkg/clients/locker_client Lock
 type Lock interface {
 	// Done can be used to monitor if a lock is released
 	Done() <-chan struct{}

@@ -3,6 +3,7 @@ package rules
 import (
 	"sort"
 
+	v1limitermodels "github.com/DanLavine/willow/internal/limiter/v1_limiter_models"
 	"github.com/DanLavine/willow/pkg/models/api"
 	v1limiter "github.com/DanLavine/willow/pkg/models/api/limiter/v1"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
@@ -28,8 +29,8 @@ type Rule interface {
 	// Operation that is calledfor cascading deletes because the rule is being deleted
 	CascadeDeletion(logger *zap.Logger) *api.Error
 
-	// Find the limit for a particualr group of tags when checking the limits
-	FindLimit(logger *zap.Logger, keyValues datatypes.KeyValues) (uint64, *api.Error)
+	// Find the limits for a particualr group of tags including any overrides
+	FindLimits(logger *zap.Logger, keyValues datatypes.KeyValues) (v1limitermodels.Limits, *api.Error)
 
 	// check if any tags coming in match the tag group
 	TagsMatch(logger *zap.Logger, keyValues datatypes.KeyValues) bool

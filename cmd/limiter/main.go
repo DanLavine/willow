@@ -34,11 +34,6 @@ func main() {
 	defer cancel()
 
 	// setup locker client
-	constructor, err := rules.NewRuleConstructor("memory")
-	if err != nil {
-		log.Fatal(err)
-	}
-
 	clientConfig := &clients.Config{
 		URL:           *cfg.LockerURL,
 		CAFile:        *cfg.LimiterCA,
@@ -72,7 +67,11 @@ func main() {
 
 	// v1 api handlers
 	//// http2 server to handle all client requests
-	taskManager.AddTask("tcp_server", server.NewLimiterTCP(logger, cfg, v1server.NewGroupRuleHandler(logger, limiter.NewRulesManger(constructor, lockerClient))))
+	constructor, err := rules.NewRuleConstructor("memory")
+	if err != nil {
+		log.Fatal(err)
+	}
+	taskManager.AddTask("tcp_server", server.NewLimiterTCP(logger, cfg, v1server.NewGroupRuleHandler(logger, shutdown, clientConfig, limiter.NewRulesManger(constructor))))
 
 	// start all processes
 	if errs := taskManager.Run(shutdown); errs != nil {

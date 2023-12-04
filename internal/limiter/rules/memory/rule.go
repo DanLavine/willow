@@ -1,10 +1,13 @@
 package memory
 
 import (
+	"fmt"
 	"net/http"
 	"sync"
 
 	btreeassociated "github.com/DanLavine/willow/internal/datastructures/btree_associated"
+	"github.com/DanLavine/willow/internal/errors"
+	v1limitermodels "github.com/DanLavine/willow/internal/limiter/v1_limiter_models"
 	"github.com/DanLavine/willow/pkg/models/api"
 	v1limiter "github.com/DanLavine/willow/pkg/models/api/limiter/v1"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
@@ -51,24 +54,11 @@ func (r *rule) Get(includeOverrides *v1limiter.RuleQuery) *v1limiter.RuleRespons
 		ruleOverride.lock.RLock()
 		defer ruleOverride.lock.RUnlock()
 
-		addOverride := true
-		switch includeOverrides.OverrideQuery {
-		case v1limiter.Match:
-			// match the rule's limit for the kay values with the provided query key values
-			if ruleOverride.limit < uint64(len(*includeOverrides.KeyValues)) {
-				addOverride = false
-			}
-		default: // v1limiter.All:
-			// fall through
-		}
-
-		if addOverride {
-			overrides = append(overrides, v1limiter.Override{
-				Name:      associatedKeyValues.AssociatedID(),
-				KeyValues: associatedKeyValues.KeyValues().StripAssociatedID().RetrieveStringDataType(),
-				Limit:     ruleOverride.limit,
-			})
-		}
+		overrides = append(overrides, v1limiter.Override{
+			Name:      associatedKeyValues.AssociatedID(),
+			KeyValues: associatedKeyValues.KeyValues().StripAssociatedID().RetrieveStringDataType(),
+			Limit:     ruleOverride.limit,
+		})
 
 		return true
 	}
@@ -98,45 +88,56 @@ func (r *rule) Get(includeOverrides *v1limiter.RuleQuery) *v1limiter.RuleRespons
 	return ruleResponse
 }
 
-func (r *rule) FindLimit(logger *zap.Logger, keyValues datatypes.KeyValues) (uint64, *api.Error) {
+// DSL TODO: There is an optimization here, where I can find a "subset" of all the key values if they have a lower
+//
+//	          value and just use that. I believe that holds true.
+//
+//	I.E
+//	1. {"key1":"1", "key2":"2"}, Limit 5
+//	2. {"key1":"1"}, Limit 2 <- this is always more restrictive and we don't care about the 1st rule anymore
+func (r *rule) FindLimits(logger *zap.Logger, keyValues datatypes.KeyValues) (v1limitermodels.Limits, *api.Error) {
 	r.ruleModelLock.RLock()
 	defer r.ruleModelLock.RUnlock()
 
-	limit := r.limit
+	// setup initial limits for the rule
+	limitKeyValues := datatypes.KeyValues{}
+	for _, key := range r.groupBy {
+		limitKeyValues[key] = keyValues[key]
+	}
+	limits := v1limitermodels.Limits{v1limitermodels.Limit{Name: r.name, KeyValues: limitKeyValues, Limit: r.limit}}
 
-	// TODO: fix me
-	//onFind := func(item any) bool {
-	//	ruleOverride := item.(*btreeassociated.AssociatedKeyValues).Value().(*ruleOverride)
-	//	ruleOverride.lock.RLock()
-	//	defer ruleOverride.lock.RUnlock()
-	//
-	//	limit = ruleOverride.limit
-	//	return false
-	//}
-	//
-	//// setup the query for the override we are looking for
-	//lenKeyValues := len(keyValues)
-	//
-	//// This query also isn't correct. It should find all values. that match. Like in the manager to find the rules,
-	//// I need that special "match" query.
-	//query := datatypes.AssociatedKeyValuesQuery{
-	//	KeyValueSelection: &datatypes.KeyValueSelection{
-	//		KeyValues: map[string]datatypes.Value{},
-	//		Limits: &datatypes.KeyLimits{
-	//			NumberOfKeys: &lenKeyValues,
-	//		},
-	//	},
-	//}
-	//
-	//for key, value := range keyValues {
-	//	query.KeyValueSelection.KeyValues[key] = datatypes.Value{Value: &value, ValueComparison: datatypes.EqualsPtr()}
-	//}
-	//
-	//if err := r.overrides.Query(query, onFind); err != nil {
-	//	return 0, errors.InternalServerError
-	//}
+	// account for any overrides
+	counter := 0
+	onPagination := func(associatedKeyValues *btreeassociated.AssociatedKeyValues) bool {
+		ruleOverride := associatedKeyValues.Value().(*ruleOverride)
+		ruleOverride.lock.RLock()
+		defer ruleOverride.lock.RUnlock()
 
-	return limit, nil
+		newLimitKeyValues := datatypes.KeyValues{}
+		for key, value := range associatedKeyValues.KeyValues().StripAssociatedID().RetrieveStringDataType() {
+			newLimitKeyValues[key] = value
+		}
+
+		if counter == 0 {
+			// take the 1st override
+			limits = v1limitermodels.Limits{v1limitermodels.Limit{Name: r.name, KeyValues: newLimitKeyValues, Limit: ruleOverride.limit}}
+			counter++
+		} else {
+			// append additional limits
+			limits = append(limits, v1limitermodels.Limit{Name: r.name, KeyValues: newLimitKeyValues, Limit: ruleOverride.limit})
+		}
+
+		// can exit early since we have an override with 0. The request is 100% rejected
+		return ruleOverride.limit != 0
+	}
+
+	// match all the override KeyValue permutations
+	if err := r.overrides.MatchPermutations(btreeassociated.ConverDatatypesKeyValues(keyValues), onPagination); err != nil {
+		logger.Error("error finding limits", zap.Error(err))
+		return limits, errors.InternalServerError
+	}
+
+	return limits, nil
 }
 
 func (r *rule) Update(logger *zap.Logger, update *v1limiter.RuleUpdate) {
@@ -153,6 +154,13 @@ func (r *rule) Update(logger *zap.Logger, update *v1limiter.RuleUpdate) {
 // finding the inital rule to lookup
 func (r *rule) SetOverride(logger *zap.Logger, override *v1limiter.Override) *api.Error {
 	logger = logger.Named("SetOverride")
+
+	// ensure that the override has all the group by keys
+	for _, key := range r.groupBy {
+		if _, ok := override.KeyValues[key]; !ok {
+			return &api.Error{Message: fmt.Sprintf("Missing Rule's GroubBy keys in the override: %s", key), StatusCode: http.StatusBadRequest}
+		}
+	}
 
 	// create custom override rule paramters
 	keyValues := btreeassociated.ConverDatatypesKeyValues(override.KeyValues)

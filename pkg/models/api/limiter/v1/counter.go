@@ -38,3 +38,8 @@ func (c Counter) Validate() *api.Error {
 
 	return nil
 }
+
+func (c Counter) ToBytes() []byte {
+	data, _ := json.Marshal(c)
+	return data
+}

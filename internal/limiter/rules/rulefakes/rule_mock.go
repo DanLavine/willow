@@ -7,6 +7,7 @@ package rulefakes
 import (
 	reflect "reflect"
 
+	v1limitermodels "github.com/DanLavine/willow/internal/limiter/v1_limiter_models"
 	api "github.com/DanLavine/willow/pkg/models/api"
 	v1 "github.com/DanLavine/willow/pkg/models/api/limiter/v1"
 	datatypes "github.com/DanLavine/willow/pkg/models/datatypes"
@@ -65,19 +66,19 @@ func (mr *MockRuleMockRecorder) DeleteOverride(arg0, arg1 interface{}) *gomock.C
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteOverride", reflect.TypeOf((*MockRule)(nil).DeleteOverride), arg0, arg1)
 }
 
-// FindLimit mocks base method.
-func (m *MockRule) FindLimit(arg0 *zap.Logger, arg1 datatypes.KeyValues) (uint64, *api.Error) {
+// FindLimits mocks base method.
+func (m *MockRule) FindLimits(arg0 *zap.Logger, arg1 datatypes.KeyValues) (v1limitermodels.Limits, *api.Error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "FindLimit", arg0, arg1)
-	ret0, _ := ret[0].(uint64)
+	ret := m.ctrl.Call(m, "FindLimits", arg0, arg1)
+	ret0, _ := ret[0].(v1limitermodels.Limits)
 	ret1, _ := ret[1].(*api.Error)
 	return ret0, ret1
 }
 
-// FindLimit indicates an expected call of FindLimit.
-func (mr *MockRuleMockRecorder) FindLimit(arg0, arg1 interface{}) *gomock.Call {
+// FindLimits indicates an expected call of FindLimits.
+func (mr *MockRuleMockRecorder) FindLimits(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindLimit", reflect.TypeOf((*MockRule)(nil).FindLimit), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindLimits", reflect.TypeOf((*MockRule)(nil).FindLimits), arg0, arg1)
 }
 
 // GenerateQuery mocks base method.

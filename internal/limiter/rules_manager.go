@@ -6,14 +6,22 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/DanLavine/channelops"
 	btreeassociated "github.com/DanLavine/willow/internal/datastructures/btree_associated"
+	"github.com/DanLavine/willow/internal/errors"
 	"github.com/DanLavine/willow/internal/limiter/counters"
 	"github.com/DanLavine/willow/internal/limiter/rules"
+	v1limitermodels "github.com/DanLavine/willow/internal/limiter/v1_limiter_models"
 	lockerclient "github.com/DanLavine/willow/pkg/clients/locker_client"
 	"github.com/DanLavine/willow/pkg/models/api"
 	v1limiter "github.com/DanLavine/willow/pkg/models/api/limiter/v1"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
+	"go.uber.org/atomic"
 	"go.uber.org/zap"
+)
+
+var (
+	LimitReached = &api.Error{Message: "Limit has already been reached for requested key values", StatusCode: http.StatusConflict}
 )
 
 // Handles CRUD backend logic for Limit operations
@@ -36,16 +44,13 @@ type RulesManager interface {
 	DeleteOverride(logger *zap.Logger, ruleName string, overrideName string) *api.Error
 
 	// increment a partiular group of tags
-	IncrementKeyValues(logger *zap.Logger, increment *v1limiter.Counter) *api.Error
+	IncrementCounters(logger *zap.Logger, requestContext context.Context, lockerClient lockerclient.LockerClient, increment *v1limiter.Counter) *api.Error
 
 	// decrement a particular group of tags
-	DecrementKeyValues(logger *zap.Logger, decrement *v1limiter.Counter)
+	DecrementCounters(logger *zap.Logger, decrement *v1limiter.Counter)
 }
 
 type rulesManger struct {
-	// locker client to ensure that all locks are respected
-	lockerClient lockerclient.LockerClient
-
 	// rule constructor for creating and managing rules in a proper configuration
 	ruleConstructor rules.RuleConstructor
 
@@ -56,9 +61,8 @@ type rulesManger struct {
 	counters btreeassociated.BTreeAssociated
 }
 
-func NewRulesManger(ruleConstructor rules.RuleConstructor, lockerClient lockerclient.LockerClient) *rulesManger {
+func NewRulesManger(ruleConstructor rules.RuleConstructor) *rulesManger {
 	return &rulesManger{
-		lockerClient:    lockerClient,
 		ruleConstructor: ruleConstructor,
 		rules:           btreeassociated.NewThreadSafe(),
 		counters:        btreeassociated.NewThreadSafe(),
@@ -138,13 +142,8 @@ func (rm *rulesManger) List(logger *zap.Logger, query *v1limiter.RuleQuery) (v1l
 		}
 	default:
 		// special match logic. we alwys need to look for empty strings as a 'Select All' operation
-		keyValues := btreeassociated.KeyValues{}
-		for key, _ := range *query.KeyValues {
-			keyValues[datatypes.String(key)] = datatypes.String("")
-		}
-
 		// these need to be converted to empty string. duh
-		if err := rm.rules.MatchPermutations(keyValues, onFindMatchingRule); err != nil {
+		if err := rm.rules.MatchPermutations(keyValuesToRuleQuery(*query.KeyValues), onFindMatchingRule); err != nil {
 			logger.Error("faild to match for rules", zap.Error(err))
 			return v1limiter.Rules{}, &api.Error{Message: "Internal server error", StatusCode: http.StatusInternalServerError}
 		}
@@ -247,121 +246,157 @@ func (rm *rulesManger) DeleteOverride(logger *zap.Logger, ruleName string, overr
 	return overrideErr
 }
 
-// Increment trys to add to a group of key value pairs, and blocks if any rules have hit the limit
-//
-// NOTE: This is a stupid hard Horizontaly scaling issue without a 3rd party lock on things. How do we quickly know if a limit would succeed.
-//
-// This is NOT THREAD SAFE! There is some odd logic around needing to update the iterator + locking values that might already exist
-//
-// Adding a "Sorted [asc|dec]" in the BTreeAssociated I don't think fixes this, because we loop through values as soon as we find
-// them, not after we grab all the IDs... This is also a stupid hard problem in how I am thinking about Horizontal Scaling
-func (rm *rulesManger) IncrementKeyValues(logger *zap.Logger, increment *v1limiter.Counter) *api.Error {
+// Increment trys to add to a group of key value pairs, and returns an error if any rules have hit the limit
+// change this to pass in the client? Then I can use a fake properly. But doing that, the tcp server would need
+// to be able to create the client in some sort of "factory" pattern... I could have a test server, but that means It
+// would need to server the client like real which is a massive pain for unit tests...
+func (rm *rulesManger) IncrementCounters(logger *zap.Logger, requestContext context.Context, lockerClient lockerclient.LockerClient, increment *v1limiter.Counter) *api.Error {
 	logger = logger.Named("IncrementKeyValues")
 
-	// 1. query the rules that match the tags for our key values and record all the group by with their limit
 	var foundRules []rules.Rule
+	var limitErr *api.Error
+
+	// 1. query the rules that match the tags for our key values and record all the group by with their limit
+	allLimits := v1limitermodels.Limits{}
 	onFindMatchingRule := func(associatedKeyValues *btreeassociated.AssociatedKeyValues) bool {
 		rule := associatedKeyValues.Value().(rules.Rule)
 		foundRules = append(foundRules, rule)
 
-		return true
+		// for each rule, find all the limits that need to be checked
+		limits, err := rule.FindLimits(logger, increment.KeyValues)
+		if err != nil {
+			limitErr = err
+			return false
+		}
+
+		// get group of all the limits for all the rules
+		allLimits = append(allLimits, limits...)
+
+		// last index is 0, so just break early
+		return limits[len(limits)-1].Limit != 0
 	}
 
-	if err := rm.rules.Query(keyValuesToRuleQuery(increment.KeyValues), onFindMatchingRule); err != nil {
+	// special match logic. we alwys need to look for empty strings as a 'Select All' operation
+	// find all rules that match the permutation of the Increment's KeyValues
+	if err := rm.rules.MatchPermutations(keyValuesToRuleQuery(increment.KeyValues), onFindMatchingRule); err != nil {
+		logger.Error("Failed to query rules", zap.Error(err))
+		return errors.InternalServerError
+	}
+
+	// there was an error finding lmits. This shouldn't happen
+	if limitErr != nil {
+		return limitErr
+	}
+
+	// there are no limits, so just accept
+	if len(allLimits) == 0 {
 		return nil
 	}
 
-	// 2.a. if there are no rules, then we can just increment the counter on the key values and return
-	if len(foundRules) == 0 {
-		return nil
+	// the last limit has a limit of 0 so bail early
+	if allLimits[len(allLimits)-1].Limit == 0 {
+		return LimitReached
 	}
 
-	// 2.b. there are rules with limits. We need to grab a lock for all matched rules
-	var lockerLocks []lockerclient.Lock
-	defer func() { // ensure we release all the locks at the end
-		for _, lockerLock := range lockerLocks {
-			err := lockerLock.Release()
-			if err != nil {
-				logger.Error("failed to release locker service lock", zap.Error(err))
+	// 2. grab a lock for all key values
+	lockerLocks := []lockerclient.Lock{}
+	defer func() {
+		for _, lock := range lockerLocks {
+			if err := lock.Release(); err != nil {
+				logger.Error("Failed to release lock", zap.Error(err))
 			}
 		}
 	}()
 
-	// grab a lock for all the grouped key values we care about with the Increment's KeyValues
-	for _, keys := range rules.SortRulesGroupBy(foundRules) {
+	channelOps, chanReceiver := channelops.NewMergeRead[struct{}](true, requestContext)
+	for _, key := range increment.KeyValues.SoretedKeys() {
 		// setup the group to lock
-		lockKeyValues := datatypes.KeyValues{}
-		for _, key := range keys {
-			lockKeyValues[key] = increment.KeyValues[key]
-		}
+		lockKeyValues := datatypes.KeyValues{key: increment.KeyValues[key]}
 
 		// obtain the required lock
-		lockerLock, err := rm.lockerClient.ObtainLock(context.Background(), lockKeyValues, 10*time.Second)
+		lockerLock, err := lockerClient.ObtainLock(requestContext, lockKeyValues, time.Second)
 		if err != nil {
-			logger.Error("failed to obtain a lock from the locker service", zap.Strings("keys", keys), zap.Error(err))
-			return &api.Error{Message: "Internal server error", StatusCode: http.StatusInternalServerError}
+			logger.Error("failed to obtain a lock from the locker service", zap.Any("key values", lockKeyValues), zap.Error(err))
+			return errors.InternalServerError
 		}
 
-		// don't need to add the lock 2x if we already obtained one with the same key values
-		addLock := true
-		for _, lock := range lockerLocks {
-			if lock == lockerLock {
-				addLock = false
-				break
-			}
-		}
-
-		if addLock {
-			lockerLocks = append(lockerLocks, lockerLock)
+		// setup monitor for when a lock is released
+		lockerLocks = append(lockerLocks, lockerLock)
+		if err := channelOps.MergeOrToOne(lockerLock.Done()); err != nil {
+			// in this case, something has already been lost
+			break
 		}
 	}
 
-	// 3. for each rule, find the limt and count all possible records
-	for _, rule := range foundRules {
-		limit, err := rule.FindLimit(logger, increment.KeyValues)
-		if err != nil {
-			return err
+	// add a channel to manually kick. This give a chance for any lost locks to process properly
+	successChan := make(chan struct{}, 1)
+	successChan <- struct{}{}
+	defer close(successChan)
+
+	if err := channelOps.MergeOrToOne(successChan); err != nil {
+		// lock is already lost so bail early
+		logger.Error("a lock was released unexpedily")
+		return errors.InternalServerError
+	}
+
+	// ensure that we didn't cancel obtaining any locks by triggering a select. there is small chance that a lock was lost,
+	// but that is such a rare race condition I don't see it happening for real.
+	_, ok := <-chanReceiver
+	if !ok {
+		// lost a lock or canceled obtaining the locks
+		logger.Error("a lock was released unexpedily")
+		return errors.InternalServerError
+	}
+
+	// 3. for each limit, count the possible rules that match and ensure that  they are under the current limites
+	for _, singleLimit := range allLimits {
+		query := datatypes.AssociatedKeyValuesQuery{
+			KeyValueSelection: &datatypes.KeyValueSelection{KeyValues: map[string]datatypes.Value{}},
+		}
+
+		for key, value := range singleLimit.KeyValues {
+			// This is spuer important to use, otherwise the address of value is used. so everything will point to the same value which is wrong!
+			tmp := value
+			query.KeyValueSelection.KeyValues[key] = datatypes.Value{Value: &tmp, ValueComparison: datatypes.EqualsPtr()}
 		}
 
 		counter := uint64(0)
-		onFindPagination := func(associatedKeyValues *btreeassociated.AssociatedKeyValues) bool {
-			counter += associatedKeyValues.Value().(counters.Counter).Count
-			return true
+		onQuery := func(associatedKeyValues *btreeassociated.AssociatedKeyValues) bool {
+			counter += associatedKeyValues.Value().(*counters.Counter).Load()
+			return counter < singleLimit.Limit
 		}
 
-		query := datatypes.AssociatedKeyValuesQuery{}
-		for _, key := range rule.GetGroupByKeys() {
-			value := increment.KeyValues[key]
-			query.KeyValueSelection.KeyValues[key] = datatypes.Value{Value: &value, ValueComparison: datatypes.EqualsPtr()}
+		if err := rm.counters.Query(query, onQuery); err != nil {
+			//if err := rm.counters.Query(datatypes.AssociatedKeyValuesQuery{}, onQuery); err != nil {
+			logger.Error("Failed to query the current counters", zap.Error(err))
+			return &api.Error{Message: "Failed to query the current counters", StatusCode: http.StatusInternalServerError}
 		}
 
-		if err := rm.counters.Query(query, onFindPagination); err != nil {
-			logger.Error("failed to query counters", zap.Error(err))
-			return &api.Error{Message: "internal server error", StatusCode: http.StatusInternalServerError}
-		}
-
-		if counter >= limit {
-			return &api.Error{Message: fmt.Sprintf("Limit reached for rule: %s", rule.Name()), StatusCode: http.StatusConflict}
+		if counter >= singleLimit.Limit {
+			logger.Info("Limit already reached", zap.String("rule name", singleLimit.Name))
+			return &api.Error{Message: fmt.Sprintf("Limit has already been reached for rule '%s'", singleLimit.Name), StatusCode: http.StatusConflict}
 		}
 	}
 
 	// 4. we are under the limit, so update or create the requested tags
 	createCounter := func() any {
-		return counters.Counter{Count: 1}
+		return &counters.Counter{Count: atomic.NewUint64(1)}
 	}
 
 	incrementCounter := func(item any) {
-		counter := item.(*btreeassociated.AssociatedKeyValues).Value().(counters.Counter)
-		counter.Count += 1
+		item.(*btreeassociated.AssociatedKeyValues).Value().(*counters.Counter).Increment()
 	}
 
-	rm.counters.CreateOrFind(btreeassociated.ConverDatatypesKeyValues(increment.KeyValues), createCounter, incrementCounter)
+	if _, err := rm.counters.CreateOrFind(btreeassociated.ConverDatatypesKeyValues(increment.KeyValues), createCounter, incrementCounter); err != nil {
+		logger.Error("Failed to find or update the counter", zap.Error(err))
+		return errors.InternalServerError
+	}
 
 	return nil
 }
 
 // Increment trys to add to a group of key value pairs, and blocks if any rules have hit the limit
-func (rm *rulesManger) DecrementKeyValues(logger *zap.Logger, decrement *v1limiter.Counter) {
+func (rm *rulesManger) DecrementCounters(logger *zap.Logger, decrement *v1limiter.Counter) {
 	//logger = logger.Named("Decrement")
 	//canDelete := func(item any) bool {
 	//	counter := item.(*btreeassociated.AssociatedKeyValues).Value().(*atomic.Uint64)
@@ -373,29 +408,12 @@ func (rm *rulesManger) DecrementKeyValues(logger *zap.Logger, decrement *v1limit
 	//_ = rm.counters.Delete(btreeassociated.ConverDatatypesKeyValues(decrement.KeyValues), canDelete)
 }
 
-// TODO DSL: this can be optimized on the BtreeAssociated. Wher I could do a lookup all keys that these match for. then
-// perform a filter for matching the values. But for now, this is fine to prove out the API.
-func keyValuesToRuleQuery(keyValues datatypes.KeyValues) datatypes.AssociatedKeyValuesQuery {
-	query := datatypes.AssociatedKeyValuesQuery{}
-
-	// generate all possible key value tag pairs
-	keyValueCombinations := keyValues.GenerateTagPairs()
-
-	// setup a query to find any rules have the tags to match
-	exists := true
-	for _, keyValueCombo := range keyValueCombinations {
-		orQuery := datatypes.AssociatedKeyValuesQuery{
-			KeyValueSelection: &datatypes.KeyValueSelection{
-				KeyValues: map[string]datatypes.Value{},
-			},
-		}
-
-		for key, _ := range keyValueCombo {
-			orQuery.KeyValueSelection.KeyValues[key] = datatypes.Value{Exists: &exists}
-		}
-
-		query.Or = append(query.Or, orQuery)
+func keyValuesToRuleQuery(query datatypes.KeyValues) btreeassociated.KeyValues {
+	// special match logic. we alwys need to look for empty strings as a 'Select All' operation
+	keyValues := btreeassociated.KeyValues{}
+	for key, _ := range query {
+		keyValues[datatypes.String(key)] = datatypes.String("")
 	}
 
-	return query
+	return keyValues
 }

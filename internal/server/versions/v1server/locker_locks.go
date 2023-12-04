@@ -60,14 +60,13 @@ func (lh *lockerHandler) Create(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusCreated)
 		if _, err := w.Write(lockResponse.ToBytes()); err != nil {
 			// failing to write the response to the client means we should free the lock
-
 			logger.Error("Failed to write lock response to client", zap.Error(err))
 			lh.generalLocker.ReleaseLock(lockResponse.SessionID)
 		}
 	}
 
 	// in this case, the client should be disconnected or we are shutting down and they need to retry
-	w.WriteHeader(http.StatusBadGateway)
+	w.WriteHeader(http.StatusServiceUnavailable)
 }
 
 func (lh *lockerHandler) Heartbeat(w http.ResponseWriter, r *http.Request) {

@@ -1,14 +1,19 @@
 package v1server
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 
 	"github.com/DanLavine/urlrouter"
+	"github.com/DanLavine/willow/internal/errors"
 	"github.com/DanLavine/willow/internal/limiter"
 	"github.com/DanLavine/willow/internal/logger"
+	"github.com/DanLavine/willow/pkg/clients"
+	lockerclient "github.com/DanLavine/willow/pkg/clients/locker_client"
 	"github.com/DanLavine/willow/pkg/models/api"
 	v1limiter "github.com/DanLavine/willow/pkg/models/api/limiter/v1"
+	"github.com/DanLavine/willow/pkg/models/datatypes"
 	"go.uber.org/zap"
 )
 
@@ -35,13 +40,20 @@ type LimitRuleHandler interface {
 type groupRuleHandler struct {
 	logger *zap.Logger
 
+	shutdownContext context.Context
+
+	// locker client to ensure that all locks are respected
+	lockerClientConfig *clients.Config
+
 	rulesManager limiter.RulesManager
 }
 
-func NewGroupRuleHandler(logger *zap.Logger, rulesManager limiter.RulesManager) *groupRuleHandler {
+func NewGroupRuleHandler(logger *zap.Logger, shutdownContext context.Context, lockerClientConfig *clients.Config, rulesManager limiter.RulesManager) *groupRuleHandler {
 	return &groupRuleHandler{
-		logger:       logger.Named("GroupRuleHandler"),
-		rulesManager: rulesManager,
+		logger:             logger.Named("GroupRuleHandler"),
+		shutdownContext:    shutdownContext,
+		lockerClientConfig: lockerClientConfig,
+		rulesManager:       rulesManager,
 	}
 }
 
@@ -97,6 +109,30 @@ func (grh *groupRuleHandler) Get(w http.ResponseWriter, r *http.Request) {
 	w.Write(rule.ToBytes())
 }
 
+// List all rules that match particual KeyValues
+func (grh *groupRuleHandler) List(w http.ResponseWriter, r *http.Request) {
+	logger := logger.AddRequestID(grh.logger.Named("List"), r)
+	logger.Debug("starting request")
+	defer logger.Debug("processed request")
+
+	query, err := v1limiter.ParseRuleQuery(r.Body)
+	if err != nil {
+		w.WriteHeader(err.StatusCode)
+		w.Write(err.ToBytes())
+		return
+	}
+
+	rules, err := grh.rulesManager.List(logger, query)
+	if err != nil {
+		w.WriteHeader(err.StatusCode)
+		w.Write(err.ToBytes())
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write(rules.ToBytes())
+}
+
 // Update a rule by name handelr
 func (grh *groupRuleHandler) Update(w http.ResponseWriter, r *http.Request) {
 	logger := logger.AddRequestID(grh.logger.Named("Update"), r)
@@ -141,29 +177,7 @@ func (grh *groupRuleHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func (grh *groupRuleHandler) List(w http.ResponseWriter, r *http.Request) {
-	logger := logger.AddRequestID(grh.logger.Named("List"), r)
-	logger.Debug("starting request")
-	defer logger.Debug("processed request")
-
-	query, err := v1limiter.ParseRuleQuery(r.Body)
-	if err != nil {
-		w.WriteHeader(err.StatusCode)
-		w.Write(err.ToBytes())
-		return
-	}
-
-	rules, err := grh.rulesManager.List(logger, query)
-	if err != nil {
-		w.WriteHeader(err.StatusCode)
-		w.Write(err.ToBytes())
-		return
-	}
-
-	w.WriteHeader(http.StatusOK)
-	w.Write(rules.ToBytes())
-}
-
+// Set an override for a specific rule
 func (grh *groupRuleHandler) SetOverride(w http.ResponseWriter, r *http.Request) {
 	logger := logger.AddRequestID(grh.logger.Named("SetOverride"), r)
 	logger.Debug("starting request")
@@ -187,6 +201,7 @@ func (grh *groupRuleHandler) SetOverride(w http.ResponseWriter, r *http.Request)
 	w.WriteHeader(http.StatusCreated)
 }
 
+// Delete an override for a specific rule
 func (grh *groupRuleHandler) DeleteOverride(w http.ResponseWriter, r *http.Request) {
 	logger := logger.AddRequestID(grh.logger.Named("DeleteOverride"), r)
 	logger.Debug("starting request")
@@ -203,6 +218,7 @@ func (grh *groupRuleHandler) DeleteOverride(w http.ResponseWriter, r *http.Reque
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// Increment the Counters if they do not conflict with any rules
 func (grh *groupRuleHandler) Increment(w http.ResponseWriter, r *http.Request) {
 	logger := logger.AddRequestID(grh.logger.Named("Increment"), r)
 	logger.Debug("starting request")
@@ -212,12 +228,24 @@ func (grh *groupRuleHandler) Increment(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		w.WriteHeader(err.StatusCode)
 		w.Write(err.ToBytes())
-
 		return
 	}
 
-	// create the group rule. On find, return an error that the rule already exists
-	if err = grh.rulesManager.IncrementKeyValues(logger, counterRequest); err != nil {
+	// create a locker client that will stop and close if a server shutdown is received
+	logLockErr := func(kvs datatypes.KeyValues, err error) {
+		logger.Error("Failed to obtain lock", zap.Error(err), zap.Any("key_values", kvs))
+	}
+	lockerClient, lockerErr := lockerclient.NewLockerClient(grh.shutdownContext, grh.lockerClientConfig, logLockErr)
+	if lockerErr != nil {
+		logger.Error("Failed to create locker client on increment counter request", zap.Error(lockerErr))
+		err := errors.InternalServerError
+		w.WriteHeader(err.StatusCode)
+		w.Write(err.ToBytes())
+		return
+	}
+
+	// attempt to increment the counters for a particualr group of KeyValues
+	if err = grh.rulesManager.IncrementCounters(logger, r.Context(), lockerClient, counterRequest); err != nil {
 		w.WriteHeader(err.StatusCode)
 		w.Write(err.ToBytes())
 		return

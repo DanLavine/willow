@@ -1787,9 +1787,6 @@ func TestAssociated_Query_LargeJoinsAreFast(t *testing.T) {
 			largeKeyValues[fmt.Sprintf("%d", i)] = datatypes.String(fmt.Sprintf("%d", i))
 		}
 
-		fmt.Println(len(largeKeyValues.GenerateTagPairs()))
-		g.Fail("boo")
-
 		// 3. generate a massive query to run
 		query := datatypes.AssociatedKeyValuesQuery{}
 		for _, keyValues := range largeKeyValues.GenerateTagPairs() {

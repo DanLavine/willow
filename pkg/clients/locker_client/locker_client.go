@@ -19,11 +19,27 @@ import (
 	"golang.org/x/net/http2"
 )
 
+//go:generate mockgen -destination=lockerclientfakes/locker_client_mock.go -package=lockerclientfakes github.com/DanLavine/willow/pkg/clients/locker_client LockerClient
 type LockerClient interface {
+	// Healthy is used to ensure that the locker service is up and running
 	Healthy() error
 
+	//	PARAMS:
+	//	- ctx - Context that can be used to cancel the blocking requst trying to obtain the lock. NOTE: once a lock is obtained, release must be called
+	//	- keyValues - Key Values to obtain the unique lock for
+	//	- timeout - How long the lock should remain valid for if the heartbeats are failing
+	//
+	//	RETURNS
+	//	- Lock - lock object that can be used to release a lock, and monitor if a lock is lost for some reason
+	//	- error - any errors encountered when obtaining the lock
+	//	NOTE: is both Lock and error are nil, the context must have been canceled obtaining the lock
+	//
+	// Obtain a lock for a particular set of KeyValues. This blocks until the desired lock is obtained, or the context is canceled.
+	// The returned lock will automatically heartbeat to ensure that the lock remains valid. If the heartbeat fails for some reason,
+	// the channel returned from the `lock.Done()` call will be closed. It is up to the clients to monitor for a lock being lost
 	ObtainLock(ctx context.Context, keyValues datatypes.KeyValues, timeout time.Duration) (Lock, error)
 
+	// Done is closed if the LockerClient's contex is closed and no longer heartbeating
 	Done() <-chan struct{}
 }
 

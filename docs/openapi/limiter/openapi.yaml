@@ -245,16 +245,13 @@ paths:
           Increment a counter associated with the Key Values. As part of this operation, all `Rules` are matched
           to ensure that they have not reached a limit for the KeyValues in this request. If that has happened,
           then the request will fail and it is up to the client to retry the request eventually.
-
-          TODO: Perhaps add a "watch" parameter so if this does fail, then the client just waits untill something is available?
-          Willow will drive out the need for this feature
         required: true
         content:
           appplication/json:
             schema:
               $ref: "#/components/schemas/KeyValues"
       responses:
-        201:
+        200:
           description: Incremented the group of KeyValues
         400:
           description: Error parsing or validating the request body

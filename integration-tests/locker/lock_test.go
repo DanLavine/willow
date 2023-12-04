@@ -65,7 +65,7 @@ func Test_Lock(t *testing.T) {
 		g.Expect(lock.Release()).ToNot(HaveOccurred())
 	})
 
-	t.Run("It can aquire multiple a locks", func(t *testing.T) {
+	t.Run("It can aquire multiple locks with multipe KeyValues", func(t *testing.T) {
 		testConstruct.StartLocker(g)
 		defer testConstruct.Shutdown(g)
 
@@ -130,6 +130,48 @@ func Test_Lock(t *testing.T) {
 		g.Expect(lock.Release()).ToNot(HaveOccurred())
 		g.Eventually(done).Should(BeClosed())
 		g.Expect(lock.Release()).ToNot(HaveOccurred())
+	})
+
+	t.Run("It can release the clients when the server is shutting down", func(t *testing.T) {
+		testConstruct.StartLocker(g)
+
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		// client 1
+		lockerClient1 := setupClient(g, ctx, testConstruct.ServerURL)
+
+		// client 2
+		lockerClient2 := setupClient(g, ctx, testConstruct.ServerURL)
+
+		keyValues := datatypes.KeyValues{
+			"key1": datatypes.String("key one"),
+			"key2": datatypes.String("key two"),
+		}
+
+		// 1st lock goes fine
+		lock, err := lockerClient1.ObtainLock(ctx, keyValues, time.Second)
+		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(lock).ToNot(BeNil())
+
+		// 2nd lock blocks until the first lock is released
+		done := make(chan struct{})
+		var lock2 lockerclient.Lock
+		var err2 error
+		go func() {
+			defer close(done)
+			lock2, err2 = lockerClient2.ObtainLock(ctx, keyValues, time.Second)
+		}()
+
+		g.Consistently(done, time.Second).ShouldNot(BeClosed())
+
+		// release the lock
+		testConstruct.Shutdown(g)
+		fmt.Println(testConstruct.ServerStdout.String())
+		g.Eventually(lock.Done).Should(BeClosed()) // 1st lock should be released
+		g.Eventually(done).Should(BeClosed())      // 2nd lock attempt has failed
+		g.Expect(lock2).To(BeNil())                // 2nd lock is nil
+		g.Expect(err2).To(HaveOccurred())
 	})
 
 	t.Run("It keeps a lock by heartbeating", func(t *testing.T) {

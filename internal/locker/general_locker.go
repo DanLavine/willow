@@ -126,12 +126,12 @@ func (generalLocker *generalLocker) ObtainLock(clientCtx context.Context, create
 		select {
 		case <-lockChan:
 			// a lock has been freed and we were able to claim it
-		case <-clientCtx.Done():
+		case <-clientCtx.Done(): // client canceled
 			// now we need to try and cleanup any locks we currently have recored a counter on
 			generalLocker.freeLock(createLockRequest.KeyValues)
 			return nil
-		case <-generalLocker.done:
-			// now we need to try and cleanup any locks we currently have recored a counter on
+		case <-generalLocker.done: // server shutdown
+			// now we need to try and cleanup any locks we currently have recorded a counter on
 			generalLocker.freeLock(createLockRequest.KeyValues)
 			return nil
 		}

@@ -111,14 +111,21 @@ func (tsat *threadsafeAssociatedTree) generateIDPairs(group []*threadsafeIDNode,
 
 		// generate the N pair combinations
 		for i := 1; i < len(group); i++ {
-			tsat.generateIDGroups(append([]*threadsafeIDNode{group[0]}, group[i]), group[i+1:], onQueryPagination)
+			err, shouldContinue := tsat.generateIDGroups(append([]*threadsafeIDNode{group[0]}, group[i]), group[i+1:], onQueryPagination)
+			if err != nil {
+				return err
+			}
+
+			if !shouldContinue {
+				return nil
+			}
 		}
 	}
 
 	return nil
 }
 
-func (tsat *threadsafeAssociatedTree) generateIDGroups(prefix, suffix []*threadsafeIDNode, onQueryPagination OnQueryPagination) error {
+func (tsat *threadsafeAssociatedTree) generateIDGroups(prefix, suffix []*threadsafeIDNode, onQueryPagination OnQueryPagination) (error, bool) {
 	// run the prefix combination
 	idSet := set.New[string]()
 	for index, node := range prefix {
@@ -163,11 +170,11 @@ func (tsat *threadsafeAssociatedTree) generateIDGroups(prefix, suffix []*threads
 
 	for _, id := range idSet.Values() {
 		if err := tsat.associatedIDs.Find(datatypes.String(id), wrappedPagination); err != nil {
-			return err
+			return err, false
 		}
 
 		if !shouldContinue {
-			return nil
+			return nil, false
 		}
 	}
 
@@ -176,5 +183,5 @@ func (tsat *threadsafeAssociatedTree) generateIDGroups(prefix, suffix []*threads
 		tsat.generateIDGroups(append(prefix, suffix[i]), suffix[i+1:], onQueryPagination)
 	}
 
-	return nil
+	return nil, true
 }
