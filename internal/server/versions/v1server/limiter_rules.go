@@ -255,9 +255,22 @@ func (grh *groupRuleHandler) Increment(w http.ResponseWriter, r *http.Request) {
 }
 
 func (grh *groupRuleHandler) Decrement(w http.ResponseWriter, r *http.Request) {
-	logger := logger.AddRequestID(grh.logger.Named("Increment"), r)
+	logger := logger.AddRequestID(grh.logger.Named("Decrement"), r)
 	logger.Debug("starting request")
 	defer logger.Debug("processed request")
 
-	w.WriteHeader(http.StatusNotImplemented)
+	counterRequest, err := v1limiter.ParseCounterRequest(r.Body)
+	if err != nil {
+		w.WriteHeader(err.StatusCode)
+		w.Write(err.ToBytes())
+		return
+	}
+
+	if err = grh.rulesManager.DecrementCounters(logger, counterRequest); err != nil {
+		w.WriteHeader(err.StatusCode)
+		w.Write(err.ToBytes())
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }

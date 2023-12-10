@@ -81,6 +81,26 @@ Rule check 3:
    must be in violation of `Rule 2`. This means that we need to ensure that all rules grab all possible lock combinations
    as then ensure that rules are enforced
 
+## Example API calls
+
+#### 1. Create Rule
+`POST /v1/limiter/rules`
+
+```
+# replicate the app label + namespace behavior in K8S
+curl -X POST http://127.0.0.1:8082/v1/limiter/rules -d '{"Name":"name rule", "GroupBy": ["name", "namespace"], "Limit": 1}'
+```
+
+#### 2. List the rule we just created
+```
+curl -X GET http://127.0.0.1:8082/v1/limiter/rules -d '{}'
+```
+
+#### 3. Add A counter
+```
+# add a new application for the rule we just created
+curl -X POST http://127.0.0.1:8082/v1/limiter/counters -d '{"KeyValues": {"name": {"Type": 12,"Data":"Willow"}, "namespace":{"Type":12,"Data":"default"} } }'
+```
 
 ## Open Questions
 

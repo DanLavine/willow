@@ -122,6 +122,8 @@ func Test_Limiter_Rules_Get(t *testing.T) {
 				Name:  fmt.Sprintf("override%d", i),
 				Limit: 32,
 				KeyValues: datatypes.KeyValues{
+					"key1":                    datatypes.Int(1),
+					"key2":                    datatypes.Int(2),
 					fmt.Sprintf("other%d", i): datatypes.Float32(32),
 				},
 			}
@@ -162,6 +164,8 @@ func Test_Limiter_Rules_Get(t *testing.T) {
 				Name:  fmt.Sprintf("override%d", i),
 				Limit: 32,
 				KeyValues: datatypes.KeyValues{
+					"key1":                    datatypes.Int(1),
+					"key2":                    datatypes.Int(2),
 					fmt.Sprintf("other%d", i): datatypes.Float32(32),
 				},
 			}
@@ -171,6 +175,8 @@ func Test_Limiter_Rules_Get(t *testing.T) {
 		// get the rule
 		ruleResp, err := limiterClient.GetRule("rule1", v1.RuleQuery{
 			KeyValues: &datatypes.KeyValues{
+				"key1":    datatypes.Int(1),
+				"key2":    datatypes.Int(2),
 				"other1":  datatypes.Float32(32),
 				"other32": datatypes.Float32(32),
 			},
@@ -318,11 +324,11 @@ func Test_Limiter_Rules_List(t *testing.T) {
 
 		// create a number of rules
 		rules := []v1.RuleRequest{}
-		respRules := v1.Rules{}
 		for i := 0; i < 5; i++ {
 			keyValues := datatypes.KeyValues{fmt.Sprintf("key%d", i): datatypes.Int(i), fmt.Sprintf("key%d", i+1): datatypes.Int(i + 1)}
-			overrideKeyValues := datatypes.KeyValues{fmt.Sprintf("key%d", i): datatypes.Int(i), fmt.Sprintf("key%d", i+1): datatypes.Int(i + 1), fmt.Sprintf("key%d", i+2): datatypes.Int(i + 2)}
+			overrideKeyValues := datatypes.KeyValues{fmt.Sprintf("key%d", i): datatypes.Int(i), fmt.Sprintf("key%d", i+1): datatypes.Int(i + 1)}
 
+			// create the rule
 			rules = append(rules, v1.RuleRequest{
 				Name:    fmt.Sprintf("%d", i),
 				GroupBy: keyValues.Keys(),
@@ -331,40 +337,66 @@ func Test_Limiter_Rules_List(t *testing.T) {
 			err := limiterClient.CreateRule(rules[i])
 			g.Expect(err).ToNot(HaveOccurred())
 
-			for index, overrideKV := range overrideKeyValues.GenerateTagPairs() {
+			// create 5 overrides for each rule
+			for k := 5; k < 10; k++ {
+				overrideKeyValues[fmt.Sprintf("key%d", k)] = datatypes.Int(k)
+
 				overrideReq := v1.Override{
-					Name:      fmt.Sprintf("override%d", index),
-					KeyValues: overrideKV,
+					Name:      fmt.Sprintf("override%d", k),
+					KeyValues: overrideKeyValues,
 					Limit:     32,
 				}
 				err := limiterClient.CreateOverride(fmt.Sprintf("%d", i), overrideReq)
 				g.Expect(err).ToNot(HaveOccurred())
 			}
-
-			if i == 1 {
-				respRules = append(respRules, &v1.RuleResponse{
-					Name:      fmt.Sprintf("%d", i),
-					GroupBy:   keyValues.Keys(),
-					Limit:     5,
-					Overrides: []v1.Override{},
-				})
-
-				// NOTE: this is only the keyValues not the overrideKeyValues. This is because overrideKeyValues contain
-				// an extra key that should not be contained
-				for index, overrideKV := range keyValues.GenerateTagPairs() {
-					respRules[0].Overrides = append(respRules[0].Overrides, v1.Override{
-						Name:      fmt.Sprintf("override%d", index),
-						KeyValues: overrideKV,
-						Limit:     32,
-					})
-				}
-			}
 		}
 
-		// get the rules
+		// setup the response expectations
+		respRules := v1.Rules{
+			&v1.RuleResponse{
+				Name:    "1",
+				GroupBy: []string{"key1", "key2"},
+				Limit:   5,
+				Overrides: []v1.Override{
+					v1.Override{
+						Name: "override5",
+						KeyValues: datatypes.KeyValues{
+							"key1": datatypes.Int(1),
+							"key2": datatypes.Int(2),
+							"key5": datatypes.Int(5),
+						},
+						Limit: 32,
+					},
+					v1.Override{
+						Name: "override6",
+						KeyValues: datatypes.KeyValues{
+							"key1": datatypes.Int(1),
+							"key2": datatypes.Int(2),
+							"key5": datatypes.Int(5),
+							"key6": datatypes.Int(6),
+						},
+						Limit: 32,
+					},
+				},
+			},
+		}
+
+		// NOTE: this is only the keyValues not the overrideKeyValues. This is because overrideKeyValues contain
+		// an extra key that should not be contained
+		//for index, overrideKV := range keyValues.GenerateTagPairs() {
+		//	respRules[0].Overrides = append(respRules[0].Overrides, v1.Override{
+		//		Name:      fmt.Sprintf("override%d", index),
+		//		KeyValues: overrideKV,
+		//		Limit:     32,
+		//	})
+		//}
+
+		// get the 1 rule + 2 overrides
 		keyValues := datatypes.KeyValues{
 			"key1": datatypes.Int(1),
 			"key2": datatypes.Int(2),
+			"key5": datatypes.Int(5), // override 1
+			"key6": datatypes.Int(6), // this + 'key6' are override 2
 		}
 		ruleResp, err := limiterClient.ListRules(v1.RuleQuery{KeyValues: &keyValues, OverrideQuery: v1.Match})
 		g.Expect(err).ToNot(HaveOccurred())
@@ -372,11 +404,9 @@ func Test_Limiter_Rules_List(t *testing.T) {
 		g.Expect(ruleResp[0].Name).To(Equal("1"))
 		g.Expect(ruleResp[0].GroupBy).To(ContainElements([]string{"key1", "key2"}))
 		g.Expect(ruleResp[0].Limit).To(Equal(uint64(5)))
-		g.Expect(len(respRules[0].Overrides)).To(Equal(3))
+		g.Expect(len(respRules[0].Overrides)).To(Equal(2))
 		g.Expect(ruleResp[0].Overrides[0]).To(Equal(respRules[0].Overrides[0]))
 		g.Expect(ruleResp[0].Overrides[1]).To(Equal(respRules[0].Overrides[1]))
-		g.Expect(ruleResp[0].Overrides[2].KeyValues).To(Equal(respRules[0].Overrides[2].KeyValues))
-
 	})
 }
 

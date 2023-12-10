@@ -43,6 +43,8 @@ func Test_Limiter_Overrides_Create(t *testing.T) {
 			Name:  "override1",
 			Limit: 32,
 			KeyValues: datatypes.KeyValues{
+				"key1":  datatypes.Int(1),
+				"key2":  datatypes.Int(2),
 				"other": datatypes.Float32(32),
 			},
 		}
@@ -84,6 +86,8 @@ func Test_Limiter_Overrides_Delete(t *testing.T) {
 			Name:  "override1",
 			Limit: 32,
 			KeyValues: datatypes.KeyValues{
+				"key1":  datatypes.Int(1),
+				"key2":  datatypes.Int(2),
 				"other": datatypes.Float32(32),
 			},
 		}

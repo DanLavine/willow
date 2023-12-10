@@ -47,7 +47,7 @@ type RulesManager interface {
 	IncrementCounters(logger *zap.Logger, requestContext context.Context, lockerClient lockerclient.LockerClient, increment *v1limiter.Counter) *api.Error
 
 	// decrement a particular group of tags
-	DecrementCounters(logger *zap.Logger, decrement *v1limiter.Counter)
+	DecrementCounters(logger *zap.Logger, decrement *v1limiter.Counter) *api.Error
 }
 
 type rulesManger struct {
@@ -251,7 +251,7 @@ func (rm *rulesManger) DeleteOverride(logger *zap.Logger, ruleName string, overr
 // to be able to create the client in some sort of "factory" pattern... I could have a test server, but that means It
 // would need to server the client like real which is a massive pain for unit tests...
 func (rm *rulesManger) IncrementCounters(logger *zap.Logger, requestContext context.Context, lockerClient lockerclient.LockerClient, increment *v1limiter.Counter) *api.Error {
-	logger = logger.Named("IncrementKeyValues")
+	logger = logger.Named("IncrementCounters")
 
 	var foundRules []rules.Rule
 	var limitErr *api.Error
@@ -395,17 +395,25 @@ func (rm *rulesManger) IncrementCounters(logger *zap.Logger, requestContext cont
 	return nil
 }
 
-// Increment trys to add to a group of key value pairs, and blocks if any rules have hit the limit
-func (rm *rulesManger) DecrementCounters(logger *zap.Logger, decrement *v1limiter.Counter) {
-	//logger = logger.Named("Decrement")
-	//canDelete := func(item any) bool {
-	//	counter := item.(*btreeassociated.AssociatedKeyValues).Value().(*atomic.Uint64)
-	//	counter.Add(^uint64(0))
-	//
-	//	return counter.Load() == 0
-	//}
-	//
-	//_ = rm.counters.Delete(btreeassociated.ConverDatatypesKeyValues(decrement.KeyValues), canDelete)
+// Decrement removes a single instance from the key values group. If the total count would become 0, then the
+// key values are removed entierly
+//
+// Decrement is muuch easier than increment because we don't need to ensure any rules validation. So no locks are required
+// and we can just decrement the key values directly
+func (rm *rulesManger) DecrementCounters(logger *zap.Logger, decrement *v1limiter.Counter) *api.Error {
+	logger = logger.Named("DecrementCounters")
+
+	decrementCounter := func(item any) bool {
+		count := item.(*btreeassociated.AssociatedKeyValues).Value().(*counters.Counter).Decrement()
+		return count == 0
+	}
+
+	if err := rm.counters.Delete(btreeassociated.ConverDatatypesKeyValues(decrement.KeyValues), decrementCounter); err != nil {
+		logger.Error("Failed to find or update the counter", zap.Error(err))
+		return errors.InternalServerError
+	}
+
+	return nil
 }
 
 func keyValuesToRuleQuery(query datatypes.KeyValues) btreeassociated.KeyValues {

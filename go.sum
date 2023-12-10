@@ -1,8 +1,4 @@
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
-github.com/DanLavine/channelops v0.0.0-20230914213205-26fbb4f14586 h1:ySsH+Vk/FWtKKPpZVWyJeeSbiKjAHdopScGvuhce/xc=
-github.com/DanLavine/channelops v0.0.0-20230914213205-26fbb4f14586/go.mod h1:wgViuoEjca7ugJj/z7FfQ07D+hEoTjkLj7iFPw96rQo=
-github.com/DanLavine/channelops v0.0.0-20231206012428-06a9e6e5be52 h1:Zq4XD/fZgsxZqvhMgZV5oEvdjy3gqMDCeQ8Rb7zHQi8=
-github.com/DanLavine/channelops v0.0.0-20231206012428-06a9e6e5be52/go.mod h1:wgViuoEjca7ugJj/z7FfQ07D+hEoTjkLj7iFPw96rQo=
 github.com/DanLavine/channelops v0.0.0-20231207200732-e28b846fd188 h1:+CpbUqNpQKQ3aGV5wT9E3FlkQRIW8lLWbN/82keUmmc=
 github.com/DanLavine/channelops v0.0.0-20231207200732-e28b846fd188/go.mod h1:wgViuoEjca7ugJj/z7FfQ07D+hEoTjkLj7iFPw96rQo=
 github.com/DanLavine/goasync v1.0.2 h1:GUnkNv9p7l5lhpD+Or9HrM6ZBbH9OEoqEtvTufivmGo=

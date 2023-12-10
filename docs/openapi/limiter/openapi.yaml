@@ -38,6 +38,15 @@ paths:
             appplication/json:
               schema:
                 $ref: "#/components/schemas/ApiError"
+        500:
+          description: Internal error that should be addressed by the service maintainer
+          content:
+            appplication/json:
+              schema:
+                type: object
+                properties:
+                  ApiError:
+                    $ref: "#/components/schemas/ApiError"
     get:
       operationId: list Rules
       requestBody:
@@ -57,6 +66,15 @@ paths:
                 $ref: "#/components/schemas/ListRulesResponse"
         400:
           description: Error parsing or validating the request
+          content:
+            appplication/json:
+              schema:
+                type: object
+                properties:
+                  ApiError:
+                    $ref: "#/components/schemas/ApiError"
+        500:
+          description: Internal error that should be addressed by the service maintainer
           content:
             appplication/json:
               schema:
@@ -101,6 +119,15 @@ paths:
                 properties:
                   ApiError:
                     $ref: "#/components/schemas/ApiError"
+        500:
+          description: Internal error that should be addressed by the service maintainer
+          content:
+            appplication/json:
+              schema:
+                type: object
+                properties:
+                  ApiError:
+                    $ref: "#/components/schemas/ApiError"
     put:
       operationId: update Rule
       requestBody:
@@ -125,6 +152,15 @@ paths:
                     $ref: "#/components/schemas/ApiError"
         422:
           description: The original `Rule` could not be found
+          content:
+            appplication/json:
+              schema:
+                type: object
+                properties:
+                  ApiError:
+                    $ref: "#/components/schemas/ApiError"
+        500:
+          description: Internal error that should be addressed by the service maintainer
           content:
             appplication/json:
               schema:
@@ -178,6 +214,15 @@ paths:
             appplication/json:
               schema:
                 $ref: "#/components/schemas/ApiError"
+        500:
+          description: Internal error that should be addressed by the service maintainer
+          content:
+            appplication/json:
+              schema:
+                type: object
+                properties:
+                  ApiError:
+                    $ref: "#/components/schemas/ApiError"
     get:
       operationId: list Rule Overrides
       requestBody:
@@ -195,6 +240,21 @@ paths:
             appplication/json:
               schema:
                 $ref: "#/components/schemas/RuleOverrides"
+        400:
+          description: Error parsing or validating the request body
+          content:
+            appplication/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        500:
+          description: Internal error that should be addressed by the service maintainer
+          content:
+            appplication/json:
+              schema:
+                type: object
+                properties:
+                  ApiError:
+                    $ref: "#/components/schemas/ApiError"
   /v1/limiter/rules/:rule_name/overrides/:override_name:
     get:
       operationId: get Rule Override
@@ -223,6 +283,15 @@ paths:
                 properties:
                   ApiError:
                     $ref: "#/components/schemas/ApiError"
+        500:
+          description: Internal error that should be addressed by the service maintainer
+          content:
+            appplication/json:
+              schema:
+                type: object
+                properties:
+                  ApiError:
+                    $ref: "#/components/schemas/ApiError"
     delete:
       operationId: delete Rule Override
       responses:
@@ -230,6 +299,15 @@ paths:
           description: deleted the Rule Override
         422:
           description: Conflict if the `Rule` or `Override` do not exist
+          content:
+            appplication/json:
+              schema:
+                type: object
+                properties:
+                  ApiError:
+                    $ref: "#/components/schemas/ApiError"
+        500:
+          description: Internal error that should be addressed by the service maintainer
           content:
             appplication/json:
               schema:
@@ -271,6 +349,15 @@ paths:
                 properties:
                   ApiError:
                     $ref: "#/components/schemas/LimitReachedResponse"
+        500:
+          description: Internal error that should be addressed by the service maintainer
+          content:
+            appplication/json:
+              schema:
+                type: object
+                properties:
+                  ApiError:
+                    $ref: "#/components/schemas/ApiError"
     delete:
       operationId: decrement Key Values Group
       requestBody:
@@ -286,6 +373,15 @@ paths:
           description: Key Values Group was decremeneted
         400:
           description: Error parsing or validating the request body
+          content:
+            appplication/json:
+              schema:
+                type: object
+                properties:
+                  ApiError:
+                    $ref: "#/components/schemas/ApiError"
+        500:
+          description: Internal error that should be addressed by the service maintainer
           content:
             appplication/json:
               schema:

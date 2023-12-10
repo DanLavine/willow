@@ -29,7 +29,7 @@ var (
 	T_string  DataType = 12
 
 	// T_any might make sense, but for now I am not using it, so ignore that case
-	// T_bool doesn't make much sense since it can oonly ever be true or false
+	// T_bool doesn't seem to make much sense since it can oonly ever be true or false
 )
 
 // EncapsulatedValue provides validation for all datatypes from uint8 to string.

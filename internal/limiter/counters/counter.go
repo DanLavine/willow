@@ -6,6 +6,12 @@ type Counter struct {
 	Count *atomic.Uint64
 }
 
+func New() *Counter {
+	return &Counter{
+		Count: new(atomic.Uint64),
+	}
+}
+
 func (c *Counter) Increment() uint64 {
 	return c.Count.Add(1)
 }

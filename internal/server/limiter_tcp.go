@@ -114,7 +114,7 @@ func (limiter *limiterTCP) Execute(ctx context.Context) error {
 
 	// operations to check items against arbitrary rules
 	mux.HandleFunc("POST", "/v1/limiter/counters", limiter.v1ruleHandler.Increment)
-	//mux.HandleFunc("DELETE", "/v1/limiter/counters", limiter.v1ruleHandler.Decrement)
+	mux.HandleFunc("DELETE", "/v1/limiter/counters", limiter.v1ruleHandler.Decrement)
 
 	// set the server mux
 	limiter.server.Handler = mux

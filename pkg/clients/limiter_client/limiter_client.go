@@ -26,6 +26,7 @@ type LimiterClient interface {
 
 	// counter operations
 	IncrementCounter(counter v1limiter.Counter) error
+	DecrementCounter(counter v1limiter.Counter) error
 }
 
 type limiterClient struct {
