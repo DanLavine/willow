@@ -20,6 +20,9 @@ type Rule interface {
 	// Update a particualr rule's default limit values
 	Update(logger *zap.Logger, update *v1limiter.RuleUpdate)
 
+	// query overrides for a particular rule
+	QueryOverrides(logger *zap.Logger, query *v1limiter.Query) (v1limiter.Overrides, *api.Error)
+
 	// set an override for a particualr group of tags
 	SetOverride(logger *zap.Logger, override *v1limiter.Override) *api.Error
 
@@ -35,19 +38,8 @@ type Rule interface {
 	// generate a query based on the search tags
 	//GenerateQuery(keyValues datatypes.KeyValues) datatypes.Select
 
-	// operations for callbacks when resources are freed
-	// TODO: These operations are very consuming and hard to implement. So do that after a basic limiter is
-	// setup and useful
-	//
-	//AddClientWaiting(logger *zap.Logger, keyValues datatypes.KeyValues) <-chan struct{} // client calls when trying to "increment", but a limit is blocked, sets up a callback that triggers another "increment" call
-	//TriggerClientWaiting(keyValues datatypes.KeyValues)                                 // decrement calls these whenever that happens. Can als be called on an override increase change
-
 	// Get a rule response for Read operations
 	Get(includeOverrides *v1limiter.RuleQuery) *v1limiter.RuleResponse
-
-	// Inernal operations
-	//GroupBy() []string
-	//Limits()
 }
 
 func SortRulesGroupBy(rules []Rule) [][]string {

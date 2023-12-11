@@ -21,6 +21,7 @@ type LimiterClient interface {
 	DeleteRule(ruleName string) error
 
 	// override operations
+	ListOverrides(ruleName string, query v1limiter.Query) (v1limiter.Overrides, error)
 	CreateOverride(ruleName string, override v1limiter.Override) error
 	DeleteOverride(ruleName string, overrideName string) error
 

@@ -29,6 +29,7 @@ type LimitRuleHandler interface {
 	List(w http.ResponseWriter, r *http.Request)
 
 	// overide operations
+	ListOverrides(w http.ResponseWriter, r *http.Request)
 	SetOverride(w http.ResponseWriter, r *http.Request)
 	DeleteOverride(w http.ResponseWriter, r *http.Request)
 
@@ -176,6 +177,32 @@ func (grh *groupRuleHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// List a number of rules
+func (grh *groupRuleHandler) ListOverrides(w http.ResponseWriter, r *http.Request) {
+	logger := logger.AddRequestID(grh.logger.Named("ListOverrides"), r)
+	logger.Debug("starting request")
+	defer logger.Debug("processed request")
+
+	query, err := v1limiter.ParseGeneralQuery(r.Body)
+	if err != nil {
+		w.WriteHeader(err.StatusCode)
+		w.Write(err.ToBytes())
+		return
+	}
+
+	namedParameters := urlrouter.GetNamedParamters(r.Context())
+
+	overrides, err := grh.rulesManager.ListOverrides(logger, namedParameters["rule_name"], query)
+	if err != nil {
+		w.WriteHeader(err.StatusCode)
+		w.Write(err.ToBytes())
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write(overrides.ToBytes())
 }
 
 // Set an override for a specific rule

@@ -252,6 +252,63 @@ func TestRule_Update(t *testing.T) {
 	})
 }
 
+func TestRule_QueryOverrides(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	t.Run("It returns empty if there are no overrides", func(t *testing.T) {
+		rule := NewRule(defaultLimiterTestRule(g))
+
+		query := &v1limiter.Query{AssociatedKeyValues: datatypes.AssociatedKeyValuesQuery{}}
+		g.Expect(query.Validate()).ToNot(HaveOccurred())
+
+		overrides, err := rule.QueryOverrides(zap.NewNop(), query)
+		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(len(overrides)).To(Equal(0))
+	})
+
+	t.Run("It returns only overrides sthat match the query", func(t *testing.T) {
+		rule := NewRule(defaultLimiterTestRule(g))
+
+		// create 2 overrides
+		override1 := &v1limiter.Override{
+			Name:      "override name 1",
+			KeyValues: defaultValidKeyValues(g),
+			Limit:     72,
+		}
+		g.Expect(rule.SetOverride(zap.NewNop(), override1)).ToNot(HaveOccurred())
+
+		override1.KeyValues["key4"] = datatypes.Float32(3.2)
+		override2 := &v1limiter.Override{
+			Name:      "override name 2",
+			KeyValues: override1.KeyValues,
+			Limit:     12,
+		}
+		g.Expect(rule.SetOverride(zap.NewNop(), override2)).ToNot(HaveOccurred())
+
+		// run the query
+		notExists := false
+		query := &v1limiter.Query{
+			AssociatedKeyValues: datatypes.AssociatedKeyValuesQuery{
+				KeyValueSelection: &datatypes.KeyValueSelection{
+					KeyValues: map[string]datatypes.Value{
+						"key4": datatypes.Value{Exists: &notExists},
+					},
+				},
+			},
+		}
+		g.Expect(query.Validate()).ToNot(HaveOccurred())
+
+		overrides, err := rule.QueryOverrides(zap.NewNop(), query)
+		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(len(overrides)).To(Equal(1))
+		g.Expect(overrides[0]).To(Equal(v1limiter.Override{
+			Name:      "override name 1",
+			KeyValues: defaultValidKeyValues(g),
+			Limit:     72,
+		}))
+	})
+}
+
 func TestRule_SetOverride(t *testing.T) {
 	g := NewGomegaWithT(t)
 

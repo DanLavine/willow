@@ -185,6 +185,39 @@ paths:
                   ApiError:
                     $ref: "#/components/schemas/ApiError"
   /v1/limiter/rules/:rule_name/overrides:
+    get:
+      operationId: list Rule Overrides
+      requestBody:
+        description: |
+          List any `Overrides` that match the provided KeyValues
+        required: true
+        content:
+          appplication/json:
+            schema:
+              $ref: "#/components/schemas/KeyValues"
+      responses:
+        200:
+          description: A collection of `Overrides`
+          content:
+            appplication/json:
+              schema:
+                $ref: "#/components/schemas/RuleOverrides"
+        400:
+          description: Error parsing or validating the request body
+          content:
+            appplication/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        500:
+          description: Internal error that should be addressed by the service maintainer
+          content:
+            appplication/json:
+              schema:
+                type: object
+                properties:
+                  ApiError:
+                    $ref: "#/components/schemas/ApiError"
+
     post:
       operationId: create Rule Override
       requestBody:
@@ -216,38 +249,6 @@ paths:
                 $ref: "#/components/schemas/ApiError"
         422:
           description: Conflict if another `Override` already exists with the same KeyValues or Name
-          content:
-            appplication/json:
-              schema:
-                $ref: "#/components/schemas/ApiError"
-        500:
-          description: Internal error that should be addressed by the service maintainer
-          content:
-            appplication/json:
-              schema:
-                type: object
-                properties:
-                  ApiError:
-                    $ref: "#/components/schemas/ApiError"
-    get:
-      operationId: list Rule Overrides
-      requestBody:
-        description: |
-          List any `Overrides` that match the provided KeyValues
-        required: true
-        content:
-          appplication/json:
-            schema:
-              $ref: "#/components/schemas/KeyValues"
-      responses:
-        200:
-          description: A collection of `Overrides`
-          content:
-            appplication/json:
-              schema:
-                $ref: "#/components/schemas/RuleOverrides"
-        400:
-          description: Error parsing or validating the request body
           content:
             appplication/json:
               schema:

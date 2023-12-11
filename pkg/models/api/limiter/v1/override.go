@@ -8,6 +8,13 @@ import (
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 )
 
+type Overrides []Override
+
+func (ovr Overrides) ToBytes() []byte {
+	data, _ := json.Marshal(ovr)
+	return data
+}
+
 // Override can be thought of as a "sub query" for which the rule resides. Any request that matches all the
 // given tags for an override will use the new override value. If multiple overrides match a particular set of tags,
 // then the override with the lowest value will be used

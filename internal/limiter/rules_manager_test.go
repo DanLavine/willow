@@ -482,6 +482,69 @@ func TestRulesManager_Delete(t *testing.T) {
 	})
 }
 
+func TestRulesManager_ListOverrides(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	constructor, err := rules.NewRuleConstructor("memory")
+	g.Expect(err).ToNot(HaveOccurred())
+
+	t.Run("It returns an error if the rule name cannot be found", func(t *testing.T) {
+		rulesManager := NewRulesManger(constructor)
+
+		notExists := false
+		query := &v1limiter.Query{
+			AssociatedKeyValues: datatypes.AssociatedKeyValuesQuery{
+				KeyValueSelection: &datatypes.KeyValueSelection{
+					KeyValues: map[string]datatypes.Value{
+						"key4": datatypes.Value{Exists: &notExists},
+					},
+				},
+			},
+		}
+		g.Expect(query.Validate()).ToNot(HaveOccurred())
+
+		overrides, err := rulesManager.ListOverrides(zap.NewNop(), "test1", query)
+		g.Expect(err).To(HaveOccurred())
+		g.Expect(err.Error()).To(ContainSubstring("Rule test1 not found"))
+		g.Expect(len(overrides)).To(Equal(0))
+	})
+
+	t.Run("It returns the overrides for the query", func(t *testing.T) {
+		rulesManager := NewRulesManger(constructor)
+
+		// create rule
+		createRule := &v1limiter.RuleRequest{
+			Name:    "test1",
+			GroupBy: []string{"key1"},
+			Limit:   uint64(12),
+		}
+		g.Expect(createRule.Validate()).ToNot(HaveOccurred())
+		g.Expect(rulesManager.Create(zap.NewNop(), createRule)).ToNot(HaveOccurred())
+
+		// create override
+		overrideRequest := v1limiter.Override{
+			Name: "override0",
+			KeyValues: datatypes.KeyValues{
+				"key1": datatypes.Int(0),
+			},
+			Limit: 1,
+		}
+		g.Expect(overrideRequest.Validate()).ToNot(HaveOccurred())
+		g.Expect(rulesManager.CreateOverride(zap.NewNop(), "test1", &overrideRequest)).ToNot(HaveOccurred())
+
+		// query
+		query := &v1limiter.Query{
+			AssociatedKeyValues: datatypes.AssociatedKeyValuesQuery{}, // select all
+		}
+		g.Expect(query.Validate()).ToNot(HaveOccurred())
+
+		overrides, err := rulesManager.ListOverrides(zap.NewNop(), "test1", query)
+		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(len(overrides)).To(Equal(1))
+		g.Expect(overrides[0].Name).To(Equal("override0"))
+	})
+}
+
 func TestRulesManager_CreateOverride(t *testing.T) {
 	g := NewGomegaWithT(t)
 

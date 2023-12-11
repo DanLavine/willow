@@ -81,20 +81,6 @@ func (mr *MockRuleMockRecorder) FindLimits(arg0, arg1 interface{}) *gomock.Call 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindLimits", reflect.TypeOf((*MockRule)(nil).FindLimits), arg0, arg1)
 }
 
-// GenerateQuery mocks base method.
-func (m *MockRule) GenerateQuery(arg0 datatypes.KeyValues) datatypes.AssociatedKeyValuesQuery {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GenerateQuery", arg0)
-	ret0, _ := ret[0].(datatypes.AssociatedKeyValuesQuery)
-	return ret0
-}
-
-// GenerateQuery indicates an expected call of GenerateQuery.
-func (mr *MockRuleMockRecorder) GenerateQuery(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GenerateQuery", reflect.TypeOf((*MockRule)(nil).GenerateQuery), arg0)
-}
-
 // Get mocks base method.
 func (m *MockRule) Get(arg0 *v1.RuleQuery) *v1.RuleResponse {
 	m.ctrl.T.Helper()
@@ -137,6 +123,21 @@ func (mr *MockRuleMockRecorder) Name() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Name", reflect.TypeOf((*MockRule)(nil).Name))
 }
 
+// QueryOverrides mocks base method.
+func (m *MockRule) QueryOverrides(arg0 *zap.Logger, arg1 *v1.Query) (v1.Overrides, *api.Error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "QueryOverrides", arg0, arg1)
+	ret0, _ := ret[0].(v1.Overrides)
+	ret1, _ := ret[1].(*api.Error)
+	return ret0, ret1
+}
+
+// QueryOverrides indicates an expected call of QueryOverrides.
+func (mr *MockRuleMockRecorder) QueryOverrides(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "QueryOverrides", reflect.TypeOf((*MockRule)(nil).QueryOverrides), arg0, arg1)
+}
+
 // SetOverride mocks base method.
 func (m *MockRule) SetOverride(arg0 *zap.Logger, arg1 *v1.Override) *api.Error {
 	m.ctrl.T.Helper()
@@ -149,20 +150,6 @@ func (m *MockRule) SetOverride(arg0 *zap.Logger, arg1 *v1.Override) *api.Error {
 func (mr *MockRuleMockRecorder) SetOverride(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetOverride", reflect.TypeOf((*MockRule)(nil).SetOverride), arg0, arg1)
-}
-
-// TagsMatch mocks base method.
-func (m *MockRule) TagsMatch(arg0 *zap.Logger, arg1 datatypes.KeyValues) bool {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "TagsMatch", arg0, arg1)
-	ret0, _ := ret[0].(bool)
-	return ret0
-}
-
-// TagsMatch indicates an expected call of TagsMatch.
-func (mr *MockRuleMockRecorder) TagsMatch(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TagsMatch", reflect.TypeOf((*MockRule)(nil).TagsMatch), arg0, arg1)
 }
 
 // Update mocks base method.

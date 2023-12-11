@@ -41,6 +41,7 @@ type RulesManager interface {
 	Delete(logger *zap.Logger, name string) *api.Error
 
 	// override operations
+	ListOverrides(logger *zap.Logger, ruleName string, query *v1limiter.Query) (v1.Overrides, *api.Error)
 	CreateOverride(logger *zap.Logger, ruleName string, override *v1limiter.Override) *api.Error
 	DeleteOverride(logger *zap.Logger, ruleName string, overrideName string) *api.Error
 
@@ -215,6 +216,31 @@ func (rm *rulesManger) Delete(logger *zap.Logger, name string) *api.Error {
 }
 
 // Create an override for a rule by name
+func (rm *rulesManger) ListOverrides(logger *zap.Logger, ruleName string, query *v1limiter.Query) (v1.Overrides, *api.Error) {
+	logger = logger.Named("ListOverrides")
+
+	found := false
+	var overrides v1.Overrides
+	var overrideErr *api.Error
+	onFind := func(item any) {
+		found = true
+		rule := item.(*btreeassociated.AssociatedKeyValues).Value().(rules.Rule)
+		overrides, overrideErr = rule.QueryOverrides(logger, query)
+	}
+
+	if err := rm.rules.FindByAssociatedID(ruleName, onFind); err != nil {
+		logger.Error("failed to find rule by associatedid", zap.String("name", ruleName), zap.Error(err))
+		return overrides, (&api.Error{Message: "failed to find rule by name", StatusCode: http.StatusUnprocessableEntity}).With(fmt.Sprintf("name %s", ruleName), "no rule found by that name")
+	}
+
+	if !found {
+		overrideErr = &api.Error{Message: fmt.Sprintf("Rule %s not found", ruleName), StatusCode: http.StatusNotFound}
+	}
+
+	return overrides, overrideErr
+}
+
+// Create an override for a rule by name
 func (rm *rulesManger) CreateOverride(logger *zap.Logger, ruleName string, override *v1limiter.Override) *api.Error {
 	logger = logger.Named("CreateOverride")
 
@@ -262,6 +288,7 @@ func (rm *rulesManger) DeleteOverride(logger *zap.Logger, ruleName string, overr
 	return overrideErr
 }
 
+// List a all counters that match the query
 func (rm *rulesManger) ListCounters(logger *zap.Logger, query *v1limiter.Query) (v1limiter.CountersResponse, *api.Error) {
 	logger = logger.Named("ListCounters")
 

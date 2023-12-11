@@ -9,6 +9,7 @@ import (
 	"github.com/DanLavine/willow/internal/errors"
 	v1limitermodels "github.com/DanLavine/willow/internal/limiter/v1_limiter_models"
 	"github.com/DanLavine/willow/pkg/models/api"
+	v1 "github.com/DanLavine/willow/pkg/models/api/limiter/v1"
 	v1limiter "github.com/DanLavine/willow/pkg/models/api/limiter/v1"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 	"go.uber.org/zap"
@@ -89,8 +90,7 @@ func (r *rule) Get(includeOverrides *v1limiter.RuleQuery) *v1limiter.RuleRespons
 }
 
 // DSL TODO: There is an optimization here, where I can find a "subset" of all the key values if they have a lower
-//
-//	          value and just use that. I believe that holds true.
+// value and just use that. I believe that holds true.
 //
 //	I.E
 //	1. {"key1":"1", "key2":"2"}, Limit 5
@@ -146,6 +146,38 @@ func (r *rule) Update(logger *zap.Logger, update *v1limiter.RuleUpdate) {
 
 	r.limit = uint64(update.Limit)
 	logger.Debug("updated rule")
+}
+
+// Create an override for a specific rule.
+//
+// NOTE: we don't need to ensure on the Override's KeyValues that they have all the Rule's GroupBy tags. Thise are already
+// finding the inital rule to lookup
+func (r *rule) QueryOverrides(logger *zap.Logger, query *v1limiter.Query) (v1limiter.Overrides, *api.Error) {
+	logger = logger.Named("QueryOverrides")
+
+	var overrides v1.Overrides
+	var overrideErr *api.Error
+
+	onfindPagination := func(associatedKeyValues *btreeassociated.AssociatedKeyValues) bool {
+		ruleOverride := associatedKeyValues.Value().(*ruleOverride)
+		ruleOverride.lock.RLock()
+		defer ruleOverride.lock.RUnlock()
+
+		overrides = append(overrides, v1limiter.Override{
+			Name:      associatedKeyValues.AssociatedID(),
+			KeyValues: associatedKeyValues.KeyValues().StripAssociatedID().RetrieveStringDataType(),
+			Limit:     ruleOverride.limit,
+		})
+		return true
+	}
+
+	if err := r.overrides.Query(query.AssociatedKeyValues, onfindPagination); err != nil {
+		logger.Error("Failed to query overrides", zap.Error(err))
+		return overrides, &api.Error{Message: "Failed to query overrides", StatusCode: http.StatusInternalServerError}
+	}
+
+	fmt.Println("overrides:", overrides)
+	return overrides, overrideErr
 }
 
 // Create an override for a specific rule.
