@@ -160,3 +160,86 @@ func Test_Limiter_Decrement(t *testing.T) {
 		g.Expect(err).ToNot(HaveOccurred())
 	})
 }
+
+func Test_Limiter_CountersList(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	lockerTestConstruct := NewIntrgrationLockerTestConstruct(g)
+	defer lockerTestConstruct.Cleanup(g)
+
+	limiterTestConstruct := NewIntrgrationLimiterTestConstruct(g)
+	defer limiterTestConstruct.Cleanup(g)
+
+	t.Run("It can list a number of counters that match the query", func(t *testing.T) {
+		lockerTestConstruct.StartLocker(g)
+		defer lockerTestConstruct.Shutdown(g)
+
+		limiterTestConstruct.StartLimiter(g, lockerTestConstruct.ServerURL)
+		defer limiterTestConstruct.Shutdown(g)
+
+		// setup client
+		limiterClient := setupClient(g, limiterTestConstruct.ServerURL)
+
+		// create a number of counters
+		kv1 := datatypes.KeyValues{
+			"key0": datatypes.Int(0),
+			"key1": datatypes.Int(1),
+			"key2": datatypes.Int(2),
+		}
+		counter1 := v1.Counter{
+			KeyValues: kv1,
+		}
+		g.Expect(limiterClient.IncrementCounter(counter1)).ToNot(HaveOccurred())
+
+		kv2 := datatypes.KeyValues{
+			"key0": datatypes.String("0"),
+			"key1": datatypes.String("1"),
+			"key2": datatypes.String("2"),
+		}
+		counter2 := v1.Counter{
+			KeyValues: kv2,
+		}
+		g.Expect(limiterClient.IncrementCounter(counter2)).ToNot(HaveOccurred())
+		g.Expect(limiterClient.IncrementCounter(counter2)).ToNot(HaveOccurred())
+
+		counter3 := v1.Counter{
+			KeyValues: datatypes.KeyValues{
+				"key0": datatypes.String("0"),
+			},
+		}
+		g.Expect(limiterClient.IncrementCounter(counter3)).ToNot(HaveOccurred())
+
+		counter4 := v1.Counter{
+			KeyValues: datatypes.KeyValues{
+				"key0": datatypes.Int8(0),
+			},
+		}
+		g.Expect(limiterClient.IncrementCounter(counter4)).ToNot(HaveOccurred())
+
+		// query the counters
+		trueCheck := true
+		query := v1.Query{
+			AssociatedKeyValues: datatypes.AssociatedKeyValuesQuery{
+				KeyValueSelection: &datatypes.KeyValueSelection{
+					KeyValues: map[string]datatypes.Value{
+						"key1": datatypes.Value{Exists: &trueCheck},
+					},
+				},
+			},
+		}
+
+		counterResp1 := v1.CounterResponse{
+			KeyValues: kv1,
+			Counters:  1,
+		}
+		countersResp2 := v1.CounterResponse{
+			KeyValues: kv2,
+			Counters:  2,
+		}
+
+		counters, err := limiterClient.ListCounters(query)
+		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(len(counters)).To(Equal(2))
+		g.Expect(counters).To(ContainElements(counterResp1, countersResp2))
+	})
+}

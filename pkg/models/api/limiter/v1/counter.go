@@ -8,6 +8,21 @@ import (
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 )
 
+// used with list
+type CounterResponse struct {
+	KeyValues datatypes.KeyValues
+
+	Counters uint64
+}
+
+type CountersResponse []CounterResponse
+
+func (cr CountersResponse) ToBytes() []byte {
+	data, _ := json.Marshal(cr)
+	return data
+}
+
+// used with increment and decrement
 type Counter struct {
 	// Specific key values to add or remove a counter from
 	KeyValues datatypes.KeyValues

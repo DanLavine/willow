@@ -193,13 +193,14 @@ func (r *rule) DeleteOverride(logger *zap.Logger, overrideName string) *api.Erro
 
 	deleted := false
 	canDelete := func(item any) bool {
+		deleted = true
+
 		// need to lock just to ensure an update isn't taking place at the same time
 		override := item.(*btreeassociated.AssociatedKeyValues).Value().(*ruleOverride)
 		override.lock.Lock()
 		defer override.lock.Unlock()
 
 		logger.Debug("Successfully deleted override")
-		deleted = true
 		return true
 	}
 
@@ -210,6 +211,7 @@ func (r *rule) DeleteOverride(logger *zap.Logger, overrideName string) *api.Erro
 
 	if !deleted {
 		logger.Debug("Failed to delete the override. Could not find by the requested name")
+		return &api.Error{Message: fmt.Sprintf("Override %s not found", overrideName), StatusCode: http.StatusNotFound}
 	}
 
 	return nil
@@ -229,32 +231,4 @@ func (r *rule) Name() string {
 
 func (r *rule) GetGroupByKeys() []string {
 	return r.groupBy
-}
-
-// DSL TODO: These are unused right now
-
-func (r *rule) TagsMatch(logger *zap.Logger, keyValues datatypes.KeyValues) bool {
-	// ensure that all the "group by" keys exists
-	for _, key := range r.groupBy {
-		if _, ok := keyValues[key]; !ok {
-			return false
-		}
-	}
-
-	return true
-}
-
-func (r *rule) GenerateQuery(keyValues datatypes.KeyValues) datatypes.AssociatedKeyValuesQuery {
-	selectQuery := datatypes.AssociatedKeyValuesQuery{
-		KeyValueSelection: &datatypes.KeyValueSelection{
-			KeyValues: map[string]datatypes.Value{},
-		},
-	}
-
-	for _, key := range r.groupBy {
-		value := keyValues[key]
-		selectQuery.KeyValueSelection.KeyValues[key] = datatypes.Value{Value: &value, ValueComparison: datatypes.EqualsPtr()}
-	}
-
-	return selectQuery
 }

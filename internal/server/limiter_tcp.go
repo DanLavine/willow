@@ -113,6 +113,7 @@ func (limiter *limiterTCP) Execute(ctx context.Context) error {
 	mux.HandleFunc("DELETE", "/v1/limiter/rules/:rule_name/overrides/:override_name", limiter.v1ruleHandler.DeleteOverride)
 
 	// operations to check items against arbitrary rules
+	mux.HandleFunc("GET", "/v1/limiter/counters", limiter.v1ruleHandler.ListCounters)
 	mux.HandleFunc("POST", "/v1/limiter/counters", limiter.v1ruleHandler.Increment)
 	mux.HandleFunc("DELETE", "/v1/limiter/counters", limiter.v1ruleHandler.Decrement)
 

@@ -208,6 +208,12 @@ paths:
             appplication/json:
               schema:
                 $ref: "#/components/schemas/ApiError"
+        404:
+          description: returned if the `Rule` name cannot be found
+          content:
+            appplication/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
         422:
           description: Conflict if another `Override` already exists with the same KeyValues or Name
           content:

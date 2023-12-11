@@ -381,16 +381,6 @@ func Test_Limiter_Rules_List(t *testing.T) {
 			},
 		}
 
-		// NOTE: this is only the keyValues not the overrideKeyValues. This is because overrideKeyValues contain
-		// an extra key that should not be contained
-		//for index, overrideKV := range keyValues.GenerateTagPairs() {
-		//	respRules[0].Overrides = append(respRules[0].Overrides, v1.Override{
-		//		Name:      fmt.Sprintf("override%d", index),
-		//		KeyValues: overrideKV,
-		//		Limit:     32,
-		//	})
-		//}
-
 		// get the 1 rule + 2 overrides
 		keyValues := datatypes.KeyValues{
 			"key1": datatypes.Int(1),

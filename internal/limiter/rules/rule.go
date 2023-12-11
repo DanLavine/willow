@@ -32,9 +32,6 @@ type Rule interface {
 	// Find the limits for a particualr group of tags including any overrides
 	FindLimits(logger *zap.Logger, keyValues datatypes.KeyValues) (v1limitermodels.Limits, *api.Error)
 
-	// check if any tags coming in match the tag group
-	TagsMatch(logger *zap.Logger, keyValues datatypes.KeyValues) bool
-
 	// generate a query based on the search tags
 	//GenerateQuery(keyValues datatypes.KeyValues) datatypes.Select
 
@@ -44,9 +41,6 @@ type Rule interface {
 	//
 	//AddClientWaiting(logger *zap.Logger, keyValues datatypes.KeyValues) <-chan struct{} // client calls when trying to "increment", but a limit is blocked, sets up a callback that triggers another "increment" call
 	//TriggerClientWaiting(keyValues datatypes.KeyValues)                                 // decrement calls these whenever that happens. Can als be called on an override increase change
-
-	// Need to generate a query on what to search for
-	GenerateQuery(keyValues datatypes.KeyValues) datatypes.AssociatedKeyValuesQuery
 
 	// Get a rule response for Read operations
 	Get(includeOverrides *v1limiter.RuleQuery) *v1limiter.RuleResponse

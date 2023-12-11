@@ -14,6 +14,7 @@ import (
 	v1limitermodels "github.com/DanLavine/willow/internal/limiter/v1_limiter_models"
 	lockerclient "github.com/DanLavine/willow/pkg/clients/locker_client"
 	"github.com/DanLavine/willow/pkg/models/api"
+	v1 "github.com/DanLavine/willow/pkg/models/api/limiter/v1"
 	v1limiter "github.com/DanLavine/willow/pkg/models/api/limiter/v1"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 	"go.uber.org/atomic"
@@ -42,6 +43,9 @@ type RulesManager interface {
 	// override operations
 	CreateOverride(logger *zap.Logger, ruleName string, override *v1limiter.Override) *api.Error
 	DeleteOverride(logger *zap.Logger, ruleName string, overrideName string) *api.Error
+
+	// List counters
+	ListCounters(logger *zap.Logger, query *v1limiter.Query) (v1.CountersResponse, *api.Error)
 
 	// increment a partiular group of tags
 	IncrementCounters(logger *zap.Logger, requestContext context.Context, lockerClient lockerclient.LockerClient, increment *v1limiter.Counter) *api.Error
@@ -214,8 +218,10 @@ func (rm *rulesManger) Delete(logger *zap.Logger, name string) *api.Error {
 func (rm *rulesManger) CreateOverride(logger *zap.Logger, ruleName string, override *v1limiter.Override) *api.Error {
 	logger = logger.Named("CreateOverride")
 
+	found := false
 	var overrideErr *api.Error
 	onFind := func(item any) {
+		found = true
 		rule := item.(*btreeassociated.AssociatedKeyValues).Value().(rules.Rule)
 		overrideErr = rule.SetOverride(logger, override)
 	}
@@ -225,6 +231,10 @@ func (rm *rulesManger) CreateOverride(logger *zap.Logger, ruleName string, overr
 		return (&api.Error{Message: "failed to find rule by name", StatusCode: http.StatusUnprocessableEntity}).With(fmt.Sprintf("name %s", ruleName), "no rule found by that name")
 	}
 
+	if !found {
+		overrideErr = &api.Error{Message: fmt.Sprintf("Rule %s not found", ruleName), StatusCode: http.StatusNotFound}
+	}
+
 	return overrideErr
 }
 
@@ -232,8 +242,10 @@ func (rm *rulesManger) CreateOverride(logger *zap.Logger, ruleName string, overr
 func (rm *rulesManger) DeleteOverride(logger *zap.Logger, ruleName string, overrideName string) *api.Error {
 	logger = logger.Named("DeleteOverride")
 
+	found := false
 	var overrideErr *api.Error
 	onFind := func(item any) {
+		found = true
 		rule := item.(*btreeassociated.AssociatedKeyValues).Value().(rules.Rule)
 		overrideErr = rule.DeleteOverride(logger, overrideName)
 	}
@@ -243,13 +255,39 @@ func (rm *rulesManger) DeleteOverride(logger *zap.Logger, ruleName string, overr
 		return (&api.Error{Message: "failed to find rule by name", StatusCode: http.StatusUnprocessableEntity}).With(fmt.Sprintf("name %s", ruleName), "no rule found by that name")
 	}
 
+	if !found {
+		overrideErr = &api.Error{Message: fmt.Sprintf("Rule %s not found", ruleName), StatusCode: http.StatusNotFound}
+	}
+
 	return overrideErr
 }
 
+func (rm *rulesManger) ListCounters(logger *zap.Logger, query *v1limiter.Query) (v1limiter.CountersResponse, *api.Error) {
+	logger = logger.Named("ListCounters")
+
+	countersResponse := v1limiter.CountersResponse{}
+
+	onFindPagination := func(associatedKeyValues *btreeassociated.AssociatedKeyValues) bool {
+		counter := associatedKeyValues.Value().(*counters.Counter)
+
+		newCounter := v1limiter.CounterResponse{
+			KeyValues: associatedKeyValues.KeyValues().StripAssociatedID().RetrieveStringDataType(),
+			Counters:  counter.Load(),
+		}
+
+		countersResponse = append(countersResponse, newCounter)
+		return true
+	}
+
+	if err := rm.counters.Query(query.AssociatedKeyValues, onFindPagination); err != nil {
+		logger.Error("Failed to query key values", zap.Error(err))
+		return countersResponse, errors.InternalServerError
+	}
+
+	return countersResponse, nil
+}
+
 // Increment trys to add to a group of key value pairs, and returns an error if any rules have hit the limit
-// change this to pass in the client? Then I can use a fake properly. But doing that, the tcp server would need
-// to be able to create the client in some sort of "factory" pattern... I could have a test server, but that means It
-// would need to server the client like real which is a massive pain for unit tests...
 func (rm *rulesManger) IncrementCounters(logger *zap.Logger, requestContext context.Context, lockerClient lockerclient.LockerClient, increment *v1limiter.Counter) *api.Error {
 	logger = logger.Named("IncrementCounters")
 
@@ -289,92 +327,90 @@ func (rm *rulesManger) IncrementCounters(logger *zap.Logger, requestContext cont
 	}
 
 	// there are no limits, so just accept
-	if len(allLimits) == 0 {
-		return nil
-	}
+	if len(allLimits) != 0 {
+		// the last limit has a limit of 0 so bail early
+		if len(allLimits) != 0 && allLimits[len(allLimits)-1].Limit == 0 {
+			return LimitReached
+		}
 
-	// the last limit has a limit of 0 so bail early
-	if allLimits[len(allLimits)-1].Limit == 0 {
-		return LimitReached
-	}
+		// 2. grab a lock for all key values
+		lockerLocks := []lockerclient.Lock{}
+		defer func() {
+			for _, lock := range lockerLocks {
+				if err := lock.Release(); err != nil {
+					logger.Error("Failed to release lock", zap.Error(err))
+				}
+			}
+		}()
 
-	// 2. grab a lock for all key values
-	lockerLocks := []lockerclient.Lock{}
-	defer func() {
-		for _, lock := range lockerLocks {
-			if err := lock.Release(); err != nil {
-				logger.Error("Failed to release lock", zap.Error(err))
+		channelOps, chanReceiver := channelops.NewMergeRead[struct{}](true, requestContext)
+		for _, key := range increment.KeyValues.SoretedKeys() {
+			// setup the group to lock
+			lockKeyValues := datatypes.KeyValues{key: increment.KeyValues[key]}
+
+			// obtain the required lock
+			lockerLock, err := lockerClient.ObtainLock(requestContext, lockKeyValues, time.Second)
+			if err != nil {
+				logger.Error("failed to obtain a lock from the locker service", zap.Any("key values", lockKeyValues), zap.Error(err))
+				return errors.InternalServerError
+			}
+
+			// setup monitor for when a lock is released
+			lockerLocks = append(lockerLocks, lockerLock)
+			if err := channelOps.MergeOrToOne(lockerLock.Done()); err != nil {
+				// in this case, something has already been lost
+				break
 			}
 		}
-	}()
 
-	channelOps, chanReceiver := channelops.NewMergeRead[struct{}](true, requestContext)
-	for _, key := range increment.KeyValues.SoretedKeys() {
-		// setup the group to lock
-		lockKeyValues := datatypes.KeyValues{key: increment.KeyValues[key]}
+		// add a channel to manually kick. This give a chance for any lost locks to process properly
+		successChan := make(chan struct{}, 1)
+		successChan <- struct{}{}
+		defer close(successChan)
 
-		// obtain the required lock
-		lockerLock, err := lockerClient.ObtainLock(requestContext, lockKeyValues, time.Second)
-		if err != nil {
-			logger.Error("failed to obtain a lock from the locker service", zap.Any("key values", lockKeyValues), zap.Error(err))
+		if err := channelOps.MergeOrToOne(successChan); err != nil {
+			// lock is already lost so bail early
+			logger.Error("a lock was released unexpedily")
 			return errors.InternalServerError
 		}
 
-		// setup monitor for when a lock is released
-		lockerLocks = append(lockerLocks, lockerLock)
-		if err := channelOps.MergeOrToOne(lockerLock.Done()); err != nil {
-			// in this case, something has already been lost
-			break
-		}
-	}
-
-	// add a channel to manually kick. This give a chance for any lost locks to process properly
-	successChan := make(chan struct{}, 1)
-	successChan <- struct{}{}
-	defer close(successChan)
-
-	if err := channelOps.MergeOrToOne(successChan); err != nil {
-		// lock is already lost so bail early
-		logger.Error("a lock was released unexpedily")
-		return errors.InternalServerError
-	}
-
-	// ensure that we didn't cancel obtaining any locks by triggering a select. there is small chance that a lock was lost,
-	// but that is such a rare race condition I don't see it happening for real.
-	_, ok := <-chanReceiver
-	if !ok {
-		// lost a lock or canceled obtaining the locks
-		logger.Error("a lock was released unexpedily")
-		return errors.InternalServerError
-	}
-
-	// 3. for each limit, count the possible rules that match and ensure that  they are under the current limites
-	for _, singleLimit := range allLimits {
-		query := datatypes.AssociatedKeyValuesQuery{
-			KeyValueSelection: &datatypes.KeyValueSelection{KeyValues: map[string]datatypes.Value{}},
+		// ensure that we didn't cancel obtaining any locks by triggering a select. there is small chance that a lock was lost,
+		// but that is such a rare race condition I don't see it happening for real.
+		_, ok := <-chanReceiver
+		if !ok {
+			// lost a lock or canceled obtaining the locks
+			logger.Error("a lock was released unexpedily")
+			return errors.InternalServerError
 		}
 
-		for key, value := range singleLimit.KeyValues {
-			// This is spuer important to use, otherwise the address of value is used. so everything will point to the same value which is wrong!
-			tmp := value
-			query.KeyValueSelection.KeyValues[key] = datatypes.Value{Value: &tmp, ValueComparison: datatypes.EqualsPtr()}
-		}
+		// 3. for each limit, count the possible rules that match and ensure that they are under the current limites
+		for _, singleLimit := range allLimits {
+			query := datatypes.AssociatedKeyValuesQuery{
+				KeyValueSelection: &datatypes.KeyValueSelection{KeyValues: map[string]datatypes.Value{}},
+			}
 
-		counter := uint64(0)
-		onQuery := func(associatedKeyValues *btreeassociated.AssociatedKeyValues) bool {
-			counter += associatedKeyValues.Value().(*counters.Counter).Load()
-			return counter < singleLimit.Limit
-		}
+			for key, value := range singleLimit.KeyValues {
+				// This is spuer important to use, otherwise the address of value is used. so everything will point to the same value which is wrong!
+				tmp := value
+				query.KeyValueSelection.KeyValues[key] = datatypes.Value{Value: &tmp, ValueComparison: datatypes.EqualsPtr()}
+			}
 
-		if err := rm.counters.Query(query, onQuery); err != nil {
-			//if err := rm.counters.Query(datatypes.AssociatedKeyValuesQuery{}, onQuery); err != nil {
-			logger.Error("Failed to query the current counters", zap.Error(err))
-			return &api.Error{Message: "Failed to query the current counters", StatusCode: http.StatusInternalServerError}
-		}
+			counter := uint64(0)
+			onQuery := func(associatedKeyValues *btreeassociated.AssociatedKeyValues) bool {
+				counter += associatedKeyValues.Value().(*counters.Counter).Load()
+				return counter < singleLimit.Limit
+			}
 
-		if counter >= singleLimit.Limit {
-			logger.Info("Limit already reached", zap.String("rule name", singleLimit.Name))
-			return &api.Error{Message: fmt.Sprintf("Limit has already been reached for rule '%s'", singleLimit.Name), StatusCode: http.StatusConflict}
+			if err := rm.counters.Query(query, onQuery); err != nil {
+				//if err := rm.counters.Query(datatypes.AssociatedKeyValuesQuery{}, onQuery); err != nil {
+				logger.Error("Failed to query the current counters", zap.Error(err))
+				return &api.Error{Message: "Failed to query the current counters", StatusCode: http.StatusInternalServerError}
+			}
+
+			if counter >= singleLimit.Limit {
+				logger.Info("Limit already reached", zap.String("rule name", singleLimit.Name))
+				return &api.Error{Message: fmt.Sprintf("Limit has already been reached for rule '%s'", singleLimit.Name), StatusCode: http.StatusConflict}
+			}
 		}
 	}
 

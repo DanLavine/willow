@@ -33,6 +33,7 @@ type LimitRuleHandler interface {
 	DeleteOverride(w http.ResponseWriter, r *http.Request)
 
 	// counter operations
+	ListCounters(w http.ResponseWriter, r *http.Request)
 	Increment(w http.ResponseWriter, r *http.Request)
 	Decrement(w http.ResponseWriter, r *http.Request)
 }
@@ -216,6 +217,30 @@ func (grh *groupRuleHandler) DeleteOverride(w http.ResponseWriter, r *http.Reque
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// Query the counters to see what is already provided
+func (grh *groupRuleHandler) ListCounters(w http.ResponseWriter, r *http.Request) {
+	logger := logger.AddRequestID(grh.logger.Named("ListCounters"), r)
+	logger.Debug("starting request")
+	defer logger.Debug("processed request")
+
+	query, err := v1limiter.ParseGeneralQuery(r.Body)
+	if err != nil {
+		w.WriteHeader(err.StatusCode)
+		w.Write(err.ToBytes())
+		return
+	}
+
+	countersResp, err := grh.rulesManager.ListCounters(logger, query)
+	if err != nil {
+		w.WriteHeader(err.StatusCode)
+		w.Write(err.ToBytes())
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write(countersResp.ToBytes())
 }
 
 // Increment the Counters if they do not conflict with any rules

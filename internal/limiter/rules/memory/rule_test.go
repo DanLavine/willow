@@ -31,18 +31,6 @@ func defaultValidKeyValues(g *GomegaWithT) datatypes.KeyValues {
 	return keyValues
 }
 
-// Test that the defaults are valid
-func Test_Defaults(t *testing.T) {
-	g := NewGomegaWithT(t)
-
-	t.Run("The defaultValidKeyValues are valid", func(t *testing.T) {
-		rule := NewRule(defaultLimiterTestRule(g))
-		defaultValidKeyValues := defaultValidKeyValues(g)
-
-		g.Expect(rule.TagsMatch(zap.NewNop(), defaultValidKeyValues)).To(BeTrue())
-	})
-}
-
 func TestRule_Get(t *testing.T) {
 	g := NewGomegaWithT(t)
 
@@ -342,11 +330,12 @@ func TestRule_SetOverride(t *testing.T) {
 func TestRule_DeleteOverride(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	t.Run("It returns nil if there was no item to delete", func(t *testing.T) {
+	t.Run("It returns an error if there override name was not found", func(t *testing.T) {
 		rule := NewRule(defaultLimiterTestRule(g))
 
 		err := rule.DeleteOverride(zap.NewNop(), "doesn't exist")
-		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(err).To(HaveOccurred())
+		g.Expect(err.Error()).To(ContainSubstring("Override doesn't exist not found"))
 	})
 
 	t.Run("It can delte an override by name", func(t *testing.T) {

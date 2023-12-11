@@ -483,11 +483,125 @@ func TestRulesManager_Delete(t *testing.T) {
 }
 
 func TestRulesManager_CreateOverride(t *testing.T) {
-	// DSL TODO:
+	g := NewGomegaWithT(t)
+
+	constructor, err := rules.NewRuleConstructor("memory")
+	g.Expect(err).ToNot(HaveOccurred())
+
+	t.Run("It returns an error if the rule name cannot be found", func(t *testing.T) {
+		rulesManager := NewRulesManger(constructor)
+
+		overrideRequest := v1limiter.Override{
+			Name: "override0",
+			KeyValues: datatypes.KeyValues{
+				"key0": datatypes.Int(0),
+			},
+			Limit: 1,
+		}
+		g.Expect(overrideRequest.Validate()).ToNot(HaveOccurred())
+
+		err := rulesManager.CreateOverride(zap.NewNop(), "test1", &overrideRequest)
+		g.Expect(err).To(HaveOccurred())
+		g.Expect(err.Error()).To(ContainSubstring("Rule test1 not found"))
+	})
+
+	t.Run("It returns nil if the rule was successfully created", func(t *testing.T) {
+		rulesManager := NewRulesManger(constructor)
+
+		// create rule
+		createRule := &v1limiter.RuleRequest{
+			Name:    "test1",
+			GroupBy: []string{"key1"},
+			Limit:   uint64(12),
+		}
+		g.Expect(createRule.Validate()).ToNot(HaveOccurred())
+		g.Expect(rulesManager.Create(zap.NewNop(), createRule)).ToNot(HaveOccurred())
+
+		// create override
+		overrideRequest := v1limiter.Override{
+			Name: "override0",
+			KeyValues: datatypes.KeyValues{
+				"key1": datatypes.Int(0),
+			},
+			Limit: 1,
+		}
+		g.Expect(overrideRequest.Validate()).ToNot(HaveOccurred())
+
+		err := rulesManager.CreateOverride(zap.NewNop(), "test1", &overrideRequest)
+		g.Expect(err).ToNot(HaveOccurred())
+	})
 }
 
 func TestRulesManager_DeleteOverride(t *testing.T) {
-	// DSL TODO:
+	g := NewGomegaWithT(t)
+
+	constructor, err := rules.NewRuleConstructor("memory")
+	g.Expect(err).ToNot(HaveOccurred())
+
+	t.Run("It returns an error if the rule name cannot be found", func(t *testing.T) {
+		rulesManager := NewRulesManger(constructor)
+
+		overrideRequest := v1limiter.Override{
+			Name: "override0",
+			KeyValues: datatypes.KeyValues{
+				"key0": datatypes.Int(0),
+			},
+			Limit: 1,
+		}
+		g.Expect(overrideRequest.Validate()).ToNot(HaveOccurred())
+
+		err := rulesManager.DeleteOverride(zap.NewNop(), "test1", "override0")
+		g.Expect(err).To(HaveOccurred())
+		g.Expect(err.Error()).To(ContainSubstring("Rule test1 not found"))
+	})
+
+	t.Run("It returns an error if the override name cannot be found", func(t *testing.T) {
+		rulesManager := NewRulesManger(constructor)
+
+		// create rule
+		createRule := &v1limiter.RuleRequest{
+			Name:    "test1",
+			GroupBy: []string{"key1"},
+			Limit:   uint64(12),
+		}
+		g.Expect(createRule.Validate()).ToNot(HaveOccurred())
+		g.Expect(rulesManager.Create(zap.NewNop(), createRule)).ToNot(HaveOccurred())
+
+		// delete override
+		err := rulesManager.DeleteOverride(zap.NewNop(), "test1", "override0")
+		g.Expect(err).To(HaveOccurred())
+		g.Expect(err.Error()).To(ContainSubstring("Override override0 not found"))
+	})
+
+	t.Run("It returns nil if the override is deleted successfully", func(t *testing.T) {
+		rulesManager := NewRulesManger(constructor)
+
+		// create rule
+		createRule := &v1limiter.RuleRequest{
+			Name:    "test1",
+			GroupBy: []string{"key1"},
+			Limit:   uint64(12),
+		}
+		g.Expect(createRule.Validate()).ToNot(HaveOccurred())
+		g.Expect(rulesManager.Create(zap.NewNop(), createRule)).ToNot(HaveOccurred())
+
+		// create override
+		overrideRequest := v1limiter.Override{
+			Name: "override0",
+			KeyValues: datatypes.KeyValues{
+				"key1": datatypes.Int(0),
+			},
+			Limit: 1,
+		}
+		g.Expect(overrideRequest.Validate()).ToNot(HaveOccurred())
+
+		err := rulesManager.CreateOverride(zap.NewNop(), "test1", &overrideRequest)
+		g.Expect(err).ToNot(HaveOccurred())
+
+		// delete override
+		err = rulesManager.DeleteOverride(zap.NewNop(), "test1", "override0")
+		g.Expect(err).ToNot(HaveOccurred())
+	})
 }
 
 func TestRulesManager_IncrementCounters(t *testing.T) {
@@ -1038,5 +1152,221 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 			g.Expect(count).To(Equal(uint64(2)))
 		})
 
+	})
+}
+
+func TestRulesManager_DecrementCounters(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	constructor, err := rules.NewRuleConstructor("memory")
+	g.Expect(err).ToNot(HaveOccurred())
+
+	t.Run("It returns nil if there are no counters to decrement against", func(t *testing.T) {
+		rulesManager := NewRulesManger(constructor)
+
+		counter := &v1limiter.Counter{
+			KeyValues: datatypes.KeyValues{
+				"key1": datatypes.String("1"),
+			},
+		}
+
+		err := rulesManager.DecrementCounters(zap.NewNop(), counter)
+		g.Expect(err).ToNot(HaveOccurred())
+	})
+
+	t.Run("It decrements a counter when the count is above 1", func(t *testing.T) {
+		rulesManager := NewRulesManger(constructor)
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		// increment the counters 4 times
+		counter := &v1limiter.Counter{
+			KeyValues: datatypes.KeyValues{
+				"key0": datatypes.String("0"),
+				"key1": datatypes.String("1"),
+				"key2": datatypes.String("2"),
+			},
+		}
+		g.Expect(rulesManager.IncrementCounters(zap.NewNop(), ctx, nil, counter)).ToNot(HaveOccurred())
+		g.Expect(rulesManager.IncrementCounters(zap.NewNop(), ctx, nil, counter)).ToNot(HaveOccurred())
+		g.Expect(rulesManager.IncrementCounters(zap.NewNop(), ctx, nil, counter)).ToNot(HaveOccurred())
+		g.Expect(rulesManager.IncrementCounters(zap.NewNop(), ctx, nil, counter)).ToNot(HaveOccurred())
+
+		// ensure the counter value is correct
+		count := uint64(0)
+		onFind := func(item any) {
+			count = item.(*btreeassociated.AssociatedKeyValues).Value().(*counters.Counter).Load()
+		}
+
+		id, err := rulesManager.counters.Find(btreeassociated.ConverDatatypesKeyValues(counter.KeyValues), onFind)
+		g.Expect(id).ToNot(Equal(""))
+		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(count).To(Equal(uint64(4)))
+
+		// run a decrement count
+		err = rulesManager.DecrementCounters(zap.NewNop(), counter)
+		g.Expect(err).ToNot(HaveOccurred())
+
+		// ensure the counter was decremented correctly
+		count = uint64(0)
+		id, err = rulesManager.counters.Find(btreeassociated.ConverDatatypesKeyValues(counter.KeyValues), onFind)
+		g.Expect(id).ToNot(Equal(""))
+		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(count).To(Equal(uint64(3)))
+	})
+
+	t.Run("It removes a counter when the count is at 1", func(t *testing.T) {
+		rulesManager := NewRulesManger(constructor)
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		// increment the counters 4 times
+		counter := &v1limiter.Counter{
+			KeyValues: datatypes.KeyValues{
+				"key0": datatypes.String("0"),
+				"key1": datatypes.String("1"),
+				"key2": datatypes.String("2"),
+			},
+		}
+		g.Expect(rulesManager.IncrementCounters(zap.NewNop(), ctx, nil, counter)).ToNot(HaveOccurred())
+
+		// ensure the counter value is correct
+		count := uint64(0)
+		onFind := func(item any) {
+			count = item.(*btreeassociated.AssociatedKeyValues).Value().(*counters.Counter).Load()
+		}
+
+		id, err := rulesManager.counters.Find(btreeassociated.ConverDatatypesKeyValues(counter.KeyValues), onFind)
+		g.Expect(id).ToNot(Equal(""))
+		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(count).To(Equal(uint64(1)))
+
+		// run a decrement count
+		err = rulesManager.DecrementCounters(zap.NewNop(), counter)
+		g.Expect(err).ToNot(HaveOccurred())
+
+		// ensure the counter was decremented correctly
+		count = uint64(0)
+		id, err = rulesManager.counters.Find(btreeassociated.ConverDatatypesKeyValues(counter.KeyValues), onFind)
+		g.Expect(id).To(Equal(""))
+		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(count).To(Equal(uint64(0)))
+	})
+}
+
+func TestRulesManager_ListCounters(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	constructor, err := rules.NewRuleConstructor("memory")
+	g.Expect(err).ToNot(HaveOccurred())
+
+	exists := true
+
+	t.Run("It returns empty list if there are no counters that match the query", func(t *testing.T) {
+		rulesManager := NewRulesManger(constructor)
+
+		query := &v1limiter.Query{
+			AssociatedKeyValues: datatypes.AssociatedKeyValuesQuery{
+				KeyValueSelection: &datatypes.KeyValueSelection{
+					KeyValues: map[string]datatypes.Value{
+						"not found": datatypes.Value{
+							Exists: &exists,
+						},
+					},
+				},
+			},
+		}
+
+		countersResponse, err := rulesManager.ListCounters(zap.NewNop(), query)
+		g.Expect(len(countersResponse)).To(Equal(0))
+		g.Expect(err).ToNot(HaveOccurred())
+	})
+
+	t.Run("It returns a list of counters that match the query", func(t *testing.T) {
+		rulesManager := NewRulesManger(constructor)
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		// create a number of various counters
+		keyValuesOne := datatypes.KeyValues{
+			"key0": datatypes.String("0"),
+			"key1": datatypes.String("1"),
+			"key2": datatypes.String("2"),
+		}
+		counter1 := &v1limiter.Counter{
+			KeyValues: keyValuesOne,
+		}
+		g.Expect(rulesManager.IncrementCounters(zap.NewNop(), ctx, nil, counter1)).ToNot(HaveOccurred())
+		g.Expect(rulesManager.IncrementCounters(zap.NewNop(), ctx, nil, counter1)).ToNot(HaveOccurred())
+		g.Expect(rulesManager.IncrementCounters(zap.NewNop(), ctx, nil, counter1)).ToNot(HaveOccurred())
+
+		keyValuesTwo := datatypes.KeyValues{
+			"key0": datatypes.Int(0),
+			"key1": datatypes.Int(1),
+			"key2": datatypes.Int(2),
+		}
+		counter2 := &v1limiter.Counter{
+			KeyValues: keyValuesTwo,
+		}
+		g.Expect(rulesManager.IncrementCounters(zap.NewNop(), ctx, nil, counter2)).ToNot(HaveOccurred())
+
+		counter3 := &v1limiter.Counter{
+			KeyValues: datatypes.KeyValues{
+				"key0": datatypes.Int(0),
+			},
+		}
+		g.Expect(rulesManager.IncrementCounters(zap.NewNop(), ctx, nil, counter3)).ToNot(HaveOccurred())
+
+		counter4 := &v1limiter.Counter{
+			KeyValues: datatypes.KeyValues{
+				"key1": datatypes.String("0"),
+			},
+		}
+		g.Expect(rulesManager.IncrementCounters(zap.NewNop(), ctx, nil, counter4)).ToNot(HaveOccurred())
+
+		counter5 := &v1limiter.Counter{
+			KeyValues: datatypes.KeyValues{
+				"key0": datatypes.Int(0),
+				"key1": datatypes.String("0"),
+			},
+		}
+		g.Expect(rulesManager.IncrementCounters(zap.NewNop(), ctx, nil, counter5)).ToNot(HaveOccurred())
+
+		// run the query
+		int0 := datatypes.Int(0)
+		int1 := datatypes.Int(1)
+		int2 := datatypes.Int(2)
+
+		query := &v1limiter.Query{
+			AssociatedKeyValues: datatypes.AssociatedKeyValuesQuery{
+				KeyValueSelection: &datatypes.KeyValueSelection{
+					KeyValues: map[string]datatypes.Value{
+						"key0": datatypes.Value{ // values 1
+							Exists:     &exists,
+							ExistsType: &datatypes.T_string,
+						},
+					},
+				},
+				Or: []datatypes.AssociatedKeyValuesQuery{ // values 2
+					datatypes.AssociatedKeyValuesQuery{
+						KeyValueSelection: &datatypes.KeyValueSelection{
+							KeyValues: map[string]datatypes.Value{
+								"key0": datatypes.Value{Value: &int0, ValueComparison: datatypes.EqualsPtr()},
+								"key1": datatypes.Value{Value: &int1, ValueComparison: datatypes.EqualsPtr()},
+								"key2": datatypes.Value{Value: &int2, ValueComparison: datatypes.EqualsPtr()},
+							},
+						},
+					},
+				},
+			},
+		}
+
+		countersResponse, err := rulesManager.ListCounters(zap.NewNop(), query)
+		g.Expect(len(countersResponse)).To(Equal(2))
+		g.Expect(countersResponse[0].KeyValues).To(Equal(keyValuesOne))
+		g.Expect(countersResponse[0].Counters).To(Equal(uint64(3)))
+		g.Expect(countersResponse[1].KeyValues).To(Equal(keyValuesTwo))
+		g.Expect(countersResponse[1].Counters).To(Equal(uint64(1)))
+		g.Expect(err).ToNot(HaveOccurred())
 	})
 }
