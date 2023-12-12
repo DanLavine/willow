@@ -29,6 +29,7 @@ type LimiterClient interface {
 	ListCounters(query v1limiter.Query) (v1limiter.CountersResponse, error)
 	IncrementCounter(counter v1limiter.Counter) error
 	DecrementCounter(counter v1limiter.Counter) error
+	SetCounters(counters v1limiter.CounterSet) error
 }
 
 type limiterClient struct {

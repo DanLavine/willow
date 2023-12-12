@@ -45,14 +45,11 @@ type RulesManager interface {
 	CreateOverride(logger *zap.Logger, ruleName string, override *v1limiter.Override) *api.Error
 	DeleteOverride(logger *zap.Logger, ruleName string, overrideName string) *api.Error
 
-	// List counters
+	// counter operations
 	ListCounters(logger *zap.Logger, query *v1limiter.Query) (v1.CountersResponse, *api.Error)
-
-	// increment a partiular group of tags
 	IncrementCounters(logger *zap.Logger, requestContext context.Context, lockerClient lockerclient.LockerClient, increment *v1limiter.Counter) *api.Error
-
-	// decrement a particular group of tags
 	DecrementCounters(logger *zap.Logger, decrement *v1limiter.Counter) *api.Error
+	SetCounters(logger *zap.Logger, setCounters *v1limiter.CounterSet) *api.Error
 }
 
 type rulesManger struct {
@@ -474,6 +471,41 @@ func (rm *rulesManger) DecrementCounters(logger *zap.Logger, decrement *v1limite
 	if err := rm.counters.Delete(btreeassociated.ConverDatatypesKeyValues(decrement.KeyValues), decrementCounter); err != nil {
 		logger.Error("Failed to find or update the counter", zap.Error(err))
 		return errors.InternalServerError
+	}
+
+	return nil
+}
+
+func (rm *rulesManger) SetCounters(logger *zap.Logger, countersSet *v1limiter.CounterSet) *api.Error {
+	logger = logger.Named("SetCounters")
+
+	switch countersSet.Count {
+	case 0:
+		// need to remove the key values
+		decrementCounter := func(item any) bool {
+			return true
+		}
+
+		if err := rm.counters.Delete(btreeassociated.ConverDatatypesKeyValues(countersSet.KeyValues), decrementCounter); err != nil {
+			logger.Error("Failed to delete the set counters", zap.Error(err))
+			return errors.InternalServerError
+		}
+
+		return nil
+	default:
+		// need to create or set the key values
+		createCounter := func() any {
+			return &counters.Counter{Count: atomic.NewUint64(countersSet.Count)}
+		}
+
+		incrementCounter := func(item any) {
+			item.(*btreeassociated.AssociatedKeyValues).Value().(*counters.Counter).Set(countersSet.Count)
+		}
+
+		if _, err := rm.counters.CreateOrFind(btreeassociated.ConverDatatypesKeyValues(countersSet.KeyValues), createCounter, incrementCounter); err != nil {
+			logger.Error("Failed to find or update the set counter", zap.Error(err))
+			return errors.InternalServerError
+		}
 	}
 
 	return nil

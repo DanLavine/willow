@@ -58,3 +58,42 @@ func (c Counter) ToBytes() []byte {
 	data, _ := json.Marshal(c)
 	return data
 }
+
+type CounterSet struct {
+	// Specific key values to add or remove a counter from
+	KeyValues datatypes.KeyValues
+
+	// specify the specific value to set
+	Count uint64
+}
+
+func ParseCounterSetRequest(reader io.ReadCloser) (*CounterSet, *api.Error) {
+	requestBody, err := io.ReadAll(reader)
+	if err != nil {
+		return nil, api.ReadRequestBodyError.With("", err.Error())
+	}
+
+	obj := CounterSet{}
+	if err := json.Unmarshal(requestBody, &obj); err != nil {
+		return nil, api.ParseRequestBodyError.With("", err.Error())
+	}
+
+	if validateErr := obj.Validate(); validateErr != nil {
+		return nil, validateErr
+	}
+
+	return &obj, nil
+}
+
+func (cs CounterSet) Validate() *api.Error {
+	if err := cs.KeyValues.Validate(); err != nil {
+		return api.InvalidRequestBody.With("Key values to be valid", err.Error())
+	}
+
+	return nil
+}
+
+func (cs CounterSet) ToBytes() []byte {
+	data, _ := json.Marshal(cs)
+	return data
+}

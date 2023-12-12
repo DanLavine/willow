@@ -20,6 +20,10 @@ func (c *Counter) Decrement() uint64 {
 	return c.Count.Add(^uint64(0))
 }
 
+func (c *Counter) Set(count uint64) {
+	c.Count.Swap(count)
+}
+
 func (c *Counter) Load() uint64 {
 	return c.Count.Load()
 }

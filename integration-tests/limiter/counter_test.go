@@ -243,3 +243,66 @@ func Test_Limiter_CountersList(t *testing.T) {
 		g.Expect(counters).To(ContainElements(counterResp1, countersResp2))
 	})
 }
+
+func Test_Limiter_SetCounters(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	lockerTestConstruct := NewIntrgrationLockerTestConstruct(g)
+	defer lockerTestConstruct.Cleanup(g)
+
+	limiterTestConstruct := NewIntrgrationLimiterTestConstruct(g)
+	defer limiterTestConstruct.Cleanup(g)
+
+	t.Run("It can set a number of counters regardless of the rules", func(t *testing.T) {
+		lockerTestConstruct.StartLocker(g)
+		defer lockerTestConstruct.Shutdown(g)
+
+		limiterTestConstruct.StartLimiter(g, lockerTestConstruct.ServerURL)
+		defer limiterTestConstruct.Shutdown(g)
+
+		// setup client
+		limiterClient := setupClient(g, limiterTestConstruct.ServerURL)
+
+		// create a restrictive rule
+		rule := v1.RuleRequest{
+			Name:    "rule1",
+			GroupBy: []string{"key1", "key2"},
+			Limit:   5,
+		}
+		g.Expect(limiterClient.CreateRule(rule)).ToNot(HaveOccurred())
+
+		// set a counter for the rule thats above the count
+		kv1 := datatypes.KeyValues{
+			"key0": datatypes.Int(0),
+			"key1": datatypes.Int(1),
+			"key2": datatypes.Int(2),
+		}
+		counter1 := v1.CounterSet{
+			KeyValues: kv1,
+			Count:     32,
+		}
+		g.Expect(limiterClient.SetCounters(counter1)).ToNot(HaveOccurred())
+
+		// query the counters
+		trueCheck := true
+		query := v1.Query{
+			AssociatedKeyValues: datatypes.AssociatedKeyValuesQuery{
+				KeyValueSelection: &datatypes.KeyValueSelection{
+					KeyValues: map[string]datatypes.Value{
+						"key1": datatypes.Value{Exists: &trueCheck},
+					},
+				},
+			},
+		}
+
+		countersResp1 := v1.CounterResponse{
+			KeyValues: kv1,
+			Counters:  32,
+		}
+
+		counters, err := limiterClient.ListCounters(query)
+		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(len(counters)).To(Equal(1))
+		g.Expect(counters).To(ContainElements(countersResp1))
+	})
+}

@@ -1433,3 +1433,72 @@ func TestRulesManager_ListCounters(t *testing.T) {
 		g.Expect(err).ToNot(HaveOccurred())
 	})
 }
+
+func TestRulesManager_SetCounters(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	constructor, err := rules.NewRuleConstructor("memory")
+	g.Expect(err).ToNot(HaveOccurred())
+
+	t.Run("It sets the value for the particualr key values regardless of the value already stored", func(t *testing.T) {
+		rulesManager := NewRulesManger(constructor)
+
+		// set the counters
+		kvs := datatypes.KeyValues{
+			"key1": datatypes.Int(1),
+			"key2": datatypes.Float64(3.4),
+		}
+		countersSet := &v1limiter.CounterSet{
+			KeyValues: kvs,
+			Count:     87,
+		}
+
+		err := rulesManager.SetCounters(zap.NewNop(), countersSet)
+		g.Expect(err).ToNot(HaveOccurred())
+
+		// ensure they are set properly
+		query := &v1limiter.Query{
+			AssociatedKeyValues: datatypes.AssociatedKeyValuesQuery{}, // select all
+		}
+
+		countersResponse, err := rulesManager.ListCounters(zap.NewNop(), query)
+		g.Expect(len(countersResponse)).To(Equal(1))
+		g.Expect(countersResponse[0].KeyValues).To(Equal(kvs))
+		g.Expect(countersResponse[0].Counters).To(Equal(uint64(87)))
+		g.Expect(err).ToNot(HaveOccurred())
+	})
+
+	t.Run("It removes the counters if set to 0", func(t *testing.T) {
+		rulesManager := NewRulesManger(constructor)
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		// create initial counters through increment
+		kvs := datatypes.KeyValues{
+			"key0": datatypes.String("0"),
+			"key1": datatypes.String("1"),
+		}
+		counter := &v1limiter.Counter{
+			KeyValues: kvs,
+		}
+		g.Expect(rulesManager.IncrementCounters(zap.NewNop(), ctx, nil, counter)).ToNot(HaveOccurred())
+
+		// set the counters
+		countersSet := &v1limiter.CounterSet{
+			KeyValues: kvs,
+			Count:     0,
+		}
+
+		err := rulesManager.SetCounters(zap.NewNop(), countersSet)
+		g.Expect(err).ToNot(HaveOccurred())
+
+		// ensure they are set properly
+		query := &v1limiter.Query{
+			AssociatedKeyValues: datatypes.AssociatedKeyValuesQuery{}, // select all
+		}
+
+		countersResponse, err := rulesManager.ListCounters(zap.NewNop(), query)
+		g.Expect(len(countersResponse)).To(Equal(0))
+		g.Expect(err).ToNot(HaveOccurred())
+	})
+}

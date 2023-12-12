@@ -37,6 +37,7 @@ type LimitRuleHandler interface {
 	ListCounters(w http.ResponseWriter, r *http.Request)
 	Increment(w http.ResponseWriter, r *http.Request)
 	Decrement(w http.ResponseWriter, r *http.Request)
+	SetCounters(w http.ResponseWriter, r *http.Request)
 }
 
 type groupRuleHandler struct {
@@ -325,4 +326,26 @@ func (grh *groupRuleHandler) Decrement(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (grh *groupRuleHandler) SetCounters(w http.ResponseWriter, r *http.Request) {
+	logger := logger.AddRequestID(grh.logger.Named("SetCounters"), r)
+	logger.Debug("starting request")
+	defer logger.Debug("processed request")
+
+	counterSetRequest, err := v1limiter.ParseCounterSetRequest(r.Body)
+	if err != nil {
+		w.WriteHeader(err.StatusCode)
+		w.Write(err.ToBytes())
+		return
+	}
+
+	// set the counters for specific key values
+	if err = grh.rulesManager.SetCounters(logger, counterSetRequest); err != nil {
+		w.WriteHeader(err.StatusCode)
+		w.Write(err.ToBytes())
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
 }

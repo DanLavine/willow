@@ -176,7 +176,6 @@ func (r *rule) QueryOverrides(logger *zap.Logger, query *v1limiter.Query) (v1lim
 		return overrides, &api.Error{Message: "Failed to query overrides", StatusCode: http.StatusInternalServerError}
 	}
 
-	fmt.Println("overrides:", overrides)
 	return overrides, overrideErr
 }
 
