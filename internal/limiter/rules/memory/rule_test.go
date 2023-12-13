@@ -65,7 +65,7 @@ func TestRule_Get(t *testing.T) {
 	t.Run("Context includeOverrides == all", func(t *testing.T) {
 		t.Run("It includes all rule overrides ", func(t *testing.T) {
 			query := &v1limiter.RuleQuery{
-				OverrideQuery: v1limiter.All,
+				OverridesToInclude: v1limiter.All,
 			}
 			g.Expect(query.Validate()).ToNot(HaveOccurred())
 
@@ -105,7 +105,7 @@ func TestRule_Get(t *testing.T) {
 					"key2": datatypes.String("2"),
 					"one":  datatypes.String("1"),
 				},
-				OverrideQuery: v1limiter.Match,
+				OverridesToInclude: v1limiter.Match,
 			}
 			g.Expect(query.Validate()).ToNot(HaveOccurred())
 
@@ -130,7 +130,7 @@ func TestRule_Get(t *testing.T) {
 					"two":   datatypes.Int(2),
 					"three": datatypes.Float64(37.89),
 				},
-				OverrideQuery: v1limiter.Match,
+				OverridesToInclude: v1limiter.Match,
 			}
 			g.Expect(query.Validate()).ToNot(HaveOccurred())
 
@@ -413,7 +413,7 @@ func TestRule_DeleteOverride(t *testing.T) {
 		g.Expect(err).ToNot(HaveOccurred())
 
 		// ensure the override was deleted
-		foundRule := rule.Get(&v1limiter.RuleQuery{OverrideQuery: v1limiter.All})
+		foundRule := rule.Get(&v1limiter.RuleQuery{OverridesToInclude: v1limiter.All})
 		g.Expect(len(foundRule.Overrides)).To(Equal(0))
 	})
 }

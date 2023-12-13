@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"path/filepath"
+	"runtime"
 
 	"github.com/DanLavine/urlrouter"
 	"github.com/DanLavine/willow/internal/config"
@@ -99,8 +101,9 @@ func (locker *LockerTCP) Execute(ctx context.Context) error {
 
 	// OpenAPI endpoints
 	// api url to server all the OpenAPI files
+	_, currentDir, _, _ := runtime.Caller(0)
 	mux.HandleFunc("GET", "/docs/openapi/", func(w http.ResponseWriter, r *http.Request) {
-		handle := http.StripPrefix("/docs/openapi/", http.FileServer(http.Dir("./docs/openapi/locker")))
+		handle := http.StripPrefix("/docs/openapi/", http.FileServer(http.Dir(filepath.Join(currentDir, "..", "..", "..", "docs", "openapi", "locker"))))
 		handle.ServeHTTP(w, r)
 	})
 

@@ -113,7 +113,7 @@ func TestRulesManager_Get(t *testing.T) {
 		rulesManager := NewRulesManger(constructor)
 
 		query := &v1limiter.RuleQuery{
-			OverrideQuery: v1limiter.All,
+			OverridesToInclude: v1limiter.All,
 		}
 		g.Expect(query.Validate()).ToNot(HaveOccurred())
 
@@ -149,7 +149,7 @@ func TestRulesManager_Get(t *testing.T) {
 		g.Expect(rulesManager.CreateOverride(zap.NewNop(), "test", &overrideRequest)).ToNot(HaveOccurred())
 
 		t.Run("It respects the key values query", func(t *testing.T) {
-			query := &v1limiter.RuleQuery{OverrideQuery: v1limiter.All}
+			query := &v1limiter.RuleQuery{OverridesToInclude: v1limiter.All}
 			g.Expect(query.Validate()).ToNot(HaveOccurred())
 
 			rule := rulesManager.Get(zap.NewNop(), "test", query)
@@ -172,7 +172,7 @@ func TestRulesManager_List(t *testing.T) {
 			KeyValues: &datatypes.KeyValues{
 				"key1": datatypes.Int(1),
 			},
-			OverrideQuery: v1limiter.All,
+			OverridesToInclude: v1limiter.All,
 		}
 		g.Expect(ruleQuery.Validate()).ToNot(HaveOccurred())
 
@@ -260,7 +260,7 @@ func TestRulesManager_List(t *testing.T) {
 
 		t.Run("It can list all rules", func(t *testing.T) {
 			ruleQuery := &v1limiter.RuleQuery{
-				OverrideQuery: v1limiter.None,
+				OverridesToInclude: v1limiter.None,
 			}
 			g.Expect(ruleQuery.Validate()).ToNot(HaveOccurred())
 
@@ -271,7 +271,7 @@ func TestRulesManager_List(t *testing.T) {
 
 		t.Run("It can list all rules and their overrides", func(t *testing.T) {
 			ruleQuery := &v1limiter.RuleQuery{
-				OverrideQuery: v1limiter.All,
+				OverridesToInclude: v1limiter.All,
 			}
 			g.Expect(ruleQuery.Validate()).ToNot(HaveOccurred())
 
@@ -289,7 +289,7 @@ func TestRulesManager_List(t *testing.T) {
 					"key0": datatypes.Int(0),
 					"key1": datatypes.Int(1),
 				},
-				OverrideQuery: v1limiter.None,
+				OverridesToInclude: v1limiter.None,
 			}
 			g.Expect(ruleQuery.Validate()).ToNot(HaveOccurred())
 
@@ -311,7 +311,7 @@ func TestRulesManager_List(t *testing.T) {
 					"key0": datatypes.Int(0),
 					"key1": datatypes.Int(1),
 				},
-				OverrideQuery: v1limiter.Match,
+				OverridesToInclude: v1limiter.Match,
 			}
 			g.Expect(ruleQuery.Validate()).ToNot(HaveOccurred())
 
@@ -375,7 +375,7 @@ func TestRulesManager_Update(t *testing.T) {
 		g.Expect(err).ToNot(HaveOccurred())
 
 		// ensure the rule was updated
-		rule := rulesManager.Get(zap.NewNop(), "test", &v1limiter.RuleQuery{OverrideQuery: v1limiter.All})
+		rule := rulesManager.Get(zap.NewNop(), "test", &v1limiter.RuleQuery{OverridesToInclude: v1limiter.All})
 		g.Expect(rule.Limit).To(Equal(uint64(12)))
 	})
 }
@@ -411,7 +411,7 @@ func TestRulesManager_Delete(t *testing.T) {
 		g.Expect(err).ToNot(HaveOccurred())
 
 		// ensure the rule was deleted
-		rule := rulesManager.Get(zap.NewNop(), "test", &v1limiter.RuleQuery{OverrideQuery: v1limiter.All})
+		rule := rulesManager.Get(zap.NewNop(), "test", &v1limiter.RuleQuery{OverridesToInclude: v1limiter.All})
 		g.Expect(rule).To(BeNil())
 	})
 
@@ -441,7 +441,7 @@ func TestRulesManager_Delete(t *testing.T) {
 			g.Expect(err).ToNot(HaveOccurred())
 
 			// ensure the rule was deleted
-			rule := rulesManager.Get(zap.NewNop(), "test", &v1limiter.RuleQuery{OverrideQuery: v1limiter.All})
+			rule := rulesManager.Get(zap.NewNop(), "test", &v1limiter.RuleQuery{OverridesToInclude: v1limiter.All})
 			g.Expect(rule).To(BeNil())
 		})
 	})
@@ -476,7 +476,7 @@ func TestRulesManager_Delete(t *testing.T) {
 			g.Expect(err.Error()).To(ContainSubstring("failed to cascade delete"))
 
 			// ensure the rule was not deleted
-			rule := rulesManager.Get(zap.NewNop(), "test", &v1limiter.RuleQuery{OverrideQuery: v1limiter.All})
+			rule := rulesManager.Get(zap.NewNop(), "test", &v1limiter.RuleQuery{OverridesToInclude: v1limiter.All})
 			g.Expect(rule).ToNot(BeNil())
 		})
 	})

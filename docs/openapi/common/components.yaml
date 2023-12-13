@@ -1,0 +1,126 @@
+components:
+  schemas:
+    # General API errors
+    ApiError:
+      type: object
+      properties:
+        Error:
+          type: string
+
+    # Defines how values should be parsed
+    DataType:
+      type: integer
+      description: |
+        DataType indicates how to parse and convert the provided Value:\
+        0: uint8\
+        1: uint16\
+        2: uint32\
+        3: uint64\
+        4: uint\
+        5: int8\
+        6: int16\
+        7: int32\
+        8: int64\
+        9: int\
+        10: float32\
+        11: float64\
+        12: string
+      enum: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+
+    # Generic data type wrapper for any Values in a Key Value pairing
+    EncapsulatedValue:
+      type: object
+      required:
+        - DataType
+        - Value
+      properties:
+        DataType:
+          $ref: "#/components/schemas/DataType"
+        Value:
+          description: |
+            String value for the associated DataType.
+          type: string
+
+    # Map of Encapsulated data
+    KeyValues:
+      type: object
+      description: |
+        Map of EncapsulatedValue
+      additionalProperties:
+        title: KeyValues
+        x-additionalPropertiesName: KeyValues
+        $ref: "#/components/schemas/EncapsulatedValue"
+
+    # General query thats used all over the place
+    AssociatedKeyValuesQuery:
+      type: object
+      description: |
+        General query that is used for many list apis. When resolving the query,
+        'and' operations have higher precedent than 'or'
+      properties:
+        KeyValueSelection:
+          type: object
+          $ref: "#/components/schemas/KeyValueSelection"
+        OR:
+          type: array
+          items:
+            type: object
+            $ref: "#/components/schemas/AssociatedKeyValuesQuery"
+        AND:
+          type: array
+          items:
+            type: object
+            $ref: "#/components/schemas/AssociatedKeyValuesQuery"
+
+    # Map of KeyValues
+    KeyValueSelection:
+      type: object
+      description: |
+        Selection of key values to query. The 'Limits' parameter can be used to find the exact
+        `KeyValues` to find. If this is not provided, then any saved `KeyValues` will be used
+        that match the requested 'KeyValues'
+      properties:
+        KeyValues:
+          type: object
+          description: |
+            Map of Values
+          additionalProperties:
+            $ref: "#/components/schemas/Values"
+        Limits:
+          type: object
+          properties:
+            KeyLimits:
+              type: integer
+
+    # Values query selection
+    Values:
+      type: object
+      description: |
+        Query selection that needs to be either 'Exists' or 'Value' check
+      properties:
+        Exists:
+          description: |
+            Pointer that can be used to select any value when true, or exclude values when false
+          type: bool
+        ExistsType:
+          $ref: "#/components/schemas/DataType"
+        Value:
+          $ref: "#/components/schemas/EncapsulatedValue"
+        ValueComparison:
+          description: |
+            parameter that is required when `Value` is set. For any of the comparisons that include
+            the 'MATCH' string, it enforces that the `Value's` type matches all results of the query.
+          type: string
+          enum:
+            [
+              "=",
+              "!=",
+              "<",
+              "< MATCH",
+              "<=",
+              "<= MATCH",
+              ">",
+              "> MATCH",
+              ">=",
+              ">= MATCH",
+            ]

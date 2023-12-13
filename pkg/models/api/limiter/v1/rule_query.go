@@ -9,12 +9,12 @@ import (
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 )
 
-type OverrideQuery string
+type OverridesToInclude string
 
 const (
-	None  OverrideQuery = ""
-	All   OverrideQuery = "all"
-	Match OverrideQuery = "match"
+	None  OverridesToInclude = ""
+	All   OverridesToInclude = "all"
+	Match OverridesToInclude = "match"
 )
 
 // Rule query is used to find any Rules that match the provided KeyValues
@@ -27,7 +27,7 @@ type RuleQuery struct {
 	// 1. Empty string - returns nothing
 	// 2. All - returns all overrides
 	// 3. Match - returns all override that match the KeyValues if there are any
-	OverrideQuery OverrideQuery
+	OverridesToInclude OverridesToInclude
 }
 
 // Server side logic to parse a Rule to know it is valid
@@ -58,11 +58,11 @@ func (rq RuleQuery) Validate() *api.Error {
 		}
 	}
 
-	switch rq.OverrideQuery {
+	switch rq.OverridesToInclude {
 	case None, All, Match:
 		// these are all valid
 	default:
-		return api.InvalidRequestBody.With(fmt.Sprintf("OverrideQuery is %s", string(rq.OverrideQuery)), "OverrideQuery to be one of ['' | all | match]")
+		return api.InvalidRequestBody.With(fmt.Sprintf("OverrideQuery is %s", string(rq.OverridesToInclude)), "OverridesToInclude to be one of ['' | all | match]")
 	}
 
 	return nil

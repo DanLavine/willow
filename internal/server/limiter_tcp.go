@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"path/filepath"
+	"runtime"
 
 	"github.com/DanLavine/urlrouter"
 	"github.com/DanLavine/willow/internal/config"
@@ -85,17 +87,20 @@ func (limiter *limiterTCP) Execute(ctx context.Context) error {
 
 	// OpenAPI endpoints
 	// api url to server all the OpenAPI files
+	_, currentDir, _, _ := runtime.Caller(0)
+
 	mux.HandleFunc("GET", "/docs/openapi/", func(w http.ResponseWriter, r *http.Request) {
-		handle := http.StripPrefix("/docs/openapi/", http.FileServer(http.Dir("./docs/openapi/limiter")))
+		handle := http.StripPrefix("/docs/openapi/", http.FileServer(http.Dir(filepath.Join(currentDir, "..", "..", "..", "docs", "openapi"))))
 		handle.ServeHTTP(w, r)
 	})
 
 	// ui that calls the files and knows what to do
 	mux.HandleFunc("GET", "/docs", func(w http.ResponseWriter, r *http.Request) {
 		middleware.Redoc(middleware.RedocOpts{
+			//RedocURL: "https://cdn.jsdelivr.net/npm/redoc@2.0.0/bundles/redoc.standalone.js",
 			BasePath: "/",
 			Path:     "docs",
-			SpecURL:  "/docs/openapi/openapi.yaml",
+			SpecURL:  "/docs/openapi/limiter/openapi.yaml",
 			Title:    "Limiter API Documentation",
 		}, nil).ServeHTTP(w, r)
 	})

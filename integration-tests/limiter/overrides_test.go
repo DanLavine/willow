@@ -98,7 +98,7 @@ func Test_Limiter_Overrides_Delete(t *testing.T) {
 		g.Expect(err).ToNot(HaveOccurred())
 
 		// get the rule with overrides to ensure it is deleted
-		ruleResp, err := limiterClient.GetRule("rule1", v1.RuleQuery{OverrideQuery: v1.All})
+		ruleResp, err := limiterClient.GetRule("rule1", v1.RuleQuery{OverridesToInclude: v1.All})
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(ruleResp.Name).To(Equal("rule1"))
 		g.Expect(ruleResp.Overrides).To(BeNil())

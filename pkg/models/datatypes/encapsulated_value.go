@@ -170,28 +170,6 @@ func (edv EncapsulatedValue) Validate() error {
 	return nil
 }
 
-// CUSTOM types
-//type CustomType interface {
-//	// only return true if the value is less than the parameter
-//	Less(item any) bool
-//
-//	// // encode a value to transfer over an api call
-//	// Encode() []byte
-//	//
-//	// // decode the value transfered over an api call
-//	// Decode(b []byte) (any, error)
-//}
-//
-//// Custom can be used by any Service when saving values to the AssociatedTree, and needs to create
-//// keys that are guranteed to not collide with an end user's values. So it is important that no
-//// APIs allow for receiving of this type.
-//func Custom(value CustomType) EncapsulatedValue {
-//	return EncapsulatedValue{
-//		Type: T_custom,
-//		Data: value,
-//	}
-//}
-
 // UINT types
 func Uint8(value uint8) EncapsulatedValue {
 	return EncapsulatedValue{

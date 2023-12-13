@@ -48,7 +48,7 @@ func GreaterThanMatchTypePtr() *Comparison        { return &greaterThanMatchType
 func GreaterThanOrEqualPtr() *Comparison          { return &greaterThanOrEqual }
 func GreaterThanOrEqualMatchTypePtr() *Comparison { return &greaterThanOrEqualMatchType }
 
-// DSL TODO: Do these have to be pointers. Doing the convertion between api request -> query can be confusing at times.
+// DSL TODO: Do these have to be pointers? Doing the convertion between api request -> query can be confusing at times.
 type Value struct {
 	// check to see if a key exists
 	Exists *bool

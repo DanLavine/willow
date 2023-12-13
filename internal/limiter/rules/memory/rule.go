@@ -64,7 +64,7 @@ func (r *rule) Get(includeOverrides *v1limiter.RuleQuery) *v1limiter.RuleRespons
 		return true
 	}
 
-	switch includeOverrides.OverrideQuery {
+	switch includeOverrides.OverridesToInclude {
 	case v1limiter.None:
 		// nothing to do here
 	case v1limiter.Match:

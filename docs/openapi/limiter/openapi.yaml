@@ -9,9 +9,13 @@ paths:
   /v1/limiter/rules:
     post:
       operationId: create Rule
+      description: |
+        `Rules` are the definied restrictive resource for the `Counters` API. Each `Rule` that matches against the `Counter.KeyValues`
+        request is evaluated to ensure that the specific `Rule's` GroupBy selection has not hit the provided limit. It is importnat to
+        note that if multiple `Rules` all match the same `Counter.KeyValues` then each `Rule` will be evaluated unless one fails which stops the processing
+
+        There is special logic when a Rule has a Limit = 0. In this case the service will respond quickly rejecting the request saying the limit has been reached
       requestBody:
-        description: |
-          Create a new Limiter Rule.
         required: true
         content:
           appplication/json:
@@ -19,25 +23,19 @@ paths:
               $ref: "#/components/schemas/RuleRequest"
       responses:
         201:
-          description: |
-            Created a new limiter rule. When adding a counter, each Rule that matches the the `Counter.KeyValues` request
-            is evaluated to ensure that the specific Rule's GroupBy slection has not hit the limit. It is importnat to
-            note that if multiple `Rules` all match the same `Counter.KeyValues` they will all be evaluated.
-
-            There is specual logic when a Rule has a Limit = 0. In this case the service will respond quickly rejecting
-            The request saying the limit has been reached
+          description: Created the `Rule`
         400:
           description: Error parsing or validating the request body
           content:
             appplication/json:
               schema:
-                $ref: "#/components/schemas/ApiError"
+                $ref: "../common/components.yaml#/components/schemas/ApiError"
         422:
-          description: Conflict if another rule already exists with the same name
+          description: Conflict if another rule already exists with the same Name or GroupBy keys
           content:
             appplication/json:
               schema:
-                $ref: "#/components/schemas/ApiError"
+                $ref: "../common/components.yaml#/components/schemas/ApiError"
         500:
           description: Internal error that should be addressed by the service maintainer
           content:
@@ -46,12 +44,12 @@ paths:
                 type: object
                 properties:
                   ApiError:
-                    $ref: "#/components/schemas/ApiError"
+                    $ref: "../common/components.yaml#/components/schemas/ApiError"
     get:
+      description: |
+        List any Rules that match the particular `KeyValues` and their `Overrides`
       operationId: list Rules
       requestBody:
-        description: |
-          List any Rules that match the particular `KeyValues` and their `Overrides`
         required: true
         content:
           appplication/json:
@@ -72,7 +70,7 @@ paths:
                 type: object
                 properties:
                   ApiError:
-                    $ref: "#/components/schemas/ApiError"
+                    $ref: "../common/components.yaml#/components/schemas/ApiError"
         500:
           description: Internal error that should be addressed by the service maintainer
           content:
@@ -81,13 +79,13 @@ paths:
                 type: object
                 properties:
                   ApiError:
-                    $ref: "#/components/schemas/ApiError"
+                    $ref: "../common/components.yaml#/components/schemas/ApiError"
   /v1/limiter/rules/:rule_name:
     get:
       operationId: get Rule
+      description: |
+        Get the `Rule` by name and any `Overrides`
       requestBody:
-        description: |
-          Get the `Rule` by name and optionaly `Overrides`
         required: true
         content:
           appplication/json:
@@ -96,7 +94,7 @@ paths:
       responses:
         200:
           description: |
-            Retrieve a single Rule's specification
+            Retrieved a single Rule's specification
           content:
             appplication/json:
               schema:
@@ -109,7 +107,7 @@ paths:
                 type: object
                 properties:
                   ApiError:
-                    $ref: "#/components/schemas/ApiError"
+                    $ref: "../common/components.yaml#/components/schemas/ApiError"
         422:
           description: The `Rule` could not be found
           content:
@@ -118,7 +116,7 @@ paths:
                 type: object
                 properties:
                   ApiError:
-                    $ref: "#/components/schemas/ApiError"
+                    $ref: "../common/components.yaml#/components/schemas/ApiError"
         500:
           description: Internal error that should be addressed by the service maintainer
           content:
@@ -127,12 +125,12 @@ paths:
                 type: object
                 properties:
                   ApiError:
-                    $ref: "#/components/schemas/ApiError"
+                    $ref: "../common/components.yaml#/components/schemas/ApiError"
     put:
       operationId: update Rule
+      description: |
+        update a specific `Rule`.
       requestBody:
-        description: |
-          update a specific `Rule`.
         required: true
         content:
           appplication/json:
@@ -149,7 +147,7 @@ paths:
                 type: object
                 properties:
                   ApiError:
-                    $ref: "#/components/schemas/ApiError"
+                    $ref: "../common/components.yaml#/components/schemas/ApiError"
         422:
           description: The original `Rule` could not be found
           content:
@@ -158,7 +156,7 @@ paths:
                 type: object
                 properties:
                   ApiError:
-                    $ref: "#/components/schemas/ApiError"
+                    $ref: "../common/components.yaml#/components/schemas/ApiError"
         500:
           description: Internal error that should be addressed by the service maintainer
           content:
@@ -167,7 +165,7 @@ paths:
                 type: object
                 properties:
                   ApiError:
-                    $ref: "#/components/schemas/ApiError"
+                    $ref: "../common/components.yaml#/components/schemas/ApiError"
     delete:
       operationId: delete Rule
       description: |
@@ -183,50 +181,17 @@ paths:
                 type: object
                 properties:
                   ApiError:
-                    $ref: "#/components/schemas/ApiError"
+                    $ref: "../common/components.yaml#/components/schemas/ApiError"
   /v1/limiter/rules/:rule_name/overrides:
-    get:
-      operationId: list Rule Overrides
-      requestBody:
-        description: |
-          List any `Overrides` that match the provided KeyValues
-        required: true
-        content:
-          appplication/json:
-            schema:
-              $ref: "#/components/schemas/KeyValues"
-      responses:
-        200:
-          description: A collection of `Overrides`
-          content:
-            appplication/json:
-              schema:
-                $ref: "#/components/schemas/RuleOverrides"
-        400:
-          description: Error parsing or validating the request body
-          content:
-            appplication/json:
-              schema:
-                $ref: "#/components/schemas/ApiError"
-        500:
-          description: Internal error that should be addressed by the service maintainer
-          content:
-            appplication/json:
-              schema:
-                type: object
-                properties:
-                  ApiError:
-                    $ref: "#/components/schemas/ApiError"
-
     post:
       operationId: create Rule Override
-      requestBody:
-        description: |
-          Create a new `Override` for a set of KeyValues. If multiple `Overrides` have
-          the same KeyValues then an API error will be returned.
+      description: |
+        Create a new `Override` for a set of `KeyValues`. If multiple `Overrides` have the exact same Name
+        or `KeyValues`, then an API error will be returned.
 
-          When matching a `Counter.KeyValues` and there are multiple `Overrides` that match.
-          The lowest of all `Overrides.Limit` will be selected
+        When matching a `Counter.KeyValues` and there are multiple `Overrides` that match, then each `Override`
+        will be checked to ensure no limits are reached.
+      requestBody:
         required: true
         content:
           appplication/json:
@@ -240,19 +205,19 @@ paths:
           content:
             appplication/json:
               schema:
-                $ref: "#/components/schemas/ApiError"
+                $ref: "../common/components.yaml#/components/schemas/ApiError"
         404:
           description: returned if the `Rule` name cannot be found
           content:
             appplication/json:
               schema:
-                $ref: "#/components/schemas/ApiError"
+                $ref: "../common/components.yaml#/components/schemas/ApiError"
         422:
           description: Conflict if another `Override` already exists with the same KeyValues or Name
           content:
             appplication/json:
               schema:
-                $ref: "#/components/schemas/ApiError"
+                $ref: "../common/components.yaml#/components/schemas/ApiError"
         500:
           description: Internal error that should be addressed by the service maintainer
           content:
@@ -261,7 +226,40 @@ paths:
                 type: object
                 properties:
                   ApiError:
-                    $ref: "#/components/schemas/ApiError"
+                    $ref: "../common/components.yaml#/components/schemas/ApiError"
+
+    get:
+      operationId: list Rule Overrides
+      description: |
+        List any `Overrides` that match the provided `KeyValues`
+      requestBody:
+        required: true
+        content:
+          appplication/json:
+            schema:
+              $ref: "../common/components.yaml#/components/schemas/KeyValues"
+      responses:
+        200:
+          description: A collection of `Overrides`
+          content:
+            appplication/json:
+              schema:
+                $ref: "#/components/schemas/RuleOverrides"
+        400:
+          description: Error parsing or validating the request body
+          content:
+            appplication/json:
+              schema:
+                $ref: "../common/components.yaml#/components/schemas/ApiError"
+        500:
+          description: Internal error that should be addressed by the service maintainer
+          content:
+            appplication/json:
+              schema:
+                type: object
+                properties:
+                  ApiError:
+                    $ref: "../common/components.yaml#/components/schemas/ApiError"
   /v1/limiter/rules/:rule_name/overrides/:override_name:
     get:
       operationId: get Rule Override
@@ -280,7 +278,7 @@ paths:
                 type: object
                 properties:
                   ApiError:
-                    $ref: "#/components/schemas/ApiError"
+                    $ref: "../common/components.yaml#/components/schemas/ApiError"
         422:
           description: The `Rule` or `Override` could not be found
           content:
@@ -289,7 +287,7 @@ paths:
                 type: object
                 properties:
                   ApiError:
-                    $ref: "#/components/schemas/ApiError"
+                    $ref: "../common/components.yaml#/components/schemas/ApiError"
         500:
           description: Internal error that should be addressed by the service maintainer
           content:
@@ -298,7 +296,7 @@ paths:
                 type: object
                 properties:
                   ApiError:
-                    $ref: "#/components/schemas/ApiError"
+                    $ref: "../common/components.yaml#/components/schemas/ApiError"
     delete:
       operationId: delete Rule Override
       responses:
@@ -312,7 +310,7 @@ paths:
                 type: object
                 properties:
                   ApiError:
-                    $ref: "#/components/schemas/ApiError"
+                    $ref: "../common/components.yaml#/components/schemas/ApiError"
         500:
           description: Internal error that should be addressed by the service maintainer
           content:
@@ -321,23 +319,23 @@ paths:
                 type: object
                 properties:
                   ApiError:
-                    $ref: "#/components/schemas/ApiError"
+                    $ref: "../common/components.yaml#/components/schemas/ApiError"
   /v1/limiter/counters:
     post:
-      operationId: increment Key Values
+      operationId: increment Counters
+      description: |
+        Increment a `Counter` which is a collection of `KeyValues`. As part of this operation, all `Rules` are matched
+        to ensure that they have not reached a limit for the `KeyValues` in this request. If that has happened,
+        then the request will fail and it is up to the client to eventually retry the request.
       requestBody:
-        description: |
-          Increment a counter associated with the Key Values. As part of this operation, all `Rules` are matched
-          to ensure that they have not reached a limit for the KeyValues in this request. If that has happened,
-          then the request will fail and it is up to the client to retry the request eventually.
         required: true
         content:
           appplication/json:
             schema:
-              $ref: "#/components/schemas/KeyValues"
+              $ref: "#/components/schemas/Counters"
       responses:
         200:
-          description: Incremented the group of KeyValues
+          description: Incremented the counter for the group of `KeyValues`
         400:
           description: Error parsing or validating the request body
           content:
@@ -346,7 +344,7 @@ paths:
                 type: object
                 properties:
                   ApiError:
-                    $ref: "#/components/schemas/ApiError"
+                    $ref: "../common/components.yaml#/components/schemas/ApiError"
         409:
           description: Conflict if a particular `Rule's` limits are already reached
           content:
@@ -364,20 +362,20 @@ paths:
                 type: object
                 properties:
                   ApiError:
-                    $ref: "#/components/schemas/ApiError"
-    delete:
-      operationId: decrement Key Values Group
+                    $ref: "../common/components.yaml#/components/schemas/ApiError"
+    get:
+      operationId: query Counters
+      description: |
+        Find any number of `Counters` that match the provided query.
       requestBody:
-        description: |
-          Decrement the group of KeyValues. If the index would be 0, the group is removed entierly
         required: true
         content:
           appplication/json:
             schema:
-              $ref: "#/components/schemas/KeyValues"
+              $ref: "../common/components.yaml#/components/schemas/AssociatedKeyValuesQuery"
       responses:
-        204:
-          description: Key Values Group was decremeneted
+        200:
+          description: Incremented the group of KeyValues
         400:
           description: Error parsing or validating the request body
           content:
@@ -386,7 +384,16 @@ paths:
                 type: object
                 properties:
                   ApiError:
-                    $ref: "#/components/schemas/ApiError"
+                    $ref: "../common/components.yaml#/components/schemas/ApiError"
+        409:
+          description: Conflict if a particular `Rule's` limits are already reached
+          content:
+            appplication/json:
+              schema:
+                type: object
+                properties:
+                  ApiError:
+                    $ref: "#/components/schemas/LimitReachedResponse"
         500:
           description: Internal error that should be addressed by the service maintainer
           content:
@@ -395,85 +402,95 @@ paths:
                 type: object
                 properties:
                   ApiError:
-                    $ref: "#/components/schemas/ApiError"
+                    $ref: "../common/components.yaml#/components/schemas/ApiError"
+    delete:
+      operationId: decrement Counters
+      requestBody:
+        description: |
+          Decrement the group of `KeyValues`. If the counter would be 0, the group is removed entierly
+        required: true
+        content:
+          appplication/json:
+            schema:
+              $ref: "../common/components.yaml#/components/schemas/KeyValues"
+      responses:
+        204:
+          description: "`KeyValues` Group was decremeneted"
+        400:
+          description: Error parsing or validating the request body
+          content:
+            appplication/json:
+              schema:
+                type: object
+                properties:
+                  ApiError:
+                    $ref: "../common/components.yaml#/components/schemas/ApiError"
+        500:
+          description: Internal error that should be addressed by the service maintainer
+          content:
+            appplication/json:
+              schema:
+                type: object
+                properties:
+                  ApiError:
+                    $ref: "../common/components.yaml#/components/schemas/ApiError"
+  /v1/limiter/counters/set:
+    post:
+      operationId: set Counters
+      description: |
+        Set a spcific `Counter` without checking or enforcinig any `Rules`. This API should only be used as
+        part of a system onboarding experiance, or to clean up any processes which generate unique tags on
+        startup and have crashed. In many systems such as these there is a single 'Repear' process to ensures
+        the state of the world is eventually consistent and this api aims to make those operations easier.
+      requestBody:
+        required: true
+        content:
+          appplication/json:
+            schema:
+              $ref: "../common/components.yaml#/components/schemas/KeyValues"
+      responses:
+        200:
+          description: Incremented the group of `KeyValues`
+        400:
+          description: Error parsing or validating the request body
+          content:
+            appplication/json:
+              schema:
+                type: object
+                properties:
+                  ApiError:
+                    $ref: "../common/components.yaml#/components/schemas/ApiError"
+        500:
+          description: Internal error that should be addressed by the service maintainer
+          content:
+            appplication/json:
+              schema:
+                type: object
+                properties:
+                  ApiError:
+                    $ref: "../common/components.yaml#/components/schemas/ApiError"
 
 components:
   schemas:
-    # General API errors
-    ApiError:
-      type: object
-      properties:
-        Error:
-          type: string
-
-    # General query thats used all over the place
-    AssociatedKeyValuesQuery:
-      type: object
-      properties:
-        KeyValueSelection:
-          type: object
-          $ref: "#/components/schemas/KeyValueSelection"
-        OR:
-          type: array
-          items:
-            type: object
-            $ref: "#/components/schemas/AssociatedKeyValuesQuery"
-        AND:
-          type: array
-          items:
-            type: object
-            $ref: "#/components/schemas/AssociatedKeyValuesQuery"
-
-    KeyValueSelection:
+    # List rules that match the provided key values
+    RuleQuery:
       type: object
       properties:
         KeyValues:
-          type: object
-          $ref: "#/components/schemas/KeyValues"
-        Limits:
-          type: object
-          properties:
-            KeyLimits:
-              type: integer
-
-    # General Key Values of Encapsulated data
-    KeyValues:
-      type: object
-      additionalProperties:
-        title: KeyValues
-        x-additionalPropertiesName: KeyValues
-        $ref: "#/components/schemas/EncapsulatedData"
-
-    # Generic data type wrapper for any Values in a Key Value pairing
-    EncapsulatedData:
-      type: object
-      required:
-        - DataType
-        - Value
-      properties:
-        DataType:
+          description: "KeyValues to match rules against"
+          $ref: "../common/components.yaml#/components/schemas/KeyValues"
+        OverridesToInclude:
           description: |
-            Data type indicates how to parse the provided Value:\
-            0: uint8\
-            1: uint16\
-            2: uint32\
-            3: uint64\
-            4: uint\
-            5: int8\
-            6: int16\
-            7: int32\
-            8: int64\
-            9: int\
-            10: float32\
-            11: float64\
-            12: string\
-            13: nil
-          type: integer
-          enum: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]
-        Value:
-          description: |
-            Can be any value that is associated to the DataType
-          type: object
+            "Include overrides for the found rule.
+            - "" - don't include any overrides
+            - "all" - includes all overrides for the `Rule``
+            - "match" - includes all overrides that also match the provided `KeyValues`
+          type: string
+          default: ""
+          enum:
+            - ""
+            - "all"
+            - "match"
 
     # create a new rule request
     RuleRequest:
@@ -488,8 +505,7 @@ components:
           type: string
         GroupBy:
           description: |
-            GroupBy defines the keys for any Key + Value Pairs that make a unique group for the rule.
-            These are matched agains the item counters to know when limits are reached.
+            GroupBy defines the Keys for any `Counters.KeyValues` that make a unique group matching the `Rule`.
           type: array
           items:
             type: string
@@ -507,27 +523,8 @@ components:
         Limit:
           type: integer
           format: uint64
-          description: default limit that all rules adhere to
+          description: default limit that all `Rules` match `Counters.KeyValues` against
 
-    # List rules that match the provided key values
-    RuleQuery:
-      type: object
-      properties:
-        KeyValues:
-          description: "Key Values to match rules against"
-          $ref: "#/components/schemas/KeyValues"
-        OverrideQuery:
-          description: |
-            "Include overrides for the found rule.
-            - '' - don't include any overrides
-            - "all" - includes all overrides for a rule
-            - "match" - includes all overrides that also match the provided KeyValues
-          type: string
-          default: ""
-          enum:
-            - ""
-            - "all"
-            - "match"
     # Find rule response
     RuleResponse:
       type: object
@@ -547,7 +544,7 @@ components:
             type: object
             properties:
               KeyValues:
-                $ref: "#/components/schemas/KeyValues"
+                $ref: "../common/components.yaml#/components/schemas/KeyValues"
               Limit:
                 type: integer
                 format: uint64
@@ -569,7 +566,7 @@ components:
           description: "Name of the override rule to create"
           type: string
         KeyValues:
-          $ref: "#/components/schemas/KeyValues"
+          $ref: "../common/components.yaml#/components/schemas/KeyValues"
         Limit:
           type: integer
           format: uint64
@@ -589,7 +586,16 @@ components:
           type: object
           properties:
             KeyValues:
-              $ref: "#/components/schemas/KeyValues"
+              $ref: "../common/components.yaml#/components/schemas/KeyValues"
             Limit:
               type: integer
               format: uint64
+
+    # increment or decrement counters request
+    Counters:
+      type: object
+      required:
+        - KeyValues
+      properties:
+        KeyValues:
+          $ref: "../common/components.yaml#/components/schemas/KeyValues"
