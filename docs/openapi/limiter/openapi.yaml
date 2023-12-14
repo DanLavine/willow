@@ -3,7 +3,7 @@ openapi: "3.0.0"
 info:
   description: Limiter API
   title: Limiter
-  version: a0.0.1
+  version: poc 0.0.1
 
 paths:
   /v1/limiter/rules:
@@ -566,6 +566,8 @@ components:
           description: "Name of the override rule to create"
           type: string
         KeyValues:
+          description: |
+            The `KeyValues` must at a minimum include the `Rule's` GroupBy Keys with a Value.
           $ref: "../common/components.yaml#/components/schemas/KeyValues"
         Limit:
           type: integer

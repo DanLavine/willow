@@ -278,7 +278,7 @@ func (lc *lockerclient) ObtainLock(ctx context.Context, keyValues datatypes.KeyV
 
 				lockErr = apiError
 				return nil
-			case http.StatusBadGateway:
+			case http.StatusServiceUnavailable:
 				// server is restarting so retry the request
 				time.Sleep(time.Second)
 			default:

@@ -103,7 +103,7 @@ func (locker *LockerTCP) Execute(ctx context.Context) error {
 	// api url to server all the OpenAPI files
 	_, currentDir, _, _ := runtime.Caller(0)
 	mux.HandleFunc("GET", "/docs/openapi/", func(w http.ResponseWriter, r *http.Request) {
-		handle := http.StripPrefix("/docs/openapi/", http.FileServer(http.Dir(filepath.Join(currentDir, "..", "..", "..", "docs", "openapi", "locker"))))
+		handle := http.StripPrefix("/docs/openapi/", http.FileServer(http.Dir(filepath.Join(currentDir, "..", "..", "..", "docs", "openapi"))))
 		handle.ServeHTTP(w, r)
 	})
 
@@ -112,20 +112,20 @@ func (locker *LockerTCP) Execute(ctx context.Context) error {
 		middleware.Redoc(middleware.RedocOpts{
 			BasePath: "/",
 			Path:     "docs",
-			SpecURL:  "/docs/openapi/openapi.yaml",
+			SpecURL:  "/docs/openapi/locker/openapi.yaml",
 			Title:    "Locker API Documentation",
 		}, nil).ServeHTTP(w, r)
 	})
 
 	// crud operations for group rules
 	// These operations seem more like a normal DB that I want to do...
-	mux.HandleFunc("POST", "/v1/locker/create", locker.v1Handler.Create) // pass the ctx here so clients can clean up when the server shutsdown
+	mux.HandleFunc("POST", "/v1/locker", locker.v1Handler.Create) // pass the ctx here so clients can clean up when the server shutsdown
 	mux.HandleFunc("POST", "/v1/locker/:_associated_id/heartbeat", locker.v1Handler.Heartbeat)
 	mux.HandleFunc("DELETE", "/v1/locker/:_associated_id/delete", locker.v1Handler.Delete)
 
 	// Admin APIs
-	// TODO: Need to actual account for auth for this though
-	mux.HandleFunc("GET", "/v1/locker/list", locker.v1Handler.List)
+	// TODO: Need to actual account for auth for this
+	mux.HandleFunc("GET", "/v1/locker", locker.v1Handler.List)
 
 	locker.server.Handler = mux
 
@@ -137,7 +137,7 @@ func (locker *LockerTCP) Execute(ctx context.Context) error {
 	}()
 
 	// return any error other than the server closed
-	logger.Info("Locker TCP server running")
+	logger.Info("Locker TCP server running", zap.String("port", *locker.config.LockerPort))
 	if *locker.config.LockerInsecureHTTP {
 		if err := locker.server.ListenAndServe(); err != nil {
 			select {

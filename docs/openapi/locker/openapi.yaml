@@ -1,180 +1,139 @@
 openapi: "3.0.0"
 
 info:
-    description: Locker API
-    title: Locker
-    version: a0.0.1
+  description: Locker API
+  title: Locker
+  version: poc 0.0.1
 
 paths:
-    /v1/locker/crerate:
-        post:
-            requestBody:
-                description: |
-                    Create or obtain a lock for a collection of KeyValues. This request blocks if another process
-                    already has the lock being requested. It will eventually return if the lock has been freed and
-                    claimed, or the server is restarting. In which case, the client will need to retry claiming the lock
-                required: true
-                content:
-                    appplication/json:
-                        schema:
-                            type: object
-                            required:
-                                - KeyValues
-                            properties:
-                                Timeout:
-                                    default: 0
-                                    description: "If set to 0, then the server's configuration will be used"
-                                    $ref: "#/components/schemas/Timeout"
-                                KeyValues:
-                                    minLength: 1
-                                    $ref: "#/components/schemas/KeyValues"
-            responses:
-                201:
-                    description: created or obtained the lock
-                    content:
-                        appplication/json:
-                            schema:
-                                type: object
-                                properties:
-                                    SessionID:
-                                        type: string
-                                        description: "Session ID that is used to send hertbeats or release obtained locks"
-                                    Timeout:
-                                        $ref: "#/components/schemas/Timeout"
-                                        description: "Time to know how long a server will keep the lock valid when a heartbeat is received"
-                400:
-                    description: returned when an error processing for the request body fails
-                    content:
-                        appplication/json:
-                            schema:
-                                type: object
-                                properties:
-                                    ApiError:
-                                        $ref: "#/components/schemas/ApiError"
-                502:
-                    description: server is shutting down for a restart and client should retry obtaining the lock
-    /v1/locker/list:
-        get:
-            operationId: "/v1/locker/list"
-            description: |
-                List all currently held locks by this service. Currently being used for validatio   
-                TODO:
-                1. Add a query for finding exact locks
-                2. Add a way to paginate responses
-            responses:
-                200:
-                    description: OK
-                    content:
-                        appplication/json:
-                            schema:
-                                $ref: "#/components/schemas/ListResponse"
-    /v1/locker/:_associated_id/heartbeat:
-        post:
-            description: |
-                Heartbeat a lock by the unique SessionID
-            responses:
-                200:
-                    description: OK
-                400:
-                    description: returned when an error when the request body fails validation
-                    content:
-                        appplication/json:
-                            schema:
-                                $ref: "#/components/schemas/ApiError"
-                409:
-                    description: returned when there was an error processing the SessionID
-                    content:
-                        appplication/json:
-                            schema:
-                                $ref: "#/components/schemas/HeartbeatResponse"
-    /v1/locker/:_associated_id/delete:
-        delete:
-            operationId: "/v1/locker/delete"
-            description: |
-                Delete a lock based on the SessionID
+  /v1/locker:
+    post:
+      operationId: create Lock
+      description: |
+        Create or obtain a lock for a collection of `KeyValues`. This request blocks if another process
+        already has the lock being requested. It will eventually return if the lock has been freed and
+        claimed, or the server is restarting. In which case, the client will need to retry claiming the lock
+      requestBody:
+        required: true
+        content:
+          appplication/json:
+            schema:
+              type: object
+              required:
+                - KeyValues
+              properties:
+                Timeout:
+                  type: integer
+                  format: int64
+                  default: 0
+                  description: "If set to 0, then the server's configuration will be used"
+                KeyValues:
+                  minLength: 1
+                  $ref: "../common/components.yaml#/components/schemas/KeyValues"
+      responses:
+        201:
+          description: created or obtained the lock
+          content:
+            appplication/json:
+              schema:
+                type: object
+                properties:
+                  SessionID:
+                    type: string
+                    description: "Session ID that is used to send hertbeats or release obtained locks"
+                  Timeout:
+                    description: "How long a server will keep the lock. This value is refreshed when a heartbeat is received"
+                    type: integer
+                    format: int64
+        400:
+          description: returned when an error processing for the request body fails
+          content:
+            appplication/json:
+              schema:
+                $ref: "../common/components.yaml#/components/schemas/ApiError"
 
-                TODO:
-                1. Possibly like heartbeat, allow this to take any number of SessionIDs. I currently see the use case
-                   for this service that I have wanting to create a number of locks all at once, then release them at
-                   the same time
-                2. Allow for deleting through KeyValues (admin api. would need auth setup to allow this).
-                   Or should I make this a seperate "Admin" api?
-            responses:
-                204:
-                    description: Resrouce was deleted or never even existed
-                400:
-                    description: returned when an error when the request body fails validation
-                    content:
-                        appplication/json:
-                            schema:
-                                $ref: "#/components/schemas/ApiError"
+        503:
+          description: server is shutting down for a restart and client should retry obtaining the lock
+    get:
+      operationId: query Locks
+      description: |
+        Query all the locks currently in use by this service
+      requestBody:
+        required: true
+        content:
+          appplication/json:
+            schema:
+              $ref: "../common/components.yaml#/components/schemas/AssociatedKeyValuesQuery"
+      responses:
+        200:
+          description: OK
+          content:
+            appplication/json:
+              schema:
+                $ref: "#/components/schemas/ListResponse"
+  /v1/locker/:_lock_session_id:
+    delete:
+      operationId: delete Lock
+      description: |
+        Delete a lock based on the SessionID. This way the original client should be the only
+        client to know the generated sessionID. If the client is lost for some reason and the timeout is
+        massive. The original sessionID can be found via the query and deleted through another admin request
+      responses:
+        204:
+          description: Resrouce was deleted or never even existed
+        400:
+          description: returned when an error when the request body fails validation
+          content:
+            appplication/json:
+              schema:
+                $ref: "../common/components.yaml#/components/schemas/ApiError"
+  /v1/locker/:_lock_session_id/heartbeat:
+    post:
+      operationId: heartbeat Lock
+      description: |
+        Heartbeat a lock by the unique SessionID
+      responses:
+        200:
+          description: OK
+        400:
+          description: returned when an error when the request body fails validation
+          content:
+            appplication/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        409:
+          description: returned when there was an error processing the SessionID
+          content:
+            appplication/json:
+              schema:
+                $ref: "#/components/schemas/HeartbeatResponse"
 
 components:
-    schemas:
-        # General API errors
-        ApiError:
+  schemas:
+    # General API errors
+    ApiError:
+      type: object
+      properties:
+        Error:
+          type: string
+
+    # heartbeats response
+    HeartbeatResponse:
+      type: object
+      properties:
+        Error:
+          type: string
+
+    # list locks response
+    ListResponse:
+      type: object
+      properties:
+        Locks:
+          type: array
+          items:
             type: object
             properties:
-                Error:
-                    type: string
-
-        # heartbeats response
-        HeartbeatResponse:
-            type: object
-            properties:
-                Error:
-                    type: string
-
-        # list locks response
-        ListResponse:
-            type: object
-            properties:
-                Locks:
-                    type: array
-                    items:
-                        type: object
-                        properties:
-                            KeyValues:
-                                $ref: "#/components/schemas/KeyValues"
-                            LocksHeldOrWaiting:
-                                type: integer
-
-        Timeout:
-            type: integer
-            format: int64
-        EncapsulatedData:
-            type: object
-            required:
-                - DataType
-                - Value
-            properties:
-                DataType:
-                    description: |
-                        Data type indicates how to parse the provided Value:\
-                        0: uint8\
-                        1: uint16\
-                        2: uint32\
-                        3: uint64\
-                        4: uint\
-                        5: int8\
-                        6: int16\
-                        7: int32\
-                        8: int64\
-                        9: int\
-                        10: float32\
-                        11: float64\
-                        12: string\
-                        13: nil
-                    type: integer
-                    enum: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]
-                Value:
-                    description: |
-                        Can be any value that is associated to the DataType
-                    type: object
-
-        KeyValues:
-            type: object
-            additionalProperties:
-                title: KeyValues
-                x-additionalPropertiesName: KeyValues
-                $ref: "#/components/schemas/EncapsulatedData"
+              KeyValues:
+                $ref: "../common/components.yaml#/components/schemas/KeyValues"
+              LocksHeldOrWaiting:
+                type: integer
