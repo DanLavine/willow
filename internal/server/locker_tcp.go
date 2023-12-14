@@ -118,13 +118,13 @@ func (locker *LockerTCP) Execute(ctx context.Context) error {
 	})
 
 	// crud operations for group rules
-	mux.HandleFunc("POST", "/v1/locker", locker.v1Handler.Create)
-	mux.HandleFunc("DELETE", "/v1/locker/:_associated_id", locker.v1Handler.Delete)
-	mux.HandleFunc("POST", "/v1/locker/:_associated_id/heartbeat", locker.v1Handler.Heartbeat)
+	mux.HandleFunc("POST", "/v1/locks", locker.v1Handler.Create)
+	mux.HandleFunc("DELETE", "/v1/locks/:_associated_id", locker.v1Handler.Delete)
+	mux.HandleFunc("POST", "/v1/locks/:_associated_id/heartbeat", locker.v1Handler.Heartbeat)
 
 	// Admin APIs
 	// TODO: Need to actual account for auth for this
-	mux.HandleFunc("GET", "/v1/locker", locker.v1Handler.List)
+	mux.HandleFunc("GET", "/v1/locks", locker.v1Handler.List)
 
 	locker.server.Handler = mux
 

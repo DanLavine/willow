@@ -7,7 +7,9 @@ import (
 	"github.com/DanLavine/willow/internal/config"
 	"github.com/DanLavine/willow/internal/locker"
 	"github.com/DanLavine/willow/internal/logger"
+	v1common "github.com/DanLavine/willow/pkg/models/api/common/v1"
 	"github.com/DanLavine/willow/pkg/models/api/v1locker"
+
 	"go.uber.org/zap"
 )
 
@@ -90,7 +92,14 @@ func (lh *lockerHandler) List(w http.ResponseWriter, r *http.Request) {
 	logger.Debug("starting request")
 	defer logger.Debug("processed request")
 
-	locks := v1locker.NewListLockResponse(lh.generalLocker.ListLocks())
+	generalQuery, err := v1common.ParseGeneralAssociatedQuery(r.Body)
+	if err != nil {
+		w.WriteHeader(err.StatusCode)
+		w.Write(err.ToBytes())
+		return
+	}
+
+	locks := v1locker.NewListLockResponse(lh.generalLocker.ListLocks(generalQuery))
 
 	w.WriteHeader(http.StatusOK)
 	w.Write(locks.ToBytes())
@@ -101,13 +110,8 @@ func (lh *lockerHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	logger.Debug("starting request")
 	defer logger.Debug("processed request")
 
-	deleteLockRequest, err := v1locker.ParseDeleteLockRequest(r.Body)
-	if err != nil {
-		w.WriteHeader(err.StatusCode)
-		w.Write(err.ToBytes())
-		return
-	}
+	namedParameters := urlrouter.GetNamedParamters(r.Context())
 
-	lh.generalLocker.ReleaseLock(deleteLockRequest.SessionID)
+	lh.generalLocker.ReleaseLock(namedParameters["_associated_id"])
 	w.WriteHeader(http.StatusNoContent)
 }

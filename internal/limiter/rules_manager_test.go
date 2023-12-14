@@ -18,6 +18,7 @@ import (
 	"github.com/DanLavine/willow/pkg/clients/locker_client/lockerclientfakes"
 	"github.com/DanLavine/willow/pkg/models/api"
 	v1limiter "github.com/DanLavine/willow/pkg/models/api/limiter/v1"
+	"github.com/DanLavine/willow/pkg/models/api/v1locker"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 	. "github.com/onsi/gomega"
 	"go.uber.org/mock/gomock"
@@ -761,11 +762,12 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 	})
 
 	t.Run("Describe obtaining lock failures", func(t *testing.T) {
-		t.Run("It locks and releases each key value pair when trying to increment a counter", func(t *testing.T) {
+		t.Run("It locks and releases each key value pair when trying to increment a counter if a rule is found", func(t *testing.T) {
 			rulesManager := NewRulesManger(constructor)
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 
+			//setup rules
 			for i := 0; i < 5; i++ {
 				// single instance rule group by
 				createRequest := &v1limiter.RuleRequest{
@@ -792,7 +794,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 			fakeLock.EXPECT().Release().Times(2)
 
 			fakeLocker := lockerclientfakes.NewMockLockerClient(mockController)
-			fakeLocker.EXPECT().ObtainLock(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, keyValues datatypes.KeyValues, timeout time.Duration) (lockerclient.Lock, error) {
+			fakeLocker.EXPECT().ObtainLock(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, lockRequest v1locker.CreateLockRequest) (lockerclient.Lock, error) {
 				return fakeLock, nil
 			}).Times(2)
 
@@ -833,7 +835,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 
 				obtainCount := 0
 				fakeLocker := lockerclientfakes.NewMockLockerClient(mockController)
-				fakeLocker.EXPECT().ObtainLock(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, keyValues datatypes.KeyValues, timeout time.Duration) (lockerclient.Lock, error) {
+				fakeLocker.EXPECT().ObtainLock(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, lockRequest v1locker.CreateLockRequest) (lockerclient.Lock, error) {
 					if obtainCount == 0 {
 						obtainCount++
 						return fakeLock, nil
@@ -894,7 +896,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 
 				count := 0
 				fakeLocker := lockerclientfakes.NewMockLockerClient(mockController)
-				fakeLocker.EXPECT().ObtainLock(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, keyValues datatypes.KeyValues, timeout time.Duration) (lockerclient.Lock, error) {
+				fakeLocker.EXPECT().ObtainLock(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, lockRequest v1locker.CreateLockRequest) (lockerclient.Lock, error) {
 					if count == 0 {
 						count++
 					} else {
@@ -925,7 +927,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 		fakeLock.EXPECT().Done().AnyTimes()
 
 		fakeLocker := lockerclientfakes.NewMockLockerClient(mockController)
-		fakeLocker.EXPECT().ObtainLock(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, keyValues datatypes.KeyValues, timeout time.Duration) (lockerclient.Lock, error) {
+		fakeLocker.EXPECT().ObtainLock(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, lockRequest v1locker.CreateLockRequest) (lockerclient.Lock, error) {
 			return fakeLock, nil
 		}).AnyTimes()
 
@@ -1424,12 +1426,22 @@ func TestRulesManager_ListCounters(t *testing.T) {
 			},
 		}
 
+		resp1 := v1limiter.CounterResponse{
+			KeyValues: keyValuesOne,
+			Counters:  3,
+		}
+		resp2 := v1limiter.CounterResponse{
+			KeyValues: keyValuesTwo,
+			Counters:  1,
+		}
+
 		countersResponse, err := rulesManager.ListCounters(zap.NewNop(), query)
 		g.Expect(len(countersResponse)).To(Equal(2))
-		g.Expect(countersResponse[0].KeyValues).To(Equal(keyValuesOne))
-		g.Expect(countersResponse[0].Counters).To(Equal(uint64(3)))
-		g.Expect(countersResponse[1].KeyValues).To(Equal(keyValuesTwo))
-		g.Expect(countersResponse[1].Counters).To(Equal(uint64(1)))
+		//g.Expect(countersResponse[0].KeyValues).To(Equal(keyValuesOne))
+		//g.Expect(countersResponse[0].Counters).To(Equal(uint64(3)))
+		//g.Expect(countersResponse[1].KeyValues).To(Equal(keyValuesTwo))
+		//g.Expect(countersResponse[1].Counters).To(Equal(uint64(1)))
+		g.Expect(countersResponse).To(ConsistOf(resp1, resp2))
 		g.Expect(err).ToNot(HaveOccurred())
 	})
 }

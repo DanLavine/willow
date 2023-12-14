@@ -58,19 +58,22 @@ components:
         General query that is used for many list apis. When resolving the query,
         'and' operations have higher precedent than 'or'
       properties:
-        KeyValueSelection:
+        AssociatedKeyValues:
           type: object
-          $ref: "#/components/schemas/KeyValueSelection"
-        OR:
-          type: array
-          items:
-            type: object
-            $ref: "#/components/schemas/AssociatedKeyValuesQuery"
-        AND:
-          type: array
-          items:
-            type: object
-            $ref: "#/components/schemas/AssociatedKeyValuesQuery"
+          properties:
+            KeyValueSelection:
+              type: object
+              $ref: "#/components/schemas/KeyValueSelection"
+            OR:
+              type: array
+              items:
+                type: object
+                $ref: "#/components/schemas/AssociatedKeyValuesQuery"
+            AND:
+              type: array
+              items:
+                type: object
+                $ref: "#/components/schemas/AssociatedKeyValuesQuery"
 
     # Map of KeyValues
     KeyValueSelection:

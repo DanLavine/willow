@@ -26,8 +26,7 @@ type LockerClient interface {
 
 	//	PARAMS:
 	//	- ctx - Context that can be used to cancel the blocking requst trying to obtain the lock. NOTE: once a lock is obtained, release must be called
-	//	- keyValues - Key Values to obtain the unique lock for
-	//	- timeout - How long the lock should remain valid for if the heartbeats are failing
+	//	- lockRequest - request for the lock to obtain with a configured timeout
 	//
 	//	RETURNS
 	//	- Lock - lock object that can be used to release a lock, and monitor if a lock is lost for some reason
@@ -37,7 +36,7 @@ type LockerClient interface {
 	// Obtain a lock for a particular set of KeyValues. This blocks until the desired lock is obtained, or the context is canceled.
 	// The returned lock will automatically heartbeat to ensure that the lock remains valid. If the heartbeat fails for some reason,
 	// the channel returned from the `lock.Done()` call will be closed. It is up to the clients to monitor for a lock being lost
-	ObtainLock(ctx context.Context, keyValues datatypes.KeyValues, timeout time.Duration) (Lock, error)
+	ObtainLock(ctx context.Context, lockRequest v1locker.CreateLockRequest) (Lock, error)
 
 	// Done is closed if the LockerClient's contex is closed and no longer heartbeating
 	Done() <-chan struct{}
@@ -135,8 +134,7 @@ func (lc *lockerclient) Healthy() error {
 
 //	PARAMS:
 //	- ctx - Context that can be used to cancel the blocking requst trying to obtain the lock. NOTE: once a lock is obtained, release must be called
-//	- keyValues - Key Values to obtain the unique lock for
-//	- timeout - How long the lock should remain valid for if the heartbeats are failing
+//	- lockRequest - request for the lock to obtain with a configured timeout
 //
 //	RETURNS
 //	- Lock - lock object that can be used to release a lock, and monitor if a lock is lost for some reason
@@ -146,7 +144,7 @@ func (lc *lockerclient) Healthy() error {
 // Obtain a lock for a particular set of KeyValues. This blocks until the desired lock is obtained, or the context is canceled.
 // The returned lock will automatically heartbeat to ensure that the lock remains valid. If the heartbeat fails for some reason,
 // the channel returned from the `lock.Done()` call will be closed. It is up to the clients to monitor for a lock being lost
-func (lc *lockerclient) ObtainLock(ctx context.Context, keyValues datatypes.KeyValues, timeout time.Duration) (Lock, error) {
+func (lc *lockerclient) ObtainLock(ctx context.Context, lockRequest v1locker.CreateLockRequest) (Lock, error) {
 	select {
 	case <-lc.done:
 		return nil, fmt.Errorf("locker client has already been canceled and won't process heartbeats. Refusing to obtain the lock")
@@ -155,11 +153,7 @@ func (lc *lockerclient) ObtainLock(ctx context.Context, keyValues datatypes.KeyV
 	}
 
 	// create lock request body
-	createLockRequest := v1locker.CreateLockRequest{
-		KeyValues: keyValues,
-		Timeout:   timeout,
-	}
-	body, err := json.Marshal(createLockRequest)
+	body, err := json.Marshal(lockRequest)
 	if err != nil {
 		// should never actually hit this
 		return nil, err
@@ -189,7 +183,7 @@ func (lc *lockerclient) ObtainLock(ctx context.Context, keyValues datatypes.KeyV
 		}()
 
 		for {
-			req, err := http.NewRequestWithContext(cancelContext, "POST", fmt.Sprintf("%s/v1/locker/create", lc.url), bytes.NewBuffer(body))
+			req, err := http.NewRequestWithContext(cancelContext, "POST", fmt.Sprintf("%s/v1/locks", lc.url), bytes.NewBuffer(body))
 			if err != nil {
 				// this should never actually hit
 				lockErr = fmt.Errorf("internal error setting up http request: %w", err)
@@ -238,16 +232,16 @@ func (lc *lockerclient) ObtainLock(ctx context.Context, keyValues datatypes.KeyV
 					canDelete := func(_ any) bool {
 						return true
 					}
-					lc.locks.Delete(btreeassociated.ConverDatatypesKeyValues(keyValues), canDelete)
+					lc.locks.Delete(btreeassociated.ConverDatatypesKeyValues(lockRequest.KeyValues), canDelete)
 				}
 
 				if lc.heartbeatErrorCallback != nil {
-					returnLock = newLock(createLockResponse.SessionID, createLockRequest.Timeout, lc.client, lc.url, nil, lostLockWrapper)
-				} else {
 					errCallback := func(err error) {
-						lc.heartbeatErrorCallback(keyValues, err)
+						lc.heartbeatErrorCallback(lockRequest.KeyValues, err)
 					}
-					returnLock = newLock(createLockResponse.SessionID, createLockRequest.Timeout, lc.client, lc.url, errCallback, lostLockWrapper)
+					returnLock = newLock(createLockResponse.SessionID, createLockResponse.Timeout, lc.client, lc.url, errCallback, lostLockWrapper)
+				} else {
+					returnLock = newLock(createLockResponse.SessionID, createLockResponse.Timeout, lc.client, lc.url, nil, lostLockWrapper)
 				}
 
 				// setup the heartbeat operation
@@ -294,7 +288,7 @@ func (lc *lockerclient) ObtainLock(ctx context.Context, keyValues datatypes.KeyV
 	}
 
 	// create or find the lock if we already have it
-	_, _ = lc.locks.CreateOrFind(btreeassociated.ConverDatatypesKeyValues(keyValues), onCreate, onFind)
+	_, _ = lc.locks.CreateOrFind(btreeassociated.ConverDatatypesKeyValues(lockRequest.KeyValues), onCreate, onFind)
 
 	return returnLock, lockErr
 }

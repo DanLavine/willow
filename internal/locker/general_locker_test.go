@@ -10,6 +10,7 @@ import (
 	"github.com/DanLavine/goasync"
 
 	btreeassociated "github.com/DanLavine/willow/internal/datastructures/btree_associated"
+	v1 "github.com/DanLavine/willow/pkg/models/api/common/v1"
 	"github.com/DanLavine/willow/pkg/models/api/v1locker"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 	. "github.com/onsi/gomega"
@@ -352,7 +353,7 @@ func TestGeneralLocker_ObtainLocks(t *testing.T) {
 func TestGeneralLocker_ListLocks(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	t.Run("It lists all locks that have been created", func(t *testing.T) {
+	t.Run("It properly queries all locks that were created", func(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
@@ -364,19 +365,28 @@ func TestGeneralLocker_ListLocks(t *testing.T) {
 		generalLocker := NewGeneralLocker(nil)
 		taskManager.AddExecuteTask("teset", generalLocker)
 
-		g.Expect(generalLocker.ObtainLock(context.Background(), defaultCreateLockRequest())).ToNot(BeNil())
-		g.Expect(generalLocker.ObtainLock(context.Background(), overlapOneKeyValue())).ToNot(BeNil())
+		lock1 := generalLocker.ObtainLock(context.Background(), defaultCreateLockRequest())
+		g.Expect(lock1).ToNot(BeNil())
+		lock2 := generalLocker.ObtainLock(context.Background(), overlapOneKeyValue())
+		g.Expect(lock2).ToNot(BeNil())
 
-		locks := generalLocker.ListLocks()
+		query := datatypes.AssociatedKeyValuesQuery{}
+		g.Expect(query.Validate()).ToNot(HaveOccurred())
+
+		locks := generalLocker.ListLocks(&v1.GeneralAssociatedQuery{AssociatedKeyValues: query})
 		g.Expect(len(locks)).To(Equal(2))
 
-		g.Expect(locks).To(ContainElement(v1locker.Lock{LocksHeldOrWaiting: 1, KeyValues: datatypes.KeyValues{"1": datatypes.String("one"), "4": datatypes.Int(2), "5": datatypes.Uint64(3)}}))
-		g.Expect(locks).To(ContainElement(v1locker.Lock{LocksHeldOrWaiting: 1, KeyValues: datatypes.KeyValues{"1": datatypes.String("one"), "2": datatypes.Int(2), "3": datatypes.Uint64(3)}}))
+		g.Expect(locks).To(ContainElement(v1locker.Lock{SessionID: lock2.SessionID, LocksHeldOrWaiting: 1, KeyValues: datatypes.KeyValues{"1": datatypes.String("one"), "4": datatypes.Int(2), "5": datatypes.Uint64(3)}}))
+		g.Expect(locks).To(ContainElement(v1locker.Lock{SessionID: lock1.SessionID, LocksHeldOrWaiting: 1, KeyValues: datatypes.KeyValues{"1": datatypes.String("one"), "2": datatypes.Int(2), "3": datatypes.Uint64(3)}}))
 	})
 }
 
 func TestGeneralLocker_Heartbeat(t *testing.T) {
 	g := NewGomegaWithT(t)
+
+	query := datatypes.AssociatedKeyValuesQuery{}
+	g.Expect(query.Validate()).ToNot(HaveOccurred())
+	generalQuery := &v1.GeneralAssociatedQuery{AssociatedKeyValues: query}
 
 	t.Run("It returns an error if the session ID does not exist", func(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
@@ -420,7 +430,7 @@ func TestGeneralLocker_Heartbeat(t *testing.T) {
 			g.Expect(generalLocker.Heartbeat(lockResp.SessionID)).To(BeNil())
 		}
 
-		locks := generalLocker.ListLocks()
+		locks := generalLocker.ListLocks(generalQuery)
 		g.Expect(len(locks)).To(Equal(1))
 	})
 
@@ -443,7 +453,7 @@ func TestGeneralLocker_Heartbeat(t *testing.T) {
 		g.Expect(lockResp).ToNot(BeNil())
 
 		g.Eventually(func() int {
-			return len(generalLocker.ListLocks())
+			return len(generalLocker.ListLocks(generalQuery))
 		}).Should(Equal(0))
 	})
 
@@ -475,7 +485,7 @@ func TestGeneralLocker_Heartbeat(t *testing.T) {
 			g.Eventually(sessionIDChan).Should(Receive(Not(BeNil())))
 
 			// the locks should still be listed
-			locks := generalLocker.ListLocks()
+			locks := generalLocker.ListLocks(generalQuery)
 			g.Expect(len(locks)).To(Equal(1))
 		})
 	})

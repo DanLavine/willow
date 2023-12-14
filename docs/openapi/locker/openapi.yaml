@@ -8,12 +8,13 @@ info:
 paths:
   /health:
     get:
+      operationId: health check
       description: |
         API to check that the service is reachable from a client
       responses:
         200:
           description: "service is running find"
-  /v1/locker:
+  /v1/locks:
     post:
       operationId: create Lock
       description: |
@@ -58,7 +59,6 @@ paths:
             appplication/json:
               schema:
                 $ref: "../common/components.yaml#/components/schemas/ApiError"
-
         503:
           description: server is shutting down for a restart and client should retry obtaining the lock
     get:
@@ -78,7 +78,13 @@ paths:
             appplication/json:
               schema:
                 $ref: "#/components/schemas/ListResponse"
-  /v1/locker/:_lock_session_id:
+        400:
+          description: returned when an error processing for the request body fails
+          content:
+            appplication/json:
+              schema:
+                $ref: "../common/components.yaml#/components/schemas/ApiError"
+  /v1/locks/:_lock_session_id:
     delete:
       operationId: delete Lock
       description: |
@@ -88,13 +94,7 @@ paths:
       responses:
         204:
           description: Resrouce was deleted or never even existed
-        400:
-          description: returned when an error when the request body fails validation
-          content:
-            appplication/json:
-              schema:
-                $ref: "../common/components.yaml#/components/schemas/ApiError"
-  /v1/locker/:_lock_session_id/heartbeat:
+  /v1/locks/:_lock_session_id/heartbeat:
     post:
       operationId: heartbeat Lock
       description: |
@@ -140,6 +140,8 @@ components:
           items:
             type: object
             properties:
+              SessionID:
+                type: string
               KeyValues:
                 $ref: "../common/components.yaml#/components/schemas/KeyValues"
               LocksHeldOrWaiting:

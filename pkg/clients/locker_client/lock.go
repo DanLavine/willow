@@ -1,7 +1,6 @@
 package lockerclient
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -119,7 +118,7 @@ func (l *lock) Execute(ctx context.Context) error {
 //	- int - 0 indicattes success, 1 indicates that the heartbeat failed, 2 indicates that the Lock was lost and we can stop the async loop
 func (l *lock) heartbeat() int {
 	// heartbeat Lock
-	req, err := http.NewRequest("POST", fmt.Sprintf("%s/v1/locker/%s/heartbeat", l.url, l.sessionID), nil)
+	req, err := http.NewRequest("POST", fmt.Sprintf("%s/v1/locks/%s/heartbeat", l.url, l.sessionID), nil)
 	if err != nil {
 		if l.heartbeatErrorCallback != nil {
 			l.heartbeatErrorCallback(err)
@@ -219,23 +218,14 @@ func (l *lock) release() error {
 		l.lock.Unlock()
 	}()
 
-	// have already been released. Don't allow for multiple calls to mistakenly report that we cannot dele
+	// have already been released. Don't allow for multiple calls to mistakenly report that we cannot delete
 	// the lock from the server side
 	if l.released {
 		return nil
 	}
 
-	// delete Lock request body
-	deleteLockRequest := v1locker.DeleteLockRequest{
-		SessionID: l.sessionID,
-	}
-	body, err := json.Marshal(deleteLockRequest)
-	if err != nil {
-		return err
-	}
-
 	// Delete Lock
-	req, err := http.NewRequest("DELETE", fmt.Sprintf("%s/v1/locker/delete", l.url), bytes.NewBuffer(body))
+	req, err := http.NewRequest("DELETE", fmt.Sprintf("%s/v1/locks/%s", l.url, l.sessionID), nil)
 	if err != nil {
 		return err
 	}

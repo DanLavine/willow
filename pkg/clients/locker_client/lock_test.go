@@ -43,7 +43,7 @@ func TestLock_Execute(t *testing.T) {
 		// setup the server
 		serverCounter := new(atomic.Int64)
 		mux := http.NewServeMux()
-		mux.HandleFunc("/v1/locker/someID/heartbeat", func(w http.ResponseWriter, r *http.Request) {
+		mux.HandleFunc("/v1/locks/someID/heartbeat", func(w http.ResponseWriter, r *http.Request) {
 			serverCounter.Add(1)
 			w.WriteHeader(http.StatusOK)
 		})
@@ -108,12 +108,12 @@ func TestLock_Execute(t *testing.T) {
 		// setup the server
 		heartbeatCounter := new(atomic.Int64)
 		mux := http.NewServeMux()
-		mux.HandleFunc("/v1/locker/someID/heartbeat", func(w http.ResponseWriter, r *http.Request) {
+		mux.HandleFunc("/v1/locks/someID/heartbeat", func(w http.ResponseWriter, r *http.Request) {
 			heartbeatCounter.Add(1)
 			w.WriteHeader(http.StatusOK)
 		})
 		deleteCounter := new(atomic.Int64)
-		mux.HandleFunc("/v1/locker/delete", func(w http.ResponseWriter, r *http.Request) {
+		mux.HandleFunc("/v1/locks/someID", func(w http.ResponseWriter, r *http.Request) {
 			deleteCounter.Add(1)
 			w.WriteHeader(http.StatusNoContent)
 		})
@@ -152,12 +152,12 @@ func TestLock_Execute(t *testing.T) {
 		// setup the server
 		heartbeatCounter := new(atomic.Int64)
 		mux := http.NewServeMux()
-		mux.HandleFunc("/v1/locker/someID/heartbeat", func(w http.ResponseWriter, r *http.Request) {
+		mux.HandleFunc("/v1/locks/someID/heartbeat", func(w http.ResponseWriter, r *http.Request) {
 			heartbeatCounter.Add(1)
 			w.WriteHeader(http.StatusOK)
 		})
 		deleteCounter := new(atomic.Int64)
-		mux.HandleFunc("/v1/locker/delete", func(w http.ResponseWriter, r *http.Request) {
+		mux.HandleFunc("/v1/locks/someID", func(w http.ResponseWriter, r *http.Request) {
 			deleteCounter.Add(1)
 			w.WriteHeader(http.StatusNoContent)
 		})
@@ -213,7 +213,7 @@ func TestLock_heartbeat(t *testing.T) {
 	t.Run("Context when the response code is http.StatusOK", func(t *testing.T) {
 		t.Run("It does not call any callbacks", func(t *testing.T) {
 			mux := http.NewServeMux()
-			mux.HandleFunc("/v1/locker/someID/heartbeat", func(w http.ResponseWriter, r *http.Request) {
+			mux.HandleFunc("/v1/locks/someID/heartbeat", func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusOK)
 			})
 
@@ -232,7 +232,7 @@ func TestLock_heartbeat(t *testing.T) {
 		t.Run("It calls heartbeatErrorCallback if the response body canot be read", func(t *testing.T) {
 			counter := 0
 			mux := http.NewServeMux()
-			mux.HandleFunc("/v1/locker/someID/heartbeat", func(w http.ResponseWriter, r *http.Request) {
+			mux.HandleFunc("/v1/locks/someID/heartbeat", func(w http.ResponseWriter, r *http.Request) {
 				switch counter {
 				case 0:
 					w.Header().Add("content-length", "5")
@@ -267,7 +267,7 @@ func TestLock_heartbeat(t *testing.T) {
 	t.Run("Context when the response code is http.StatusBadRequest", func(t *testing.T) {
 		t.Run("It calls the heartbeatErrorCallback if the server response cannot be parsed", func(t *testing.T) {
 			mux := http.NewServeMux()
-			mux.HandleFunc("/v1/locker/someID/heartbeat", func(w http.ResponseWriter, r *http.Request) {
+			mux.HandleFunc("/v1/locks/someID/heartbeat", func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusBadRequest)
 				w.Write([]byte(`this isn't json`))
 			})
@@ -284,7 +284,7 @@ func TestLock_heartbeat(t *testing.T) {
 
 		t.Run("It calls the heartbeatErrorCallback with the remote error", func(t *testing.T) {
 			mux := http.NewServeMux()
-			mux.HandleFunc("/v1/locker/someID/heartbeat", func(w http.ResponseWriter, r *http.Request) {
+			mux.HandleFunc("/v1/locks/someID/heartbeat", func(w http.ResponseWriter, r *http.Request) {
 				apiErr := &api.Error{Message: "this is the api error"}
 				w.WriteHeader(http.StatusBadRequest)
 				w.Write(apiErr.ToBytes())
@@ -304,7 +304,7 @@ func TestLock_heartbeat(t *testing.T) {
 	t.Run("Context when the response code is http.StatusConflict", func(t *testing.T) {
 		t.Run("It calls the heartbeatErrorCallback if the server response cannot be parsed", func(t *testing.T) {
 			mux := http.NewServeMux()
-			mux.HandleFunc("/v1/locker/someID/heartbeat", func(w http.ResponseWriter, r *http.Request) {
+			mux.HandleFunc("/v1/locks/someID/heartbeat", func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusConflict)
 				w.Write([]byte(`this isn't json`))
 			})
@@ -321,7 +321,7 @@ func TestLock_heartbeat(t *testing.T) {
 
 		t.Run("It calls the lostLock callback and returns the original server error when the response is parsed", func(t *testing.T) {
 			mux := http.NewServeMux()
-			mux.HandleFunc("/v1/locker/someID/heartbeat", func(w http.ResponseWriter, r *http.Request) {
+			mux.HandleFunc("/v1/locks/someID/heartbeat", func(w http.ResponseWriter, r *http.Request) {
 				heartbeatError := &v1locker.HeartbeatError{
 					Session: "someID",
 					Error:   "the session id does not exist",
@@ -345,7 +345,7 @@ func TestLock_heartbeat(t *testing.T) {
 	t.Run("Context when the response code is anything else", func(t *testing.T) {
 		t.Run("It calls the heartbeatErrorCallback the remote server response cannot be read unexpectedly", func(t *testing.T) {
 			mux := http.NewServeMux()
-			mux.HandleFunc("/v1/locker/someID/heartbeat", func(w http.ResponseWriter, r *http.Request) {
+			mux.HandleFunc("/v1/locks/someID/heartbeat", func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusInternalServerError)
 				w.Write([]byte(`what should i do`))
 			})
@@ -369,10 +369,10 @@ func TestLock_release(t *testing.T) {
 		t.Run("It stops heartbeating and closes the Done channel", func(t *testing.T) {
 			// setup server
 			mux := http.NewServeMux()
-			mux.HandleFunc("/v1/locker/someID/heartbeat", func(w http.ResponseWriter, r *http.Request) {
+			mux.HandleFunc("/v1/locks/someID/heartbeat", func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusOK)
 			})
-			mux.HandleFunc("/v1/locker/delete", func(w http.ResponseWriter, r *http.Request) {
+			mux.HandleFunc("/v1/locks/someID", func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusNoContent)
 			})
 
@@ -405,10 +405,10 @@ func TestLock_release(t *testing.T) {
 		t.Run("It reports the api error on a bad request", func(t *testing.T) {
 			// setup server
 			mux := http.NewServeMux()
-			mux.HandleFunc("/v1/locker/someID/heartbeat", func(w http.ResponseWriter, r *http.Request) {
+			mux.HandleFunc("/v1/locks/someID/heartbeat", func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusOK)
 			})
-			mux.HandleFunc("/v1/locker/delete", func(w http.ResponseWriter, r *http.Request) {
+			mux.HandleFunc("/v1/locks/someID", func(w http.ResponseWriter, r *http.Request) {
 				apiErr := &api.Error{Message: "bad request budy"}
 				w.WriteHeader(http.StatusBadRequest)
 				w.Write(apiErr.ToBytes())
@@ -442,10 +442,10 @@ func TestLock_release(t *testing.T) {
 		t.Run("It returns an error if the response cannot be read", func(t *testing.T) {
 			// setup server
 			mux := http.NewServeMux()
-			mux.HandleFunc("/v1/locker/someID/heartbeat", func(w http.ResponseWriter, r *http.Request) {
+			mux.HandleFunc("/v1/locks/someID/heartbeat", func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusOK)
 			})
-			mux.HandleFunc("/v1/locker/delete", func(w http.ResponseWriter, r *http.Request) {
+			mux.HandleFunc("/v1/locks/someID", func(w http.ResponseWriter, r *http.Request) {
 				w.Header().Add("content-length", "5")
 				w.WriteHeader(http.StatusBadRequest)
 				w.Write([]byte(`this isn't json`))
@@ -479,10 +479,10 @@ func TestLock_release(t *testing.T) {
 		t.Run("It returns an error if the response body cannot be parsed", func(t *testing.T) {
 			// setup server
 			mux := http.NewServeMux()
-			mux.HandleFunc("/v1/locker/someID/heartbeat", func(w http.ResponseWriter, r *http.Request) {
+			mux.HandleFunc("/v1/locks/someID/heartbeat", func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusOK)
 			})
-			mux.HandleFunc("/v1/locker/delete", func(w http.ResponseWriter, r *http.Request) {
+			mux.HandleFunc("/v1/locks/someID", func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusBadRequest)
 				w.Write([]byte(`this isn't json`))
 			})
@@ -517,10 +517,10 @@ func TestLock_release(t *testing.T) {
 		t.Run("It stops heartbeating and closes the Done channel", func(t *testing.T) {
 			// setup server
 			mux := http.NewServeMux()
-			mux.HandleFunc("/v1/locker/someID/heartbeat", func(w http.ResponseWriter, r *http.Request) {
+			mux.HandleFunc("/v1/locks/someID/heartbeat", func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusOK)
 			})
-			mux.HandleFunc("/v1/locker/delete", func(w http.ResponseWriter, r *http.Request) {
+			mux.HandleFunc("/v1/locks/someID", func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusInternalServerError)
 			})
 

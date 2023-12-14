@@ -98,6 +98,7 @@ func (itc *IntegrationTestConstruct) StartLocker(g *WithT) {
 		"-locker-ca", filepath.Join(currentDir, "..", "..", "..", "testhelpers", "tls-keys", "ca.crt"),
 		"-locker-server-key", filepath.Join(currentDir, "..", "..", "..", "testhelpers", "tls-keys", "server.key"),
 		"-locker-server-crt", filepath.Join(currentDir, "..", "..", "..", "testhelpers", "tls-keys", "server.crt"),
+		"-locker-default-timeout", "1s",
 	}
 
 	lockerExe := exec.Command(itc.ServerPath, cmdLineFlags...)

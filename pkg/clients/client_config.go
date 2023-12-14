@@ -9,7 +9,7 @@ import (
 
 type Config struct {
 	// remote url address
-	// I.E: https://selfdeployed/
+	// I.E: https://selfdeployed:8080
 	URL string
 
 	// if these values are set, then the config will validate and use the custom tls keys file for https.

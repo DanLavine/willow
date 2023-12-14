@@ -16,6 +16,7 @@ import (
 	"github.com/DanLavine/willow/pkg/models/api"
 	v1 "github.com/DanLavine/willow/pkg/models/api/limiter/v1"
 	v1limiter "github.com/DanLavine/willow/pkg/models/api/limiter/v1"
+	"github.com/DanLavine/willow/pkg/models/api/v1locker"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
@@ -370,10 +371,13 @@ func (rm *rulesManger) IncrementCounters(logger *zap.Logger, requestContext cont
 		channelOps, chanReceiver := channelops.NewMergeRead[struct{}](true, requestContext)
 		for _, key := range increment.KeyValues.SoretedKeys() {
 			// setup the group to lock
-			lockKeyValues := datatypes.KeyValues{key: increment.KeyValues[key]}
+			lockKeyValues := v1locker.CreateLockRequest{
+				KeyValues: datatypes.KeyValues{key: increment.KeyValues[key]},
+				Timeout:   time.Second,
+			}
 
 			// obtain the required lock
-			lockerLock, err := lockerClient.ObtainLock(requestContext, lockKeyValues, time.Second)
+			lockerLock, err := lockerClient.ObtainLock(requestContext, lockKeyValues)
 			if err != nil {
 				logger.Error("failed to obtain a lock from the locker service", zap.Any("key values", lockKeyValues), zap.Error(err))
 				return errors.InternalServerError

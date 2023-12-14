@@ -84,7 +84,7 @@ func TestLockerClient_ObtainLock(t *testing.T) {
 		g.Eventually(lockerClient.Done()).Should(BeClosed())
 
 		// try to obtain the lock 1st time
-		lock, err := lockerClient.ObtainLock(ctx, datatypes.KeyValues{"one": datatypes.Float32(3.4)}, time.Second)
+		lock, err := lockerClient.ObtainLock(ctx, v1locker.CreateLockRequest{KeyValues: datatypes.KeyValues{"one": datatypes.Float32(3.4)}})
 		g.Expect(err).To(HaveOccurred())
 		g.Expect(err.Error()).To(Equal("locker client has already been canceled and won't process heartbeats. Refusing to obtain the lock"))
 		g.Expect(lock).To(BeNil())
@@ -105,7 +105,7 @@ func TestLockerClient_ObtainLock(t *testing.T) {
 		lockContext, lockCancel := context.WithCancel(context.Background())
 		lockCancel()
 
-		lock, err := lockerClient.ObtainLock(lockContext, datatypes.KeyValues{"one": datatypes.Float32(3.4)}, time.Second)
+		lock, err := lockerClient.ObtainLock(lockContext, v1locker.CreateLockRequest{KeyValues: datatypes.KeyValues{"one": datatypes.Float32(3.4)}})
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(lock).To(BeNil())
 	})
@@ -122,7 +122,7 @@ func TestLockerClient_ObtainLock(t *testing.T) {
 		g.Expect(lockerClient).ToNot(BeNil())
 
 		// obtain the lock 1st time
-		lock, err := lockerClient.ObtainLock(ctx, datatypes.KeyValues{"one": datatypes.Float32(3.4)}, time.Second)
+		lock, err := lockerClient.ObtainLock(ctx, v1locker.CreateLockRequest{KeyValues: datatypes.KeyValues{"one": datatypes.Float32(3.4)}})
 		g.Expect(err).To(HaveOccurred())
 		g.Expect(err.Error()).To(ContainSubstring("unable to make request to locker service"))
 		g.Expect(lock).To(BeNil())
@@ -132,7 +132,7 @@ func TestLockerClient_ObtainLock(t *testing.T) {
 		// setup server
 		mux := http.NewServeMux()
 		serverReceivedRequst := make(chan struct{})
-		mux.HandleFunc("/v1/locker/create", func(w http.ResponseWriter, r *http.Request) {
+		mux.HandleFunc("/v1/locks", func(w http.ResponseWriter, r *http.Request) {
 			close(serverReceivedRequst)
 			time.Sleep(time.Second)
 
@@ -162,7 +162,7 @@ func TestLockerClient_ObtainLock(t *testing.T) {
 		doneObtaineLock := make(chan struct{})
 		go func() {
 			defer close(doneObtaineLock)
-			lock, err = lockerClient.ObtainLock(lockContext, datatypes.KeyValues{"one": datatypes.Float32(3.4)}, time.Second)
+			lock, err = lockerClient.ObtainLock(lockContext, v1locker.CreateLockRequest{KeyValues: datatypes.KeyValues{"one": datatypes.Float32(3.4)}})
 		}()
 
 		// close the client
@@ -179,7 +179,7 @@ func TestLockerClient_ObtainLock(t *testing.T) {
 		t.Run("It can obtain a lock for the provided key values", func(t *testing.T) {
 			// setup server
 			mux := http.NewServeMux()
-			mux.HandleFunc("/v1/locker/create", func(w http.ResponseWriter, r *http.Request) {
+			mux.HandleFunc("/v1/locks", func(w http.ResponseWriter, r *http.Request) {
 				createLockResponse := &v1locker.CreateLockResponse{
 					SessionID: "24",
 					Timeout:   time.Second,
@@ -201,7 +201,7 @@ func TestLockerClient_ObtainLock(t *testing.T) {
 			g.Expect(lockerClient).ToNot(BeNil())
 
 			// obtain the lock
-			lock, err := lockerClient.ObtainLock(ctx, datatypes.KeyValues{"one": datatypes.Float32(3.4)}, time.Second)
+			lock, err := lockerClient.ObtainLock(ctx, v1locker.CreateLockRequest{KeyValues: datatypes.KeyValues{"one": datatypes.Float32(3.4)}})
 			g.Expect(err).ToNot(HaveOccurred())
 			g.Expect(lock).ToNot(BeNil())
 		})
@@ -210,7 +210,7 @@ func TestLockerClient_ObtainLock(t *testing.T) {
 			// setup server
 			mux := http.NewServeMux()
 			createCounter := 0
-			mux.HandleFunc("/v1/locker/create", func(w http.ResponseWriter, r *http.Request) {
+			mux.HandleFunc("/v1/locks", func(w http.ResponseWriter, r *http.Request) {
 				createCounter++
 				createLockResponse := &v1locker.CreateLockResponse{
 					SessionID: "24",
@@ -233,12 +233,12 @@ func TestLockerClient_ObtainLock(t *testing.T) {
 			g.Expect(lockerClient).ToNot(BeNil())
 
 			// obtain the lock 1st time
-			lock1, err := lockerClient.ObtainLock(ctx, datatypes.KeyValues{"one": datatypes.Float32(3.4)}, time.Second)
+			lock1, err := lockerClient.ObtainLock(ctx, v1locker.CreateLockRequest{KeyValues: datatypes.KeyValues{"one": datatypes.Float32(3.4)}})
 			g.Expect(err).ToNot(HaveOccurred())
 			g.Expect(lock1).ToNot(BeNil())
 
 			// obtain the lock 2nd time
-			lock2, err := lockerClient.ObtainLock(ctx, datatypes.KeyValues{"one": datatypes.Float32(3.4)}, time.Second)
+			lock2, err := lockerClient.ObtainLock(ctx, v1locker.CreateLockRequest{KeyValues: datatypes.KeyValues{"one": datatypes.Float32(3.4)}})
 			g.Expect(err).ToNot(HaveOccurred())
 			g.Expect(lock2).ToNot(BeNil())
 
@@ -250,7 +250,7 @@ func TestLockerClient_ObtainLock(t *testing.T) {
 		t.Run("It returns an error if the response body cannot be read", func(t *testing.T) {
 			// setup server
 			mux := http.NewServeMux()
-			mux.HandleFunc("/v1/locker/create", func(w http.ResponseWriter, r *http.Request) {
+			mux.HandleFunc("/v1/locks", func(w http.ResponseWriter, r *http.Request) {
 				w.Header().Add("content-length", "5")
 				w.WriteHeader(http.StatusCreated)
 				w.Write([]byte(`this has a bad header`))
@@ -268,7 +268,7 @@ func TestLockerClient_ObtainLock(t *testing.T) {
 			g.Expect(lockerClient).ToNot(BeNil())
 
 			// try to obtain the lock
-			lock, err := lockerClient.ObtainLock(ctx, datatypes.KeyValues{"one": datatypes.Float32(3.4)}, time.Second)
+			lock, err := lockerClient.ObtainLock(ctx, v1locker.CreateLockRequest{KeyValues: datatypes.KeyValues{"one": datatypes.Float32(3.4)}})
 			g.Expect(err).To(HaveOccurred())
 			g.Expect(err.Error()).To(ContainSubstring("failed to read response body"))
 			g.Expect(lock).To(BeNil())
@@ -277,7 +277,7 @@ func TestLockerClient_ObtainLock(t *testing.T) {
 		t.Run("It returns an error if the response body cannot be parsed", func(t *testing.T) {
 			// setup server
 			mux := http.NewServeMux()
-			mux.HandleFunc("/v1/locker/create", func(w http.ResponseWriter, r *http.Request) {
+			mux.HandleFunc("/v1/locks", func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusCreated)
 				w.Write([]byte(`this has a bad json`))
 			})
@@ -294,7 +294,7 @@ func TestLockerClient_ObtainLock(t *testing.T) {
 			g.Expect(lockerClient).ToNot(BeNil())
 
 			// try to obtain the lock
-			lock, err := lockerClient.ObtainLock(ctx, datatypes.KeyValues{"one": datatypes.Float32(3.4)}, time.Second)
+			lock, err := lockerClient.ObtainLock(ctx, v1locker.CreateLockRequest{KeyValues: datatypes.KeyValues{"one": datatypes.Float32(3.4)}})
 			g.Expect(err).To(HaveOccurred())
 			g.Expect(err.Error()).To(ContainSubstring("failed to parse server response"))
 			g.Expect(lock).To(BeNil())
@@ -303,7 +303,7 @@ func TestLockerClient_ObtainLock(t *testing.T) {
 		t.Run("It returns an error if the client is closed as soon as a lock is obtained", func(t *testing.T) {
 			// setup server
 			mux := http.NewServeMux()
-			mux.HandleFunc("/v1/locker/create", func(w http.ResponseWriter, r *http.Request) {
+			mux.HandleFunc("/v1/locks", func(w http.ResponseWriter, r *http.Request) {
 				time.Sleep(100 * time.Millisecond)
 
 				createLockResponse := &v1locker.CreateLockResponse{
@@ -340,7 +340,7 @@ func TestLockerClient_ObtainLock(t *testing.T) {
 			doneObtaineLock := make(chan struct{})
 			go func() {
 				defer close(doneObtaineLock)
-				lock, err = lockerClient.ObtainLock(lockContext, datatypes.KeyValues{"one": datatypes.Float32(3.4)}, time.Second)
+				lock, err = lockerClient.ObtainLock(lockContext, v1locker.CreateLockRequest{KeyValues: datatypes.KeyValues{"one": datatypes.Float32(3.4)}})
 			}()
 
 			// wait for the lock obtain to fail

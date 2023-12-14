@@ -17,9 +17,11 @@ import (
 	. "github.com/DanLavine/willow/integration-tests/integrationhelpers"
 	"github.com/DanLavine/willow/pkg/clients"
 	lockerclient "github.com/DanLavine/willow/pkg/clients/locker_client"
+	v1common "github.com/DanLavine/willow/pkg/models/api/common/v1"
 	"github.com/DanLavine/willow/pkg/models/api/v1locker"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 	"github.com/DanLavine/willow/testhelpers/testclient"
+
 	. "github.com/onsi/gomega"
 )
 
@@ -53,12 +55,14 @@ func Test_Lock(t *testing.T) {
 		defer cancel()
 		lockerClient := setupClient(g, ctx, testConstruct.ServerURL)
 
-		keyValues := datatypes.KeyValues{
-			"key1": datatypes.String("key one"),
-			"key2": datatypes.String("key two"),
+		lockRequest := v1locker.CreateLockRequest{
+			KeyValues: datatypes.KeyValues{
+				"key1": datatypes.String("key one"),
+				"key2": datatypes.String("key two"),
+			},
 		}
 
-		lock, err := lockerClient.ObtainLock(ctx, keyValues, time.Second)
+		lock, err := lockerClient.ObtainLock(ctx, lockRequest)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(lock).ToNot(BeNil())
 
@@ -73,21 +77,25 @@ func Test_Lock(t *testing.T) {
 		defer cancel()
 		lockerClient := setupClient(g, ctx, testConstruct.ServerURL)
 
-		keyValues1 := datatypes.KeyValues{
-			"key1": datatypes.String("key one"),
-			"key2": datatypes.String("key two"),
+		lockRequest1 := v1locker.CreateLockRequest{
+			KeyValues: datatypes.KeyValues{
+				"key1": datatypes.String("key one"),
+				"key2": datatypes.String("key two"),
+			},
 		}
 
-		keyValues2 := datatypes.KeyValues{
-			"key1": datatypes.String("key one"),
-			"key3": datatypes.String("key two"),
+		lockRequest2 := v1locker.CreateLockRequest{
+			KeyValues: datatypes.KeyValues{
+				"key1": datatypes.String("key one"),
+				"key3": datatypes.String("key two"),
+			},
 		}
 
-		lock1, err := lockerClient.ObtainLock(ctx, keyValues1, time.Second)
+		lock1, err := lockerClient.ObtainLock(ctx, lockRequest1)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(lock1).ToNot(BeNil())
 
-		lock2, err := lockerClient.ObtainLock(ctx, keyValues2, time.Second)
+		lock2, err := lockerClient.ObtainLock(ctx, lockRequest2)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(lock2).ToNot(BeNil())
 
@@ -107,13 +115,15 @@ func Test_Lock(t *testing.T) {
 		// client 2
 		lockerClient2 := setupClient(g, ctx, testConstruct.ServerURL)
 
-		keyValues := datatypes.KeyValues{
-			"key1": datatypes.String("key one"),
-			"key2": datatypes.String("key two"),
+		lockRequest := v1locker.CreateLockRequest{
+			KeyValues: datatypes.KeyValues{
+				"key1": datatypes.String("key one"),
+				"key2": datatypes.String("key two"),
+			},
 		}
 
 		// 1st lock goes fine
-		lock, err := lockerClient1.ObtainLock(ctx, keyValues, time.Second)
+		lock, err := lockerClient1.ObtainLock(ctx, lockRequest)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(lock).ToNot(BeNil())
 
@@ -121,7 +131,7 @@ func Test_Lock(t *testing.T) {
 		done := make(chan struct{})
 		go func() {
 			defer close(done)
-			lock, err = lockerClient2.ObtainLock(ctx, keyValues, time.Second)
+			lock, err = lockerClient2.ObtainLock(ctx, lockRequest)
 		}()
 
 		g.Consistently(done).ShouldNot(BeClosed())
@@ -144,13 +154,15 @@ func Test_Lock(t *testing.T) {
 		// client 2
 		lockerClient2 := setupClient(g, ctx, testConstruct.ServerURL)
 
-		keyValues := datatypes.KeyValues{
-			"key1": datatypes.String("key one"),
-			"key2": datatypes.String("key two"),
+		lockRequest := v1locker.CreateLockRequest{
+			KeyValues: datatypes.KeyValues{
+				"key1": datatypes.String("key one"),
+				"key2": datatypes.String("key two"),
+			},
 		}
 
 		// 1st lock goes fine
-		lock, err := lockerClient1.ObtainLock(ctx, keyValues, time.Second)
+		lock, err := lockerClient1.ObtainLock(ctx, lockRequest)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(lock).ToNot(BeNil())
 
@@ -160,14 +172,13 @@ func Test_Lock(t *testing.T) {
 		var err2 error
 		go func() {
 			defer close(done)
-			lock2, err2 = lockerClient2.ObtainLock(ctx, keyValues, time.Second)
+			lock2, err2 = lockerClient2.ObtainLock(ctx, lockRequest)
 		}()
 
 		g.Consistently(done, time.Second).ShouldNot(BeClosed())
 
 		// release the lock
 		testConstruct.Shutdown(g)
-		fmt.Println(testConstruct.ServerStdout.String())
 		g.Eventually(lock.Done).Should(BeClosed()) // 1st lock should be released
 		g.Eventually(done).Should(BeClosed())      // 2nd lock attempt has failed
 		g.Expect(lock2).To(BeNil())                // 2nd lock is nil
@@ -182,12 +193,15 @@ func Test_Lock(t *testing.T) {
 		defer cancel()
 		lockerClient := setupClient(g, ctx, testConstruct.ServerURL)
 
-		keyValues := datatypes.KeyValues{
-			"key1": datatypes.String("key one"),
-			"key2": datatypes.String("key two"),
+		lockRequest := v1locker.CreateLockRequest{
+			KeyValues: datatypes.KeyValues{
+				"key1": datatypes.String("key one"),
+				"key2": datatypes.String("key two"),
+			},
+			Timeout: 100 * time.Millisecond,
 		}
 
-		lock, err := lockerClient.ObtainLock(ctx, keyValues, 100*time.Millisecond)
+		lock, err := lockerClient.ObtainLock(ctx, lockRequest)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(lock).ToNot(BeNil())
 
@@ -210,7 +224,11 @@ func TestLocker_List_API(t *testing.T) {
 		testConstruct.StartLocker(g)
 		defer testConstruct.Shutdown(g)
 
-		lockerClient := testConstruct.LockerClient
+		httpsClient := testConstruct.LockerClient
+
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		lockerClient := setupClient(g, ctx, testConstruct.ServerURL)
 
 		// setup the first lock
 		lockRequest := v1locker.CreateLockRequest{
@@ -219,15 +237,9 @@ func TestLocker_List_API(t *testing.T) {
 				"key2": datatypes.String("key two"),
 			},
 		}
-		data, err := json.Marshal(lockRequest)
+		lock, err := lockerClient.ObtainLock(ctx, lockRequest)
 		g.Expect(err).ToNot(HaveOccurred())
-
-		obtainLock, err := http.NewRequest("POST", fmt.Sprintf("%s/v1/locker/create", testConstruct.LockerClient.Address()), bytes.NewBuffer(data))
-		g.Expect(err).ToNot(HaveOccurred())
-
-		resp, err := lockerClient.Do(obtainLock)
-		g.Expect(err).ToNot(HaveOccurred())
-		g.Expect(resp.StatusCode).To(Equal(http.StatusCreated))
+		g.Expect(lock).ToNot(BeNil())
 
 		// setup the second lock
 		lockRequest = v1locker.CreateLockRequest{
@@ -236,25 +248,22 @@ func TestLocker_List_API(t *testing.T) {
 				"key3": datatypes.String("key three"),
 			},
 		}
-		data, err = json.Marshal(lockRequest)
+		lock, err = lockerClient.ObtainLock(ctx, lockRequest)
 		g.Expect(err).ToNot(HaveOccurred())
-
-		obtainLock, err = http.NewRequest("POST", fmt.Sprintf("%s/v1/locker/create", testConstruct.LockerClient.Address()), bytes.NewBuffer(data))
-		g.Expect(err).ToNot(HaveOccurred())
-
-		resp, err = lockerClient.Do(obtainLock)
-		g.Expect(err).ToNot(HaveOccurred())
-		g.Expect(resp.StatusCode).To(Equal(http.StatusCreated))
+		g.Expect(lock).ToNot(BeNil())
 
 		// list all the locks
-		listLocks, err := http.NewRequest("GET", fmt.Sprintf("%s/v1/locker/list", testConstruct.LockerClient.Address()), nil)
+		query := v1common.GeneralAssociatedQuery{
+			AssociatedKeyValues: datatypes.AssociatedKeyValuesQuery{},
+		}
+		listLocks, err := http.NewRequest("GET", fmt.Sprintf("%s/v1/locks", testConstruct.LockerClient.Address()), bytes.NewBuffer(query.ToBytes()))
 		g.Expect(err).ToNot(HaveOccurred())
 
-		resp, err = lockerClient.Do(listLocks)
+		resp, err := httpsClient.Do(listLocks)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(resp.StatusCode).To(Equal(http.StatusOK))
 
-		data, err = io.ReadAll(resp.Body)
+		data, err := io.ReadAll(resp.Body)
 		g.Expect(err).ToNot(HaveOccurred())
 
 		locks := v1locker.ListLockResponse{}
@@ -283,9 +292,11 @@ func TestLocker_Async_API_Threading_Checks(t *testing.T) {
 		defer cancel()
 		lockerClient := setupClient(g, ctx, testConstruct.ServerURL)
 
-		keyValues := datatypes.KeyValues{
-			"key1": datatypes.String("key one"),
-			"key2": datatypes.String("key two"),
+		lockRequest := v1locker.CreateLockRequest{
+			KeyValues: datatypes.KeyValues{
+				"key1": datatypes.String("key one"),
+				"key2": datatypes.String("key two"),
+			},
 		}
 
 		wg := new(sync.WaitGroup)
@@ -295,7 +306,7 @@ func TestLocker_Async_API_Threading_Checks(t *testing.T) {
 				defer wg.Done()
 
 				// create the lock
-				lock, err := lockerClient.ObtainLock(ctx, keyValues, time.Second)
+				lock, err := lockerClient.ObtainLock(ctx, lockRequest)
 				g.Expect(err).ToNot(HaveOccurred())
 				g.Expect(lock).ToNot(BeNil())
 
@@ -318,7 +329,10 @@ func TestLocker_Async_API_Threading_Checks(t *testing.T) {
 		}
 
 		// ensure all the locks are cleaned up
-		listLocks, err := http.NewRequest("GET", fmt.Sprintf("%s/v1/locker/list", testConstruct.LockerClient.Address()), nil)
+		query := v1common.GeneralAssociatedQuery{
+			AssociatedKeyValues: datatypes.AssociatedKeyValuesQuery{},
+		}
+		listLocks, err := http.NewRequest("GET", fmt.Sprintf("%s/v1/locks", testConstruct.LockerClient.Address()), bytes.NewBuffer(query.ToBytes()))
 		g.Expect(err).ToNot(HaveOccurred())
 
 		manualClient := testclient.NewLockerClient(g, testConstruct.ServerURL)
@@ -344,9 +358,11 @@ func TestLocker_Async_API_Threading_Checks(t *testing.T) {
 
 		wg := new(sync.WaitGroup)
 		for i := 0; i < 300; i++ {
-			keyValues := datatypes.KeyValues{
-				"key1": datatypes.String(fmt.Sprintf("%d", i%5)),
-				"key2": datatypes.String(fmt.Sprintf("%d", i%17)),
+			lockRequest := v1locker.CreateLockRequest{
+				KeyValues: datatypes.KeyValues{
+					"key1": datatypes.String(fmt.Sprintf("%d", i%5)),
+					"key2": datatypes.String(fmt.Sprintf("%d", i%17)),
+				},
 			}
 
 			wg.Add(1)
@@ -354,7 +370,7 @@ func TestLocker_Async_API_Threading_Checks(t *testing.T) {
 				defer wg.Done()
 
 				// create the lock
-				lock, err := lockerClient.ObtainLock(ctx, keyValues, time.Second)
+				lock, err := lockerClient.ObtainLock(ctx, lockRequest)
 				g.Expect(err).ToNot(HaveOccurred())
 				g.Expect(lock).ToNot(BeNil())
 
@@ -377,7 +393,10 @@ func TestLocker_Async_API_Threading_Checks(t *testing.T) {
 		}
 
 		// ensure all the locks are cleaned up
-		listLocks, err := http.NewRequest("GET", fmt.Sprintf("%s/v1/locker/list", testConstruct.LockerClient.Address()), nil)
+		query := v1common.GeneralAssociatedQuery{
+			AssociatedKeyValues: datatypes.AssociatedKeyValuesQuery{},
+		}
+		listLocks, err := http.NewRequest("GET", fmt.Sprintf("%s/v1/locks", testConstruct.LockerClient.Address()), bytes.NewBuffer(query.ToBytes()))
 		g.Expect(err).ToNot(HaveOccurred())
 
 		manualClient := testclient.NewLockerClient(g, testConstruct.ServerURL)

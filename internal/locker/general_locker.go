@@ -6,6 +6,8 @@ import (
 
 	"github.com/DanLavine/goasync"
 	btreeassociated "github.com/DanLavine/willow/internal/datastructures/btree_associated"
+	v1common "github.com/DanLavine/willow/pkg/models/api/common/v1"
+
 	"github.com/DanLavine/willow/pkg/models/api/v1locker"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 )
@@ -18,7 +20,7 @@ type GeneralLocker interface {
 	Heartbeat(sessions string) *v1locker.HeartbeatError
 
 	// Find all locks currently held in the tree
-	ListLocks() []v1locker.Lock
+	ListLocks(query *v1common.GeneralAssociatedQuery) []v1locker.Lock
 
 	// Release or delete a specific lock
 	ReleaseLock(lockID string)
@@ -67,7 +69,7 @@ func NewGeneralLocker(tree btreeassociated.BTreeAssociated) *generalLocker {
 }
 
 // List all locks held
-func (generalLocker *generalLocker) ListLocks() []v1locker.Lock {
+func (generalLocker *generalLocker) ListLocks(query *v1common.GeneralAssociatedQuery) []v1locker.Lock {
 	var locks []v1locker.Lock
 
 	onPaginate := func(associatedKeyValues *btreeassociated.AssociatedKeyValues) bool {
@@ -75,12 +77,17 @@ func (generalLocker *generalLocker) ListLocks() []v1locker.Lock {
 		generalLock.counterLock.RLock()
 		defer generalLock.counterLock.RUnlock()
 
-		locks = append(locks, v1locker.Lock{KeyValues: associatedKeyValues.KeyValues().RetrieveStringDataType().StripKey(btreeassociated.ReservedID), LocksHeldOrWaiting: generalLock.counter})
+		locks = append(locks, v1locker.Lock{
+			SessionID:          associatedKeyValues.AssociatedID(),
+			KeyValues:          associatedKeyValues.KeyValues().RetrieveStringDataType().StripKey(btreeassociated.ReservedID),
+			LocksHeldOrWaiting: generalLock.counter,
+		},
+		)
 
 		return true
 	}
 
-	_ = generalLocker.locks.Query(datatypes.AssociatedKeyValuesQuery{}, onPaginate)
+	_ = generalLocker.locks.Query(query.AssociatedKeyValues, onPaginate)
 
 	return locks
 }

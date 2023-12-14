@@ -30,6 +30,7 @@ type CreateLockResponse struct {
 
 // List request
 type Lock struct {
+	SessionID          string
 	KeyValues          datatypes.KeyValues
 	LocksHeldOrWaiting int
 }

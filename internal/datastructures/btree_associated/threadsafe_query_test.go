@@ -29,7 +29,7 @@ func TestAssociatedTree_Query_ParamCheck(t *testing.T) {
 
 		err := associatedTree.Query(validSelection, nil)
 		g.Expect(err).To(HaveOccurred())
-		g.Expect(err.Error()).To(ContainSubstring("onFindPagination cannot be nil"))
+		g.Expect(err.Error()).To(ContainSubstring("onQueryPagination cannot be nil"))
 	})
 }
 
