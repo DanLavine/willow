@@ -6,6 +6,13 @@ info:
   version: poc 0.0.1
 
 paths:
+  /health:
+    get:
+      description: |
+        API to check that the service is reachable from a client
+      responses:
+        200:
+          description: "service is running find"
   /v1/locker:
     post:
       operationId: create Lock

@@ -118,10 +118,9 @@ func (locker *LockerTCP) Execute(ctx context.Context) error {
 	})
 
 	// crud operations for group rules
-	// These operations seem more like a normal DB that I want to do...
-	mux.HandleFunc("POST", "/v1/locker", locker.v1Handler.Create) // pass the ctx here so clients can clean up when the server shutsdown
+	mux.HandleFunc("POST", "/v1/locker", locker.v1Handler.Create)
+	mux.HandleFunc("DELETE", "/v1/locker/:_associated_id", locker.v1Handler.Delete)
 	mux.HandleFunc("POST", "/v1/locker/:_associated_id/heartbeat", locker.v1Handler.Heartbeat)
-	mux.HandleFunc("DELETE", "/v1/locker/:_associated_id/delete", locker.v1Handler.Delete)
 
 	// Admin APIs
 	// TODO: Need to actual account for auth for this
