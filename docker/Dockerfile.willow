@@ -1,0 +1,17 @@
+FROM golang:1.19
+
+WORKDIR /usr/src/app
+
+# Cache the go mod layer for dependencies
+COPY go.mod go.sum ./
+RUN go mod download && go mod verify
+
+# copy the entire project into this repo
+COPY . .
+RUN go build -v -o /usr/local/bin/willow cmd/willow/main.go
+
+EXPOSE 8080
+EXPOSE 8081
+
+# Default run command, but the locker service is still required
+CMD ["willow", "-limiter-insecure-http"]
