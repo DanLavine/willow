@@ -1,51 +1,103 @@
-# willow
+# Willow
 
-Willow is a message broker that can be used as an updatable queue (and someday eventually pub-sub message system).
+TODO: add a content table to jump to sections
 
-# Terms
-* Broker - A messaging system that can be broken down into the following
-  * Queue   - a first in, first out queue the sends a message to one Consumer
-    * TagGroup - Each queue is created via number of "tags" that define specific item details.
-* Item - A unit of work that is sent or pulled from the queue
-* Producer - This is the client that sends messages to willow
-  * TagGroup - when sending Messages, all tags must mutch exactly 1 queue that will recieve the message
-* Consumer - This is the client that receives messages from willow
-  * MatchRestrctions - when consuming message, there are a number of stratagies. See [#consumer_setup]
+Willow's aims to be a different message broker that provides a few extra features not commonly found
+in many of the modern brokers one normally thinks of such as `Kafka`, `RabbitMQ`, or `Redis message broker`.
+
+Such as:
+1. Message waiting in the queue can be updated if there are no clients yet processing the message
+1. Generic tagging for any message in a queue 
+1. Generic limits for concurrent processing to be placed on any number of messages through the tagging system
 
 
-# Unique Features
+To do this, there are 3 Main components:
+* Willow - Message broker that can be used to generate queues with any unique tags for those queue
+* Limiter - Enforces rules for any tag combinations that limits how many tag groups can be running at once
+* Locker - Service that the Limiter relies on to ensure that competing resources for the same tag do not race each other
 
-What makes willow unique from other systems and why should I use it rather than something
-like Kafka, RabbitMQ or NSQ?
+Let me try to explain with an example workflow I wish I had many times working with a CICD system and where these pieces
+can fit into this.
 
-## Updatabel messages
+#### Example Use Case
 
-If a message has been published to a queue it can be configured to be "updatable". As long as no
-consumers have processed this message, then the next message sent to the queue can overwrite the
-unprocessed message. This way any clients that eventually pull from the queue just retrieve the
-latest message that needs processing.
+When working on any new Mobile App for a small team which has grown to 10 developers, we set up a CI cd
+system that has been able to easily pull all the branches from Git and run the unit tests for the product
+no problem. 
 
-Use Cases:
-1. CICD only wants to build the "latest" commit, but each incoming change can easily be published
-   to the queue without having to worry what will run.
-1. Long running update operations that have multiple changes stacked can all be collapsed into the
-   latest update operation, skipping any middle operations that are no longer needed or valid.
+But it is at this point and scale where we start setting up a few real world integration tests, to ensure
+the products stability. So perhaps in this case, we want to ensure that we have proper hardware:
+```
+1. IOS device - attached to a Mac laptop to run
+1. Android device - attached to a Linux server to run
+1. Server - runs on a Linux machine
+``` 
 
-## Consumer Setup
+Even after setting up the initial hardware to start running our integration tests, the CI system has a slight
+problem, but maybe it is still manageable at this point. That is there is only 1 IOS/Android device we have setup,
+so only 1 instance of the `Main` branch with all our integration can be running at once.
 
-Consumer can easily be setup to pull from a number of queues (even if they don't yet exist).
-When crating the consumer, we specify what tags we are interesed in, as well as the consume stratagy:
-1. STRICT - only pull from the exact queue that matches all the tags
-1. SUBSET - pull from any queue that that includes all provided tags
-1. ANY    - pull from any queue that contains any provided tags
-1. ALL    - pull from all queues
+There is now commonly a few ways the system is currently solved to handle this limitation, especially
+as the team grows:
+```
+1. Start adding more hardware when CI becomes far to slow and commits start pilling up
+2. Become more strict as a company as to what is promoted to the `Main` branch making for larger commits
+3. Stop running so many integration tests and be less stable (This sadly is the one we see most common :( )
+```
 
-Use Cases:
-1. Initial thought would be for releasees where you want to build executables on certain OSes
-   (Mac, Windows, Linux), which can all be seperate tags on queues. Then each of those queues might
-   have different features that need to be tested (I.E, we are releasing a video game and want to test
-   different graphics cards, cpu arch, etc). We could have specific queues that specify more in grain details
-   about all the combos we want to test. From here our Consumers could be quite varied as the server rigs
-   have multiple setups all configured to test various hardware. We halso ave a wide spread of potential releases
-   from any CI pipeline for N repos + N branches. Pulling from a SUBSET for our server machines configuration
-   can just run any build from any queue
+But now what if there was a 4th option which was to allow for any items waiting in the `Main` branch's CICD
+queue to be squashed so only the latest commit runs. This way no matter how large the team grows at least the
+workflow for CICD is to run the latest commit each time, knowing that everything at the top of the commit branch
+is working or not. `Willow` can solve the first workflow case:
+```
+1. Message waiting in the queue can be updated if there are no clients yet processing the message
+```
+
+**Example Continues!**
+
+Now our team has gone through an additional round of funding and we have grown to 100 devs! Our CICD system is
+now going to hit another problem. Do we really need to run every single commit across every single branch? Especially
+when a lot of commits are just 'works in progress' as developers try to figure things out that are most likely unknown
+or broken to them.
+
+In this case, I want to use the other features of `Willow's` release, the `Limiter` service. Being able to limit the
+combination of unique tags like: [`branch name`, `repo`] (these 2 details together define a branch to run in CI), we
+could set a limit to 1 for each of those combinations. This way that if any branch is constantly committed to. It once
+again starts to behave the same way as the `Main` branch, just run the latest commit sha. Now solving the last 2 features
+```
+2. Generic tagging for any message in a queue 
+3. Generic limits for concurrent processing to be placed on any number of messages throught the tagging system.
+```
+
+#### Other use cases that already exist
+Of course there are some use cases where these features are already present, but built specifically for the
+product and do not scale out. One example where this is hugely present is with the Kubernetes Service.
+
+Anyone who has ever deployed a `Deployment`, `ReplicaSet`, `DaemonSet` have take advantage of the 3 features:
+```
+1. Message waiting in the queue can be updated if there are no clients yet processing the message
+2. Generic tagging for any message in a queue 
+3. Generic limits for concurrent processing to be placed on any number of messages throught the tagging system.
+```
+
+* feature 1 - is solved where you cannot deploy the same `Deployment`, `ReplicaSet`, `DaemonSet` if one is already processing
+* feature 2 - All of the tags are in [ `k8s namespace`, `k8s label.app`, `k8s kind (which is Deployment, ReplicaSet, etc.)`].
+              It is also important to note that each of these all generate a `unique` item and are case sensitive.
+* feature 3 - In the world of K8s, the Limit for each of these operations is 1 and is not configurable
+
+## So how can Willow, Limiter, and Locker enable these workflows
+
+### Willow
+
+### Limiter
+
+### Locker
+
+
+## Building and Running
+
+See the `docker` directory
+
+## APIs
+
+All the service have a /docs endpoints. need to figure out how to display the `docs/openapi` nicely in github.
