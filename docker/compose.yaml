@@ -1,0 +1,29 @@
+services:
+  #willow:
+  #  image: willow:local-latest
+  #  build: 
+  #    context: ..
+  #    dockerfile: docker/Dockerfile.willow
+  #  ports:
+  #    - 8080:8080
+  #    - 8081:8081
+
+  limiter:
+    image: limiter:local-latest
+    command: ["limiter", "-limiter-insecure-http", "-log-level", "debug", "-limiter-locker-url", "http://locker :8083"]
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.limiter
+    ports:
+      - 8082:8082
+    depends_on:
+      - locker
+
+  locker:
+    image: locker:local-latest
+    command: ["locker", "-locker-insecure-http", "-log-level", "debug"]
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.locker
+    ports:
+      - 8083:8083

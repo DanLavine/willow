@@ -14,4 +14,4 @@ EXPOSE 8080
 EXPOSE 8081
 
 # Default run command, but the locker service is still required
-CMD ["willow", "-limiter-insecure-http"]
+CMD ["willow"]

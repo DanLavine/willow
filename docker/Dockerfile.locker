@@ -12,4 +12,4 @@ RUN go build -v -o /usr/local/bin/locker cmd/locker/main.go
 
 EXPOSE 8083
 
-CMD ["locker", "-limiter-insecure-http"]
+CMD ["locker", "-locker-insecure-http"]
