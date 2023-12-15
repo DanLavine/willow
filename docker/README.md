@@ -26,11 +26,19 @@ docker compose build [OPTIONAL NAME OF SERVICE]
 
 All services have a `http://127.0.0.1:[port]/docs` api that can be viewed for details service instructions
 
-To run the the `Limiter` and `Locker` services through `docker compose`:
+
+**NOTE**
+At the moment, `Willow` is not up and running as I have not made it run through HTTP, it currently only runs with HTTPS
+and thats a bit annoying as a 1st pass to try out. So for now, there is no willow service in the compose file. Also there
+is a bunch of development work going on to make `Willow` use the `Limiter` service which will be the driving factors behind
+this feature.
+
+#### Docker Compose
 ```
 docker compose up
 ``` 
 
+#### Docker
 To run them directly without `docker compose` requires a bit more setup as the `Limiter` service 
 relies on `Locker`. So we need to create a custom network for the 2 services to run in.
 ```
@@ -43,9 +51,3 @@ docker run -p 8083:8083 --network willow --name locker locker:local-latest
 # run limiter
 docker run -p 8082:8082 --network willow -name limiter limiter:local-latest /bin/bash -c "limiter -limiter-insecure-http -log-level=debug -limiter-locker-url http://locker:8083"
 ```
-
-**NOTE**
-At the moment, `Willow` is not up and running as I have not made it run through HTTP, it currently only runs with HTTPS
-and thats a bit annoying as a 1st pass to try out. So for now, there is no willow service in the compose file. Also there
-is a bunch of development work going on to make `Willow` use the `Limiter` service which will be the driving factors behind
-this feature.

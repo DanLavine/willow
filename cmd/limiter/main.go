@@ -52,7 +52,7 @@ func main() {
 			time.Sleep(10 * time.Second)
 
 			if i == 9 {
-				log.Fatal("faile to setup the locker client which is required")
+				log.Fatal("failed to setup the locker client which is required")
 			}
 
 			continue
