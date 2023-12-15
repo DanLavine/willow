@@ -1,6 +1,17 @@
-# Willow
+# Willow Services
 
-TODO: add a content table to jump to sections
+- [Featres](#features)
+- [Example Use Case](#example-use-case)
+- [Other use cases that already exist](#other-use-cases-that-already-exist)
+- [So how can Willow, Limiter, and Locker enable these workflows](#so-how-can-willow-limiter-and-locker-enable-these-workflows)
+  * [Willow](#willow)
+    * [Willow publishing client](#willow-publishing-client)
+    * [Willow subscribing client](#willow-subscribing-client)
+  * [Limiter](#limiter)
+    * [Limiter Rules](#limiter-rules)
+  * [Locker](#locker)
+
+# Features
 
 Willow's aims to be a different message broker that provides a few extra features not commonly found
 in many of the modern brokers one normally thinks of such as `Kafka`, `RabbitMQ`, or `Redis message broker`.
@@ -71,7 +82,7 @@ again starts to behave the same way as the `Main` branch, just run the latest co
 
 #### Other use cases that already exist
 Of course there are some use cases where these features are already present, but built specifically for the
-product and do not scale out. One example where this is hugely present is with the Kubernetes Service.
+product and do not scale out. One example where this is hugely present is with Kubernetes.
 
 Anyone who has ever deployed a `Deployment`, `ReplicaSet`, `DaemonSet` have take advantage of the 3 features:
 ```
@@ -80,7 +91,9 @@ Anyone who has ever deployed a `Deployment`, `ReplicaSet`, `DaemonSet` have take
 3. Generic limits for concurrent processing to be placed on any number of messages throught the tagging system.
 ```
 
-* feature 1 - is solved where you cannot deploy the same `Deployment`, `ReplicaSet`, `DaemonSet` if one is already processing
+* feature 1 - is solved where you cannot deploy the same `Deployment`, `ReplicaSet`, `DaemonSet` if one is already processing.
+              As a user, you can still attempt to deploy any of these as much as you would like, but its only once the current
+              operation is done processing that the next operation happens. Which is the last configuration published
 * feature 2 - All of the tags are in [ `k8s namespace`, `k8s label.app`, `k8s kind (which is Deployment, ReplicaSet, etc.)`].
               It is also important to note that each of these all generate a `unique` item and are case sensitive.
 * feature 3 - In the world of K8s, the Limit for each of these operations is 1 and is not configurable
@@ -88,11 +101,137 @@ Anyone who has ever deployed a `Deployment`, `ReplicaSet`, `DaemonSet` have take
 ## So how can Willow, Limiter, and Locker enable these workflows
 
 ### Willow
+Willow is the message Broker service and can be used to coordinate any number of client to possible queues that match their tags
+
+For a complete API list see the OpenAPI doc here // nothing atm till it is finalized
+
+#### Willow publishing client
+First to create a Queue in Willow, we need to define a Queue with a unique name:
+```
+# TODO: once api is finalized
+```
+
+From here, we can enqueue any messages onto the queue which are defined by their provided tags:
+```
+# TODO: example of message request with unique tags.
+# TODO: comment on the 'updatable' tag to know if a message is updatable
+```
+In this example, we enqueued an item for our example CICD system. The tags [`repo_name`, `branch_name`] can be used to infer where
+the origin of the queue came from and part of the scheduling. The other details [`os`, `ios_required`, `android_required`] can 
+also be used as part of the scheduling and provide a more detailed view for what is actually needed to run the required tests.
+
+If we were to make the same request again, but slightly different data (commit sha to run):
+```
+# TODO: once api is finalized
+```
+Willow will collapse the previous message if it has not yet been picked up by a subscribing client
+
+If we wanted to ensure that a message was processed, we could set the `Collapsible` parameter in the request to false (I.E:
+done in a web UI where a user really want to run a particular build ranther than the automated enqueue messge for every commit).
+This will still collapse the last message if possible, but on the next message to come in for this particular set of tags,
+the messages will be enqueued, so there are 2 total items to process.
+
+#### Willow subscribing client
+For the subscribing client, we can make a request to query all possible Tags that a queue has for something to run:
+
+Example 1:
+```
+# This API should be used to query for any queues, where there are no IOS or Android devices
+# TODO: once api is finalized
+```
+
+Example 2:
+```
+# This API should be used to query for any queues, where there are IOS devices, but no Android devices
+# TODO: once api is finalized
+```
+
+Example 3:
+```
+# This API should be used to query for any queues, where there are are Android devices, but no IOS devices
+# TODO: once api is finalized
+```
+
+Example 4:
+```
+# This API should be used to query for any queues, where there are are Android and IOS devices
+# TODO: once api is finalized
+```
+
+Each of these client queries can be coming from any CI machines that describe their features. So Example 2 could be a machine
+which has an IOS device attached and can run any builds that have those requirements based off the arbitrary tag [`ios_required`]
+
+It is important to note that the Willow Service is smart enough to know that if a particular Queue doesn't yet exist, but in the
+future matches a client's requested tags. Then the client will be able to receive the new queue's message. Also, before each
+messag is dequeued, `Willow` checks the `Limiter` service to ensure no rules have met thier limits
 
 ### Limiter
+Limiter provides a way of creating arbitrary rules for groups of `tags`. The Limiter service requires the `Locker` service to be up and running.
+Using shared distributed locks from `Locker` ensures that different Queues + Tags from `Willow` don't conflict with each other.
+
+Full api documentation can be found [here](./docs/openapi/limiter/openapi.yaml)
+
+#### Limiter Rules
+Each `Rule` in the locker service defines how to group arbitrary tags together. So in the case of our CICD
+system where we only want 1 build running for each branch we could setup:
+```
+POST /v1/limiter/rules -d ' {
+  "Name": "limit_cicd_branch_builds",
+  "GroupBy": ["repo_name", "branch_name"],
+  "Limit": 1
+}'
+```
+
+Now, any collection of tags that share the same [`repo_name`, `branch_name`] all point to the same `Rule` set:
+```
+# all these when trying to run at the same time, would check the same rule, and only 1 can succeed
+'{"repo_name":"willow", "branch_name":"docs", "os": "linux"}' 
+'{"repo_name":"willow", "branch_name":"docs", "os": "windows", "android_required": true}' 
+'{"repo_name":"willow", "branch_name":"docs", "os": "mac", "ios_required": true}' 
+
+# This is different because the unique pair is named something different
+'{"repo_name":"willow", "branch_name":"awesome-feature"}' 
+```
+
+To Account for the `'{"repo_name":"willow", "branch_name":"main"}'` though which maybe we want to run any number of instances
+we can set an `Override` for the previous rule:
+```
+POST /v1/limiter/rules/limit_cicd_branch_builds/overrides -d ' {
+  "Name": "increase_main_branc_limit",
+  "KeyVales": {
+    "repo_name":"willow",
+    "branch_name":"main,
+  },
+  "Limit": 9001
+}'
+```
+
+Now, we increased the number of parallel builds specifically for the main branch up to 9001!. But that probably wouldn't
+ever hit in reality as the number of clients to Willow would need to support that much parallel capacity. Speaking of, what
+about the limit of IOS and android device? Well, we can just make more rules:
+```
+POST /v1/limiter/rules -d ' {
+  "Name": "limit_ios_concurrent_bilds",
+  "GroupBy": ["ios_required"],
+  "Limit": 4 // whatever the physical hardware limit would be.
+}'
+```
+
+Now, any builds that want an IOS device will be limited as well by the Willow service:
+```
+# all these now conflict on the new IOS rule
+'{"repo_name":"willow", "branch_name":"experimental-1.3.4", "ios_required": true}' 
+'{"repo_name":"willow", "branch_name":"main", "ios_required": true}' 
+'{"repo_name":"willow", "branch_name":"stable-1.0.0", "ios_required": true}' 
+
+```
 
 ### Locker
+The locker service is a simple distributed locking service that for now, I don't believe will be reachable
+from any clients as it serves as the internal distributed locks for the `Limiter`. This could change going
+forward as locks become more complicated.
 
+Full api documentation can be found [here](./docs/openapi/locker/openapi.yaml)
 
 ## Building and Running
 

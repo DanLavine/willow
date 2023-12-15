@@ -227,7 +227,6 @@ paths:
                 properties:
                   ApiError:
                     $ref: "../common/components.yaml#/components/schemas/ApiError"
-
     get:
       operationId: list Rule Overrides
       description: |
