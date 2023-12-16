@@ -14,31 +14,31 @@
 
 # Features
 
-Willow's aims to be a different message broker that provides a few extra features not commonly found
+Willow aims to be a different message broker that provides a few extra features not commonly found
 in many of the modern brokers one normally thinks of such as `Kafka`, `RabbitMQ`, or `Redis message broker`.
 
-Such as:
-1. Message waiting in the queue can be updated if there are no clients yet processing the message
+Main features:
+1. Message waiting in the queue can be updated if there are no clients processing the message
 1. Generic tagging for any message in a queue 
 1. Generic limits for concurrent processing to be placed on any number of messages through the tagging system
 
 
-To do this, there are 3 Main components:
+To do this, there are 3 components:
 * Willow - Message broker that can be used to generate queues with any unique tags for those queue
 * Limiter - Enforces rules for any tag combinations that limits how many tag groups can be running at once
-* Locker - Service that the Limiter relies on to ensure that competing resources for the same tag do not race each other
+* Locker - Service that the Limiter relies on to ensure that competing resources for the same tags do not race each other
 
-Let me try to explain with an example workflow I wish I had many times working with a CICD system and where these pieces
-can fit into this.
+Let me try to explain with an example workflow I wish I had many times while working with a CICD system. That
+coul be improved with Willow's features
 
 #### Example Use Case
 
-When working on any new Mobile App for a small team which has grown to 10 developers, we set up a CI cd
+When working on any new Mobile App for a small team which has grown to 10 developers, we set up a CICD
 system that has been able to easily pull all the branches from Git and run the unit tests for the product
 no problem. 
 
 But it is at this point and scale where we start setting up a few real world integration tests, to ensure
-the products stability. So perhaps in this case, we want to ensure that we have proper hardware:
+the product's stability. So perhaps in this case, we want to ensure that we have proper hardware:
 ```
 1. IOS device - attached to a Mac laptop to run
 1. Android device - attached to a Linux server to run
@@ -54,7 +54,7 @@ as the team grows:
 ```
 1. Start adding more hardware when CI becomes far to slow and commits start pilling up
 2. Become more strict as a company as to what is promoted to the `Main` branch making for larger commits
-3. Stop running so many integration tests and be less stable (This sadly is the one we see most common :( )
+3. Stop running so many integration tests and be less stable
 ```
 
 But now what if there was a 4th option which was to allow for any items waiting in the `Main` branch's CICD
