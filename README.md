@@ -174,7 +174,7 @@ Queues + Tags from don't conflict with each other.
 The description below is a simplified API as it doesn't include any query operations and only provides an example
 of the feature set one would want to use the `Limiter`service for.
 
-Full api documentation can be found [here](./docs/openapi/limiter/openapi.yaml)
+Full api documentation can be found [here](https://danlavine.github.io/willow/docs/openapi/limiter/)
 
 #### Limiter Rules
 Each `Rule` in the Limiter service defines how to group arbitrary tags together. So in the case of our CICD
@@ -270,7 +270,7 @@ The locker service is a simple distributed locking service that for now, I don't
 from any clients as it serves as the internal distributed locks for the `Limiter`. This could change going
 forward as locks become more complicated.
 
-Full api documentation can be found [here](./docs/openapi/locker/openapi.yaml)
+Full api documentation can be found [here](https://danlavine.github.io/willow/docs/openapi/locker/)
 
 ## Building and Running
 
