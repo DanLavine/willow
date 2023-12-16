@@ -9,6 +9,7 @@
     * [Willow subscribing client](#willow-subscribing-client)
   * [Limiter](#limiter)
     * [Limiter Rules](#limiter-rules)
+    * [Limiter Counters](#limiter-counters)
   * [Locker](#locker)
 
 # Features
@@ -166,8 +167,12 @@ future matches a client's requested tags. Then the client will be able to receiv
 messag is dequeued, `Willow` checks the `Limiter` service to ensure no rules have met thier limits
 
 ### Limiter
-Limiter provides a way of creating arbitrary rules for groups of `tags`. The Limiter service requires the `Locker` service to be up and running.
-Using shared distributed locks from `Locker` ensures that different Queues + Tags from `Willow` don't conflict with each other.
+Limiter provides a way of creating arbitrary rules for groups of `tags`. The Limiter service
+requires the `Locker` service to be up and running for shared distributed locks. `Locker` ensures that different
+Queues + Tags from `Willow` don't conflict with each other.
+
+The description below is a simplified API as it doesn't include any query operations and only provides an example
+of the feature set one would want to use the `Limiter`service for.
 
 Full api documentation can be found [here](./docs/openapi/limiter/openapi.yaml)
 
@@ -225,6 +230,37 @@ Now, any builds that want an IOS device will be limited as well by the Willow se
 '{"repo_name":"willow", "branch_name":"stable-1.0.0", "ios_required": true}' 
 
 ```
+
+#### Limiter Counters
+`Counters` are used to check agains an `Rules` that might exist and their overrides. To increment a counter we can use:
+```
+POST /v1/limiter/counters -d ' {
+  "KeyValues": {
+    "repo_name":"willow",
+    "branch_name":"main",
+  }
+}'
+```
+
+Each time a counter is incremented, any `Rule.GroubBy` is queried to see which `Rules` a particular Counter might match
+against. Then, when matching against each `Rule`, the `Overrides.KeyValues` are queried to see which `Overrides` match against
+the `Counter`. If everything is below the limit, then the `Counter` is either created or incremented by 1.
+
+There are a few optimizations that are made here. For example, if there is a `Rule` or `Override` that sets an explicit
+limit to 0, then we know that we can stop processing the request and return a Limit reached error because nothing will process.
+It is up to the client to eventually retry the increment, ideally with an exponential back off.
+
+Additionally `Counters` can be decremented though:
+```
+DELETE /v1/limiter/counters -d ' {
+  "KeyValues": {
+    "repo_name":"willow",
+    "branch_name":"main",
+  }
+}'
+```
+ If a counter was to be set to 0. It is removed from the Limiter service entierly.
+
 
 ### Locker
 The locker service is a simple distributed locking service that for now, I don't believe will be reachable
