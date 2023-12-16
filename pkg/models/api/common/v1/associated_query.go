@@ -8,10 +8,7 @@ import (
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 )
 
-// DSL TODO:
-//
-// I think adding pagination/limits/order by makes sense here rather than on the datatypes.AssociatedKeyValuesQuery
-// But I have no need for those values at the moment, so for now I am ignoring that feature set
+// TODO: rename
 type GeneralAssociatedQuery struct {
 	AssociatedKeyValues datatypes.AssociatedKeyValuesQuery
 }

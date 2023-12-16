@@ -14,7 +14,7 @@ import (
 	btreeassociated "github.com/DanLavine/willow/internal/datastructures/btree_associated"
 	"github.com/DanLavine/willow/pkg/clients"
 	"github.com/DanLavine/willow/pkg/models/api"
-	"github.com/DanLavine/willow/pkg/models/api/v1locker"
+	v1locker "github.com/DanLavine/willow/pkg/models/api/locker/v1"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 	"golang.org/x/net/http2"
 )

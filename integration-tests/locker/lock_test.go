@@ -18,7 +18,7 @@ import (
 	"github.com/DanLavine/willow/pkg/clients"
 	lockerclient "github.com/DanLavine/willow/pkg/clients/locker_client"
 	v1common "github.com/DanLavine/willow/pkg/models/api/common/v1"
-	"github.com/DanLavine/willow/pkg/models/api/v1locker"
+	v1locker "github.com/DanLavine/willow/pkg/models/api/locker/v1"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 	"github.com/DanLavine/willow/testhelpers/testclient"
 

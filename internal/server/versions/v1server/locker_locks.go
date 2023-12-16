@@ -8,7 +8,7 @@ import (
 	"github.com/DanLavine/willow/internal/locker"
 	"github.com/DanLavine/willow/internal/logger"
 	v1common "github.com/DanLavine/willow/pkg/models/api/common/v1"
-	"github.com/DanLavine/willow/pkg/models/api/v1locker"
+	v1locker "github.com/DanLavine/willow/pkg/models/api/locker/v1"
 
 	"go.uber.org/zap"
 )

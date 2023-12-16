@@ -10,7 +10,7 @@ import (
 
 	"github.com/DanLavine/goasync"
 	"github.com/DanLavine/willow/pkg/models/api"
-	"github.com/DanLavine/willow/pkg/models/api/v1locker"
+	v1locker "github.com/DanLavine/willow/pkg/models/api/locker/v1"
 	. "github.com/onsi/gomega"
 )
 

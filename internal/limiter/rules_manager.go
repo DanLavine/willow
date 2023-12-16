@@ -16,7 +16,7 @@ import (
 	"github.com/DanLavine/willow/pkg/models/api"
 	v1 "github.com/DanLavine/willow/pkg/models/api/limiter/v1"
 	v1limiter "github.com/DanLavine/willow/pkg/models/api/limiter/v1"
-	"github.com/DanLavine/willow/pkg/models/api/v1locker"
+	v1locker "github.com/DanLavine/willow/pkg/models/api/locker/v1"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 	"go.uber.org/atomic"
 	"go.uber.org/zap"

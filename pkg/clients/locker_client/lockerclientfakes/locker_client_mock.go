@@ -9,7 +9,7 @@ import (
 	reflect "reflect"
 
 	lockerclient "github.com/DanLavine/willow/pkg/clients/locker_client"
-	v1locker "github.com/DanLavine/willow/pkg/models/api/v1locker"
+	v1locker "github.com/DanLavine/willow/pkg/models/api/locker/v1"
 	gomock "go.uber.org/mock/gomock"
 )
 

@@ -18,7 +18,7 @@ import (
 	"github.com/DanLavine/willow/pkg/clients/locker_client/lockerclientfakes"
 	"github.com/DanLavine/willow/pkg/models/api"
 	v1limiter "github.com/DanLavine/willow/pkg/models/api/limiter/v1"
-	"github.com/DanLavine/willow/pkg/models/api/v1locker"
+	v1locker "github.com/DanLavine/willow/pkg/models/api/locker/v1"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 	. "github.com/onsi/gomega"
 	"go.uber.org/mock/gomock"

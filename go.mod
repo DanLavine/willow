@@ -33,7 +33,6 @@ require (
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/oklog/ulid v1.3.1 // indirect
-	github.com/rogpeppe/go-internal v1.11.0 // indirect
 	go.mongodb.org/mongo-driver v1.13.1 // indirect
 	go.uber.org/multierr v1.6.0 // indirect
 	golang.org/x/text v0.13.0 // indirect
