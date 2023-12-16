@@ -83,7 +83,7 @@ again starts to behave the same way as the `Main` branch, just run the latest co
 
 #### Other use cases that already exist
 Of course there are some use cases where these features are already present, but built specifically for the
-product and do not scale out. One example where this is hugely present is with Kubernetes.
+product and do not scale out. One example where this is present is with Kubernetes.
 
 Anyone who has ever deployed a `Deployment`, `ReplicaSet`, `DaemonSet` have take advantage of the 3 features:
 ```
@@ -92,12 +92,12 @@ Anyone who has ever deployed a `Deployment`, `ReplicaSet`, `DaemonSet` have take
 3. Generic limits for concurrent processing to be placed on any number of messages throught the tagging system.
 ```
 
-* feature 1 - is solved where you cannot deploy the same `Deployment`, `ReplicaSet`, `DaemonSet` if one is already processing.
-              As a user, you can still attempt to deploy any of these as much as you would like, but its only once the current
+* feature 1 - is present where you cannot deploy the same `Deployment`, `ReplicaSet`, `DaemonSet` if one is already processing.
+              As a user, you can still attempt to deploy any of these as much as you would like. But its only once the current
               operation is done processing that the next operation happens. Which is the last configuration published
 * feature 2 - All of the tags are in [ `k8s namespace`, `k8s label.app`, `k8s kind (which is Deployment, ReplicaSet, etc.)`].
               It is also important to note that each of these all generate a `unique` item and are case sensitive.
-* feature 3 - In the world of K8s, the Limit for each of these operations is 1 and is not configurable
+* feature 3 - In the world of K8s, the limit for each of these operations is 1 and is not configurable
 
 ## So how can Willow, Limiter, and Locker enable these workflows
 
@@ -169,7 +169,7 @@ messag is dequeued, `Willow` checks the `Limiter` service to ensure no rules hav
 ### Limiter
 Limiter provides a way of creating arbitrary rules for groups of `tags`. The Limiter service
 requires the `Locker` service to be up and running for shared distributed locks. `Locker` ensures that different
-Queues + Tags from `Willow` don't conflict with each other.
+Queues + Tags from don't conflict with each other.
 
 The description below is a simplified API as it doesn't include any query operations and only provides an example
 of the feature set one would want to use the `Limiter`service for.
@@ -177,7 +177,7 @@ of the feature set one would want to use the `Limiter`service for.
 Full api documentation can be found [here](./docs/openapi/limiter/openapi.yaml)
 
 #### Limiter Rules
-Each `Rule` in the locker service defines how to group arbitrary tags together. So in the case of our CICD
+Each `Rule` in the Limiter service defines how to group arbitrary tags together. So in the case of our CICD
 system where we only want 1 build running for each branch we could setup:
 ```
 POST /v1/limiter/rules -d ' {
@@ -187,9 +187,10 @@ POST /v1/limiter/rules -d ' {
 }'
 ```
 
-Now, any collection of tags that share the same [`repo_name`, `branch_name`] all point to the same `Rule` set:
+Now, any collection of tags that share the same [`repo_name`, `branch_name`] all point to the same `Rule`
+set. For example, a collection of `Counters` (described bellow) could be:
 ```
-# all these when trying to run at the same time, would check the same rule, and only 1 can succeed
+# all these when trying to run at the same time, would check the same branch rule, and only 1 can succeed
 '{"repo_name":"willow", "branch_name":"docs", "os": "linux"}' 
 '{"repo_name":"willow", "branch_name":"docs", "os": "windows", "android_required": true}' 
 '{"repo_name":"willow", "branch_name":"docs", "os": "mac", "ios_required": true}' 
@@ -211,9 +212,10 @@ POST /v1/limiter/rules/limit_cicd_branch_builds/overrides -d ' {
 }'
 ```
 
-Now, we increased the number of parallel builds specifically for the main branch up to 9001!. But that probably wouldn't
-ever hit in reality as the number of clients to Willow would need to support that much parallel capacity. Speaking of, what
-about the limit of IOS and android device? Well, we can just make more rules:
+
+Now, we increased the number of parallel builds specifically for the main branch up to 9001! But that probably wouldn't
+ever hit in reality as the number of clients to `Willow`` would need to support that much parallel capacity. Speaking of,
+what about the limit of IOS and Android device? Well, we can just make more rules:
 ```
 POST /v1/limiter/rules -d ' {
   "Name": "limit_ios_concurrent_bilds",
@@ -242,15 +244,16 @@ POST /v1/limiter/counters -d ' {
 }'
 ```
 
-Each time a counter is incremented, any `Rule.GroubBy` is queried to see which `Rules` a particular Counter might match
+Each time a counter is incremented, any `Rule.GroubBy` is queried to see which `Rules` a particular `Counter` might match
 against. Then, when matching against each `Rule`, the `Overrides.KeyValues` are queried to see which `Overrides` match against
 the `Counter`. If everything is below the limit, then the `Counter` is either created or incremented by 1.
 
-There are a few optimizations that are made here. For example, if there is a `Rule` or `Override` that sets an explicit
+Code wise, there are a few optimizations that are made here. For example, if there is a `Rule` or `Override` that sets an explicit
 limit to 0, then we know that we can stop processing the request and return a Limit reached error because nothing will process.
 It is up to the client to eventually retry the increment, ideally with an exponential back off.
 
-Additionally `Counters` can be decremented though:
+
+Lastly, `Counters` can be decremented though:
 ```
 DELETE /v1/limiter/counters -d ' {
   "KeyValues": {
