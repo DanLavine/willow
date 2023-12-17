@@ -1,16 +1,17 @@
-# Willow Services
+# Willow
 
 - [Featres](#features)
 - [Example Use Case](#example-use-case)
 - [Other use cases that already exist](#other-use-cases-that-already-exist)
 - [So how can Willow, Limiter, and Locker enable these workflows](#so-how-can-willow-limiter-and-locker-enable-these-workflows)
-  * [Willow](#willow)
+  * [Willow Service](#willow-service)
     * [Willow publishing client](#willow-publishing-client)
     * [Willow subscribing client](#willow-subscribing-client)
-  * [Limiter](#limiter)
+  * [Limiter Service](#limiter-service)
     * [Limiter Rules](#limiter-rules)
     * [Limiter Counters](#limiter-counters)
-  * [Locker](#locker)
+  * [Locker Service](#locker-service)
+- [Building and Running](#building-and-running)
 
 # Features
 
@@ -101,7 +102,7 @@ Anyone who has ever deployed a `Deployment`, `ReplicaSet`, `DaemonSet` have take
 
 ## So how can Willow, Limiter, and Locker enable these workflows
 
-### Willow
+### Willow Service
 Willow is the message Broker service and can be used to coordinate any number of client to possible queues that match their tags
 
 For a complete API list see the OpenAPI doc here // nothing atm till it is finalized
@@ -166,7 +167,7 @@ It is important to note that the Willow Service is smart enough to know that if 
 future matches a client's requested tags. Then the client will be able to receive the new queue's message. Also, before each
 messag is dequeued, `Willow` checks the `Limiter` service to ensure no rules have met thier limits
 
-### Limiter
+### Limiter Service
 Limiter provides a way of creating arbitrary rules for groups of `tags`. The Limiter service
 requires the `Locker` service to be up and running for shared distributed locks. `Locker` ensures that different
 Queues + Tags from don't conflict with each other.
@@ -265,17 +266,13 @@ DELETE /v1/limiter/counters -d ' {
  If a counter was to be set to 0. It is removed from the Limiter service entierly.
 
 
-### Locker
-The locker service is a simple distributed locking service that for now, I don't believe will be reachable
+### Locker Service
+The locker service is a simple distributed locking service that for now, I don't believe this will be reachable
 from any clients as it serves as the internal distributed locks for the `Limiter`. This could change going
-forward as locks become more complicated.
+forward as locks serve a more complicated feature set other than simply Lock/Unlock.
 
 Full api documentation can be found [here](https://danlavine.github.io/willow/docs/openapi/locker/)
 
 ## Building and Running
 
 See the `docker` directory
-
-## APIs
-
-All the service have a /docs endpoints. need to figure out how to display the `docs/openapi` nicely in github.
