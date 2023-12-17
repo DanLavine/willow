@@ -20,7 +20,6 @@ import (
 	v1common "github.com/DanLavine/willow/pkg/models/api/common/v1"
 	v1locker "github.com/DanLavine/willow/pkg/models/api/locker/v1"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
-	"github.com/DanLavine/willow/testhelpers/testclient"
 
 	. "github.com/onsi/gomega"
 )
@@ -224,7 +223,7 @@ func TestLocker_List_API(t *testing.T) {
 		testConstruct.StartLocker(g)
 		defer testConstruct.Shutdown(g)
 
-		httpsClient := testConstruct.LockerClient
+		httpsClient := testConstruct.ServerClient
 
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
@@ -256,7 +255,7 @@ func TestLocker_List_API(t *testing.T) {
 		query := v1common.GeneralAssociatedQuery{
 			AssociatedKeyValues: datatypes.AssociatedKeyValuesQuery{},
 		}
-		listLocks, err := http.NewRequest("GET", fmt.Sprintf("%s/v1/locks", testConstruct.LockerClient.Address()), bytes.NewBuffer(query.ToBytes()))
+		listLocks, err := http.NewRequest("GET", fmt.Sprintf("%s/v1/locks", testConstruct.ServerURL), bytes.NewBuffer(query.ToBytes()))
 		g.Expect(err).ToNot(HaveOccurred())
 
 		resp, err := httpsClient.Do(listLocks)
@@ -332,10 +331,10 @@ func TestLocker_Async_API_Threading_Checks(t *testing.T) {
 		query := v1common.GeneralAssociatedQuery{
 			AssociatedKeyValues: datatypes.AssociatedKeyValuesQuery{},
 		}
-		listLocks, err := http.NewRequest("GET", fmt.Sprintf("%s/v1/locks", testConstruct.LockerClient.Address()), bytes.NewBuffer(query.ToBytes()))
+		listLocks, err := http.NewRequest("GET", fmt.Sprintf("%s/v1/locks", testConstruct.ServerURL), bytes.NewBuffer(query.ToBytes()))
 		g.Expect(err).ToNot(HaveOccurred())
 
-		manualClient := testclient.NewLockerClient(g, testConstruct.ServerURL)
+		manualClient := testConstruct.ServerClient
 		resp, err := manualClient.Do(listLocks)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(resp.StatusCode).To(Equal(http.StatusOK))
@@ -396,10 +395,10 @@ func TestLocker_Async_API_Threading_Checks(t *testing.T) {
 		query := v1common.GeneralAssociatedQuery{
 			AssociatedKeyValues: datatypes.AssociatedKeyValuesQuery{},
 		}
-		listLocks, err := http.NewRequest("GET", fmt.Sprintf("%s/v1/locks", testConstruct.LockerClient.Address()), bytes.NewBuffer(query.ToBytes()))
+		listLocks, err := http.NewRequest("GET", fmt.Sprintf("%s/v1/locks", testConstruct.ServerURL), bytes.NewBuffer(query.ToBytes()))
 		g.Expect(err).ToNot(HaveOccurred())
 
-		manualClient := testclient.NewLockerClient(g, testConstruct.ServerURL)
+		manualClient := testConstruct.ServerClient
 		resp, err := manualClient.Do(listLocks)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(resp.StatusCode).To(Equal(http.StatusOK))

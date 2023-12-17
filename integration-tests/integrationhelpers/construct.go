@@ -24,8 +24,8 @@ type IntegrationTestConstruct struct {
 	ServerStdout *bytes.Buffer
 	ServerStderr *bytes.Buffer
 
+	// generic http client that can be used for manual requests
 	ServerClient *testclient.Client
-	LockerClient *testclient.LockerClient
 }
 
 func NewIntrgrationTestConstruct(g *WithT) *IntegrationTestConstruct {
@@ -38,6 +38,17 @@ func NewIntrgrationTestConstruct(g *WithT) *IntegrationTestConstruct {
 	}
 }
 
+func NewIntrgrationLimiterTestConstruct(g *WithT) *IntegrationTestConstruct {
+	lockerPath, err := gexec.Build("github.com/DanLavine/willow/cmd/limiter", "--race")
+	g.Expect(err).ToNot(HaveOccurred())
+
+	return &IntegrationTestConstruct{
+		ServerPath:   lockerPath,
+		ServerURL:    "https://127.0.0.1:8082",
+		ServerClient: testclient.New(g, "https://127.0.0.1:8082", ""),
+	}
+}
+
 func NewIntrgrationLockerTestConstruct(g *WithT) *IntegrationTestConstruct {
 	lockerPath, err := gexec.Build("github.com/DanLavine/willow/cmd/locker", "--race")
 	g.Expect(err).ToNot(HaveOccurred())
@@ -45,17 +56,7 @@ func NewIntrgrationLockerTestConstruct(g *WithT) *IntegrationTestConstruct {
 	return &IntegrationTestConstruct{
 		ServerPath:   lockerPath,
 		ServerURL:    "https://127.0.0.1:8083",
-		LockerClient: testclient.NewLockerClient(g, "https://127.0.0.1:8083"),
-	}
-}
-
-func NewIntrgrationLimiterTestConstruct(g *WithT) *IntegrationTestConstruct {
-	lockerPath, err := gexec.Build("github.com/DanLavine/willow/cmd/limiter", "--race")
-	g.Expect(err).ToNot(HaveOccurred())
-
-	return &IntegrationTestConstruct{
-		ServerPath: lockerPath,
-		ServerURL:  "https://127.0.0.1:8082",
+		ServerClient: testclient.New(g, "https://127.0.0.1:8083", ""),
 	}
 }
 
