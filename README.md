@@ -1,6 +1,23 @@
 # Willow
 
-- [Featres](#features)
+Willow is a new message broker that has some unique features that can enbale more complicated workflows
+than your average message broker.
+
+Main features:
+1. Message waiting in the queue can be updated if there are no clients processing the message
+1. Generic tagging for any message in a queue 
+1. Generic limits for concurrent processing to be placed on any number of messages through the tagging system
+
+To do this, there are 3 components:
+* Willow - Message broker that can be used to generate queues with any unique tags for those queue
+* Limiter - Enforces rules for any tag combinations that limits how many tag groups can be running at once
+* Locker - Service that the Limiter relies on to ensure that competing resources for the same tags do not race each other
+
+Let me try to explain with an example workflow I wish I had many times while working with a CICD system. That
+coul be improved with Willow's features
+
+# Table of Contents
+
 - [Example Use Case](#example-use-case)
 - [Other use cases that already exist](#other-use-cases-that-already-exist)
 - [So how can Willow, Limiter, and Locker enable these workflows](#so-how-can-willow-limiter-and-locker-enable-these-workflows)
@@ -13,24 +30,6 @@
   * [Locker Service](#locker-service)
 - [Building and Running](#building-and-running)
 
-# Features
-
-Willow aims to be a different message broker that provides a few extra features not commonly found
-in many of the modern brokers one normally thinks of such as `Kafka`, `RabbitMQ`, or `Redis message broker`.
-
-Main features:
-1. Message waiting in the queue can be updated if there are no clients processing the message
-1. Generic tagging for any message in a queue 
-1. Generic limits for concurrent processing to be placed on any number of messages through the tagging system
-
-
-To do this, there are 3 components:
-* Willow - Message broker that can be used to generate queues with any unique tags for those queue
-* Limiter - Enforces rules for any tag combinations that limits how many tag groups can be running at once
-* Locker - Service that the Limiter relies on to ensure that competing resources for the same tags do not race each other
-
-Let me try to explain with an example workflow I wish I had many times while working with a CICD system. That
-coul be improved with Willow's features
 
 #### Example Use Case
 
