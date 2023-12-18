@@ -3,6 +3,7 @@ package limter_integration_tests
 import (
 	"testing"
 
+	v1common "github.com/DanLavine/willow/pkg/models/api/common/v1"
 	v1 "github.com/DanLavine/willow/pkg/models/api/limiter/v1"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 
@@ -158,7 +159,7 @@ func Test_Limiter_Overrides_List(t *testing.T) {
 
 		// query
 		existsTrue := true
-		query := v1.Query{
+		query := v1common.AssociatedQuery{
 			AssociatedKeyValues: datatypes.AssociatedKeyValuesQuery{
 				KeyValueSelection: &datatypes.KeyValueSelection{
 					KeyValues: map[string]datatypes.Value{

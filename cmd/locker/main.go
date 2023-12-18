@@ -8,11 +8,14 @@ import (
 	"syscall"
 
 	"github.com/DanLavine/goasync"
+	"github.com/DanLavine/urlrouter"
 	"github.com/DanLavine/willow/internal/config"
-	"github.com/DanLavine/willow/internal/locker"
 	"github.com/DanLavine/willow/internal/logger"
-	"github.com/DanLavine/willow/internal/server"
-	"github.com/DanLavine/willow/internal/server/versions/v1server"
+
+	"github.com/DanLavine/willow/internal/locker/api"
+	v1handlers "github.com/DanLavine/willow/internal/locker/api/v1/handlers"
+	v1router "github.com/DanLavine/willow/internal/locker/api/v1/router"
+	lockmanager "github.com/DanLavine/willow/internal/locker/lock_manager"
 )
 
 func main() {
@@ -24,17 +27,22 @@ func main() {
 	logger := logger.NewZapLogger(cfg)
 	defer logger.Sync()
 
+	// setup server mux that is passed to all handlers
+	mux := urlrouter.New()
+	// add the versioned apis to the server mux
+	generalLocker := lockmanager.NewGeneralLocker(nil)
+	v1router.AddV1LockerRoutes(mux, v1handlers.NewLockHandler(logger, cfg, generalLocker))
+
 	// setup async handlers
 	//// using strict config ensures that if any process fails, the server will ty and shutdown gracefully
 	taskManager := goasync.NewTaskManager(goasync.StrictConfig())
 
 	// general locker
-	generalLocker := locker.NewGeneralLocker(nil)
 	taskManager.AddTask("general Locker", generalLocker)
 
 	// v1 api handlers
 	//// http2 server to handle all client requests
-	taskManager.AddTask("locker_tcp_server", server.NewLockerTCP(logger, cfg, v1server.NewLockHandler(logger, cfg, generalLocker)))
+	taskManager.AddTask("locker_tcp_server", api.NewLockerTCP(logger, cfg, mux))
 
 	// start all processes
 	shutdown, _ := signal.NotifyContext(context.Background(), syscall.SIGINT)

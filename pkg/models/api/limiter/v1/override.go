@@ -2,9 +2,8 @@ package v1
 
 import (
 	"encoding/json"
-	"io"
 
-	"github.com/DanLavine/willow/pkg/models/api"
+	"github.com/DanLavine/willow/pkg/models/api/common/errors"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 )
 
@@ -30,32 +29,13 @@ type Override struct {
 	Limit uint64
 }
 
-// Server side call to parse the override request to know if it is valid
-func ParseOverrideRequest(reader io.ReadCloser) (*Override, *api.Error) {
-	requestBody, err := io.ReadAll(reader)
-	if err != nil {
-		return nil, api.ReadRequestBodyError.With("", err.Error())
-	}
-
-	obj := Override{}
-	if err := json.Unmarshal(requestBody, &obj); err != nil {
-		return nil, api.ParseRequestBodyError.With("", err.Error())
-	}
-
-	if validateErr := obj.Validate(); validateErr != nil {
-		return nil, validateErr
-	}
-
-	return &obj, nil
-}
-
-func (or Override) Validate() *api.Error {
+func (or Override) Validate() *errors.Error {
 	if or.Name == "" {
-		return api.InvalidRequestBody.With("Name to be provided", "received empty sting")
+		return errors.InvalidRequestBody.With("Name to be provided", "received empty sting")
 	}
 
 	if err := or.KeyValues.Validate(); err != nil {
-		return api.InvalidRequestBody.With("KeyValues to be valid", err.Error())
+		return errors.InvalidRequestBody.With("KeyValues to be valid", err.Error())
 	}
 
 	return nil

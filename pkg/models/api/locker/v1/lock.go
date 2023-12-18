@@ -2,10 +2,9 @@ package v1locker
 
 import (
 	"encoding/json"
-	"io"
 	"time"
 
-	"github.com/DanLavine/willow/pkg/models/api"
+	"github.com/DanLavine/willow/pkg/models/api/common/errors"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 )
 
@@ -46,31 +45,9 @@ func NewListLockResponse(listLocks []Lock) ListLockResponse {
 	}
 }
 
-func ParseLockRequest(reader io.ReadCloser, defaultTimeout time.Duration) (*CreateLockRequest, *api.Error) {
-	requestBody, err := io.ReadAll(reader)
-	if err != nil {
-		return nil, api.ReadRequestBodyError.With("", err.Error())
-	}
-
-	obj := &CreateLockRequest{}
-	if err := json.Unmarshal(requestBody, obj); err != nil {
-		return nil, api.ParseRequestBodyError.With("", err.Error())
-	}
-
-	if obj.Timeout == 0 {
-		obj.Timeout = defaultTimeout
-	}
-
-	if validateErr := obj.Validate(); validateErr != nil {
-		return nil, validateErr
-	}
-
-	return obj, nil
-}
-
-func (lr *CreateLockRequest) Validate() *api.Error {
+func (lr *CreateLockRequest) Validate() *errors.Error {
 	if len(lr.KeyValues) == 0 {
-		return api.InvalidRequestBody.With("KeyValues to be provided", "recieved empty KeyValues")
+		return errors.InvalidRequestBody.With("KeyValues to be provided", "recieved empty KeyValues")
 	}
 
 	return nil

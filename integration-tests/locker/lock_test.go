@@ -252,7 +252,7 @@ func TestLocker_List_API(t *testing.T) {
 		g.Expect(lock).ToNot(BeNil())
 
 		// list all the locks
-		query := v1common.GeneralAssociatedQuery{
+		query := v1common.AssociatedQuery{
 			AssociatedKeyValues: datatypes.AssociatedKeyValuesQuery{},
 		}
 		listLocks, err := http.NewRequest("GET", fmt.Sprintf("%s/v1/locks", testConstruct.ServerURL), bytes.NewBuffer(query.ToBytes()))
@@ -328,7 +328,7 @@ func TestLocker_Async_API_Threading_Checks(t *testing.T) {
 		}
 
 		// ensure all the locks are cleaned up
-		query := v1common.GeneralAssociatedQuery{
+		query := v1common.AssociatedQuery{
 			AssociatedKeyValues: datatypes.AssociatedKeyValuesQuery{},
 		}
 		listLocks, err := http.NewRequest("GET", fmt.Sprintf("%s/v1/locks", testConstruct.ServerURL), bytes.NewBuffer(query.ToBytes()))
@@ -392,7 +392,7 @@ func TestLocker_Async_API_Threading_Checks(t *testing.T) {
 		}
 
 		// ensure all the locks are cleaned up
-		query := v1common.GeneralAssociatedQuery{
+		query := v1common.AssociatedQuery{
 			AssociatedKeyValues: datatypes.AssociatedKeyValuesQuery{},
 		}
 		listLocks, err := http.NewRequest("GET", fmt.Sprintf("%s/v1/locks", testConstruct.ServerURL), bytes.NewBuffer(query.ToBytes()))

@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"io"
 
-	"github.com/DanLavine/willow/pkg/models/api"
+	"github.com/DanLavine/willow/pkg/models/api/common/errors"
 )
 
 type RuleRequest struct {
@@ -18,34 +18,15 @@ type RuleRequest struct {
 	Limit uint64
 }
 
-// Server side logic to parse a Rule to know it is valid
-func ParseRuleRequest(reader io.ReadCloser) (*RuleRequest, *api.Error) {
-	requestBody, err := io.ReadAll(reader)
-	if err != nil {
-		return nil, api.ReadRequestBodyError.With("", err.Error())
-	}
-
-	obj := &RuleRequest{}
-	if err := json.Unmarshal(requestBody, obj); err != nil {
-		return nil, api.ParseRequestBodyError.With("", err.Error())
-	}
-
-	if validateErr := obj.Validate(); validateErr != nil {
-		return nil, validateErr
-	}
-
-	return obj, nil
-}
-
 // Used to validate on the server side that all parameters are valid. Client's can also call this
 // validation beforehand to ensure that the request is valid before sending
-func (rule RuleRequest) Validate() *api.Error {
+func (rule RuleRequest) Validate() *errors.Error {
 	if rule.Name == "" {
-		return api.InvalidRequestBody.With("Name to be provided", "recieved empty string")
+		return errors.InvalidRequestBody.With("Name to be provided", "recieved empty string")
 	}
 
 	if len(rule.GroupBy) == 0 {
-		return api.InvalidRequestBody.With("GroupBy tags to be provided", "recieved empty tag grouping")
+		return errors.InvalidRequestBody.With("GroupBy tags to be provided", "recieved empty tag grouping")
 	}
 
 	return nil
@@ -71,15 +52,15 @@ type RuleResponse struct {
 }
 
 // Client side logic to parse a Rule
-func ParseRuleResponse(reader io.ReadCloser) (*RuleResponse, *api.Error) {
+func ParseRuleResponse(reader io.ReadCloser) (*RuleResponse, *errors.Error) {
 	requestBody, err := io.ReadAll(reader)
 	if err != nil {
-		return nil, api.ReadRequestBodyError.With("", err.Error())
+		return nil, errors.ReadResponseBodyError.With("", err.Error())
 	}
 
 	obj := &RuleResponse{}
 	if err := json.Unmarshal(requestBody, obj); err != nil {
-		return nil, api.ParseRequestBodyError.With("", err.Error())
+		return nil, errors.ParseResponseBodyError.With("", err.Error())
 	}
 
 	return obj, nil

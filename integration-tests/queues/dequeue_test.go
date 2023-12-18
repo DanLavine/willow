@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DanLavine/willow/pkg/models/api/v1willow"
+	v1willow "github.com/DanLavine/willow/pkg/models/api/willow/v1"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 
 	. "github.com/DanLavine/willow/integration-tests/integrationhelpers"

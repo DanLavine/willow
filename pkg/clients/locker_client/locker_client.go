@@ -13,7 +13,7 @@ import (
 	"github.com/DanLavine/goasync"
 	btreeassociated "github.com/DanLavine/willow/internal/datastructures/btree_associated"
 	"github.com/DanLavine/willow/pkg/clients"
-	"github.com/DanLavine/willow/pkg/models/api"
+	"github.com/DanLavine/willow/pkg/models/api/common/errors"
 	v1locker "github.com/DanLavine/willow/pkg/models/api/locker/v1"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 	"golang.org/x/net/http2"
@@ -263,7 +263,7 @@ func (lc *lockerclient) ObtainLock(ctx context.Context, lockRequest v1locker.Cre
 					return nil
 				}
 
-				apiError := &api.Error{}
+				apiError := &errors.Error{}
 				if err = json.Unmarshal(respBody, apiError); err != nil {
 					// shouldn't actuall hit this
 					lockErr = err

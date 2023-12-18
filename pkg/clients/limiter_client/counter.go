@@ -7,7 +7,9 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/DanLavine/willow/pkg/models/api"
+	"github.com/DanLavine/willow/pkg/models/api/common/errors"
+
+	v1common "github.com/DanLavine/willow/pkg/models/api/common/v1"
 	v1limiter "github.com/DanLavine/willow/pkg/models/api/limiter/v1"
 )
 
@@ -38,12 +40,7 @@ func (lc *limiterClient) IncrementCounter(counter v1limiter.Counter) error {
 		// success case and nothing to return
 		return nil
 	case http.StatusBadRequest, http.StatusConflict, http.StatusInternalServerError:
-		apiErr, err := api.ParseError(resp.Body)
-		if err != nil {
-			return err
-		}
-
-		return apiErr
+		return errors.ParseError(resp.Body)
 	default:
 		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
@@ -76,18 +73,13 @@ func (lc *limiterClient) DecrementCounter(counter v1limiter.Counter) error {
 		// success case and nothing to return
 		return nil
 	case http.StatusBadRequest, http.StatusInternalServerError:
-		apiErr, err := api.ParseError(resp.Body)
-		if err != nil {
-			return err
-		}
-
-		return apiErr
+		return errors.ParseError(resp.Body)
 	default:
 		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
 }
 
-func (lc *limiterClient) ListCounters(query v1limiter.Query) (v1limiter.CountersResponse, error) {
+func (lc *limiterClient) ListCounters(query v1common.AssociatedQuery) (v1limiter.CountersResponse, error) {
 	var countersResponse v1limiter.CountersResponse
 
 	// always validate locally first
@@ -124,12 +116,7 @@ func (lc *limiterClient) ListCounters(query v1limiter.Query) (v1limiter.Counters
 
 		return countersResponse, nil
 	case http.StatusBadRequest, http.StatusInternalServerError:
-		apiErr, err := api.ParseError(resp.Body)
-		if err != nil {
-			return countersResponse, err
-		}
-
-		return countersResponse, apiErr
+		return countersResponse, errors.ParseError(resp.Body)
 	default:
 		return countersResponse, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
@@ -162,12 +149,7 @@ func (lc *limiterClient) SetCounters(counters v1limiter.CounterSet) error {
 		// success case and nothing to return
 		return nil
 	case http.StatusBadRequest, http.StatusInternalServerError:
-		apiErr, err := api.ParseError(resp.Body)
-		if err != nil {
-			return err
-		}
-
-		return apiErr
+		return errors.ParseError(resp.Body)
 	default:
 		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}

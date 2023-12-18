@@ -2,6 +2,7 @@ package lockerclient
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"sync/atomic"
@@ -9,10 +10,15 @@ import (
 	"time"
 
 	"github.com/DanLavine/goasync"
-	"github.com/DanLavine/willow/pkg/models/api"
+	"github.com/DanLavine/willow/pkg/models/api/common/errors"
 	v1locker "github.com/DanLavine/willow/pkg/models/api/locker/v1"
 	. "github.com/onsi/gomega"
 )
+
+func ErrorToBytes(e *errors.Error) []byte {
+	data, _ := json.Marshal(e)
+	return data
+}
 
 func setupServerHttp(serverMux *http.ServeMux) *httptest.Server {
 	return httptest.NewServer(serverMux)
@@ -285,9 +291,9 @@ func TestLock_heartbeat(t *testing.T) {
 		t.Run("It calls the heartbeatErrorCallback with the remote error", func(t *testing.T) {
 			mux := http.NewServeMux()
 			mux.HandleFunc("/v1/locks/someID/heartbeat", func(w http.ResponseWriter, r *http.Request) {
-				apiErr := &api.Error{Message: "this is the api error"}
+				apiErr := &errors.Error{Message: "this is the api error"}
 				w.WriteHeader(http.StatusBadRequest)
-				w.Write(apiErr.ToBytes())
+				w.Write(ErrorToBytes(apiErr))
 			})
 
 			server := setupServerHttp(mux)
@@ -409,9 +415,9 @@ func TestLock_release(t *testing.T) {
 				w.WriteHeader(http.StatusOK)
 			})
 			mux.HandleFunc("/v1/locks/someID", func(w http.ResponseWriter, r *http.Request) {
-				apiErr := &api.Error{Message: "bad request budy"}
+				apiErr := &errors.Error{Message: "bad request budy"}
 				w.WriteHeader(http.StatusBadRequest)
-				w.Write(apiErr.ToBytes())
+				w.Write(ErrorToBytes(apiErr))
 			})
 
 			server := setupServerHttp(mux)

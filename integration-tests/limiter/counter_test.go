@@ -5,7 +5,9 @@ import (
 	"testing"
 
 	limiterclient "github.com/DanLavine/willow/pkg/clients/limiter_client"
+	v1common "github.com/DanLavine/willow/pkg/models/api/common/v1"
 	v1 "github.com/DanLavine/willow/pkg/models/api/limiter/v1"
+
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 
 	. "github.com/DanLavine/willow/integration-tests/integrationhelpers"
@@ -218,7 +220,7 @@ func Test_Limiter_CountersList(t *testing.T) {
 
 		// query the counters
 		trueCheck := true
-		query := v1.Query{
+		query := v1common.AssociatedQuery{
 			AssociatedKeyValues: datatypes.AssociatedKeyValuesQuery{
 				KeyValueSelection: &datatypes.KeyValueSelection{
 					KeyValues: map[string]datatypes.Value{
@@ -285,7 +287,7 @@ func Test_Limiter_SetCounters(t *testing.T) {
 
 		// query the counters
 		trueCheck := true
-		query := v1.Query{
+		query := v1common.AssociatedQuery{
 			AssociatedKeyValues: datatypes.AssociatedKeyValuesQuery{
 				KeyValueSelection: &datatypes.KeyValueSelection{
 					KeyValues: map[string]datatypes.Value{

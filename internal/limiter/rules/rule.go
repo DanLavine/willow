@@ -4,8 +4,11 @@ import (
 	"sort"
 
 	v1limitermodels "github.com/DanLavine/willow/internal/limiter/v1_limiter_models"
-	"github.com/DanLavine/willow/pkg/models/api"
+	v1common "github.com/DanLavine/willow/pkg/models/api/common/v1"
 	v1limiter "github.com/DanLavine/willow/pkg/models/api/limiter/v1"
+
+	servererrors "github.com/DanLavine/willow/internal/server_errors"
+
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 	"go.uber.org/zap"
 )
@@ -21,22 +24,19 @@ type Rule interface {
 	Update(logger *zap.Logger, update *v1limiter.RuleUpdate)
 
 	// query overrides for a particular rule
-	QueryOverrides(logger *zap.Logger, query *v1limiter.Query) (v1limiter.Overrides, *api.Error)
+	QueryOverrides(logger *zap.Logger, query *v1common.AssociatedQuery) (v1limiter.Overrides, *servererrors.ApiError)
 
 	// set an override for a particualr group of tags
-	SetOverride(logger *zap.Logger, override *v1limiter.Override) *api.Error
+	SetOverride(logger *zap.Logger, override *v1limiter.Override) *servererrors.ApiError
 
 	// Delete an override for a particualr group of tags
-	DeleteOverride(logger *zap.Logger, overrideName string) *api.Error
+	DeleteOverride(logger *zap.Logger, overrideName string) *servererrors.ApiError
 
 	// Operation that is calledfor cascading deletes because the rule is being deleted
-	CascadeDeletion(logger *zap.Logger) *api.Error
+	CascadeDeletion(logger *zap.Logger) *servererrors.ApiError
 
 	// Find the limits for a particualr group of tags including any overrides
-	FindLimits(logger *zap.Logger, keyValues datatypes.KeyValues) (v1limitermodels.Limits, *api.Error)
-
-	// generate a query based on the search tags
-	//GenerateQuery(keyValues datatypes.KeyValues) datatypes.Select
+	FindLimits(logger *zap.Logger, keyValues datatypes.KeyValues) (v1limitermodels.Limits, *servererrors.ApiError)
 
 	// Get a rule response for Read operations
 	Get(includeOverrides *v1limiter.RuleQuery) *v1limiter.RuleResponse

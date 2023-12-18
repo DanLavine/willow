@@ -9,15 +9,18 @@ import (
 	"time"
 
 	"github.com/DanLavine/goasync"
+	"github.com/DanLavine/urlrouter"
 	"github.com/DanLavine/willow/internal/config"
 	"github.com/DanLavine/willow/internal/limiter"
+	"github.com/DanLavine/willow/internal/limiter/api"
 	"github.com/DanLavine/willow/internal/limiter/rules"
 	"github.com/DanLavine/willow/internal/logger"
-	"github.com/DanLavine/willow/internal/server"
-	"github.com/DanLavine/willow/internal/server/versions/v1server"
 	"github.com/DanLavine/willow/pkg/clients"
 	lockerclient "github.com/DanLavine/willow/pkg/clients/locker_client"
 	"go.uber.org/zap"
+
+	v1handlers "github.com/DanLavine/willow/internal/limiter/api/v1/handlers"
+	v1router "github.com/DanLavine/willow/internal/limiter/api/v1/router"
 )
 
 func main() {
@@ -61,17 +64,20 @@ func main() {
 		break
 	}
 
-	// setup async handlers
-	//// using strict config ensures that if any process fails, the server will ty and shutdown gracefully
-	taskManager := goasync.NewTaskManager(goasync.StrictConfig())
-
-	// v1 api handlers
-	//// http2 server to handle all client requests
+	// setup server mux that is passed to all handlers
+	mux := urlrouter.New()
+	//// add the versioned apis to the server mux
 	constructor, err := rules.NewRuleConstructor("memory")
 	if err != nil {
 		log.Fatal(err)
 	}
-	taskManager.AddTask("tcp_server", server.NewLimiterTCP(logger, cfg, v1server.NewGroupRuleHandler(logger, shutdown, clientConfig, limiter.NewRulesManger(constructor))))
+	generalLocker := limiter.NewRulesManger(constructor)
+	v1router.AddV1LimiterRoutes(mux, v1handlers.NewGroupRuleHandler(logger, shutdown, clientConfig, generalLocker))
+
+	// setup async handlers
+	//// using strict config ensures that if any process fails, the server will ty and shutdown gracefully
+	taskManager := goasync.NewTaskManager(goasync.StrictConfig())
+	taskManager.AddTask("tcp_server", api.NewLimiterTCP(logger, cfg, mux)) // tcp server
 
 	// start all processes
 	if errs := taskManager.Run(shutdown); errs != nil {

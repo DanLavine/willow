@@ -2,9 +2,8 @@ package v1
 
 import (
 	"encoding/json"
-	"io"
 
-	"github.com/DanLavine/willow/pkg/models/api"
+	"github.com/DanLavine/willow/pkg/models/api/common/errors"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 )
 
@@ -28,27 +27,9 @@ type Counter struct {
 	KeyValues datatypes.KeyValues
 }
 
-func ParseCounterRequest(reader io.ReadCloser) (*Counter, *api.Error) {
-	requestBody, err := io.ReadAll(reader)
-	if err != nil {
-		return nil, api.ReadRequestBodyError.With("", err.Error())
-	}
-
-	obj := Counter{}
-	if err := json.Unmarshal(requestBody, &obj); err != nil {
-		return nil, api.ParseRequestBodyError.With("", err.Error())
-	}
-
-	if validateErr := obj.Validate(); validateErr != nil {
-		return nil, validateErr
-	}
-
-	return &obj, nil
-}
-
-func (c Counter) Validate() *api.Error {
+func (c Counter) Validate() *errors.Error {
 	if err := c.KeyValues.Validate(); err != nil {
-		return api.InvalidRequestBody.With("Key values to be valid", err.Error())
+		return errors.InvalidRequestBody.With("KeyValues to be valid", err.Error())
 	}
 
 	return nil
@@ -67,27 +48,9 @@ type CounterSet struct {
 	Count uint64
 }
 
-func ParseCounterSetRequest(reader io.ReadCloser) (*CounterSet, *api.Error) {
-	requestBody, err := io.ReadAll(reader)
-	if err != nil {
-		return nil, api.ReadRequestBodyError.With("", err.Error())
-	}
-
-	obj := CounterSet{}
-	if err := json.Unmarshal(requestBody, &obj); err != nil {
-		return nil, api.ParseRequestBodyError.With("", err.Error())
-	}
-
-	if validateErr := obj.Validate(); validateErr != nil {
-		return nil, validateErr
-	}
-
-	return &obj, nil
-}
-
-func (cs CounterSet) Validate() *api.Error {
+func (cs CounterSet) Validate() *errors.Error {
 	if err := cs.KeyValues.Validate(); err != nil {
-		return api.InvalidRequestBody.With("Key values to be valid", err.Error())
+		return errors.InvalidRequestBody.With("Key values to be valid", err.Error())
 	}
 
 	return nil

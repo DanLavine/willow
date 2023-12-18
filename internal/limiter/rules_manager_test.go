@@ -10,13 +10,13 @@ import (
 	"time"
 
 	btreeassociated "github.com/DanLavine/willow/internal/datastructures/btree_associated"
-	"github.com/DanLavine/willow/internal/errors"
 	"github.com/DanLavine/willow/internal/limiter/counters"
 	"github.com/DanLavine/willow/internal/limiter/rules"
 	"github.com/DanLavine/willow/internal/limiter/rules/rulefakes"
+	servererrors "github.com/DanLavine/willow/internal/server_errors"
 	lockerclient "github.com/DanLavine/willow/pkg/clients/locker_client"
 	"github.com/DanLavine/willow/pkg/clients/locker_client/lockerclientfakes"
-	"github.com/DanLavine/willow/pkg/models/api"
+	v1common "github.com/DanLavine/willow/pkg/models/api/common/v1"
 	v1limiter "github.com/DanLavine/willow/pkg/models/api/limiter/v1"
 	v1locker "github.com/DanLavine/willow/pkg/models/api/locker/v1"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
@@ -422,7 +422,7 @@ func TestRulesManager_Delete(t *testing.T) {
 			defer mockController.Finish()
 
 			// ensure cascade delete is called
-			mockRule.EXPECT().CascadeDeletion(gomock.Any()).DoAndReturn(func(logger *zap.Logger) *api.Error {
+			mockRule.EXPECT().CascadeDeletion(gomock.Any()).DoAndReturn(func(logger *zap.Logger) *servererrors.ApiError {
 				return nil
 			}).Times(1)
 
@@ -453,8 +453,8 @@ func TestRulesManager_Delete(t *testing.T) {
 			defer mockController.Finish()
 
 			// ensure cascade delete and Get are called
-			mockRule.EXPECT().CascadeDeletion(gomock.Any()).DoAndReturn(func(logger *zap.Logger) *api.Error {
-				return &api.Error{Message: "failed to cascade delete", StatusCode: http.StatusInternalServerError}
+			mockRule.EXPECT().CascadeDeletion(gomock.Any()).DoAndReturn(func(logger *zap.Logger) *servererrors.ApiError {
+				return &servererrors.ApiError{Message: "failed to cascade delete", StatusCode: http.StatusInternalServerError}
 			}).Times(1)
 			mockRule.EXPECT().Get(gomock.Any()).DoAndReturn(func(includeOverrides *v1limiter.RuleQuery) *v1limiter.RuleResponse {
 				return &v1limiter.RuleResponse{}
@@ -493,7 +493,7 @@ func TestRulesManager_ListOverrides(t *testing.T) {
 		rulesManager := NewRulesManger(constructor)
 
 		notExists := false
-		query := &v1limiter.Query{
+		query := &v1common.AssociatedQuery{
 			AssociatedKeyValues: datatypes.AssociatedKeyValuesQuery{
 				KeyValueSelection: &datatypes.KeyValueSelection{
 					KeyValues: map[string]datatypes.Value{
@@ -534,7 +534,7 @@ func TestRulesManager_ListOverrides(t *testing.T) {
 		g.Expect(rulesManager.CreateOverride(zap.NewNop(), "test1", &overrideRequest)).ToNot(HaveOccurred())
 
 		// query
-		query := &v1limiter.Query{
+		query := &v1common.AssociatedQuery{
 			AssociatedKeyValues: datatypes.AssociatedKeyValuesQuery{}, // select all
 		}
 		g.Expect(query.Validate()).ToNot(HaveOccurred())
@@ -850,7 +850,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 
 				err := rulesManager.IncrementCounters(testLgger, ctx, fakeLocker, counter)
 				g.Expect(err).To(HaveOccurred())
-				g.Expect(err).To(Equal(errors.InternalServerError))
+				g.Expect(err).To(Equal(servererrors.InternalServerError))
 				g.Expect(len(testLogs.All())).To(Equal(1))
 				g.Expect(testLogs.All()[0].Message).To(ContainSubstring("failed to obtain a lock from the locker service"))
 			})
@@ -912,7 +912,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 
 				err := rulesManager.IncrementCounters(testLgger, ctx, fakeLocker, counter)
 				g.Expect(err).To(HaveOccurred())
-				g.Expect(err).To(Equal(errors.InternalServerError))
+				g.Expect(err).To(Equal(servererrors.InternalServerError))
 				g.Expect(len(testLogs.All())).To(Equal(1))
 				g.Expect(testLogs.All()[0].Message).To(ContainSubstring("a lock was released unexpedily"))
 			})
@@ -1330,7 +1330,7 @@ func TestRulesManager_ListCounters(t *testing.T) {
 	t.Run("It returns empty list if there are no counters that match the query", func(t *testing.T) {
 		rulesManager := NewRulesManger(constructor)
 
-		query := &v1limiter.Query{
+		query := &v1common.AssociatedQuery{
 			AssociatedKeyValues: datatypes.AssociatedKeyValuesQuery{
 				KeyValueSelection: &datatypes.KeyValueSelection{
 					KeyValues: map[string]datatypes.Value{
@@ -1402,7 +1402,7 @@ func TestRulesManager_ListCounters(t *testing.T) {
 		int1 := datatypes.Int(1)
 		int2 := datatypes.Int(2)
 
-		query := &v1limiter.Query{
+		query := &v1common.AssociatedQuery{
 			AssociatedKeyValues: datatypes.AssociatedKeyValuesQuery{
 				KeyValueSelection: &datatypes.KeyValueSelection{
 					KeyValues: map[string]datatypes.Value{
@@ -1469,7 +1469,7 @@ func TestRulesManager_SetCounters(t *testing.T) {
 		g.Expect(err).ToNot(HaveOccurred())
 
 		// ensure they are set properly
-		query := &v1limiter.Query{
+		query := &v1common.AssociatedQuery{
 			AssociatedKeyValues: datatypes.AssociatedKeyValuesQuery{}, // select all
 		}
 
@@ -1505,7 +1505,7 @@ func TestRulesManager_SetCounters(t *testing.T) {
 		g.Expect(err).ToNot(HaveOccurred())
 
 		// ensure they are set properly
-		query := &v1limiter.Query{
+		query := &v1common.AssociatedQuery{
 			AssociatedKeyValues: datatypes.AssociatedKeyValuesQuery{}, // select all
 		}
 

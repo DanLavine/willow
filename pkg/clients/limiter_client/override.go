@@ -7,7 +7,8 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/DanLavine/willow/pkg/models/api"
+	"github.com/DanLavine/willow/pkg/models/api/common/errors"
+	v1common "github.com/DanLavine/willow/pkg/models/api/common/v1"
 	v1limiter "github.com/DanLavine/willow/pkg/models/api/limiter/v1"
 )
 
@@ -37,12 +38,7 @@ func (lc *limiterClient) CreateOverride(ruleName string, override v1limiter.Over
 	case http.StatusCreated:
 		return nil
 	case http.StatusBadRequest, http.StatusUnprocessableEntity, http.StatusInternalServerError:
-		apiErr, err := api.ParseError(resp.Body)
-		if err != nil {
-			return err
-		}
-
-		return apiErr
+		return errors.ParseError(resp.Body)
 	default:
 		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
@@ -66,18 +62,13 @@ func (lc *limiterClient) DeleteOverride(ruleName, overrideName string) error {
 	case http.StatusNoContent:
 		return nil
 	case http.StatusBadRequest, http.StatusUnprocessableEntity, http.StatusInternalServerError:
-		apiErr, err := api.ParseError(resp.Body)
-		if err != nil {
-			return err
-		}
-
-		return apiErr
+		return errors.ParseError(resp.Body)
 	default:
 		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
 }
 
-func (lc *limiterClient) ListOverrides(ruleName string, query v1limiter.Query) (v1limiter.Overrides, error) {
+func (lc *limiterClient) ListOverrides(ruleName string, query v1common.AssociatedQuery) (v1limiter.Overrides, error) {
 	var overrides v1limiter.Overrides
 
 	// always validate locally first
@@ -115,12 +106,7 @@ func (lc *limiterClient) ListOverrides(ruleName string, query v1limiter.Query) (
 
 		return overrides, nil
 	case http.StatusBadRequest, http.StatusUnprocessableEntity, http.StatusInternalServerError:
-		apiErr, err := api.ParseError(resp.Body)
-		if err != nil {
-			return overrides, err
-		}
-
-		return overrides, apiErr
+		return overrides, errors.ParseError(resp.Body)
 	default:
 		return overrides, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}

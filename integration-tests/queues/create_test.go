@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/DanLavine/willow/pkg/models/api/v1willow"
+	v1willow "github.com/DanLavine/willow/pkg/models/api/willow/v1"
 
 	. "github.com/DanLavine/willow/integration-tests/integrationhelpers"
 	. "github.com/onsi/gomega"

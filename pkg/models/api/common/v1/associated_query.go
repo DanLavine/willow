@@ -2,46 +2,25 @@ package v1
 
 import (
 	"encoding/json"
-	"io"
 
-	"github.com/DanLavine/willow/pkg/models/api"
+	"github.com/DanLavine/willow/pkg/models/api/common/errors"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 )
 
-// TODO: rename
-type GeneralAssociatedQuery struct {
+type AssociatedQuery struct {
 	AssociatedKeyValues datatypes.AssociatedKeyValuesQuery
 }
 
-// Server side logic to parse a Rule to know it is valid
-func ParseGeneralAssociatedQuery(reader io.ReadCloser) (*GeneralAssociatedQuery, *api.Error) {
-	requestBody, err := io.ReadAll(reader)
-	if err != nil {
-		return nil, api.ReadRequestBodyError.With("", err.Error())
-	}
-
-	obj := GeneralAssociatedQuery{}
-	if err := json.Unmarshal(requestBody, &obj); err != nil {
-		return nil, api.ParseRequestBodyError.With("", err.Error())
-	}
-
-	if validateErr := obj.Validate(); validateErr != nil {
-		return nil, validateErr
-	}
-
-	return &obj, nil
-}
-
 // Used to validate on the server side that all parameters are valid
-func (q GeneralAssociatedQuery) Validate() *api.Error {
+func (q AssociatedQuery) Validate() *errors.Error {
 	if err := q.AssociatedKeyValues.Validate(); err != nil {
-		return api.InvalidRequestBody.With("Query to be valid.", err.Error())
+		return &errors.Error{Message: err.Error()}
 	}
 
 	return nil
 }
 
-func (q GeneralAssociatedQuery) ToBytes() []byte {
+func (q AssociatedQuery) ToBytes() []byte {
 	data, _ := json.Marshal(q)
 	return data
 }

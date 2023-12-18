@@ -3,6 +3,7 @@ package memory
 import (
 	"testing"
 
+	v1common "github.com/DanLavine/willow/pkg/models/api/common/v1"
 	v1limiter "github.com/DanLavine/willow/pkg/models/api/limiter/v1"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 	. "github.com/onsi/gomega"
@@ -258,7 +259,7 @@ func TestRule_QueryOverrides(t *testing.T) {
 	t.Run("It returns empty if there are no overrides", func(t *testing.T) {
 		rule := NewRule(defaultLimiterTestRule(g))
 
-		query := &v1limiter.Query{AssociatedKeyValues: datatypes.AssociatedKeyValuesQuery{}}
+		query := &v1common.AssociatedQuery{AssociatedKeyValues: datatypes.AssociatedKeyValuesQuery{}}
 		g.Expect(query.Validate()).ToNot(HaveOccurred())
 
 		overrides, err := rule.QueryOverrides(zap.NewNop(), query)
@@ -287,7 +288,7 @@ func TestRule_QueryOverrides(t *testing.T) {
 
 		// run the query
 		notExists := false
-		query := &v1limiter.Query{
+		query := &v1common.AssociatedQuery{
 			AssociatedKeyValues: datatypes.AssociatedKeyValuesQuery{
 				KeyValueSelection: &datatypes.KeyValueSelection{
 					KeyValues: map[string]datatypes.Value{

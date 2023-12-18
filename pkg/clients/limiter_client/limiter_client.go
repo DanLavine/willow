@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/DanLavine/willow/pkg/clients"
+	v1common "github.com/DanLavine/willow/pkg/models/api/common/v1"
 	v1limiter "github.com/DanLavine/willow/pkg/models/api/limiter/v1"
 	"golang.org/x/net/http2"
 )
@@ -21,12 +22,12 @@ type LimiterClient interface {
 	DeleteRule(ruleName string) error
 
 	// override operations
-	ListOverrides(ruleName string, query v1limiter.Query) (v1limiter.Overrides, error)
+	ListOverrides(ruleName string, query v1common.AssociatedQuery) (v1limiter.Overrides, error)
 	CreateOverride(ruleName string, override v1limiter.Override) error
 	DeleteOverride(ruleName string, overrideName string) error
 
 	// counter operations
-	ListCounters(query v1limiter.Query) (v1limiter.CountersResponse, error)
+	ListCounters(query v1common.AssociatedQuery) (v1limiter.CountersResponse, error)
 	IncrementCounter(counter v1limiter.Counter) error
 	DecrementCounter(counter v1limiter.Counter) error
 	SetCounters(counters v1limiter.CounterSet) error

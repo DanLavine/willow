@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/DanLavine/willow/pkg/models/api"
+	"github.com/DanLavine/willow/pkg/models/api/common/errors"
 	v1locker "github.com/DanLavine/willow/pkg/models/api/locker/v1"
 )
 
@@ -151,7 +151,7 @@ func (l *lock) heartbeat() int {
 		switch resp.StatusCode {
 		case http.StatusBadRequest:
 			// there was an error with the request body
-			apiError := &api.Error{}
+			apiError := &errors.Error{}
 			if err = json.Unmarshal(respBody, apiError); err != nil {
 				if l.heartbeatErrorCallback != nil {
 					l.heartbeatErrorCallback(fmt.Errorf("error paring server response body: %w", err))
@@ -245,7 +245,7 @@ func (l *lock) release() error {
 			return fmt.Errorf("internal error. client unable to read response body: %w", err)
 		}
 
-		apiError := &api.Error{}
+		apiError := &errors.Error{}
 		if err = json.Unmarshal(respBody, apiError); err != nil {
 			return fmt.Errorf("error paring server response body: %w", err)
 		}

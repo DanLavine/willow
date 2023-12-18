@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/DanLavine/willow/pkg/models/api/v1willow"
+	v1willow "github.com/DanLavine/willow/pkg/models/api/willow/v1"
 	. "github.com/onsi/gomega"
 )
 
