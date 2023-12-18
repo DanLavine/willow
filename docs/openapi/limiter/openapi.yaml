@@ -236,7 +236,7 @@ paths:
         content:
           appplication/json:
             schema:
-              $ref: "../common/components.yaml#/components/schemas/KeyValues"
+              $ref: "../common/components.yaml#/components/schemas/AssociatedKeyValuesQuery"
       responses:
         200:
           description: A collection of `Overrides`
