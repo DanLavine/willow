@@ -1,4 +1,6 @@
 # Willow
+[godoc](https://pkg.go.dev/github.com/DanLavine/willow)
+
 
 Willow is a new message broker that has some unique features that can enbale more complicated workflows
 than your average message broker.

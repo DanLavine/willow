@@ -154,10 +154,10 @@ func (r *rule) Update(logger *zap.Logger, update *v1limiter.RuleUpdate) {
 //
 // NOTE: we don't need to ensure on the Override's KeyValues that they have all the Rule's GroupBy tags. Thise are already
 // finding the inital rule to lookup
-func (r *rule) QueryOverrides(logger *zap.Logger, query *v1common.AssociatedQuery) (v1limiter.Overrides, *servererrors.ApiError) {
+func (r *rule) QueryOverrides(logger *zap.Logger, query *v1common.AssociatedQuery) (*v1limiter.Overrides, *servererrors.ApiError) {
 	logger = logger.Named("QueryOverrides")
 
-	var overrides v1limiter.Overrides
+	overrides := &v1limiter.Overrides{}
 	var overrideErr *servererrors.ApiError
 
 	onfindPagination := func(associatedKeyValues *btreeassociated.AssociatedKeyValues) bool {
@@ -165,7 +165,7 @@ func (r *rule) QueryOverrides(logger *zap.Logger, query *v1common.AssociatedQuer
 		ruleOverride.lock.RLock()
 		defer ruleOverride.lock.RUnlock()
 
-		overrides = append(overrides, v1limiter.Override{
+		overrides.Overrides = append(overrides.Overrides, &v1limiter.Override{
 			Name:      associatedKeyValues.AssociatedID(),
 			KeyValues: associatedKeyValues.KeyValues().StripAssociatedID().RetrieveStringDataType(),
 			Limit:     ruleOverride.limit,

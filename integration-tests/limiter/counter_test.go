@@ -25,7 +25,7 @@ func Test_Limiter_Increment(t *testing.T) {
 
 	createRule := func(g *GomegaWithT, limiterClient limiterclient.LimiterClient) {
 		// create rule
-		rule := v1.RuleRequest{
+		rule := &v1.RuleRequest{
 			Name:    "rule1",
 			GroupBy: []string{"key0"},
 			Limit:   5,
@@ -51,7 +51,7 @@ func Test_Limiter_Increment(t *testing.T) {
 		// increment the tags untill the rule limit is reached
 		//// the first 5 rules should go fine
 		for i := 0; i < 5; i++ {
-			counter := v1.Counter{
+			counter := &v1.Counter{
 				KeyValues: datatypes.KeyValues{
 					"key0":                    datatypes.Int(0),
 					fmt.Sprintf("key%d", i+1): datatypes.Int(i),
@@ -62,7 +62,7 @@ func Test_Limiter_Increment(t *testing.T) {
 		}
 
 		// the 6th value should be an error
-		counter := v1.Counter{
+		counter := &v1.Counter{
 			KeyValues: datatypes.KeyValues{
 				"key0": datatypes.Int(0),
 				"key6": datatypes.Int(6),
@@ -85,7 +85,7 @@ func Test_Limiter_Decrement(t *testing.T) {
 
 	createRule := func(g *GomegaWithT, limiterClient limiterclient.LimiterClient) {
 		// create rule
-		rule := v1.RuleRequest{
+		rule := &v1.RuleRequest{
 			Name:    "rule1",
 			GroupBy: []string{"key0"},
 			Limit:   5,
@@ -106,7 +106,7 @@ func Test_Limiter_Decrement(t *testing.T) {
 		limiterClient := setupClient(g, limiterTestConstruct.ServerURL)
 
 		// decrement
-		counter := v1.Counter{
+		counter := &v1.Counter{
 			KeyValues: datatypes.KeyValues{
 				"key0": datatypes.Int(0),
 				"key6": datatypes.Int(6),
@@ -132,7 +132,7 @@ func Test_Limiter_Decrement(t *testing.T) {
 		// increment the tags untill the rule limit is reached
 		//// the first 5 rules should go fine
 		for i := 0; i < 5; i++ {
-			counter := v1.Counter{
+			counter := &v1.Counter{
 				KeyValues: datatypes.KeyValues{
 					"key0":                    datatypes.Int(0),
 					fmt.Sprintf("key%d", i+1): datatypes.Int(i + 1),
@@ -143,7 +143,7 @@ func Test_Limiter_Decrement(t *testing.T) {
 		}
 
 		// the try incrementing a vlue that already exists
-		counter := v1.Counter{
+		counter := &v1.Counter{
 			KeyValues: datatypes.KeyValues{
 				"key0": datatypes.Int(0),
 				"key5": datatypes.Int(5),
@@ -188,7 +188,7 @@ func Test_Limiter_CountersList(t *testing.T) {
 			"key1": datatypes.Int(1),
 			"key2": datatypes.Int(2),
 		}
-		counter1 := v1.Counter{
+		counter1 := &v1.Counter{
 			KeyValues: kv1,
 		}
 		g.Expect(limiterClient.IncrementCounter(counter1)).ToNot(HaveOccurred())
@@ -198,20 +198,20 @@ func Test_Limiter_CountersList(t *testing.T) {
 			"key1": datatypes.String("1"),
 			"key2": datatypes.String("2"),
 		}
-		counter2 := v1.Counter{
+		counter2 := &v1.Counter{
 			KeyValues: kv2,
 		}
 		g.Expect(limiterClient.IncrementCounter(counter2)).ToNot(HaveOccurred())
 		g.Expect(limiterClient.IncrementCounter(counter2)).ToNot(HaveOccurred())
 
-		counter3 := v1.Counter{
+		counter3 := &v1.Counter{
 			KeyValues: datatypes.KeyValues{
 				"key0": datatypes.String("0"),
 			},
 		}
 		g.Expect(limiterClient.IncrementCounter(counter3)).ToNot(HaveOccurred())
 
-		counter4 := v1.Counter{
+		counter4 := &v1.Counter{
 			KeyValues: datatypes.KeyValues{
 				"key0": datatypes.Int8(0),
 			},
@@ -220,7 +220,7 @@ func Test_Limiter_CountersList(t *testing.T) {
 
 		// query the counters
 		trueCheck := true
-		query := v1common.AssociatedQuery{
+		query := &v1common.AssociatedQuery{
 			AssociatedKeyValues: datatypes.AssociatedKeyValuesQuery{
 				KeyValueSelection: &datatypes.KeyValueSelection{
 					KeyValues: map[string]datatypes.Value{
@@ -230,19 +230,19 @@ func Test_Limiter_CountersList(t *testing.T) {
 			},
 		}
 
-		counterResp1 := v1.CounterResponse{
+		counterResp1 := &v1.CounterResponse{
 			KeyValues: kv1,
 			Counters:  1,
 		}
-		countersResp2 := v1.CounterResponse{
+		countersResp2 := &v1.CounterResponse{
 			KeyValues: kv2,
 			Counters:  2,
 		}
 
 		counters, err := limiterClient.ListCounters(query)
 		g.Expect(err).ToNot(HaveOccurred())
-		g.Expect(len(counters)).To(Equal(2))
-		g.Expect(counters).To(ContainElements(counterResp1, countersResp2))
+		g.Expect(len(counters.Counters)).To(Equal(2))
+		g.Expect(counters.Counters).To(ContainElements(counterResp1, countersResp2))
 	})
 }
 
@@ -266,7 +266,7 @@ func Test_Limiter_SetCounters(t *testing.T) {
 		limiterClient := setupClient(g, limiterTestConstruct.ServerURL)
 
 		// create a restrictive rule
-		rule := v1.RuleRequest{
+		rule := &v1.RuleRequest{
 			Name:    "rule1",
 			GroupBy: []string{"key1", "key2"},
 			Limit:   5,
@@ -279,7 +279,7 @@ func Test_Limiter_SetCounters(t *testing.T) {
 			"key1": datatypes.Int(1),
 			"key2": datatypes.Int(2),
 		}
-		counter1 := v1.CounterSet{
+		counter1 := &v1.CounterSet{
 			KeyValues: kv1,
 			Count:     32,
 		}
@@ -287,7 +287,7 @@ func Test_Limiter_SetCounters(t *testing.T) {
 
 		// query the counters
 		trueCheck := true
-		query := v1common.AssociatedQuery{
+		query := &v1common.AssociatedQuery{
 			AssociatedKeyValues: datatypes.AssociatedKeyValuesQuery{
 				KeyValueSelection: &datatypes.KeyValueSelection{
 					KeyValues: map[string]datatypes.Value{
@@ -297,14 +297,14 @@ func Test_Limiter_SetCounters(t *testing.T) {
 			},
 		}
 
-		countersResp1 := v1.CounterResponse{
+		countersResp1 := &v1.CounterResponse{
 			KeyValues: kv1,
 			Counters:  32,
 		}
 
 		counters, err := limiterClient.ListCounters(query)
 		g.Expect(err).ToNot(HaveOccurred())
-		g.Expect(len(counters)).To(Equal(1))
-		g.Expect(counters).To(ContainElements(countersResp1))
+		g.Expect(len(counters.Counters)).To(Equal(1))
+		g.Expect(counters.Counters).To(ContainElements(countersResp1))
 	})
 }

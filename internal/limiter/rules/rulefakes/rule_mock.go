@@ -125,10 +125,10 @@ func (mr *MockRuleMockRecorder) Name() *gomock.Call {
 }
 
 // QueryOverrides mocks base method.
-func (m *MockRule) QueryOverrides(arg0 *zap.Logger, arg1 *v1.AssociatedQuery) (v10.Overrides, *servererrors.ApiError) {
+func (m *MockRule) QueryOverrides(arg0 *zap.Logger, arg1 *v1.AssociatedQuery) (*v10.Overrides, *servererrors.ApiError) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "QueryOverrides", arg0, arg1)
-	ret0, _ := ret[0].(v10.Overrides)
+	ret0, _ := ret[0].(*v10.Overrides)
 	ret1, _ := ret[1].(*servererrors.ApiError)
 	return ret0, ret1
 }

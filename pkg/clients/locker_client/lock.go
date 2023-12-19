@@ -2,13 +2,13 @@ package lockerclient
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"sync"
 	"time"
 
+	"github.com/DanLavine/willow/pkg/clients"
+	"github.com/DanLavine/willow/pkg/models/api"
 	"github.com/DanLavine/willow/pkg/models/api/common/errors"
 	v1locker "github.com/DanLavine/willow/pkg/models/api/locker/v1"
 )
@@ -28,8 +28,9 @@ type lock struct {
 	released bool
 
 	// remote server client configuration
-	client *http.Client
-	url    string
+	url         string
+	client      clients.HttpClient
+	contentType api.ContentType
 
 	// record error callback if configured. Can be used to monitor any unexpeded errors
 	// with the remote service and record them
@@ -49,13 +50,14 @@ type lock struct {
 	timeout time.Duration
 }
 
-func newLock(sessionID string, timeout time.Duration, client *http.Client, url string, heartbeatErrorCallback func(err error), releaseLockCallback func()) *lock {
+func newLock(sessionID string, timeout time.Duration, url string, client clients.HttpClient, contentType api.ContentType, heartbeatErrorCallback func(err error), releaseLockCallback func()) *lock {
 	return &lock{
 		lock:     new(sync.Mutex),
 		released: false,
 
-		client: client,
-		url:    url,
+		client:      client,
+		url:         url,
+		contentType: contentType,
 
 		releaseLockCallback:    releaseLockCallback,
 		heartbeatErrorCallback: heartbeatErrorCallback,
@@ -117,19 +119,16 @@ func (l *lock) Execute(ctx context.Context) error {
 //	RETURNS:
 //	- int - 0 indicattes success, 1 indicates that the heartbeat failed, 2 indicates that the Lock was lost and we can stop the async loop
 func (l *lock) heartbeat() int {
-	// heartbeat Lock
-	req, err := http.NewRequest("POST", fmt.Sprintf("%s/v1/locks/%s/heartbeat", l.url, l.sessionID), nil)
-	if err != nil {
-		if l.heartbeatErrorCallback != nil {
-			l.heartbeatErrorCallback(err)
-		}
-		return 1
-	}
+	// setup and make the request to heartbeat
+	resp, err := l.client.Do(&clients.RequestData{
+		Method: "POST",
+		Path:   fmt.Sprintf("%s/v1/locks/%s/heartbeat", l.url, l.sessionID),
+		Model:  nil,
+	})
 
-	resp, err := l.client.Do(req)
 	if err != nil {
 		if l.heartbeatErrorCallback != nil {
-			l.heartbeatErrorCallback(fmt.Errorf("client closed unexpectedly when heartbeating: %w", err))
+			l.heartbeatErrorCallback(fmt.Errorf("failed to setup heartbeat request: %w", err))
 		}
 		return 1
 	}
@@ -139,45 +138,36 @@ func (l *lock) heartbeat() int {
 		// this is the success case and the Lock was deleted
 		return 0
 	case http.StatusBadRequest, http.StatusConflict:
-		// in both cases, try and read a request body
-		respBody, err := io.ReadAll(resp.Body)
-		if err != nil {
-			if l.heartbeatErrorCallback != nil {
-				l.heartbeatErrorCallback(fmt.Errorf("internal error. client unable to read response body: %w", err))
-			}
-			return 1
-		}
 
 		switch resp.StatusCode {
 		case http.StatusBadRequest:
 			// there was an error with the request body
 			apiError := &errors.Error{}
-			if err = json.Unmarshal(respBody, apiError); err != nil {
+			if err := apiError.Decode(api.ContentTypeFromResponse(resp), resp.Body); err != nil {
 				if l.heartbeatErrorCallback != nil {
-					l.heartbeatErrorCallback(fmt.Errorf("error paring server response body: %w", err))
+					l.heartbeatErrorCallback(err)
 				}
-				return 1
+			} else {
+				if l.heartbeatErrorCallback != nil {
+					l.heartbeatErrorCallback(apiError)
+				}
 			}
 
-			if l.heartbeatErrorCallback != nil {
-				l.heartbeatErrorCallback(apiError)
-			}
 			return 1
 		default: // http.StatusConflict
 			// there was an error with the sessionID
 			heartbeatError := &v1locker.HeartbeatError{}
-			if err = json.Unmarshal(respBody, heartbeatError); err != nil {
+			if err := heartbeatError.Decode(api.ContentTypeFromResponse(resp), resp.Body); err != nil {
 				if l.heartbeatErrorCallback != nil {
-					l.heartbeatErrorCallback(fmt.Errorf("error paring server response body: %w", err))
+					l.heartbeatErrorCallback(errors.ClientError(err))
 				}
-				return 1
+			} else {
+				if l.heartbeatErrorCallback != nil {
+					l.heartbeatErrorCallback(fmt.Errorf(heartbeatError.Error))
+				}
 			}
 
 			// record the error and release the lock
-			if l.heartbeatErrorCallback != nil {
-				l.heartbeatErrorCallback(fmt.Errorf(heartbeatError.Error))
-			}
-
 			l.releaseLockCallback()
 
 			return 2
@@ -225,11 +215,12 @@ func (l *lock) release() error {
 	}
 
 	// Delete Lock
-	req, err := http.NewRequest("DELETE", fmt.Sprintf("%s/v1/locks/%s", l.url, l.sessionID), nil)
-	if err != nil {
-		return err
-	}
-	resp, err := l.client.Do(req)
+	resp, err := l.client.Do(&clients.RequestData{
+		Method: "DELETE",
+		Path:   fmt.Sprintf("%s/v1/locks/%s", l.url, l.sessionID),
+		Model:  nil,
+	})
+
 	if err != nil {
 		return err
 	}
@@ -240,19 +231,14 @@ func (l *lock) release() error {
 		return nil
 	case http.StatusBadRequest:
 		// there was an error parsing the request body
-		respBody, err := io.ReadAll(resp.Body)
-		if err != nil {
-			return fmt.Errorf("internal error. client unable to read response body: %w", err)
-		}
-
 		apiError := &errors.Error{}
-		if err = json.Unmarshal(respBody, apiError); err != nil {
-			return fmt.Errorf("error paring server response body: %w", err)
+		if err := apiError.Decode(api.ContentTypeFromResponse(resp), resp.Body); err != nil {
+			return errors.ClientError(err)
 		}
 
 		return apiError
 	default:
-		return fmt.Errorf("unexpected response code from the remote locker service. Need to wait for the lock to expire remotely")
+		return fmt.Errorf("unexpected response code from the remote locker service '%d'. Need to wait for the lock to expire remotely", resp.StatusCode)
 	}
 }
 

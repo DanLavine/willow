@@ -6,9 +6,11 @@ import (
 	"github.com/DanLavine/urlrouter"
 	"github.com/DanLavine/willow/internal/config"
 	"github.com/DanLavine/willow/internal/logger"
+	"github.com/DanLavine/willow/pkg/models/api"
+	"github.com/DanLavine/willow/pkg/models/api/common/errors"
 
-	v1common "github.com/DanLavine/willow/internal/api/common/v1"
 	lockmanager "github.com/DanLavine/willow/internal/locker/lock_manager"
+	v1common "github.com/DanLavine/willow/pkg/models/api/common/v1"
 	v1locker "github.com/DanLavine/willow/pkg/models/api/locker/v1"
 
 	"go.uber.org/zap"
@@ -51,25 +53,31 @@ func (lh *lockerHandler) Create(w http.ResponseWriter, r *http.Request) {
 	logger.Debug("starting request")
 	defer logger.Debug("processed request")
 
-	lockerRequest, err := ParseLockRequest(r.Body, *lh.cfg.LockDefaultTimeout)
-	if err != nil {
-		w.WriteHeader(err.StatusCode)
-		w.Write(err.ToBytes())
+	// parse the create lock request
+	createLockerRequest := &v1locker.CreateLockRequest{}
+	if err := createLockerRequest.Decode(api.ContentTypeFromRequest(r), r.Body); err != nil {
+		_, _ = api.HttpResponse(r, w, http.StatusBadRequest, errors.ServerError(err))
 		return
 	}
 
-	if lockResponse := lh.generalLocker.ObtainLock(r.Context(), lockerRequest); lockResponse != nil {
+	// set the defaults for the lock request
+	if createLockerRequest.Timeout == 0 {
+		createLockerRequest.Timeout = *lh.cfg.LockDefaultTimeout
+	}
+
+	if lockResponse := lh.generalLocker.ObtainLock(r.Context(), createLockerRequest); lockResponse != nil {
 		// obtained lock, send response to the client
+		w.Header().Set("Content-Type", r.Header.Get("Content-Type"))
 		w.WriteHeader(http.StatusCreated)
-		if _, err := w.Write(lockResponse.ToBytes()); err != nil {
+		if _, respErr := api.HttpResponse(r, w, http.StatusCreated, lockResponse); respErr != nil {
 			// failing to write the response to the client means we should free the lock
-			logger.Error("Failed to write lock response to client", zap.Error(err))
+			logger.Error("Failed to write lock response to client", zap.Error(respErr))
 			lh.generalLocker.ReleaseLock(lockResponse.SessionID)
 		}
 	}
 
 	// in this case, the client should be disconnected or we are shutting down and they need to retry
-	w.WriteHeader(http.StatusServiceUnavailable)
+	_, _ = api.HttpResponse(r, w, http.StatusServiceUnavailable, nil)
 }
 
 func (lh *lockerHandler) Heartbeat(w http.ResponseWriter, r *http.Request) {
@@ -77,14 +85,18 @@ func (lh *lockerHandler) Heartbeat(w http.ResponseWriter, r *http.Request) {
 	logger.Debug("starting request")
 	defer logger.Debug("processed request")
 
+	// obtain named parameters from the url
 	namedParameters := urlrouter.GetNamedParamters(r.Context())
+
+	// heartbeat the lock
 	heartbeatError := lh.generalLocker.Heartbeat(namedParameters["_associated_id"])
 
 	if heartbeatError == nil {
-		w.WriteHeader(http.StatusOK)
+		// heartbeat was successful
+		_, _ = api.HttpResponse(r, w, http.StatusOK, nil)
 	} else {
-		w.WriteHeader(http.StatusConflict)
-		w.Write(heartbeatError.ToBytes())
+		// there was an error heartbeating
+		_, _ = api.HttpResponse(r, w, http.StatusConflict, heartbeatError)
 	}
 }
 
@@ -93,17 +105,18 @@ func (lh *lockerHandler) List(w http.ResponseWriter, r *http.Request) {
 	logger.Debug("starting request")
 	defer logger.Debug("processed request")
 
-	generalQuery, err := v1common.ParseAssociatedQuery(r.Body)
-	if err != nil {
-		w.WriteHeader(err.StatusCode)
-		w.Write(err.ToBytes())
+	// parse the associaed query
+	query := &v1common.AssociatedQuery{}
+	if err := query.Decode(api.ContentTypeFromRequest(r), r.Body); err != nil {
+		_, _ = api.HttpResponse(r, w, http.StatusBadRequest, errors.ServerError(err))
 		return
 	}
 
-	locks := v1locker.NewListLockResponse(lh.generalLocker.ListLocks(generalQuery))
+	// find the locks
+	locks := lh.generalLocker.ListLocks(query)
 
-	w.WriteHeader(http.StatusOK)
-	w.Write(locks.ToBytes())
+	// respond and ignore the errors
+	_, _ = api.HttpResponse(r, w, http.StatusOK, locks)
 }
 
 func (lh *lockerHandler) Delete(w http.ResponseWriter, r *http.Request) {
@@ -111,8 +124,12 @@ func (lh *lockerHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	logger.Debug("starting request")
 	defer logger.Debug("processed request")
 
+	// obtain named parameters from the url
 	namedParameters := urlrouter.GetNamedParamters(r.Context())
 
+	// release the lock
 	lh.generalLocker.ReleaseLock(namedParameters["_associated_id"])
-	w.WriteHeader(http.StatusNoContent)
+
+	// respond and ignore the errors
+	_, _ = api.HttpResponse(r, w, http.StatusNoContent, nil)
 }

@@ -264,7 +264,7 @@ func TestRule_QueryOverrides(t *testing.T) {
 
 		overrides, err := rule.QueryOverrides(zap.NewNop(), query)
 		g.Expect(err).ToNot(HaveOccurred())
-		g.Expect(len(overrides)).To(Equal(0))
+		g.Expect(len(overrides.Overrides)).To(Equal(0))
 	})
 
 	t.Run("It returns only overrides sthat match the query", func(t *testing.T) {
@@ -301,8 +301,8 @@ func TestRule_QueryOverrides(t *testing.T) {
 
 		overrides, err := rule.QueryOverrides(zap.NewNop(), query)
 		g.Expect(err).ToNot(HaveOccurred())
-		g.Expect(len(overrides)).To(Equal(1))
-		g.Expect(overrides[0]).To(Equal(v1limiter.Override{
+		g.Expect(len(overrides.Overrides)).To(Equal(1))
+		g.Expect(overrides.Overrides[0]).To(Equal(&v1limiter.Override{
 			Name:      "override name 1",
 			KeyValues: defaultValidKeyValues(g),
 			Limit:     72,

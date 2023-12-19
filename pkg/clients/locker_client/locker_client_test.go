@@ -8,6 +8,7 @@ import (
 
 	"github.com/DanLavine/goasync"
 	"github.com/DanLavine/willow/pkg/clients"
+	"github.com/DanLavine/willow/pkg/models/api"
 	v1locker "github.com/DanLavine/willow/pkg/models/api/locker/v1"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 	. "github.com/onsi/gomega"
@@ -17,7 +18,8 @@ func TestLockerClient_New(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	cfg := &clients.Config{
-		URL: "doesn't matter here",
+		URL:         "doesn't matter here",
+		ContentType: api.ContentTypeJSON,
 	}
 
 	t.Run("It returns an error if the context is nil, Background, TODO", func(t *testing.T) {
@@ -76,7 +78,7 @@ func TestLockerClient_ObtainLock(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel()
 
-		cfg := &clients.Config{URL: "http://127.0.0.1:8080"}
+		cfg := &clients.Config{URL: "http://127.0.0.1:8080", ContentType: api.ContentTypeJSON}
 
 		lockerClient, err := NewLockerClient(ctx, cfg, nil)
 		g.Expect(err).ToNot(HaveOccurred())
@@ -84,7 +86,7 @@ func TestLockerClient_ObtainLock(t *testing.T) {
 		g.Eventually(lockerClient.Done()).Should(BeClosed())
 
 		// try to obtain the lock 1st time
-		lock, err := lockerClient.ObtainLock(ctx, v1locker.CreateLockRequest{KeyValues: datatypes.KeyValues{"one": datatypes.Float32(3.4)}})
+		lock, err := lockerClient.ObtainLock(ctx, &v1locker.CreateLockRequest{KeyValues: datatypes.KeyValues{"one": datatypes.Float32(3.4)}})
 		g.Expect(err).To(HaveOccurred())
 		g.Expect(err.Error()).To(Equal("locker client has already been canceled and won't process heartbeats. Refusing to obtain the lock"))
 		g.Expect(lock).To(BeNil())
@@ -95,7 +97,7 @@ func TestLockerClient_ObtainLock(t *testing.T) {
 		clientCtx, clienetCancel := context.WithCancel(context.Background())
 		defer clienetCancel()
 
-		cfg := &clients.Config{URL: "http://127.0.0.1:8080"}
+		cfg := &clients.Config{URL: "http://127.0.0.1:8080", ContentType: api.ContentTypeJSON}
 
 		lockerClient, err := NewLockerClient(clientCtx, cfg, nil)
 		g.Expect(err).ToNot(HaveOccurred())
@@ -105,7 +107,7 @@ func TestLockerClient_ObtainLock(t *testing.T) {
 		lockContext, lockCancel := context.WithCancel(context.Background())
 		lockCancel()
 
-		lock, err := lockerClient.ObtainLock(lockContext, v1locker.CreateLockRequest{KeyValues: datatypes.KeyValues{"one": datatypes.Float32(3.4)}})
+		lock, err := lockerClient.ObtainLock(lockContext, &v1locker.CreateLockRequest{KeyValues: datatypes.KeyValues{"one": datatypes.Float32(3.4)}})
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(lock).To(BeNil())
 	})
@@ -115,14 +117,14 @@ func TestLockerClient_ObtainLock(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
-		cfg := &clients.Config{URL: "bad url"}
+		cfg := &clients.Config{URL: "bad url", ContentType: api.ContentTypeJSON}
 
 		lockerClient, err := NewLockerClient(ctx, cfg, nil)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(lockerClient).ToNot(BeNil())
 
 		// obtain the lock 1st time
-		lock, err := lockerClient.ObtainLock(ctx, v1locker.CreateLockRequest{KeyValues: datatypes.KeyValues{"one": datatypes.Float32(3.4)}})
+		lock, err := lockerClient.ObtainLock(ctx, &v1locker.CreateLockRequest{KeyValues: datatypes.KeyValues{"one": datatypes.Float32(3.4)}})
 		g.Expect(err).To(HaveOccurred())
 		g.Expect(err.Error()).To(ContainSubstring("unable to make request to locker service"))
 		g.Expect(lock).To(BeNil())
@@ -141,14 +143,14 @@ func TestLockerClient_ObtainLock(t *testing.T) {
 				Timeout:   time.Second,
 			}
 			w.WriteHeader(http.StatusCreated)
-			w.Write(createLockResponse.ToBytes())
+			w.Write(ResponseToBytes(createLockResponse))
 		})
 		server := setupServerHttp(mux)
 		defer server.Close()
 
 		// setup client
 		clientCtx, clientCancel := context.WithCancel(context.Background())
-		cfg := &clients.Config{URL: server.URL}
+		cfg := &clients.Config{URL: server.URL, ContentType: api.ContentTypeJSON}
 
 		lockerClient, err := NewLockerClient(clientCtx, cfg, nil)
 		g.Expect(err).ToNot(HaveOccurred())
@@ -162,7 +164,7 @@ func TestLockerClient_ObtainLock(t *testing.T) {
 		doneObtaineLock := make(chan struct{})
 		go func() {
 			defer close(doneObtaineLock)
-			lock, err = lockerClient.ObtainLock(lockContext, v1locker.CreateLockRequest{KeyValues: datatypes.KeyValues{"one": datatypes.Float32(3.4)}})
+			lock, err = lockerClient.ObtainLock(lockContext, &v1locker.CreateLockRequest{KeyValues: datatypes.KeyValues{"one": datatypes.Float32(3.4)}})
 		}()
 
 		// close the client
@@ -184,8 +186,9 @@ func TestLockerClient_ObtainLock(t *testing.T) {
 					SessionID: "24",
 					Timeout:   time.Second,
 				}
+				w.Header().Add("Content-Type", "application/json")
 				w.WriteHeader(http.StatusCreated)
-				w.Write(createLockResponse.ToBytes())
+				w.Write(ResponseToBytes(createLockResponse))
 			})
 			server := setupServerHttp(mux)
 			defer server.Close()
@@ -194,14 +197,14 @@ func TestLockerClient_ObtainLock(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 
-			cfg := &clients.Config{URL: server.URL}
+			cfg := &clients.Config{URL: server.URL, ContentType: api.ContentTypeJSON}
 
 			lockerClient, err := NewLockerClient(ctx, cfg, nil)
 			g.Expect(err).ToNot(HaveOccurred())
 			g.Expect(lockerClient).ToNot(BeNil())
 
 			// obtain the lock
-			lock, err := lockerClient.ObtainLock(ctx, v1locker.CreateLockRequest{KeyValues: datatypes.KeyValues{"one": datatypes.Float32(3.4)}})
+			lock, err := lockerClient.ObtainLock(ctx, &v1locker.CreateLockRequest{KeyValues: datatypes.KeyValues{"one": datatypes.Float32(3.4)}})
 			g.Expect(err).ToNot(HaveOccurred())
 			g.Expect(lock).ToNot(BeNil())
 		})
@@ -216,8 +219,9 @@ func TestLockerClient_ObtainLock(t *testing.T) {
 					SessionID: "24",
 					Timeout:   time.Second,
 				}
+				w.Header().Add("Content-Type", "application/json")
 				w.WriteHeader(http.StatusCreated)
-				w.Write(createLockResponse.ToBytes())
+				w.Write(ResponseToBytes(createLockResponse))
 			})
 			server := setupServerHttp(mux)
 			defer server.Close()
@@ -226,19 +230,19 @@ func TestLockerClient_ObtainLock(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 
-			cfg := &clients.Config{URL: server.URL}
+			cfg := &clients.Config{URL: server.URL, ContentType: api.ContentTypeJSON}
 
 			lockerClient, err := NewLockerClient(ctx, cfg, nil)
 			g.Expect(err).ToNot(HaveOccurred())
 			g.Expect(lockerClient).ToNot(BeNil())
 
 			// obtain the lock 1st time
-			lock1, err := lockerClient.ObtainLock(ctx, v1locker.CreateLockRequest{KeyValues: datatypes.KeyValues{"one": datatypes.Float32(3.4)}})
+			lock1, err := lockerClient.ObtainLock(ctx, &v1locker.CreateLockRequest{KeyValues: datatypes.KeyValues{"one": datatypes.Float32(3.4)}})
 			g.Expect(err).ToNot(HaveOccurred())
 			g.Expect(lock1).ToNot(BeNil())
 
 			// obtain the lock 2nd time
-			lock2, err := lockerClient.ObtainLock(ctx, v1locker.CreateLockRequest{KeyValues: datatypes.KeyValues{"one": datatypes.Float32(3.4)}})
+			lock2, err := lockerClient.ObtainLock(ctx, &v1locker.CreateLockRequest{KeyValues: datatypes.KeyValues{"one": datatypes.Float32(3.4)}})
 			g.Expect(err).ToNot(HaveOccurred())
 			g.Expect(lock2).ToNot(BeNil())
 
@@ -252,6 +256,7 @@ func TestLockerClient_ObtainLock(t *testing.T) {
 			mux := http.NewServeMux()
 			mux.HandleFunc("/v1/locks", func(w http.ResponseWriter, r *http.Request) {
 				w.Header().Add("content-length", "5")
+				w.Header().Add("Content-Type", "application/json")
 				w.WriteHeader(http.StatusCreated)
 				w.Write([]byte(`this has a bad header`))
 			})
@@ -261,16 +266,16 @@ func TestLockerClient_ObtainLock(t *testing.T) {
 			// setup client
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
-			cfg := &clients.Config{URL: server.URL}
+			cfg := &clients.Config{URL: server.URL, ContentType: api.ContentTypeJSON}
 
 			lockerClient, err := NewLockerClient(ctx, cfg, nil)
 			g.Expect(err).ToNot(HaveOccurred())
 			g.Expect(lockerClient).ToNot(BeNil())
 
 			// try to obtain the lock
-			lock, err := lockerClient.ObtainLock(ctx, v1locker.CreateLockRequest{KeyValues: datatypes.KeyValues{"one": datatypes.Float32(3.4)}})
+			lock, err := lockerClient.ObtainLock(ctx, &v1locker.CreateLockRequest{KeyValues: datatypes.KeyValues{"one": datatypes.Float32(3.4)}})
 			g.Expect(err).To(HaveOccurred())
-			g.Expect(err.Error()).To(ContainSubstring("failed to read response body"))
+			g.Expect(err.Error()).To(ContainSubstring("client error: failed to read stream body"))
 			g.Expect(lock).To(BeNil())
 		})
 
@@ -278,6 +283,7 @@ func TestLockerClient_ObtainLock(t *testing.T) {
 			// setup server
 			mux := http.NewServeMux()
 			mux.HandleFunc("/v1/locks", func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Add("Content-Type", "application/json")
 				w.WriteHeader(http.StatusCreated)
 				w.Write([]byte(`this has a bad json`))
 			})
@@ -287,16 +293,16 @@ func TestLockerClient_ObtainLock(t *testing.T) {
 			// setup client
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
-			cfg := &clients.Config{URL: server.URL}
+			cfg := &clients.Config{URL: server.URL, ContentType: api.ContentTypeJSON}
 
 			lockerClient, err := NewLockerClient(ctx, cfg, nil)
 			g.Expect(err).ToNot(HaveOccurred())
 			g.Expect(lockerClient).ToNot(BeNil())
 
 			// try to obtain the lock
-			lock, err := lockerClient.ObtainLock(ctx, v1locker.CreateLockRequest{KeyValues: datatypes.KeyValues{"one": datatypes.Float32(3.4)}})
+			lock, err := lockerClient.ObtainLock(ctx, &v1locker.CreateLockRequest{KeyValues: datatypes.KeyValues{"one": datatypes.Float32(3.4)}})
 			g.Expect(err).To(HaveOccurred())
-			g.Expect(err.Error()).To(ContainSubstring("failed to parse server response"))
+			g.Expect(err.Error()).To(ContainSubstring("client error: failed to decode stream body"))
 			g.Expect(lock).To(BeNil())
 		})
 
@@ -310,14 +316,15 @@ func TestLockerClient_ObtainLock(t *testing.T) {
 					SessionID: "24",
 					Timeout:   time.Second,
 				}
+				w.Header().Add("Content-Type", "application/json")
 				w.WriteHeader(http.StatusCreated)
-				w.Write(createLockResponse.ToBytes())
+				w.Write(ResponseToBytes(createLockResponse))
 			})
 			server := setupServerHttp(mux)
 			defer server.Close()
 
 			// setup client
-			cfg := &clients.Config{URL: server.URL}
+			cfg := &clients.Config{URL: server.URL, ContentType: api.ContentTypeJSON}
 
 			clientCtx, clientCancel := context.WithCancel(context.Background())
 			defer clientCancel()
@@ -340,7 +347,7 @@ func TestLockerClient_ObtainLock(t *testing.T) {
 			doneObtaineLock := make(chan struct{})
 			go func() {
 				defer close(doneObtaineLock)
-				lock, err = lockerClient.ObtainLock(lockContext, v1locker.CreateLockRequest{KeyValues: datatypes.KeyValues{"one": datatypes.Float32(3.4)}})
+				lock, err = lockerClient.ObtainLock(lockContext, &v1locker.CreateLockRequest{KeyValues: datatypes.KeyValues{"one": datatypes.Float32(3.4)}})
 			}()
 
 			// wait for the lock obtain to fail

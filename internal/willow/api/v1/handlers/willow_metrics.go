@@ -33,7 +33,7 @@ func (mh *metricsHandler) Metrics(w http.ResponseWriter, r *http.Request) {
 		metrics := mh.queueManager.Metrics()
 
 		w.WriteHeader(http.StatusOK)
-		w.Write(metrics.ToBytes())
+		w.Write(metrics.EncodeJSON())
 	default:
 		w.WriteHeader(http.StatusNotFound)
 	}

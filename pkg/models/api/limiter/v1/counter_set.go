@@ -2,6 +2,7 @@ package v1
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 
 	"github.com/DanLavine/willow/pkg/models/api"
@@ -9,13 +10,24 @@ import (
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 )
 
-type AssociatedQuery struct {
-	AssociatedKeyValues datatypes.AssociatedKeyValuesQuery
+type CounterSet struct {
+	// Specific key values to add or remove a counter from
+	KeyValues datatypes.KeyValues
+
+	// specify the specific value to set
+	Count uint64
 }
 
-// Used to validate on the server side that all parameters are valid
-func (query *AssociatedQuery) Validate() error {
-	if err := query.AssociatedKeyValues.Validate(); err != nil {
+//	RETURNS:
+//	- error - any errors encountered with the response object
+//
+// Validate is used to ensure that CreateLockResponse has all required fields set
+func (countersSet *CounterSet) Validate() error {
+	if len(countersSet.KeyValues) == 0 {
+		return fmt.Errorf("'KeyValues' requres at least 1 key + value pair")
+	}
+
+	if err := countersSet.KeyValues.Validate(); err != nil {
 		return err
 	}
 
@@ -26,8 +38,8 @@ func (query *AssociatedQuery) Validate() error {
 //	- []byte - byte array that can be sent over an http client
 //
 // EncodeJSON encodes the model to a valid JSON format
-func (query *AssociatedQuery) EncodeJSON() []byte {
-	data, _ := json.Marshal(query)
+func (countersSet *CounterSet) EncodeJSON() []byte {
+	data, _ := json.Marshal(countersSet)
 	return data
 }
 
@@ -39,7 +51,7 @@ func (query *AssociatedQuery) EncodeJSON() []byte {
 //	- error - any error encoutered when reading the response
 //
 // Decode can easily parse the response body from an http create request
-func (query *AssociatedQuery) Decode(contentType api.ContentType, reader io.ReadCloser) error {
+func (countersSet *CounterSet) Decode(contentType api.ContentType, reader io.ReadCloser) error {
 	switch contentType {
 	case api.ContentTypeJSON:
 		requestBody, err := io.ReadAll(reader)
@@ -47,12 +59,12 @@ func (query *AssociatedQuery) Decode(contentType api.ContentType, reader io.Read
 			return errors.FailedToReadStreamBody(err)
 		}
 
-		if err := json.Unmarshal(requestBody, query); err != nil {
+		if err := json.Unmarshal(requestBody, countersSet); err != nil {
 			return errors.FailedToDecodeBody(err)
 		}
 	default:
 		return errors.UnknownContentType(contentType)
 	}
 
-	return query.Validate()
+	return countersSet.Validate()
 }

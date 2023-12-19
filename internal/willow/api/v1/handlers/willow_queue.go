@@ -1,11 +1,14 @@
 package handlers
 
 import (
-	"encoding/json"
 	"net/http"
 
 	"github.com/DanLavine/willow/internal/logger"
 	"github.com/DanLavine/willow/internal/willow/brokers/queues"
+	"github.com/DanLavine/willow/pkg/models/api"
+	"github.com/DanLavine/willow/pkg/models/api/common/errors"
+
+	v1willow "github.com/DanLavine/willow/pkg/models/api/willow/v1"
 
 	"go.uber.org/zap"
 )
@@ -36,26 +39,21 @@ func (qh *queueHandler) Create(w http.ResponseWriter, r *http.Request) {
 	switch method := r.Method; method {
 	case "POST":
 		logger.Debug("processing create queue request")
+		defer logger.Debug("processed create queue request")
 
-		createRequest, err := ParseCreateRequest(r.Body)
-		if err != nil {
-			logger.Error("failed parsing request", zap.Error(err))
-
-			w.WriteHeader(err.StatusCode)
-			w.Write([]byte(err.Error()))
+		// parse the create request
+		createRequest := &v1willow.Create{}
+		if err := createRequest.Decode(api.ContentTypeFromRequest(r), r.Body); err != nil {
+			_, _ = api.HttpResponse(r, w, http.StatusBadRequest, errors.ServerError(err))
 			return
 		}
 
 		if createErr := qh.queueManager.Create(logger, createRequest); createErr != nil {
 			logger.Error("failed creating queue", zap.Error(createErr))
-			errResp, _ := json.Marshal(createErr)
-
-			w.WriteHeader(createErr.StatusCode)
-			w.Write(errResp)
+			_, _ = api.HttpResponse(r, w, createErr.StatusCode, createErr)
 			return
 		}
 
-		logger.Debug("processed create queue request")
 		w.WriteHeader(http.StatusCreated)
 	default:
 		w.WriteHeader(http.StatusNotFound)

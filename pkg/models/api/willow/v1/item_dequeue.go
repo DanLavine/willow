@@ -10,35 +10,24 @@ import (
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 )
 
-// Override can be thought of as a "sub query" for which the rule resides. Any request that matches all the
-// given tags for an override will use the new override value. If multiple overrides match a particular set of tags,
-// then the override with the lowest value will be used
-type Override struct {
-	// name for the override. Must be unique for all overrides attached to a rule
+type DequeueItemRequest struct {
+	// common broker info
 	Name string
 
-	// When checking a rule, if it has these exact keys, then the limit will be applied.
-	// In the case of an override matchin many key values, the smallest Limit will be enforced
-	KeyValues datatypes.KeyValues
-
-	// The new limit to use for the paricular mapping
-	Limit uint64
+	// query for what readeers to select
+	Query datatypes.AssociatedKeyValuesQuery
 }
 
 //	RETURNS:
 //	- error - any errors encountered with the response object
 //
 // Validate is used to ensure that CreateLockResponse has all required fields set
-func (override *Override) Validate() error {
-	if override.Name == "" {
-		return fmt.Errorf("'Name' is the empty string")
+func (req *DequeueItemRequest) Validate() error {
+	if req.Name == "" {
+		return fmt.Errorf("'Name' is the empty string, but requires a proper value")
 	}
 
-	if len(override.KeyValues) == 0 {
-		return fmt.Errorf("'KeyValues' requres at least 1 key + value pair")
-	}
-
-	if err := override.KeyValues.Validate(); err != nil {
+	if err := req.Query.Validate(); err != nil {
 		return err
 	}
 
@@ -49,8 +38,8 @@ func (override *Override) Validate() error {
 //	- []byte - byte array that can be sent over an http client
 //
 // EncodeJSON encodes the model to a valid JSON format
-func (override *Override) EncodeJSON() []byte {
-	data, _ := json.Marshal(override)
+func (req *DequeueItemRequest) EncodeJSON() []byte {
+	data, _ := json.Marshal(req)
 	return data
 }
 
@@ -62,7 +51,7 @@ func (override *Override) EncodeJSON() []byte {
 //	- error - any error encoutered when reading the response
 //
 // Decode can easily parse the response body from an http create request
-func (override *Override) Decode(contentType api.ContentType, reader io.ReadCloser) error {
+func (req *DequeueItemRequest) Decode(contentType api.ContentType, reader io.ReadCloser) error {
 	switch contentType {
 	case api.ContentTypeJSON:
 		requestBody, err := io.ReadAll(reader)
@@ -70,37 +59,38 @@ func (override *Override) Decode(contentType api.ContentType, reader io.ReadClos
 			return errors.FailedToReadStreamBody(err)
 		}
 
-		if err := json.Unmarshal(requestBody, override); err != nil {
+		if err := json.Unmarshal(requestBody, req); err != nil {
 			return errors.FailedToDecodeBody(err)
 		}
 	default:
 		return errors.UnknownContentType(contentType)
 	}
 
-	return override.Validate()
+	return req.Validate()
 }
 
-type Overrides struct {
-	Overrides []*Override
+type DequeueItemResponse struct {
+	// common broker info
+	BrokerInfo BrokerInfo
+
+	// ID of the message that can be ACKed
+	ID string
+
+	// Message body that will be used by clients receiving this message
+	Data []byte
 }
 
 //	RETURNS:
 //	- error - any errors encountered with the response object
 //
 // Validate is used to ensure that CreateLockResponse has all required fields set
-func (overrides *Overrides) Validate() error {
-	if len(overrides.Overrides) == 0 {
-		return nil
+func (resp *DequeueItemResponse) Validate() error {
+	if err := resp.BrokerInfo.validate(); err != nil {
+		return err
 	}
 
-	for index, override := range overrides.Overrides {
-		if override == nil {
-			return fmt.Errorf("error at overreides index: %d: the override is nil", index)
-		}
-
-		if err := override.Validate(); err != nil {
-			return fmt.Errorf("error at overrides index %d: %w", index, err)
-		}
+	if resp.ID == "" {
+		return fmt.Errorf("'ID' is set as the empty string")
 	}
 
 	return nil
@@ -110,8 +100,8 @@ func (overrides *Overrides) Validate() error {
 //	- []byte - byte array that can be sent over an http client
 //
 // EncodeJSON encodes the model to a valid JSON format
-func (overrides *Overrides) EncodeJSON() []byte {
-	data, _ := json.Marshal(overrides)
+func (resp *DequeueItemResponse) EncodeJSON() []byte {
+	data, _ := json.Marshal(resp)
 	return data
 }
 
@@ -123,7 +113,7 @@ func (overrides *Overrides) EncodeJSON() []byte {
 //	- error - any error encoutered when reading the response
 //
 // Decode can easily parse the response body from an http create request
-func (overrides *Overrides) Decode(contentType api.ContentType, reader io.ReadCloser) error {
+func (resp *DequeueItemResponse) Decode(contentType api.ContentType, reader io.ReadCloser) error {
 	switch contentType {
 	case api.ContentTypeJSON:
 		requestBody, err := io.ReadAll(reader)
@@ -131,12 +121,12 @@ func (overrides *Overrides) Decode(contentType api.ContentType, reader io.ReadCl
 			return errors.FailedToReadStreamBody(err)
 		}
 
-		if err := json.Unmarshal(requestBody, overrides); err != nil {
+		if err := json.Unmarshal(requestBody, resp); err != nil {
 			return errors.FailedToDecodeBody(err)
 		}
 	default:
 		return errors.UnknownContentType(contentType)
 	}
 
-	return overrides.Validate()
+	return resp.Validate()
 }

@@ -1,22 +1,18 @@
 package lockerclient
 
 import (
-	"bytes"
 	"context"
-	"crypto/tls"
-	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"time"
 
 	"github.com/DanLavine/goasync"
 	btreeassociated "github.com/DanLavine/willow/internal/datastructures/btree_associated"
 	"github.com/DanLavine/willow/pkg/clients"
+	"github.com/DanLavine/willow/pkg/models/api"
 	"github.com/DanLavine/willow/pkg/models/api/common/errors"
 	v1locker "github.com/DanLavine/willow/pkg/models/api/locker/v1"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
-	"golang.org/x/net/http2"
 )
 
 //go:generate mockgen -destination=lockerclientfakes/locker_client_mock.go -package=lockerclientfakes github.com/DanLavine/willow/pkg/clients/locker_client LockerClient
@@ -36,7 +32,7 @@ type LockerClient interface {
 	// Obtain a lock for a particular set of KeyValues. This blocks until the desired lock is obtained, or the context is canceled.
 	// The returned lock will automatically heartbeat to ensure that the lock remains valid. If the heartbeat fails for some reason,
 	// the channel returned from the `lock.Done()` call will be closed. It is up to the clients to monitor for a lock being lost
-	ObtainLock(ctx context.Context, lockRequest v1locker.CreateLockRequest) (Lock, error)
+	ObtainLock(ctx context.Context, lockRequest *v1locker.CreateLockRequest) (Lock, error)
 
 	// Done is closed if the LockerClient's contex is closed and no longer heartbeating
 	Done() <-chan struct{}
@@ -47,8 +43,9 @@ type lockerclient struct {
 	done chan struct{}
 
 	// client to connect with the remote Locker service
-	url    string
-	client *http.Client
+	url         string
+	client      clients.HttpClient
+	contentType api.ContentType
 
 	// callback to client if a lock was somehow released on the server beccause heartbeats are failing
 	heartbeatErrorCallback func(keyValues datatypes.KeyValues, err error)
@@ -61,44 +58,36 @@ type lockerclient struct {
 }
 
 //	PARAMS
-//	- ctx - Context for the http(s) client. This must be closed to close the managed client and will trigger a close of all held locks
+//	- ctx - Context for the http(s) client. This must be closed to close the LockerCLient and will trigger a close of all held locks
 //	- cfg - configuration for the http client
 //	- heartbeatErrorCallback (optional) - callback for heartbeat errors. Mainly used to log any errors the managed client to the locker service might be experiencing
 //
 //	RETURNS:
+//	- LockerClient - properly configured locker client that manages all held locks
+//	- error - any errors setting up the client
 //
-// Setup a new client to the remote locker service. This client automatically manages hertbeats for any obtained locks and
-// will notify the user if a lock is lost at some point
+// Setup a new client to the remote locker service. This client automatically manages heartbeats for any obtained locks and
+// will notify the user if a lock is lost at some point.
 func NewLockerClient(ctx context.Context, cfg *clients.Config, heartbeatErrorCallback func(keyValue datatypes.KeyValues, err error)) (LockerClient, error) {
 	if ctx == nil || ctx == context.TODO() || ctx == context.Background() {
 		return nil, fmt.Errorf("cannot use provided context. The context must be canceled by the caller to cleanup async resource management")
 	}
 
-	if err := cfg.Vaidate(); err != nil {
+	httpClient, err := clients.NewHTTPClient(cfg)
+	if err != nil {
 		return nil, err
 	}
 
 	done := make(chan struct{})
 	asyncManager := goasync.NewTaskManager(goasync.RelaxedConfig())
 
-	locks := btreeassociated.NewThreadSafe()
-	httpClient := &http.Client{}
-
-	if cfg.CAFile != "" {
-		httpClient.Transport = &http2.Transport{
-			TLSClientConfig: &tls.Config{
-				Certificates: []tls.Certificate{cfg.Cert()},
-				RootCAs:      cfg.RootCAs(),
-			},
-		}
-	}
-
 	lockerClient := &lockerclient{
 		done:                   done,
 		url:                    cfg.URL,
 		client:                 httpClient,
+		contentType:            cfg.ContentType,
 		heartbeatErrorCallback: heartbeatErrorCallback,
-		locks:                  locks,
+		locks:                  btreeassociated.NewThreadSafe(),
 		asyncManager:           asyncManager,
 	}
 
@@ -110,17 +99,20 @@ func NewLockerClient(ctx context.Context, cfg *clients.Config, heartbeatErrorCal
 	return lockerClient, nil
 }
 
+// Healthy is used to ensure that the /health endpoint on the Locker service can be reached
+//
+//	RETURNS:
+//	- error - error if the Locker service cannot be reached
 func (lc *lockerclient) Healthy() error {
-	// setup and make request
-	request, err := http.NewRequest("GET", fmt.Sprintf("%s/health", lc.url), nil)
-	if err != nil {
-		// this should never actually hit
-		return fmt.Errorf("internal error setting up http request: %w", err)
-	}
+	// setup and make the request
+	resp, err := lc.client.Do(&clients.RequestData{
+		Method: "GET",
+		Path:   fmt.Sprintf("%s/health", lc.url),
+		Model:  nil,
+	})
 
-	resp, err := lc.client.Do(request)
 	if err != nil {
-		return fmt.Errorf("unable to make request to locker service: %w", err)
+		return err
 	}
 
 	// parse the response
@@ -134,29 +126,22 @@ func (lc *lockerclient) Healthy() error {
 
 //	PARAMS:
 //	- ctx - Context that can be used to cancel the blocking requst trying to obtain the lock. NOTE: once a lock is obtained, release must be called
-//	- lockRequest - request for the lock to obtain with a configured timeout
+//	- lockRequest - request for the lock to obtain
 //
 //	RETURNS
 //	- Lock - lock object that can be used to release a lock, and monitor if a lock is lost for some reason
 //	- error - any errors encountered when obtaining the lock
-//	NOTE: is both Lock and error are nil, the context must have been canceled obtaining the lock
+//	NOTE: if both Lock and error are nil, the context must have been canceled obtaining the lock
 //
 // Obtain a lock for a particular set of KeyValues. This blocks until the desired lock is obtained, or the context is canceled.
 // The returned lock will automatically heartbeat to ensure that the lock remains valid. If the heartbeat fails for some reason,
 // the channel returned from the `lock.Done()` call will be closed. It is up to the clients to monitor for a lock being lost
-func (lc *lockerclient) ObtainLock(ctx context.Context, lockRequest v1locker.CreateLockRequest) (Lock, error) {
+func (lc *lockerclient) ObtainLock(ctx context.Context, lockRequest *v1locker.CreateLockRequest) (Lock, error) {
 	select {
 	case <-lc.done:
 		return nil, fmt.Errorf("locker client has already been canceled and won't process heartbeats. Refusing to obtain the lock")
 	default:
 		// nothing to do here, can still obtain the lock
-	}
-
-	// create lock request body
-	body, err := json.Marshal(lockRequest)
-	if err != nil {
-		// should never actually hit this
-		return nil, err
 	}
 
 	obtainedLock := make(chan struct{})
@@ -183,14 +168,13 @@ func (lc *lockerclient) ObtainLock(ctx context.Context, lockRequest v1locker.Cre
 		}()
 
 		for {
-			req, err := http.NewRequestWithContext(cancelContext, "POST", fmt.Sprintf("%s/v1/locks", lc.url), bytes.NewBuffer(body))
-			if err != nil {
-				// this should never actually hit
-				lockErr = fmt.Errorf("internal error setting up http request: %w", err)
-				return nil
-			}
+			// setup and make request
+			resp, err := lc.client.DoWithContext(cancelContext, &clients.RequestData{
+				Method: "POST",
+				Path:   fmt.Sprintf("%s/v1/locks", lc.url),
+				Model:  lockRequest,
+			})
 
-			resp, err := lc.client.Do(req)
 			if err != nil {
 				// we didn't make the request or was canceled
 				select {
@@ -213,17 +197,9 @@ func (lc *lockerclient) ObtainLock(ctx context.Context, lockRequest v1locker.Cre
 			switch resp.StatusCode {
 			case http.StatusCreated:
 				// created the lock, need to record the session id and start hearbeating
-				respBody, err := io.ReadAll(resp.Body)
-				if err != nil {
-					// server sent back a bad body for some reason
-					lockErr = fmt.Errorf("failed to read response body: %v", err)
-					return nil
-				}
-
 				createLockResponse := &v1locker.CreateLockResponse{}
-				if err = json.Unmarshal(respBody, createLockResponse); err != nil {
-					// server sent back an unexpeded response body
-					lockErr = fmt.Errorf("failed to parse server response: %v", err)
+				if err := createLockResponse.Decode(api.ContentTypeFromResponse(resp), resp.Body); err != nil {
+					lockErr = errors.ClientError(err)
 					return nil
 				}
 
@@ -239,9 +215,9 @@ func (lc *lockerclient) ObtainLock(ctx context.Context, lockRequest v1locker.Cre
 					errCallback := func(err error) {
 						lc.heartbeatErrorCallback(lockRequest.KeyValues, err)
 					}
-					returnLock = newLock(createLockResponse.SessionID, createLockResponse.Timeout, lc.client, lc.url, errCallback, lostLockWrapper)
+					returnLock = newLock(createLockResponse.SessionID, createLockResponse.Timeout, lc.url, lc.client, lc.contentType, errCallback, lostLockWrapper)
 				} else {
-					returnLock = newLock(createLockResponse.SessionID, createLockResponse.Timeout, lc.client, lc.url, nil, lostLockWrapper)
+					returnLock = newLock(createLockResponse.SessionID, createLockResponse.Timeout, lc.url, lc.client, lc.contentType, nil, lostLockWrapper)
 				}
 
 				// setup the heartbeat operation
@@ -256,21 +232,13 @@ func (lc *lockerclient) ObtainLock(ctx context.Context, lockRequest v1locker.Cre
 				return returnLock
 			case http.StatusBadRequest:
 				// there was an error with the request. possibly a mismatch on client server versions
-				respBody, err := io.ReadAll(resp.Body)
-				if err != nil {
-					// shouldn't actuall hit this
-					lockErr = err
-					return nil
-				}
-
 				apiError := &errors.Error{}
-				if err = json.Unmarshal(respBody, apiError); err != nil {
-					// shouldn't actuall hit this
-					lockErr = err
-					return nil
+				if err := apiError.Decode(api.ContentTypeFromResponse(resp), resp.Body); err != nil {
+					lockErr = errors.ClientError(err)
+				} else {
+					lockErr = apiError
 				}
 
-				lockErr = apiError
 				return nil
 			case http.StatusServiceUnavailable:
 				// server is restarting so retry the request
@@ -293,6 +261,10 @@ func (lc *lockerclient) ObtainLock(ctx context.Context, lockRequest v1locker.Cre
 	return returnLock, lockErr
 }
 
+//	RETURNS:
+//	- <-chan struct{} - struc that can be used to monitor when a client has been closed
+//
+// Done is closed when the LockerClient's context is closed and all held locks have successfully been released
 func (lc *lockerclient) Done() <-chan struct{} {
 	return lc.done
 }

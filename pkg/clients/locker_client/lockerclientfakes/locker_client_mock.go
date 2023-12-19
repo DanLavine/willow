@@ -9,7 +9,7 @@ import (
 	reflect "reflect"
 
 	lockerclient "github.com/DanLavine/willow/pkg/clients/locker_client"
-	v1locker "github.com/DanLavine/willow/pkg/models/api/locker/v1"
+	v1 "github.com/DanLavine/willow/pkg/models/api/locker/v1"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -65,7 +65,7 @@ func (mr *MockLockerClientMockRecorder) Healthy() *gomock.Call {
 }
 
 // ObtainLock mocks base method.
-func (m *MockLockerClient) ObtainLock(arg0 context.Context, arg1 v1locker.CreateLockRequest) (lockerclient.Lock, error) {
+func (m *MockLockerClient) ObtainLock(arg0 context.Context, arg1 *v1.CreateLockRequest) (lockerclient.Lock, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ObtainLock", arg0, arg1)
 	ret0, _ := ret[0].(lockerclient.Lock)

@@ -2,6 +2,7 @@ package v1
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 
 	"github.com/DanLavine/willow/pkg/models/api"
@@ -9,42 +10,52 @@ import (
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 )
 
-// Metrics for all queues and dead letter queues
-type MetricsResponse struct {
-	// all queue metrics
-	Queues []*QueueMetricsResponse
+// used with list
+type CounterResponse struct {
+	KeyValues datatypes.KeyValues
+
+	Counters uint64
 }
 
-// Metrics for each individual queue
-// TODO put response on this
-type QueueMetricsResponse struct {
-	Name  string
-	Total uint64
-	Max   uint64
+func (counterResp CounterResponse) Validate() error {
+	if len(counterResp.KeyValues) == 0 {
+		return fmt.Errorf("'KeyValues' requres at least 1 key + value piar")
+	}
 
-	Tags []*TagMetricsResponse
+	if err := counterResp.KeyValues.Validate(); err != nil {
+		return err
+	}
 
-	DeadLetterQueueMetrics *DeadLetterQueueMetricsResponse
+	if counterResp.Counters == 0 {
+		return fmt.Errorf("'Counters' is set to 0, which is invalid. The counter should be deleted")
+	}
+
+	return nil
 }
 
-// Metrics for all tags Groups for a given queue
-type TagMetricsResponse struct {
-	Tags       datatypes.KeyValues
-	Ready      uint64
-	Processing uint64
-}
-
-// Metrics for the dead letter queue
-type DeadLetterQueueMetricsResponse struct {
-	Count uint64
+type CountersResponse struct {
+	Counters []*CounterResponse
 }
 
 //	RETURNS:
 //	- error - any errors encountered with the response object
 //
 // Validate is used to ensure that CreateLockResponse has all required fields set
-func (resp *MetricsResponse) Validate() error {
-	// #TODO
+func (resp CountersResponse) Validate() error {
+	if len(resp.Counters) == 0 {
+		return nil
+	}
+
+	for index, counter := range resp.Counters {
+		if counter == nil {
+			return fmt.Errorf("error at Counters index: %d: value cannot be nil", index)
+		}
+
+		if err := counter.Validate(); err != nil {
+			return fmt.Errorf("error at counters index %d: %w", index, err)
+		}
+	}
+
 	return nil
 }
 
@@ -52,7 +63,7 @@ func (resp *MetricsResponse) Validate() error {
 //	- []byte - byte array that can be sent over an http client
 //
 // EncodeJSON encodes the model to a valid JSON format
-func (resp *MetricsResponse) EncodeJSON() []byte {
+func (resp *CountersResponse) EncodeJSON() []byte {
 	data, _ := json.Marshal(resp)
 	return data
 }
@@ -65,7 +76,7 @@ func (resp *MetricsResponse) EncodeJSON() []byte {
 //	- error - any error encoutered when reading the response
 //
 // Decode can easily parse the response body from an http create request
-func (resp *MetricsResponse) Decode(contentType api.ContentType, reader io.ReadCloser) error {
+func (resp *CountersResponse) Decode(contentType api.ContentType, reader io.ReadCloser) error {
 	switch contentType {
 	case api.ContentTypeJSON:
 		requestBody, err := io.ReadAll(reader)

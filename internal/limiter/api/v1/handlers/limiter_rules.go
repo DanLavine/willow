@@ -11,10 +11,13 @@ import (
 	servererrors "github.com/DanLavine/willow/internal/server_errors"
 	"github.com/DanLavine/willow/pkg/clients"
 	lockerclient "github.com/DanLavine/willow/pkg/clients/locker_client"
+	"github.com/DanLavine/willow/pkg/models/api"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 	"go.uber.org/zap"
 
-	v1common "github.com/DanLavine/willow/internal/api/common/v1"
+	"github.com/DanLavine/willow/pkg/models/api/common/errors"
+	v1common "github.com/DanLavine/willow/pkg/models/api/common/v1"
+	v1limiter "github.com/DanLavine/willow/pkg/models/api/limiter/v1"
 )
 
 // Handles CRUD operations for Limit operations
@@ -22,11 +25,11 @@ import (
 //go:generate mockgen -destination=v1serverfakes/limiter_rules_mock.go -package=v1serverfakes github.com/DanLavine/willow/internal/server/versions/v1server LimitRuleHandler
 type V1LimiterRuleHandler interface {
 	// CRUD operations
-	Create(w http.ResponseWriter, r *http.Request)
-	Update(w http.ResponseWriter, r *http.Request)
-	Delete(w http.ResponseWriter, r *http.Request)
-	Get(w http.ResponseWriter, r *http.Request)
-	List(w http.ResponseWriter, r *http.Request)
+	CreateRule(w http.ResponseWriter, r *http.Request)
+	UpdateRule(w http.ResponseWriter, r *http.Request)
+	DeleteRule(w http.ResponseWriter, r *http.Request)
+	GetRule(w http.ResponseWriter, r *http.Request) // DSL TODO: not consistent with List Overrides. I think I want 2 apis. 1 for match. 1 for querry?
+	ListRules(w http.ResponseWriter, r *http.Request)
 
 	// overide operations
 	ListOverrides(w http.ResponseWriter, r *http.Request)
@@ -61,101 +64,93 @@ func NewGroupRuleHandler(logger *zap.Logger, shutdownContext context.Context, lo
 }
 
 // Create a new rule handler
-func (grh *groupRuleHandler) Create(w http.ResponseWriter, r *http.Request) {
+func (grh *groupRuleHandler) CreateRule(w http.ResponseWriter, r *http.Request) {
 	logger := logger.AddRequestID(grh.logger.Named("Create"), r)
 	logger.Debug("starting request")
 	defer logger.Debug("processed request")
 
-	limiterCreateRequest, err := ParseRuleRequest(r.Body)
-	if err != nil {
-		w.WriteHeader(err.StatusCode)
-		w.Write(err.ToBytes())
-
+	ruleRequest := &v1limiter.RuleRequest{}
+	if err := ruleRequest.Decode(api.ContentTypeFromRequest(r), r.Body); err != nil {
+		logger.Error("failed to decode request", zap.Error(err))
+		_, _ = api.HttpResponse(r, w, http.StatusBadRequest, errors.ServerError(err))
 		return
 	}
 
-	// create the group rule. On find, return an error that the rule already exists
-	if err = grh.rulesManager.Create(logger, limiterCreateRequest); err != nil {
-		w.WriteHeader(err.StatusCode)
-		w.Write(err.ToBytes())
+	// create the group rule if it does not already exist
+	if serverErr := grh.rulesManager.Create(logger, ruleRequest); serverErr != nil {
+		_, _ = api.HttpResponse(r, w, serverErr.StatusCode, serverErr)
 		return
 	}
 
 	w.WriteHeader(http.StatusCreated)
 }
 
-// Get a rule by name hendler
-func (grh *groupRuleHandler) Get(w http.ResponseWriter, r *http.Request) {
+// Get a rule by name
+func (grh *groupRuleHandler) GetRule(w http.ResponseWriter, r *http.Request) {
 	logger := logger.AddRequestID(grh.logger.Named("Get"), r)
 	logger.Debug("starting request")
 	defer logger.Debug("processed request")
 
-	namedParameters := urlrouter.GetNamedParamters(r.Context())
-
-	query, err := ParseRuleQuery(r.Body)
-	if err != nil {
-		w.WriteHeader(err.StatusCode)
-		w.Write(err.ToBytes())
+	// parse the query
+	query := &v1limiter.RuleQuery{}
+	if err := query.Decode(api.ContentTypeFromRequest(r), r.Body); err != nil {
+		logger.Error("failed to decode request", zap.Error(err))
+		_, _ = api.HttpResponse(r, w, http.StatusBadRequest, errors.ServerError(err))
 		return
 	}
 
-	// find the group rule
+	// find the Rule and dessired overrides
+	namedParameters := urlrouter.GetNamedParamters(r.Context())
 	rule := grh.rulesManager.Get(logger, namedParameters["rule_name"], query)
 	if rule == nil {
-		err := &servererrors.ApiError{Message: fmt.Sprintf("rule with name '%s' could not be found", namedParameters["rule_name"])}
-		w.WriteHeader(http.StatusUnprocessableEntity)
-		w.Write(err.ToBytes())
+		serverErr := &servererrors.ApiError{Message: fmt.Sprintf("rule with name '%s' could not be found", namedParameters["rule_name"])}
+		_, _ = api.HttpResponse(r, w, http.StatusUnprocessableEntity, serverErr)
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
-	w.Write(rule.ToBytes())
+	_, _ = api.HttpResponse(r, w, http.StatusOK, rule)
 }
 
 // List all rules that match particual KeyValues
-func (grh *groupRuleHandler) List(w http.ResponseWriter, r *http.Request) {
+func (grh *groupRuleHandler) ListRules(w http.ResponseWriter, r *http.Request) {
 	logger := logger.AddRequestID(grh.logger.Named("List"), r)
 	logger.Debug("starting request")
 	defer logger.Debug("processed request")
 
-	query, err := ParseRuleQuery(r.Body)
-	if err != nil {
-		w.WriteHeader(err.StatusCode)
-		w.Write(err.ToBytes())
+	query := &v1limiter.RuleQuery{}
+	if err := query.Decode(api.ContentTypeFromRequest(r), r.Body); err != nil {
+		logger.Error("failed to decode request", zap.Error(err))
+		_, _ = api.HttpResponse(r, w, http.StatusBadRequest, errors.ServerError(err))
 		return
 	}
 
-	rules, err := grh.rulesManager.List(logger, query)
-	if err != nil {
-		w.WriteHeader(err.StatusCode)
-		w.Write(err.ToBytes())
+	rules, serverErr := grh.rulesManager.List(logger, query)
+	if serverErr != nil {
+		_, _ = api.HttpResponse(r, w, serverErr.StatusCode, serverErr)
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
-	w.Write(rules.ToBytes())
+	_, _ = api.HttpResponse(r, w, http.StatusOK, rules)
 }
 
-// Update a rule by name handelr
-func (grh *groupRuleHandler) Update(w http.ResponseWriter, r *http.Request) {
+// Update a rule by name
+func (grh *groupRuleHandler) UpdateRule(w http.ResponseWriter, r *http.Request) {
 	logger := logger.AddRequestID(grh.logger.Named("Update"), r)
 	logger.Debug("starting request")
 	defer logger.Debug("processed request")
 
-	limiterUpdateRequest, err := ParseRuleUpdateRequest(r.Body)
-	if err != nil {
-		w.WriteHeader(err.StatusCode)
-		w.Write(err.ToBytes())
+	// parse the update request
+	ruleUpdate := &v1limiter.RuleUpdate{}
+	if err := ruleUpdate.Decode(api.ContentTypeFromRequest(r), r.Body); err != nil {
+		logger.Error("failed to decode request", zap.Error(err))
+		_, _ = api.HttpResponse(r, w, http.StatusBadRequest, errors.ServerError(err))
 		return
 	}
 
+	// Update the specific rule off of the name
 	namedParameters := urlrouter.GetNamedParamters(r.Context())
-
-	// find the specific limiter group rule
-	err = grh.rulesManager.Update(logger, namedParameters["rule_name"], limiterUpdateRequest)
-	if err != nil {
-		w.WriteHeader(err.StatusCode)
-		w.Write(err.ToBytes())
+	if serverErr := grh.rulesManager.Update(logger, namedParameters["rule_name"], ruleUpdate); serverErr != nil {
+		_, _ = api.HttpResponse(r, w, serverErr.StatusCode, serverErr)
 		return
 	}
 
@@ -163,47 +158,44 @@ func (grh *groupRuleHandler) Update(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-// Delete a rule by name handler
-func (grh *groupRuleHandler) Delete(w http.ResponseWriter, r *http.Request) {
+// Delete a Rule by name
+func (grh *groupRuleHandler) DeleteRule(w http.ResponseWriter, r *http.Request) {
 	logger := logger.AddRequestID(grh.logger.Named("Delete"), r)
 	logger.Debug("starting request")
 	defer logger.Debug("processed request")
 
 	namedParameters := urlrouter.GetNamedParamters(r.Context())
-
-	if err := grh.rulesManager.Delete(logger, namedParameters["rule_name"]); err != nil {
-		w.WriteHeader(err.StatusCode)
-		w.Write(err.ToBytes())
+	if serverErr := grh.rulesManager.Delete(logger, namedParameters["rule_name"]); serverErr != nil {
+		_, _ = api.HttpResponse(r, w, serverErr.StatusCode, serverErr)
 		return
 	}
 
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// List a number of rules
+// List a number of Overrides for a rule
 func (grh *groupRuleHandler) ListOverrides(w http.ResponseWriter, r *http.Request) {
 	logger := logger.AddRequestID(grh.logger.Named("ListOverrides"), r)
 	logger.Debug("starting request")
 	defer logger.Debug("processed request")
 
-	query, err := v1common.ParseAssociatedQuery(r.Body)
-	if err != nil {
-		w.WriteHeader(err.StatusCode)
-		w.Write(err.ToBytes())
+	// read the query to run
+	query := &v1common.AssociatedQuery{}
+	if err := query.Decode(api.ContentTypeFromRequest(r), r.Body); err != nil {
+		logger.Error("failed to decode request", zap.Error(err))
+		_, _ = api.HttpResponse(r, w, http.StatusBadRequest, errors.ServerError(err))
 		return
 	}
 
+	// find all the overrides for the particular rule
 	namedParameters := urlrouter.GetNamedParamters(r.Context())
-
-	overrides, err := grh.rulesManager.ListOverrides(logger, namedParameters["rule_name"], query)
-	if err != nil {
-		w.WriteHeader(err.StatusCode)
-		w.Write(err.ToBytes())
+	overrides, serverErr := grh.rulesManager.ListOverrides(logger, namedParameters["rule_name"], query)
+	if serverErr != nil {
+		_, _ = api.HttpResponse(r, w, serverErr.StatusCode, serverErr)
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
-	w.Write(overrides.ToBytes())
+	_, _ = api.HttpResponse(r, w, http.StatusOK, overrides)
 }
 
 // Set an override for a specific rule
@@ -212,22 +204,22 @@ func (grh *groupRuleHandler) SetOverride(w http.ResponseWriter, r *http.Request)
 	logger.Debug("starting request")
 	defer logger.Debug("processed request")
 
-	ruleOverrideRequest, err := ParseOverrideRequest(r.Body)
-	if err != nil {
-		w.WriteHeader(err.StatusCode)
-		w.Write(err.ToBytes())
+	// parse the override from the request
+	override := &v1limiter.Override{}
+	if err := override.Decode(api.ContentTypeFromRequest(r), r.Body); err != nil {
+		logger.Error("failed to decode request", zap.Error(err))
+		_, _ = api.HttpResponse(r, w, http.StatusBadRequest, errors.ServerError(err))
 		return
 	}
 
+	// create the override
 	namedParameters := urlrouter.GetNamedParamters(r.Context())
-
-	if err := grh.rulesManager.CreateOverride(logger, namedParameters["rule_name"], ruleOverrideRequest); err != nil {
-		w.WriteHeader(err.StatusCode)
-		w.Write(err.ToBytes())
+	if serverErr := grh.rulesManager.CreateOverride(logger, namedParameters["rule_name"], override); serverErr != nil {
+		_, _ = api.HttpResponse(r, w, serverErr.StatusCode, serverErr)
 		return
 	}
 
-	w.WriteHeader(http.StatusCreated)
+	_, _ = api.HttpResponse(r, w, http.StatusCreated, nil)
 }
 
 // Delete an override for a specific rule
@@ -237,14 +229,12 @@ func (grh *groupRuleHandler) DeleteOverride(w http.ResponseWriter, r *http.Reque
 	defer logger.Debug("processed request")
 
 	namedParameters := urlrouter.GetNamedParamters(r.Context())
-
-	if err := grh.rulesManager.DeleteOverride(logger, namedParameters["rule_name"], namedParameters["override_name"]); err != nil {
-		w.WriteHeader(err.StatusCode)
-		w.Write(err.ToBytes())
+	if serverErr := grh.rulesManager.DeleteOverride(logger, namedParameters["rule_name"], namedParameters["override_name"]); serverErr != nil {
+		_, _ = api.HttpResponse(r, w, serverErr.StatusCode, serverErr)
 		return
 	}
 
-	w.WriteHeader(http.StatusNoContent)
+	_, _ = api.HttpResponse(r, w, http.StatusNoContent, nil)
 }
 
 // Query the counters to see what is already provided
@@ -253,22 +243,21 @@ func (grh *groupRuleHandler) ListCounters(w http.ResponseWriter, r *http.Request
 	logger.Debug("starting request")
 	defer logger.Debug("processed request")
 
-	query, err := v1common.ParseAssociatedQuery(r.Body)
-	if err != nil {
-		w.WriteHeader(err.StatusCode)
-		w.Write(err.ToBytes())
+	// parse the query from the counters
+	query := &v1common.AssociatedQuery{}
+	if err := query.Decode(api.ContentTypeFromRequest(r), r.Body); err != nil {
+		logger.Error("failed to decode request", zap.Error(err))
+		_, _ = api.HttpResponse(r, w, http.StatusBadRequest, errors.ServerError(err))
 		return
 	}
 
-	countersResp, err := grh.rulesManager.ListCounters(logger, query)
-	if err != nil {
-		w.WriteHeader(err.StatusCode)
-		w.Write(err.ToBytes())
+	countersResp, serverErr := grh.rulesManager.ListCounters(logger, query)
+	if serverErr != nil {
+		_, _ = api.HttpResponse(r, w, serverErr.StatusCode, serverErr)
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
-	w.Write(countersResp.ToBytes())
+	_, _ = api.HttpResponse(r, w, http.StatusOK, countersResp)
 }
 
 // Increment the Counters if they do not conflict with any rules
@@ -277,34 +266,33 @@ func (grh *groupRuleHandler) Increment(w http.ResponseWriter, r *http.Request) {
 	logger.Debug("starting request")
 	defer logger.Debug("processed request")
 
-	counterRequest, err := ParseCounterRequest(r.Body)
-	if err != nil {
-		w.WriteHeader(err.StatusCode)
-		w.Write(err.ToBytes())
+	// parse the counter increment
+	counters := &v1limiter.Counter{}
+	if err := counters.Decode(api.ContentTypeFromRequest(r), r.Body); err != nil {
+		logger.Error("failed to decode request", zap.Error(err))
+		_, _ = api.HttpResponse(r, w, http.StatusBadRequest, errors.ServerError(err))
 		return
 	}
 
 	// create a locker client that will stop and close if a server shutdown is received
 	logLockErr := func(kvs datatypes.KeyValues, err error) {
-		logger.Error("Failed to obtain lock", zap.Error(err), zap.Any("key_values", kvs))
+		logger.Error("failed to obtain lock", zap.Error(err), zap.Any("key_values", kvs))
 	}
 	lockerClient, lockerErr := lockerclient.NewLockerClient(grh.shutdownContext, grh.lockerClientConfig, logLockErr)
 	if lockerErr != nil {
-		logger.Error("Failed to create locker client on increment counter request", zap.Error(lockerErr))
-		err := servererrors.InternalServerError
-		w.WriteHeader(err.StatusCode)
-		w.Write(err.ToBytes())
+		logger.Error("failed to create locker client on increment counter request", zap.Error(lockerErr))
+		serverErr := servererrors.InternalServerError
+		_, _ = api.HttpResponse(r, w, serverErr.StatusCode, serverErr)
 		return
 	}
 
 	// attempt to increment the counters for a particualr group of KeyValues
-	if err = grh.rulesManager.IncrementCounters(logger, r.Context(), lockerClient, counterRequest); err != nil {
-		w.WriteHeader(err.StatusCode)
-		w.Write(err.ToBytes())
+	if serverErr := grh.rulesManager.IncrementCounters(logger, r.Context(), lockerClient, counters); serverErr != nil {
+		_, _ = api.HttpResponse(r, w, serverErr.StatusCode, serverErr)
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
+	_, _ = api.HttpResponse(r, w, http.StatusOK, nil)
 }
 
 func (grh *groupRuleHandler) Decrement(w http.ResponseWriter, r *http.Request) {
@@ -312,20 +300,21 @@ func (grh *groupRuleHandler) Decrement(w http.ResponseWriter, r *http.Request) {
 	logger.Debug("starting request")
 	defer logger.Debug("processed request")
 
-	counterRequest, err := ParseCounterRequest(r.Body)
-	if err != nil {
-		w.WriteHeader(err.StatusCode)
-		w.Write(err.ToBytes())
+	// parse the counter decerement
+	counters := &v1limiter.Counter{}
+	if err := counters.Decode(api.ContentTypeFromRequest(r), r.Body); err != nil {
+		logger.Error("failed to decode request", zap.Error(err))
+		_, _ = api.HttpResponse(r, w, http.StatusBadRequest, errors.ServerError(err))
 		return
 	}
 
-	if err = grh.rulesManager.DecrementCounters(logger, counterRequest); err != nil {
-		w.WriteHeader(err.StatusCode)
-		w.Write(err.ToBytes())
+	// decrement the counter
+	if serverErr := grh.rulesManager.DecrementCounters(logger, counters); serverErr != nil {
+		_, _ = api.HttpResponse(r, w, serverErr.StatusCode, serverErr)
 		return
 	}
 
-	w.WriteHeader(http.StatusNoContent)
+	_, _ = api.HttpResponse(r, w, http.StatusNoContent, nil)
 }
 
 func (grh *groupRuleHandler) SetCounters(w http.ResponseWriter, r *http.Request) {
@@ -333,19 +322,19 @@ func (grh *groupRuleHandler) SetCounters(w http.ResponseWriter, r *http.Request)
 	logger.Debug("starting request")
 	defer logger.Debug("processed request")
 
-	counterSetRequest, err := ParseCounterSetRequest(r.Body)
-	if err != nil {
-		w.WriteHeader(err.StatusCode)
-		w.Write(err.ToBytes())
+	// parse the countrs set
+	setCounter := &v1limiter.CounterSet{}
+	if err := setCounter.Decode(api.ContentTypeFromRequest(r), r.Body); err != nil {
+		logger.Error("failed to decode request", zap.Error(err))
+		_, _ = api.HttpResponse(r, w, http.StatusBadRequest, errors.ServerError(err))
 		return
 	}
 
-	// set the counters for specific key values
-	if err = grh.rulesManager.SetCounters(logger, counterSetRequest); err != nil {
-		w.WriteHeader(err.StatusCode)
-		w.Write(err.ToBytes())
+	// forcefully set the counters
+	if serverErr := grh.rulesManager.SetCounters(logger, setCounter); serverErr != nil {
+		_, _ = api.HttpResponse(r, w, serverErr.StatusCode, serverErr)
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
+	_, _ = api.HttpResponse(r, w, http.StatusOK, nil)
 }

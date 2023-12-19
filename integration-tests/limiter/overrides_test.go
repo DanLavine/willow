@@ -30,7 +30,7 @@ func Test_Limiter_Overrides_Create(t *testing.T) {
 		limiterClient := setupClient(g, limiterTestConstruct.ServerURL)
 
 		// create rule
-		rule := v1.RuleRequest{
+		rule := &v1.RuleRequest{
 			Name:    "rule1",
 			GroupBy: []string{"key1", "key2"},
 			Limit:   5,
@@ -40,7 +40,7 @@ func Test_Limiter_Overrides_Create(t *testing.T) {
 		g.Expect(err).ToNot(HaveOccurred())
 
 		// create override
-		override := v1.Override{
+		override := &v1.Override{
 			Name:  "override1",
 			Limit: 32,
 			KeyValues: datatypes.KeyValues{
@@ -75,7 +75,7 @@ func Test_Limiter_Overrides_Delete(t *testing.T) {
 		limiterClient := setupClient(g, limiterTestConstruct.ServerURL)
 
 		// create rule
-		rule := v1.RuleRequest{
+		rule := &v1.RuleRequest{
 			Name:    "rule1",
 			GroupBy: []string{"key1", "key2"},
 			Limit:   5,
@@ -83,7 +83,7 @@ func Test_Limiter_Overrides_Delete(t *testing.T) {
 		g.Expect(limiterClient.CreateRule(rule)).ToNot(HaveOccurred())
 
 		// create override
-		override := v1.Override{
+		override := &v1.Override{
 			Name:  "override1",
 			Limit: 32,
 			KeyValues: datatypes.KeyValues{
@@ -99,7 +99,7 @@ func Test_Limiter_Overrides_Delete(t *testing.T) {
 		g.Expect(err).ToNot(HaveOccurred())
 
 		// get the rule with overrides to ensure it is deleted
-		ruleResp, err := limiterClient.GetRule("rule1", v1.RuleQuery{OverridesToInclude: v1.All})
+		ruleResp, err := limiterClient.GetRule("rule1", &v1.RuleQuery{OverridesToInclude: v1.All})
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(ruleResp.Name).To(Equal("rule1"))
 		g.Expect(ruleResp.Overrides).To(BeNil())
@@ -125,7 +125,7 @@ func Test_Limiter_Overrides_List(t *testing.T) {
 		limiterClient := setupClient(g, limiterTestConstruct.ServerURL)
 
 		// create rule
-		rule := v1.RuleRequest{
+		rule := &v1.RuleRequest{
 			Name:    "rule1",
 			GroupBy: []string{"key1", "key2"},
 			Limit:   5,
@@ -135,7 +135,7 @@ func Test_Limiter_Overrides_List(t *testing.T) {
 		g.Expect(err).ToNot(HaveOccurred())
 
 		// create overrides
-		override1 := v1.Override{
+		override1 := &v1.Override{
 			Name:  "override1",
 			Limit: 32,
 			KeyValues: datatypes.KeyValues{
@@ -146,7 +146,7 @@ func Test_Limiter_Overrides_List(t *testing.T) {
 		}
 		g.Expect(limiterClient.CreateOverride("rule1", override1)).ToNot(HaveOccurred())
 
-		override2 := v1.Override{
+		override2 := &v1.Override{
 			Name:  "override2",
 			Limit: 18,
 			KeyValues: datatypes.KeyValues{
@@ -159,7 +159,7 @@ func Test_Limiter_Overrides_List(t *testing.T) {
 
 		// query
 		existsTrue := true
-		query := v1common.AssociatedQuery{
+		query := &v1common.AssociatedQuery{
 			AssociatedKeyValues: datatypes.AssociatedKeyValuesQuery{
 				KeyValueSelection: &datatypes.KeyValueSelection{
 					KeyValues: map[string]datatypes.Value{
@@ -171,6 +171,6 @@ func Test_Limiter_Overrides_List(t *testing.T) {
 
 		overrides, err := limiterClient.ListOverrides("rule1", query)
 		g.Expect(err).ToNot(HaveOccurred())
-		g.Expect(len(overrides)).To(Equal(1))
+		g.Expect(len(overrides.Overrides)).To(Equal(1))
 	})
 }

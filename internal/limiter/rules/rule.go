@@ -24,7 +24,7 @@ type Rule interface {
 	Update(logger *zap.Logger, update *v1limiter.RuleUpdate)
 
 	// query overrides for a particular rule
-	QueryOverrides(logger *zap.Logger, query *v1common.AssociatedQuery) (v1limiter.Overrides, *servererrors.ApiError)
+	QueryOverrides(logger *zap.Logger, query *v1common.AssociatedQuery) (*v1limiter.Overrides, *servererrors.ApiError)
 
 	// set an override for a particualr group of tags
 	SetOverride(logger *zap.Logger, override *v1limiter.Override) *servererrors.ApiError

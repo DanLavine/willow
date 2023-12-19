@@ -4,82 +4,55 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+
+	"github.com/DanLavine/willow/pkg/models/api"
 )
 
-var (
-	// errors when sending a message
-	RequestEncodeFailed = &Error{Message: "Failed to encode request."}
-	InvalidRequestBody  = &Error{Message: "Request is invalid."}
-
-	// client side errors
-	ReadResponseBodyError  = &Error{Message: "Failed to read server response body."}
-	ParseResponseBodyError = &Error{Message: "Failed to parse server response."}
-)
-
+// Error can be used to parse errors returned from services if the request was invalid
 type Error struct {
 	Message string
-
-	expected string
-	actual   string
 }
 
-// ParseError is used to easily parse the response from a HTTP response body
-//
+// Validate the error message. Currently a NO-OP
+func (err *Error) Validate() error {
+	return nil
+}
+
+func (err *Error) EncodeJSON() []byte {
+	data, _ := json.Marshal(err)
+	return data
+}
+
 //	PARAMETERS:
-//	- reader - stream that contains the encoded message in JSON
+//	- contentType - how to interperate the stream. Valida values [application/json]
+//	- reader - stream to read the encoded CreateLockResponse data from
 //
 //	RETURNS:
-//	- *Error - will be the error responded by the server, or an error parsing the server response
-func ParseError(reader io.ReadCloser) *Error {
-	requestBody, err := io.ReadAll(reader)
-	if err != nil {
-		return ReadResponseBodyError.With("", err.Error())
+//	- error - any error encoutered when reading the response
+//
+// Decode can easily parse the response body from an http create request
+func (e *Error) Decode(contentType api.ContentType, reader io.ReadCloser) error {
+	switch contentType {
+	case api.ContentTypeJSON:
+		body, err := io.ReadAll(reader)
+		if err != nil {
+			return fmt.Errorf("failed to read error's response stream from the server: %w", err)
+		}
+
+		if err := json.Unmarshal(body, e); err != nil {
+			return fmt.Errorf("failed to decode error from the server: %w", err)
+		}
+	default:
+		return fmt.Errorf("recieved unknown content type for an error from the server: %s", contentType)
 	}
 
-	obj := &Error{}
-	if err := json.Unmarshal(requestBody, obj); err != nil {
-		return ParseResponseBodyError.With("", err.Error())
-	}
-
-	return obj
+	return nil
 }
 
-// With is used to generate a more specific message for any of the provided default Error messages.
-// if Expected or Actual is anything other than than the empty string, the message will be formated
-// for calls to 'Error()' will the additional details:
-//
-// [Original Error Message]. Expected [expected string provided]. Actual [actual string provided].
-//
-//	PARAMETERS:
-//	- expected - Optional string that will be used to generate a more tailored message
-//	- actual - Optional string that will be used to generate a more tailored message
-//
-//	RETURNS:
-//	- *Error - New Error with all the strings encapsulated so calls to `Error()` are properly formatted
-func (e *Error) With(expected, actual string) *Error {
-	newErr := &Error{
-		Message:  e.Message,
-		expected: expected,
-		actual:   actual,
-	}
-
-	return newErr
-}
-
-// Error returns a formatted message with optinal 'expected' and 'actual' values
-//
 //	RETURNS:
 //	- string - error message
+//
+// Error returns the original message sent from the service
 func (e *Error) Error() string {
-	err := e.Message
-
-	if e.expected != "" {
-		err = fmt.Sprintf("%s Expected: %s.", err, e.expected)
-	}
-
-	if e.actual != "" {
-		err = fmt.Sprintf("%s Actual: %s.", err, e.actual)
-	}
-
-	return err
+	return e.Message
 }

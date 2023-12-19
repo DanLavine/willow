@@ -31,11 +31,11 @@ func AddV1LimiterRoutes(mux *urlrouter.Router, v1Handler handlers.V1LimiterRuleH
 	})
 
 	// crud operations for group rules
-	mux.HandleFunc("GET", "/v1/limiter/rules", v1Handler.List)
-	mux.HandleFunc("POST", "/v1/limiter/rules", v1Handler.Create)
-	mux.HandleFunc("GET", "/v1/limiter/rules/:rule_name", v1Handler.Get)
-	mux.HandleFunc("PUT", "/v1/limiter/rules/:rule_name", v1Handler.Update)
-	mux.HandleFunc("DELETE", "/v1/limiter/rules/:rule_name", v1Handler.Delete)
+	mux.HandleFunc("GET", "/v1/limiter/rules", v1Handler.ListRules)
+	mux.HandleFunc("POST", "/v1/limiter/rules", v1Handler.CreateRule)
+	mux.HandleFunc("GET", "/v1/limiter/rules/:rule_name", v1Handler.GetRule)
+	mux.HandleFunc("PUT", "/v1/limiter/rules/:rule_name", v1Handler.UpdateRule)
+	mux.HandleFunc("DELETE", "/v1/limiter/rules/:rule_name", v1Handler.DeleteRule)
 
 	// create an override for a specific rule
 	mux.HandleFunc("GET", "/v1/limiter/rules/:rule_name/overrides", v1Handler.ListOverrides)

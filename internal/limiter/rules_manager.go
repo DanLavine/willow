@@ -36,18 +36,18 @@ type RulesManager interface {
 
 	// read
 	Get(logger *zap.Logger, name string, query *v1limiter.RuleQuery) *v1limiter.RuleResponse
-	List(logger *zap.Logger, query *v1limiter.RuleQuery) (v1limiter.Rules, *servererrors.ApiError)
+	List(logger *zap.Logger, query *v1limiter.RuleQuery) (*v1limiter.Rules, *servererrors.ApiError)
 
 	// delete operations
 	Delete(logger *zap.Logger, name string) *servererrors.ApiError
 
 	// override operations
-	ListOverrides(logger *zap.Logger, ruleName string, query *v1common.AssociatedQuery) (v1limiter.Overrides, *servererrors.ApiError)
+	ListOverrides(logger *zap.Logger, ruleName string, query *v1common.AssociatedQuery) (*v1limiter.Overrides, *servererrors.ApiError)
 	CreateOverride(logger *zap.Logger, ruleName string, override *v1limiter.Override) *servererrors.ApiError
 	DeleteOverride(logger *zap.Logger, ruleName string, overrideName string) *servererrors.ApiError
 
 	// counter operations
-	ListCounters(logger *zap.Logger, query *v1common.AssociatedQuery) (v1limiter.CountersResponse, *servererrors.ApiError)
+	ListCounters(logger *zap.Logger, query *v1common.AssociatedQuery) (*v1limiter.CountersResponse, *servererrors.ApiError)
 	IncrementCounters(logger *zap.Logger, requestContext context.Context, lockerClient lockerclient.LockerClient, increment *v1limiter.Counter) *servererrors.ApiError
 	DecrementCounters(logger *zap.Logger, decrement *v1limiter.Counter) *servererrors.ApiError
 	SetCounters(logger *zap.Logger, setCounters *v1limiter.CounterSet) *servererrors.ApiError
@@ -126,13 +126,13 @@ func (rm *rulesManger) Get(logger *zap.Logger, name string, query *v1limiter.Rul
 // list all group rules that match the provided key values
 //
 // Can also include the overrides
-func (rm *rulesManger) List(logger *zap.Logger, query *v1limiter.RuleQuery) (v1limiter.Rules, *servererrors.ApiError) {
+func (rm *rulesManger) List(logger *zap.Logger, query *v1limiter.RuleQuery) (*v1limiter.Rules, *servererrors.ApiError) {
 	logger = logger.Named("List")
-	foundRules := v1limiter.Rules{}
+	foundRules := &v1limiter.Rules{}
 
 	onFindMatchingRule := func(associatedKeyValues *btreeassociated.AssociatedKeyValues) bool {
 		rule := associatedKeyValues.Value().(rules.Rule)
-		foundRules = append(foundRules, rule.Get(query))
+		foundRules.Rules = append(foundRules.Rules, rule.Get(query))
 
 		return true
 	}
@@ -141,14 +141,14 @@ func (rm *rulesManger) List(logger *zap.Logger, query *v1limiter.RuleQuery) (v1l
 	case nil:
 		if err := rm.rules.Query(datatypes.AssociatedKeyValuesQuery{}, onFindMatchingRule); err != nil {
 			logger.Error("faild to query for rules", zap.Error(err))
-			return v1limiter.Rules{}, &servererrors.ApiError{Message: "Internal server error", StatusCode: http.StatusInternalServerError}
+			return nil, &servererrors.ApiError{Message: "Internal server error", StatusCode: http.StatusInternalServerError}
 		}
 	default:
 		// special match logic. we alwys need to look for empty strings as a 'Select All' operation
 		// these need to be converted to empty string. duh
 		if err := rm.rules.MatchPermutations(keyValuesToRuleQuery(*query.KeyValues), onFindMatchingRule); err != nil {
 			logger.Error("faild to match for rules", zap.Error(err))
-			return v1limiter.Rules{}, &servererrors.ApiError{Message: "Internal server error", StatusCode: http.StatusInternalServerError}
+			return nil, &servererrors.ApiError{Message: "Internal server error", StatusCode: http.StatusInternalServerError}
 		}
 	}
 
@@ -214,11 +214,11 @@ func (rm *rulesManger) Delete(logger *zap.Logger, name string) *servererrors.Api
 }
 
 // Create an override for a rule by name
-func (rm *rulesManger) ListOverrides(logger *zap.Logger, ruleName string, query *v1common.AssociatedQuery) (v1limiter.Overrides, *servererrors.ApiError) {
+func (rm *rulesManger) ListOverrides(logger *zap.Logger, ruleName string, query *v1common.AssociatedQuery) (*v1limiter.Overrides, *servererrors.ApiError) {
 	logger = logger.Named("ListOverrides")
 
 	found := false
-	var overrides v1limiter.Overrides
+	overrides := &v1limiter.Overrides{}
 	var overrideErr *servererrors.ApiError
 	onFind := func(item any) {
 		found = true
@@ -287,20 +287,20 @@ func (rm *rulesManger) DeleteOverride(logger *zap.Logger, ruleName string, overr
 }
 
 // List a all counters that match the query
-func (rm *rulesManger) ListCounters(logger *zap.Logger, query *v1common.AssociatedQuery) (v1limiter.CountersResponse, *servererrors.ApiError) {
+func (rm *rulesManger) ListCounters(logger *zap.Logger, query *v1common.AssociatedQuery) (*v1limiter.CountersResponse, *servererrors.ApiError) {
 	logger = logger.Named("ListCounters")
 
-	countersResponse := v1limiter.CountersResponse{}
+	countersResponse := &v1limiter.CountersResponse{}
 
 	onFindPagination := func(associatedKeyValues *btreeassociated.AssociatedKeyValues) bool {
 		counter := associatedKeyValues.Value().(*counters.Counter)
 
-		newCounter := v1limiter.CounterResponse{
+		newCounter := &v1limiter.CounterResponse{
 			KeyValues: associatedKeyValues.KeyValues().StripAssociatedID().RetrieveStringDataType(),
 			Counters:  counter.Load(),
 		}
 
-		countersResponse = append(countersResponse, newCounter)
+		countersResponse.Counters = append(countersResponse.Counters, newCounter)
 		return true
 	}
 
@@ -371,7 +371,7 @@ func (rm *rulesManger) IncrementCounters(logger *zap.Logger, requestContext cont
 		channelOps, chanReceiver := channelops.NewMergeRead[struct{}](true, requestContext)
 		for _, key := range increment.KeyValues.SoretedKeys() {
 			// setup the group to lock
-			lockKeyValues := v1locker.CreateLockRequest{
+			lockKeyValues := &v1locker.CreateLockRequest{
 				KeyValues: datatypes.KeyValues{key: increment.KeyValues[key]},
 				Timeout:   time.Second,
 			}

@@ -14,7 +14,7 @@ func TestClientConfig_Validate(t *testing.T) {
 	t.Run("It returns an error if the URL is empty", func(t *testing.T) {
 		cfg := &Config{}
 
-		err := cfg.Vaidate()
+		err := cfg.Validate()
 		g.Expect(err).To(HaveOccurred())
 		g.Expect(err.Error()).To(Equal("client's Config.URL cannot be empty"))
 	})
@@ -23,7 +23,7 @@ func TestClientConfig_Validate(t *testing.T) {
 		t.Run("It accepts no CA certificates", func(t *testing.T) {
 			cfg := &Config{URL: "http://something.io"}
 
-			err := cfg.Vaidate()
+			err := cfg.Validate()
 			g.Expect(err).ToNot(HaveOccurred())
 		})
 
@@ -32,7 +32,7 @@ func TestClientConfig_Validate(t *testing.T) {
 				URL:    "http://something.io",
 				CAFile: "nope",
 			}
-			err := cfg.Vaidate()
+			err := cfg.Validate()
 			g.Expect(err).To(HaveOccurred())
 			g.Expect(err.Error()).To(Equal("when providing custom certs, all 3 values must be provided [CAFile | ClientKeyFile | ClienCRTFile]"))
 
@@ -40,7 +40,7 @@ func TestClientConfig_Validate(t *testing.T) {
 				URL:           "http://something.io",
 				ClientKeyFile: "nope",
 			}
-			err = cfg.Vaidate()
+			err = cfg.Validate()
 			g.Expect(err).To(HaveOccurred())
 			g.Expect(err.Error()).To(Equal("when providing custom certs, all 3 values must be provided [CAFile | ClientKeyFile | ClienCRTFile]"))
 
@@ -48,7 +48,7 @@ func TestClientConfig_Validate(t *testing.T) {
 				URL:           "http://something.io",
 				ClientCRTFile: "nope",
 			}
-			err = cfg.Vaidate()
+			err = cfg.Validate()
 			g.Expect(err).To(HaveOccurred())
 			g.Expect(err.Error()).To(Equal("when providing custom certs, all 3 values must be provided [CAFile | ClientKeyFile | ClienCRTFile]"))
 		})
@@ -60,7 +60,7 @@ func TestClientConfig_Validate(t *testing.T) {
 				ClientKeyFile: "nope",
 				ClientCRTFile: "nope",
 			}
-			err := cfg.Vaidate()
+			err := cfg.Validate()
 			g.Expect(err).To(HaveOccurred())
 			g.Expect(err.Error()).To(ContainSubstring("failed to read the CAFile"))
 		})
@@ -73,7 +73,7 @@ func TestClientConfig_Validate(t *testing.T) {
 				ClientKeyFile: "ClientKeyFile",
 				ClientCRTFile: "ClientCRTFile",
 			}
-			err := cfg.Vaidate()
+			err := cfg.Validate()
 			g.Expect(err).To(HaveOccurred())
 			g.Expect(err.Error()).To(Equal("error parsing CAFile"))
 		})
@@ -86,7 +86,7 @@ func TestClientConfig_Validate(t *testing.T) {
 				ClientKeyFile: filepath.Join(currentDir, "..", "..", "..", "testhelpers", "tls-keys", "client.key"),
 				ClientCRTFile: "ClientCRTFile",
 			}
-			err := cfg.Vaidate()
+			err := cfg.Validate()
 			g.Expect(err).To(HaveOccurred())
 			g.Expect(err.Error()).To(ContainSubstring("failed to read the ClientKeyFile or ClientCRTFile"))
 
@@ -96,7 +96,7 @@ func TestClientConfig_Validate(t *testing.T) {
 				ClientKeyFile: "ClientKeyFile",
 				ClientCRTFile: filepath.Join(currentDir, "..", "..", "..", "testhelpers", "tls-keys", "client.crt"),
 			}
-			err = cfg.Vaidate()
+			err = cfg.Validate()
 			g.Expect(err).To(HaveOccurred())
 			g.Expect(err.Error()).To(ContainSubstring("failed to read the ClientKeyFile or ClientCRTFile"))
 		})
@@ -109,7 +109,7 @@ func TestClientConfig_Validate(t *testing.T) {
 				ClientKeyFile: filepath.Join(currentDir, "..", "..", "..", "testhelpers", "tls-keys", "ca.crt"),
 				ClientCRTFile: "ClientCRTFile",
 			}
-			err := cfg.Vaidate()
+			err := cfg.Validate()
 			g.Expect(err).To(HaveOccurred())
 			g.Expect(err.Error()).To(ContainSubstring("failed to read the ClientKeyFile or ClientCRTFile"))
 
@@ -119,7 +119,7 @@ func TestClientConfig_Validate(t *testing.T) {
 				ClientKeyFile: "ClientKeyFile",
 				ClientCRTFile: filepath.Join(currentDir, "..", "..", "..", "testhelpers", "tls-keys", "ca.crt"),
 			}
-			err = cfg.Vaidate()
+			err = cfg.Validate()
 			g.Expect(err).To(HaveOccurred())
 			g.Expect(err.Error()).To(ContainSubstring("failed to read the ClientKeyFile or ClientCRTFile"))
 		})
@@ -132,7 +132,7 @@ func TestClientConfig_Validate(t *testing.T) {
 				ClientKeyFile: filepath.Join(currentDir, "..", "..", "..", "testhelpers", "tls-keys", "client.key"),
 				ClientCRTFile: filepath.Join(currentDir, "..", "..", "..", "testhelpers", "tls-keys", "client.crt"),
 			}
-			err := cfg.Vaidate()
+			err := cfg.Validate()
 			g.Expect(err).ToNot(HaveOccurred())
 		})
 	})

@@ -20,7 +20,7 @@ type GeneralLocker interface {
 	Heartbeat(sessions string) *v1locker.HeartbeatError
 
 	// Find all locks currently held in the tree
-	ListLocks(query *v1common.AssociatedQuery) []v1locker.Lock
+	ListLocks(query *v1common.AssociatedQuery) v1locker.Locks
 
 	// Release or delete a specific lock
 	ReleaseLock(lockID string)
@@ -69,8 +69,8 @@ func NewGeneralLocker(tree btreeassociated.BTreeAssociated) *generalLocker {
 }
 
 // List all locks held
-func (generalLocker *generalLocker) ListLocks(query *v1common.AssociatedQuery) []v1locker.Lock {
-	var locks []v1locker.Lock
+func (generalLocker *generalLocker) ListLocks(query *v1common.AssociatedQuery) v1locker.Locks {
+	var locks v1locker.Locks
 
 	onPaginate := func(associatedKeyValues *btreeassociated.AssociatedKeyValues) bool {
 		generalLock := associatedKeyValues.Value().(*generalLock)

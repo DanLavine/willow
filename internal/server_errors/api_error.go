@@ -58,7 +58,7 @@ func (e *ApiError) Error() string {
 //
 //	RETURNS:
 //	- []byte - byte array for the model that can be converted through standard json pacakge.
-func (e *ApiError) ToBytes() []byte {
+func (e *ApiError) EncodeJSON() []byte {
 	data, _ := json.Marshal(e)
 	return data
 }

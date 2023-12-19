@@ -16,14 +16,16 @@ import (
 	servererrors "github.com/DanLavine/willow/internal/server_errors"
 	lockerclient "github.com/DanLavine/willow/pkg/clients/locker_client"
 	"github.com/DanLavine/willow/pkg/clients/locker_client/lockerclientfakes"
-	v1common "github.com/DanLavine/willow/pkg/models/api/common/v1"
-	v1limiter "github.com/DanLavine/willow/pkg/models/api/limiter/v1"
-	v1locker "github.com/DanLavine/willow/pkg/models/api/locker/v1"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
-	. "github.com/onsi/gomega"
 	"go.uber.org/mock/gomock"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
+
+	v1common "github.com/DanLavine/willow/pkg/models/api/common/v1"
+	v1limiter "github.com/DanLavine/willow/pkg/models/api/limiter/v1"
+	v1locker "github.com/DanLavine/willow/pkg/models/api/locker/v1"
+
+	. "github.com/onsi/gomega"
 )
 
 func setupServerHttp(serverMux *http.ServeMux) *httptest.Server {
@@ -267,7 +269,7 @@ func TestRulesManager_List(t *testing.T) {
 
 			rules, err := rulesManager.List(zap.NewNop(), ruleQuery)
 			g.Expect(err).ToNot(HaveOccurred())
-			g.Expect(len(rules)).To(Equal(9))
+			g.Expect(len(rules.Rules)).To(Equal(9))
 		})
 
 		t.Run("It can list all rules and their overrides", func(t *testing.T) {
@@ -278,9 +280,9 @@ func TestRulesManager_List(t *testing.T) {
 
 			rules, err := rulesManager.List(zap.NewNop(), ruleQuery)
 			g.Expect(err).ToNot(HaveOccurred())
-			g.Expect(len(rules)).To(Equal(9))
+			g.Expect(len(rules.Rules)).To(Equal(9))
 			for i := 0; i < 9; i++ {
-				g.Expect(len(rules[i].Overrides)).To(Equal(5))
+				g.Expect(len(rules.Rules[i].Overrides)).To(Equal(5))
 			}
 		})
 
@@ -300,10 +302,10 @@ func TestRulesManager_List(t *testing.T) {
 			// 1 for: [key0]
 			// 1 for: [key1]
 			// 1 for: [key0, key1]
-			g.Expect(len(rules)).To(Equal(3))
-			g.Expect(len(rules[0].Overrides)).To(Equal(0))
-			g.Expect(len(rules[1].Overrides)).To(Equal(0))
-			g.Expect(len(rules[2].Overrides)).To(Equal(0))
+			g.Expect(len(rules.Rules)).To(Equal(3))
+			g.Expect(len(rules.Rules[0].Overrides)).To(Equal(0))
+			g.Expect(len(rules.Rules[1].Overrides)).To(Equal(0))
+			g.Expect(len(rules.Rules[2].Overrides)).To(Equal(0))
 		})
 
 		t.Run("It can match a nummber of key values and includes any overrides that match the key values", func(t *testing.T) {
@@ -322,15 +324,15 @@ func TestRulesManager_List(t *testing.T) {
 			// 1 for: [key0]
 			// 1 for: [key1]
 			// 1 for: [key0, key1]
-			g.Expect(len(rules)).To(Equal(3))
+			g.Expect(len(rules.Rules)).To(Equal(3))
 
 			for i := 0; i < 3; i++ {
-				if reflect.DeepEqual(rules[i].GroupBy, []string{"key0"}) {
-					g.Expect(len(rules[i].Overrides)).To(Equal(1))
-				} else if reflect.DeepEqual(rules[i].GroupBy, []string{"key1"}) {
-					g.Expect(len(rules[i].Overrides)).To(Equal(0))
+				if reflect.DeepEqual(rules.Rules[i].GroupBy, []string{"key0"}) {
+					g.Expect(len(rules.Rules[i].Overrides)).To(Equal(1))
+				} else if reflect.DeepEqual(rules.Rules[i].GroupBy, []string{"key1"}) {
+					g.Expect(len(rules.Rules[i].Overrides)).To(Equal(0))
 				} else {
-					g.Expect(len(rules[i].Overrides)).To(Equal(1))
+					g.Expect(len(rules.Rules[i].Overrides)).To(Equal(1))
 				}
 			}
 		})
@@ -507,7 +509,7 @@ func TestRulesManager_ListOverrides(t *testing.T) {
 		overrides, err := rulesManager.ListOverrides(zap.NewNop(), "test1", query)
 		g.Expect(err).To(HaveOccurred())
 		g.Expect(err.Error()).To(ContainSubstring("Rule test1 not found"))
-		g.Expect(len(overrides)).To(Equal(0))
+		g.Expect(len(overrides.Overrides)).To(Equal(0))
 	})
 
 	t.Run("It returns the overrides for the query", func(t *testing.T) {
@@ -541,8 +543,8 @@ func TestRulesManager_ListOverrides(t *testing.T) {
 
 		overrides, err := rulesManager.ListOverrides(zap.NewNop(), "test1", query)
 		g.Expect(err).ToNot(HaveOccurred())
-		g.Expect(len(overrides)).To(Equal(1))
-		g.Expect(overrides[0].Name).To(Equal("override0"))
+		g.Expect(len(overrides.Overrides)).To(Equal(1))
+		g.Expect(overrides.Overrides[0].Name).To(Equal("override0"))
 	})
 }
 
@@ -794,7 +796,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 			fakeLock.EXPECT().Release().Times(2)
 
 			fakeLocker := lockerclientfakes.NewMockLockerClient(mockController)
-			fakeLocker.EXPECT().ObtainLock(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, lockRequest v1locker.CreateLockRequest) (lockerclient.Lock, error) {
+			fakeLocker.EXPECT().ObtainLock(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, lockRequest *v1locker.CreateLockRequest) (lockerclient.Lock, error) {
 				return fakeLock, nil
 			}).Times(2)
 
@@ -835,7 +837,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 
 				obtainCount := 0
 				fakeLocker := lockerclientfakes.NewMockLockerClient(mockController)
-				fakeLocker.EXPECT().ObtainLock(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, lockRequest v1locker.CreateLockRequest) (lockerclient.Lock, error) {
+				fakeLocker.EXPECT().ObtainLock(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, lockRequest *v1locker.CreateLockRequest) (lockerclient.Lock, error) {
 					if obtainCount == 0 {
 						obtainCount++
 						return fakeLock, nil
@@ -896,7 +898,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 
 				count := 0
 				fakeLocker := lockerclientfakes.NewMockLockerClient(mockController)
-				fakeLocker.EXPECT().ObtainLock(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, lockRequest v1locker.CreateLockRequest) (lockerclient.Lock, error) {
+				fakeLocker.EXPECT().ObtainLock(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, lockRequest *v1locker.CreateLockRequest) (lockerclient.Lock, error) {
 					if count == 0 {
 						count++
 					} else {
@@ -927,7 +929,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 		fakeLock.EXPECT().Done().AnyTimes()
 
 		fakeLocker := lockerclientfakes.NewMockLockerClient(mockController)
-		fakeLocker.EXPECT().ObtainLock(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, lockRequest v1locker.CreateLockRequest) (lockerclient.Lock, error) {
+		fakeLocker.EXPECT().ObtainLock(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, lockRequest *v1locker.CreateLockRequest) (lockerclient.Lock, error) {
 			return fakeLock, nil
 		}).AnyTimes()
 
@@ -1343,7 +1345,7 @@ func TestRulesManager_ListCounters(t *testing.T) {
 		}
 
 		countersResponse, err := rulesManager.ListCounters(zap.NewNop(), query)
-		g.Expect(len(countersResponse)).To(Equal(0))
+		g.Expect(len(countersResponse.Counters)).To(Equal(0))
 		g.Expect(err).ToNot(HaveOccurred())
 	})
 
@@ -1426,22 +1428,18 @@ func TestRulesManager_ListCounters(t *testing.T) {
 			},
 		}
 
-		resp1 := v1limiter.CounterResponse{
+		resp1 := &v1limiter.CounterResponse{
 			KeyValues: keyValuesOne,
 			Counters:  3,
 		}
-		resp2 := v1limiter.CounterResponse{
+		resp2 := &v1limiter.CounterResponse{
 			KeyValues: keyValuesTwo,
 			Counters:  1,
 		}
 
 		countersResponse, err := rulesManager.ListCounters(zap.NewNop(), query)
-		g.Expect(len(countersResponse)).To(Equal(2))
-		//g.Expect(countersResponse[0].KeyValues).To(Equal(keyValuesOne))
-		//g.Expect(countersResponse[0].Counters).To(Equal(uint64(3)))
-		//g.Expect(countersResponse[1].KeyValues).To(Equal(keyValuesTwo))
-		//g.Expect(countersResponse[1].Counters).To(Equal(uint64(1)))
-		g.Expect(countersResponse).To(ConsistOf(resp1, resp2))
+		g.Expect(len(countersResponse.Counters)).To(Equal(2))
+		g.Expect(countersResponse.Counters).To(ConsistOf(resp1, resp2))
 		g.Expect(err).ToNot(HaveOccurred())
 	})
 }
@@ -1474,9 +1472,9 @@ func TestRulesManager_SetCounters(t *testing.T) {
 		}
 
 		countersResponse, err := rulesManager.ListCounters(zap.NewNop(), query)
-		g.Expect(len(countersResponse)).To(Equal(1))
-		g.Expect(countersResponse[0].KeyValues).To(Equal(kvs))
-		g.Expect(countersResponse[0].Counters).To(Equal(uint64(87)))
+		g.Expect(len(countersResponse.Counters)).To(Equal(1))
+		g.Expect(countersResponse.Counters[0].KeyValues).To(Equal(kvs))
+		g.Expect(countersResponse.Counters[0].Counters).To(Equal(uint64(87)))
 		g.Expect(err).ToNot(HaveOccurred())
 	})
 
@@ -1510,7 +1508,7 @@ func TestRulesManager_SetCounters(t *testing.T) {
 		}
 
 		countersResponse, err := rulesManager.ListCounters(zap.NewNop(), query)
-		g.Expect(len(countersResponse)).To(Equal(0))
+		g.Expect(len(countersResponse.Counters)).To(Equal(0))
 		g.Expect(err).ToNot(HaveOccurred())
 	})
 }

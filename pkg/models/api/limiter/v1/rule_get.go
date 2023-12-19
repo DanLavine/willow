@@ -9,26 +9,32 @@ import (
 	"github.com/DanLavine/willow/pkg/models/api/common/errors"
 )
 
-type Create struct {
-	// Name of the broker object
-	Name string
+// Single rule
+type RuleResponse struct {
+	// Name of the rule
+	Name string // save this as the _associated_id in the the tree?
 
-	// max size of the dead letter queue
-	// Cannot be set to  0
-	QueueMaxSize uint64
+	// These can be used to create a rule groupiing that any tags will have to match against
+	GroupBy []string // these are the logical keys to know what values we are checking against on the counters
 
-	// Max Number of items to keep in the dead letter queue. If full,
-	// any new items will just be dropped untill the queue is cleared by an admin.
-	DeadLetterQueueMaxSize uint64
+	// Limit dictates what value of grouped counter tags to allow untill a limit is reached
+	Limit uint64
+
+	// This is a "Read Only" parameter and will be ignored on create operations
+	Overrides []Override
 }
 
 //	RETURNS:
 //	- error - any errors encountered with the response object
 //
-// Validate is used to ensure that Create has all required fields set
-func (c *Create) Validate() error {
-	if c.Name == "" {
+// Validate is used to ensure that CreateLockResponse has all required fields set
+func (resp *RuleResponse) Validate() error {
+	if resp.Name == "" {
 		return fmt.Errorf("'Name' is the empty string")
+	}
+
+	if len(resp.GroupBy) == 0 {
+		return fmt.Errorf("'GroupBy' tags requres at least 1 Key")
 	}
 
 	return nil
@@ -38,8 +44,8 @@ func (c *Create) Validate() error {
 //	- []byte - byte array that can be sent over an http client
 //
 // EncodeJSON encodes the model to a valid JSON format
-func (c *Create) EncodeJSON() []byte {
-	data, _ := json.Marshal(c)
+func (resp *RuleResponse) EncodeJSON() []byte {
+	data, _ := json.Marshal(resp)
 	return data
 }
 
@@ -51,7 +57,7 @@ func (c *Create) EncodeJSON() []byte {
 //	- error - any error encoutered when reading the response
 //
 // Decode can easily parse the response body from an http create request
-func (c *Create) Decode(contentType api.ContentType, reader io.ReadCloser) error {
+func (resp *RuleResponse) Decode(contentType api.ContentType, reader io.ReadCloser) error {
 	switch contentType {
 	case api.ContentTypeJSON:
 		requestBody, err := io.ReadAll(reader)
@@ -59,12 +65,12 @@ func (c *Create) Decode(contentType api.ContentType, reader io.ReadCloser) error
 			return errors.FailedToReadStreamBody(err)
 		}
 
-		if err := json.Unmarshal(requestBody, c); err != nil {
+		if err := json.Unmarshal(requestBody, resp); err != nil {
 			return errors.FailedToDecodeBody(err)
 		}
 	default:
 		return errors.UnknownContentType(contentType)
 	}
 
-	return c.Validate()
+	return resp.Validate()
 }

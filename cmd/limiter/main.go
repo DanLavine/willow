@@ -21,6 +21,7 @@ import (
 
 	v1handlers "github.com/DanLavine/willow/internal/limiter/api/v1/handlers"
 	v1router "github.com/DanLavine/willow/internal/limiter/api/v1/router"
+	commonapi "github.com/DanLavine/willow/pkg/models/api"
 )
 
 func main() {
@@ -39,6 +40,7 @@ func main() {
 	// setup locker client
 	clientConfig := &clients.Config{
 		URL:           *cfg.LockerURL,
+		ContentType:   commonapi.ContentTypeJSON,
 		CAFile:        *cfg.LimiterCA,
 		ClientKeyFile: *cfg.LockerClientKey,
 		ClientCRTFile: *cfg.LockerClientCRT,

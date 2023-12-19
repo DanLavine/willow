@@ -1,7 +1,8 @@
 package v1
 
 import (
-	"github.com/DanLavine/willow/pkg/models/api/common/errors"
+	"fmt"
+
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 )
 
@@ -34,13 +35,17 @@ type BrokerInfo struct {
 	Tags datatypes.KeyValues
 }
 
-func (b BrokerInfo) validate() *errors.Error {
+func (b BrokerInfo) validate() error {
 	if b.Name == "" {
-		return errors.InvalidRequestBody.With("Name to be provided", "Name is the empty string")
+		return fmt.Errorf("'Name' is the empty string")
 	}
 
 	if len(b.Tags) == 0 {
-		return errors.InvalidRequestBody.With("Tags are empty", "Tags require at least 1 key value pair")
+		return fmt.Errorf("'Tags' require at least 1 key value pair")
+	}
+
+	if err := b.Tags.Validate(); err != nil {
+		return err
 	}
 
 	return nil
