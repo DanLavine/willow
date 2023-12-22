@@ -10,7 +10,6 @@ import (
 	"github.com/DanLavine/willow/pkg/clients"
 	"github.com/DanLavine/willow/pkg/models/api"
 	"github.com/DanLavine/willow/pkg/models/api/common/errors"
-	v1locker "github.com/DanLavine/willow/pkg/models/api/locker/v1"
 )
 
 //go:generate mockgen -imports v1locker="github.com/DanLavine/willow/pkg/models/api/locker/v1" -destination=lockerclientfakes/lock_mock.go -package=lockerclientfakes github.com/DanLavine/willow/pkg/clients/locker_client Lock
@@ -137,41 +136,37 @@ func (l *lock) heartbeat() int {
 	case http.StatusOK:
 		// this is the success case and the Lock was deleted
 		return 0
-	case http.StatusBadRequest, http.StatusConflict:
-
-		switch resp.StatusCode {
-		case http.StatusBadRequest:
-			// there was an error with the request body
-			apiError := &errors.Error{}
-			if err := apiError.Decode(api.ContentTypeFromResponse(resp), resp.Body); err != nil {
-				if l.heartbeatErrorCallback != nil {
-					l.heartbeatErrorCallback(err)
-				}
-			} else {
-				if l.heartbeatErrorCallback != nil {
-					l.heartbeatErrorCallback(apiError)
-				}
+	case http.StatusBadRequest:
+		// there was an error with the request body
+		apiError := &errors.Error{}
+		if err := apiError.Decode(api.ContentTypeFromResponse(resp), resp.Body); err != nil {
+			if l.heartbeatErrorCallback != nil {
+				l.heartbeatErrorCallback(err)
 			}
-
-			return 1
-		default: // http.StatusConflict
-			// there was an error with the sessionID
-			heartbeatError := &v1locker.HeartbeatError{}
-			if err := heartbeatError.Decode(api.ContentTypeFromResponse(resp), resp.Body); err != nil {
-				if l.heartbeatErrorCallback != nil {
-					l.heartbeatErrorCallback(errors.ClientError(err))
-				}
-			} else {
-				if l.heartbeatErrorCallback != nil {
-					l.heartbeatErrorCallback(fmt.Errorf(heartbeatError.Error))
-				}
+		} else {
+			if l.heartbeatErrorCallback != nil {
+				l.heartbeatErrorCallback(apiError)
 			}
-
-			// record the error and release the lock
-			l.releaseLockCallback()
-
-			return 2
 		}
+
+		return 1
+	case http.StatusGone:
+		// there was an error with the sessionID
+		heartbeatError := &errors.Error{}
+		if err := heartbeatError.Decode(api.ContentTypeFromResponse(resp), resp.Body); err != nil {
+			if l.heartbeatErrorCallback != nil {
+				l.heartbeatErrorCallback(errors.ClientError(err))
+			}
+		} else {
+			if l.heartbeatErrorCallback != nil {
+				l.heartbeatErrorCallback(heartbeatError)
+			}
+		}
+
+		// record the error and release the lock
+		l.releaseLockCallback()
+
+		return 2
 	default:
 		if l.heartbeatErrorCallback != nil {
 			l.heartbeatErrorCallback(fmt.Errorf("received an unexpected status code: %d", resp.StatusCode))

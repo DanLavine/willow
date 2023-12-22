@@ -12,7 +12,6 @@ import (
 	"github.com/DanLavine/willow/pkg/clients"
 	"github.com/DanLavine/willow/pkg/models/api"
 	"github.com/DanLavine/willow/pkg/models/api/common/errors"
-	v1locker "github.com/DanLavine/willow/pkg/models/api/locker/v1"
 	. "github.com/onsi/gomega"
 )
 
@@ -335,9 +334,8 @@ func TestLock_heartbeat(t *testing.T) {
 		t.Run("It calls the lostLock callback and returns the original server error when the response is parsed", func(t *testing.T) {
 			mux := http.NewServeMux()
 			mux.HandleFunc("/v1/locks/someID/heartbeat", func(w http.ResponseWriter, r *http.Request) {
-				heartbeatError := &v1locker.HeartbeatError{
-					Session: "someID",
-					Error:   "the session id does not exist",
+				heartbeatError := &errors.Error{
+					Message: "the session id does not exist",
 				}
 
 				w.Header().Add("Content-Type", "application/json")

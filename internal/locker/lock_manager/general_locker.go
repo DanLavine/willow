@@ -2,10 +2,12 @@ package lockmanager
 
 import (
 	"context"
+	"net/http"
 	"time"
 
 	"github.com/DanLavine/goasync"
 	btreeassociated "github.com/DanLavine/willow/internal/datastructures/btree_associated"
+	servererrors "github.com/DanLavine/willow/internal/server_errors"
 
 	v1common "github.com/DanLavine/willow/pkg/models/api/common/v1"
 	v1locker "github.com/DanLavine/willow/pkg/models/api/locker/v1"
@@ -17,7 +19,7 @@ type GeneralLocker interface {
 	ObtainLock(clientCtx context.Context, createRequest *v1locker.LockCreateRequest) *v1locker.LockCreateResponse
 
 	// Heartbeat any number of locks so we know they are still running properly
-	Heartbeat(sessions string) *v1locker.HeartbeatError
+	Heartbeat(sessions string) *servererrors.ApiError
 
 	// Find all locks currently held in the tree
 	LocksQuery(query *v1common.AssociatedQuery) *v1locker.LockQueryResponse
@@ -153,7 +155,7 @@ func (generalLocker *generalLocker) ObtainLock(clientCtx context.Context, create
 }
 
 // heartbeat a particualr session key values
-func (generalLocker *generalLocker) Heartbeat(sessionID string) *v1locker.HeartbeatError {
+func (generalLocker *generalLocker) Heartbeat(sessionID string) *servererrors.ApiError {
 	found := false
 	onFind := func(item any) {
 		generalLock := item.(*btreeassociated.AssociatedKeyValues).Value().(*generalLock)
@@ -171,7 +173,7 @@ func (generalLocker *generalLocker) Heartbeat(sessionID string) *v1locker.Heartb
 	_ = generalLocker.locks.FindByAssociatedID(sessionID, onFind)
 
 	if !found {
-		return &v1locker.HeartbeatError{Session: sessionID, Error: "session id could not be found"}
+		return &servererrors.ApiError{Message: "SessionID could not be found", StatusCode: http.StatusGone}
 	}
 
 	return nil

@@ -94,7 +94,7 @@ func (lh *lockerHandler) Heartbeat(w http.ResponseWriter, r *http.Request) {
 		_, _ = api.HttpResponse(r, w, http.StatusOK, nil)
 	} else {
 		// there was an error heartbeating
-		_, _ = api.HttpResponse(r, w, http.StatusConflict, heartbeatError)
+		_, _ = api.HttpResponse(r, w, heartbeatError.StatusCode, heartbeatError)
 	}
 }
 

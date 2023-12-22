@@ -425,8 +425,7 @@ func TestGeneralLocker_Heartbeat(t *testing.T) {
 
 		err := generalLocker.Heartbeat("bad id")
 		g.Expect(err).ToNot(BeNil())
-		g.Expect(err.Session).To(Equal("bad id"))
-		g.Expect(err.Error).To(ContainSubstring("session id could not be found"))
+		g.Expect(err.Error).To(ContainSubstring("SessionID could not be found"))
 	})
 
 	t.Run("It keeps the lock around as long as the heartbeats are received", func(t *testing.T) {

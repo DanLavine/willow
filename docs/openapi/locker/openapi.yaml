@@ -107,30 +107,16 @@ paths:
           content:
             appplication/json:
               schema:
-                $ref: "#/components/schemas/ApiError"
+                $ref: "../common/components.yaml#/components/schemas/ApiError"
         409:
           description: returned when there was an error processing the SessionID
           content:
             appplication/json:
               schema:
-                $ref: "#/components/schemas/HeartbeatResponse"
+                $ref: "../common/components.yaml#/components/schemas/ApiError"
 
 components:
   schemas:
-    # General API errors
-    ApiError:
-      type: object
-      properties:
-        Error:
-          type: string
-
-    # heartbeats response
-    HeartbeatResponse:
-      type: object
-      properties:
-        Error:
-          type: string
-
     # list locks response
     ListResponse:
       type: object
@@ -144,5 +130,11 @@ components:
                 type: string
               KeyValues:
                 $ref: "../common/components.yaml#/components/schemas/KeyValues"
+              Timeout:
+                type: integer
+                format: int64
+              TimeTillExpire:
+                type: integer
+                format: int64
               LocksHeldOrWaiting:
                 type: integer
