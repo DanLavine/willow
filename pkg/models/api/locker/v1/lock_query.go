@@ -2,6 +2,7 @@ package v1
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"time"
 
@@ -96,6 +97,28 @@ func (lock *Lock) Decode(contentType api.ContentType, reader io.ReadCloser) erro
 // state of the world.
 type LockQueryResponse struct {
 	Locks []*Lock
+}
+
+//	RETURNS:
+//	- error - any errors encountered with the response object
+//
+// Validate is used to ensure that LockQueryResponse has all required fields set
+func (lockQueryResponse *LockQueryResponse) Validate() error {
+	if len(lockQueryResponse.Locks) == 0 {
+		return nil
+	}
+
+	for index, lock := range lockQueryResponse.Locks {
+		if lock == nil {
+			return fmt.Errorf("invalid Lock at index: %d: lock cannot be nil", index)
+		}
+
+		if err := lock.Validate(); err != nil {
+			return fmt.Errorf("invalid Lock at index: %d: %w", index, err)
+		}
+	}
+
+	return nil
 }
 
 //	RETURNS:

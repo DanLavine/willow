@@ -107,7 +107,7 @@ func (rules *Rules) Validate() error {
 
 	for index, rule := range rules.Rules {
 		if rule == nil {
-			return fmt.Errorf("invalid index in rules at inde: %d: rule cannot be nil", index)
+			return fmt.Errorf("invalid index in rules at indexLoc: %d: rule cannot be nil", index)
 		}
 
 		if err := rule.Validate(); err != nil {
