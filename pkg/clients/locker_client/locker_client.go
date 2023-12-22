@@ -32,7 +32,7 @@ type LockerClient interface {
 	// Obtain a lock for a particular set of KeyValues. This blocks until the desired lock is obtained, or the context is canceled.
 	// The returned lock will automatically heartbeat to ensure that the lock remains valid. If the heartbeat fails for some reason,
 	// the channel returned from the `lock.Done()` call will be closed. It is up to the clients to monitor for a lock being lost
-	ObtainLock(ctx context.Context, lockRequest *v1locker.CreateLockRequest) (Lock, error)
+	ObtainLock(ctx context.Context, lockRequest *v1locker.LockCreateRequest) (Lock, error)
 
 	// Done is closed if the LockerClient's contex is closed and no longer heartbeating
 	Done() <-chan struct{}
@@ -70,7 +70,7 @@ type lockerclient struct {
 // will notify the user if a lock is lost at some point.
 func NewLockerClient(ctx context.Context, cfg *clients.Config, heartbeatErrorCallback func(keyValue datatypes.KeyValues, err error)) (LockerClient, error) {
 	if ctx == nil || ctx == context.TODO() || ctx == context.Background() {
-		return nil, fmt.Errorf("cannot use provided context. The context must be canceled by the caller to cleanup async resource management")
+		return nil, fmt.Errorf("cannot use provided context. The context must be canceled by the caller to ensure any locks are released when the client is no longer needed")
 	}
 
 	httpClient, err := clients.NewHTTPClient(cfg)
@@ -136,7 +136,7 @@ func (lc *lockerclient) Healthy() error {
 // Obtain a lock for a particular set of KeyValues. This blocks until the desired lock is obtained, or the context is canceled.
 // The returned lock will automatically heartbeat to ensure that the lock remains valid. If the heartbeat fails for some reason,
 // the channel returned from the `lock.Done()` call will be closed. It is up to the clients to monitor for a lock being lost
-func (lc *lockerclient) ObtainLock(ctx context.Context, lockRequest *v1locker.CreateLockRequest) (Lock, error) {
+func (lc *lockerclient) ObtainLock(ctx context.Context, lockRequest *v1locker.LockCreateRequest) (Lock, error) {
 	select {
 	case <-lc.done:
 		return nil, fmt.Errorf("locker client has already been canceled and won't process heartbeats. Refusing to obtain the lock")
@@ -197,7 +197,7 @@ func (lc *lockerclient) ObtainLock(ctx context.Context, lockRequest *v1locker.Cr
 			switch resp.StatusCode {
 			case http.StatusCreated:
 				// created the lock, need to record the session id and start hearbeating
-				createLockResponse := &v1locker.CreateLockResponse{}
+				createLockResponse := &v1locker.LockCreateResponse{}
 				if err := createLockResponse.Decode(api.ContentTypeFromResponse(resp), resp.Body); err != nil {
 					lockErr = errors.ClientError(err)
 					return nil

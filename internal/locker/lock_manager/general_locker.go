@@ -14,13 +14,13 @@ import (
 
 type GeneralLocker interface {
 	// obtain all the locks that make up a collection
-	ObtainLock(clientCtx context.Context, createRequest *v1locker.CreateLockRequest) *v1locker.CreateLockResponse
+	ObtainLock(clientCtx context.Context, createRequest *v1locker.LockCreateRequest) *v1locker.LockCreateResponse
 
 	// Heartbeat any number of locks so we know they are still running properly
 	Heartbeat(sessions string) *v1locker.HeartbeatError
 
 	// Find all locks currently held in the tree
-	ListLocks(query *v1common.AssociatedQuery) v1locker.Locks
+	LocksQuery(query *v1common.AssociatedQuery) *v1locker.LockQueryResponse
 
 	// Release or delete a specific lock
 	ReleaseLock(lockID string)
@@ -69,20 +69,21 @@ func NewGeneralLocker(tree btreeassociated.BTreeAssociated) *generalLocker {
 }
 
 // List all locks held
-func (generalLocker *generalLocker) ListLocks(query *v1common.AssociatedQuery) v1locker.Locks {
-	var locks v1locker.Locks
+func (generalLocker *generalLocker) LocksQuery(query *v1common.AssociatedQuery) *v1locker.LockQueryResponse {
+	locks := &v1locker.LockQueryResponse{}
 
 	onPaginate := func(associatedKeyValues *btreeassociated.AssociatedKeyValues) bool {
 		generalLock := associatedKeyValues.Value().(*generalLock)
 		generalLock.counterLock.RLock()
 		defer generalLock.counterLock.RUnlock()
 
-		locks = append(locks, v1locker.Lock{
+		locks.Locks = append(locks.Locks, &v1locker.Lock{
 			SessionID:          associatedKeyValues.AssociatedID(),
 			KeyValues:          associatedKeyValues.KeyValues().RetrieveStringDataType().StripKey(btreeassociated.ReservedID),
+			Timeout:            generalLock.timeout,
+			TimeTillExipre:     time.Since(generalLock.getLastHeartbeat()),
 			LocksHeldOrWaiting: generalLock.counter,
-		},
-		)
+		})
 
 		return true
 	}
@@ -94,7 +95,7 @@ func (generalLocker *generalLocker) ListLocks(query *v1common.AssociatedQuery) v
 
 // Obtain a lock for the given key values.
 // This blocks until one of of the contexts is canceled, or the lock is obtained
-func (generalLocker *generalLocker) ObtainLock(clientCtx context.Context, createLockRequest *v1locker.CreateLockRequest) *v1locker.CreateLockResponse {
+func (generalLocker *generalLocker) ObtainLock(clientCtx context.Context, createLockRequest *v1locker.LockCreateRequest) *v1locker.LockCreateResponse {
 	var sessionID string
 	var timeout time.Duration
 	var lockChan chan struct{}
@@ -145,7 +146,7 @@ func (generalLocker *generalLocker) ObtainLock(clientCtx context.Context, create
 	}
 
 	// at this point, we have obtained the "locks" for all tag groups
-	return &v1locker.CreateLockResponse{
+	return &v1locker.LockCreateResponse{
 		SessionID: sessionID,
 		Timeout:   timeout,
 	}

@@ -2,7 +2,6 @@ package lockerclient
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"sync/atomic"
@@ -16,16 +15,6 @@ import (
 	v1locker "github.com/DanLavine/willow/pkg/models/api/locker/v1"
 	. "github.com/onsi/gomega"
 )
-
-func ResponseToBytes(resp *v1locker.CreateLockResponse) []byte {
-	data, _ := json.Marshal(resp)
-	return data
-}
-
-func ErrorToBytes(e *errors.Error) []byte {
-	data, _ := json.Marshal(e)
-	return data
-}
 
 func setupServerHttp(serverMux *http.ServeMux) *httptest.Server {
 	return httptest.NewServer(serverMux)
@@ -438,7 +427,7 @@ func TestLock_release(t *testing.T) {
 				apiErr := &errors.Error{Message: "bad request budy"}
 				w.Header().Add("Content-Type", "application/json")
 				w.WriteHeader(http.StatusBadRequest)
-				w.Write(ErrorToBytes(apiErr))
+				w.Write(apiErr.EncodeJSON())
 			})
 
 			server := setupServerHttp(mux)

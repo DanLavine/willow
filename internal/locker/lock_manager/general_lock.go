@@ -10,8 +10,10 @@ type generalLock struct {
 	lockChan chan struct{}
 	hertbeat chan struct{}
 
-	timeout time.Duration
-	cleanup func() bool
+	heartbeatLock *sync.RWMutex
+	lastHeartbeat time.Time
+	timeout       time.Duration
+	cleanup       func() bool
 
 	counterLock *sync.RWMutex
 	counter     int
@@ -19,12 +21,14 @@ type generalLock struct {
 
 func newGeneralLock(timeout time.Duration, cleanup func() bool) *generalLock {
 	return &generalLock{
-		lockChan:    make(chan struct{}),
-		hertbeat:    make(chan struct{}),
-		timeout:     timeout,
-		cleanup:     cleanup,
-		counterLock: new(sync.RWMutex),
-		counter:     1,
+		lockChan:      make(chan struct{}),
+		hertbeat:      make(chan struct{}),
+		heartbeatLock: new(sync.RWMutex),
+		lastHeartbeat: time.Now(),
+		timeout:       timeout,
+		cleanup:       cleanup,
+		counterLock:   new(sync.RWMutex),
+		counter:       1,
 	}
 }
 
@@ -35,6 +39,7 @@ func (generalLock *generalLock) Execute(ctx context.Context) error {
 		select {
 		case <-generalLock.hertbeat:
 			// in this case we recieved a heartbeat, so reset the timer
+			generalLock.setLastHeartbeat()
 			timer.Reset(generalLock.timeout)
 		case <-ctx.Done():
 			// in this case, we received a shutdown signal from the server, so just cancel this threadand don't clean
@@ -50,4 +55,18 @@ func (generalLock *generalLock) Execute(ctx context.Context) error {
 			timer.Reset(generalLock.timeout)
 		}
 	}
+}
+
+func (generalLock *generalLock) setLastHeartbeat() {
+	generalLock.heartbeatLock.Lock()
+	defer generalLock.heartbeatLock.Unlock()
+
+	generalLock.lastHeartbeat = time.Now()
+}
+
+func (generalLock *generalLock) getLastHeartbeat() time.Time {
+	generalLock.heartbeatLock.RLock()
+	defer generalLock.heartbeatLock.RUnlock()
+
+	return generalLock.lastHeartbeat
 }

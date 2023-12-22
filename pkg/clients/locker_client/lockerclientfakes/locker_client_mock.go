@@ -65,7 +65,7 @@ func (mr *MockLockerClientMockRecorder) Healthy() *gomock.Call {
 }
 
 // ObtainLock mocks base method.
-func (m *MockLockerClient) ObtainLock(arg0 context.Context, arg1 *v1.CreateLockRequest) (lockerclient.Lock, error) {
+func (m *MockLockerClient) ObtainLock(arg0 context.Context, arg1 *v1.LockCreateRequest) (lockerclient.Lock, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ObtainLock", arg0, arg1)
 	ret0, _ := ret[0].(lockerclient.Lock)

@@ -2,7 +2,6 @@ package v1
 
 import (
 	"encoding/json"
-	"fmt"
 	"io"
 	"time"
 
@@ -11,22 +10,23 @@ import (
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 )
 
-// CreateLockRequest is used to request an exclusive lock
-type CreateLockRequest struct {
+// LockCreateRequest is used to request an exclusive lock
+type LockCreateRequest struct {
 	// KeyValues defines the collection to obtain a lock for
 	KeyValues datatypes.KeyValues
 
-	// Timeout defines how long the lock should remain valid if the client fails to heartbeat
+	// Timeout defines how long the lock should remain valid if the client fails to heartbeat.
+	// If this is set to 0, then the Server's configuration will be used.
 	Timeout time.Duration
 }
 
 //	RETURNS:
 //	- error - error describing any possible issues and the steps to rectify them
 //
-// Validate ensures the CreateLockRequest has all required fields set
-func (req *CreateLockRequest) Validate() error {
+// Validate ensures the LockCreateRequest has all required fields set
+func (req *LockCreateRequest) Validate() error {
 	if len(req.KeyValues) == 0 {
-		return fmt.Errorf("'KeValues' is empty, but requires a length of at least 1")
+		return keyValuesLenghtInvalid
 	}
 
 	if err := req.KeyValues.Validate(); err != nil {
@@ -37,23 +37,23 @@ func (req *CreateLockRequest) Validate() error {
 }
 
 //	RETURNS:
-//	- []byte - byte array that can be sent over an http client
+//	- []byte - encoded JSON byte array for the LockCreateRequest
 //
 // EncodeJSON encodes the model to a valid JSON format
-func (req *CreateLockRequest) EncodeJSON() []byte {
+func (req *LockCreateRequest) EncodeJSON() []byte {
 	data, _ := json.Marshal(req)
 	return data
 }
 
 //	PARAMETERS:
-//	- contentType - how to interperate the stream. Valida values [application/json]
-//	- reader - stream to read the encoded CreateLockResponse data from
+//	- contentType - how to interperate the stream
+//	- reader - stream to read the encoded LockCreateRequest data from
 //
 //	RETURNS:
-//	- error - any error encoutered when reading the response
+//	- error - any error encoutered when reading the stream or LockCreateRequest is invalid
 //
 // Decode can easily parse the response body from an http create request
-func (req *CreateLockRequest) Decode(contentType api.ContentType, reader io.ReadCloser) error {
+func (req *LockCreateRequest) Decode(contentType api.ContentType, reader io.ReadCloser) error {
 	switch contentType {
 	case api.ContentTypeJSON:
 		requestBody, err := io.ReadAll(reader)
@@ -71,10 +71,9 @@ func (req *CreateLockRequest) Decode(contentType api.ContentType, reader io.Read
 	return req.Validate()
 }
 
-// CreateLockResponse is the response once a client recieves the Lock
-type CreateLockResponse struct {
-	// SessionID is a uniquely generated ID to Heartbeat or Release a lock with
-	// This way, malicious clients cannot easily release locks held by other clients
+// LockCreateResponse is the response once a client recieves the Lock
+type LockCreateResponse struct {
+	// SessionID is a uniquely generated ID to Heartbeat or Release a lock with.
 	SessionID string
 
 	// Timeout duration on the server till a lock is released if no Heartbeats are recieved.
@@ -83,39 +82,39 @@ type CreateLockResponse struct {
 }
 
 //	RETURNS:
-//	- error - any errors encountered with the response object
+//	- error - error describing any possible issues with the LockCreateResponse and the steps to rectify them
 //
-// Validate is used to ensure that CreateLockResponse has all required fields set
-func (resp *CreateLockResponse) Validate() error {
+// Validate is used to ensure that LockCreateResponse has all required fields set
+func (resp *LockCreateResponse) Validate() error {
 	if resp.SessionID == "" {
-		return fmt.Errorf("'SessionID' is the empty string")
+		return sessionIDEmpty
 	}
 
 	if resp.Timeout == 0 {
-		return fmt.Errorf("'Timeout' is set to 0")
+		return timeoutIsInvalid
 	}
 
 	return nil
 }
 
 //	RETURNS:
-//	- []byte - byte array that can be sent over an http client
+//	- []byte - encoded JSON byte array for the LockCreateResponse
 //
 // EncodeJSON encodes the model to a valid JSON format
-func (resp *CreateLockResponse) EncodeJSON() []byte {
+func (resp *LockCreateResponse) EncodeJSON() []byte {
 	data, _ := json.Marshal(resp)
 	return data
 }
 
 //	PARAMETERS:
-//	- contentType - how to interperate the stream. Valida values [application/json]
-//	- reader - stream to read the encoded CreateLockResponse data from
+//	- contentType - how to interperate the reader stream
+//	- reader - stream to read the encoded LockCreateResponse data from
 //
 //	RETURNS:
-//	- error - any error encoutered when reading the response
+//	- error - any error encoutered when reading the stream or LockCreateResponse is invalid
 //
 // Decode can easily parse the response body from an http create request
-func (resp *CreateLockResponse) Decode(contentType api.ContentType, reader io.ReadCloser) error {
+func (resp *LockCreateResponse) Decode(contentType api.ContentType, reader io.ReadCloser) error {
 	switch contentType {
 	case api.ContentTypeJSON:
 		requestBody, err := io.ReadAll(reader)

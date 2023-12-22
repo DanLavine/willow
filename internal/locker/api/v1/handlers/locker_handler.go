@@ -17,8 +17,6 @@ import (
 )
 
 // Handles CRUD operations for Limit operations
-//
-//go:generate mockgen -destination=v1serverfakes/locker_mock.go -package=v1serverfakes github.com/DanLavine/willow/internal/server/versions/v1server LockerHandler
 type V1LockerHandler interface {
 	// create a group rule
 	Create(w http.ResponseWriter, r *http.Request)
@@ -54,7 +52,7 @@ func (lh *lockerHandler) Create(w http.ResponseWriter, r *http.Request) {
 	defer logger.Debug("processed request")
 
 	// parse the create lock request
-	createLockerRequest := &v1locker.CreateLockRequest{}
+	createLockerRequest := &v1locker.LockCreateRequest{}
 	if err := createLockerRequest.Decode(api.ContentTypeFromRequest(r), r.Body); err != nil {
 		_, _ = api.HttpResponse(r, w, http.StatusBadRequest, errors.ServerError(err))
 		return
@@ -113,7 +111,7 @@ func (lh *lockerHandler) List(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// find the locks
-	locks := lh.generalLocker.ListLocks(query)
+	locks := lh.generalLocker.LocksQuery(query)
 
 	// respond and ignore the errors
 	_, _ = api.HttpResponse(r, w, http.StatusOK, locks)

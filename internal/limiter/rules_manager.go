@@ -371,7 +371,7 @@ func (rm *rulesManger) IncrementCounters(logger *zap.Logger, requestContext cont
 		channelOps, chanReceiver := channelops.NewMergeRead[struct{}](true, requestContext)
 		for _, key := range increment.KeyValues.SoretedKeys() {
 			// setup the group to lock
-			lockKeyValues := &v1locker.CreateLockRequest{
+			lockKeyValues := &v1locker.LockCreateRequest{
 				KeyValues: datatypes.KeyValues{key: increment.KeyValues[key]},
 				Timeout:   time.Second,
 			}

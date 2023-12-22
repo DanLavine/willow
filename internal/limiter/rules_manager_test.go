@@ -796,7 +796,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 			fakeLock.EXPECT().Release().Times(2)
 
 			fakeLocker := lockerclientfakes.NewMockLockerClient(mockController)
-			fakeLocker.EXPECT().ObtainLock(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, lockRequest *v1locker.CreateLockRequest) (lockerclient.Lock, error) {
+			fakeLocker.EXPECT().ObtainLock(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, lockRequest *v1locker.LockCreateRequest) (lockerclient.Lock, error) {
 				return fakeLock, nil
 			}).Times(2)
 
@@ -837,7 +837,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 
 				obtainCount := 0
 				fakeLocker := lockerclientfakes.NewMockLockerClient(mockController)
-				fakeLocker.EXPECT().ObtainLock(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, lockRequest *v1locker.CreateLockRequest) (lockerclient.Lock, error) {
+				fakeLocker.EXPECT().ObtainLock(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, lockRequest *v1locker.LockCreateRequest) (lockerclient.Lock, error) {
 					if obtainCount == 0 {
 						obtainCount++
 						return fakeLock, nil
@@ -898,7 +898,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 
 				count := 0
 				fakeLocker := lockerclientfakes.NewMockLockerClient(mockController)
-				fakeLocker.EXPECT().ObtainLock(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, lockRequest *v1locker.CreateLockRequest) (lockerclient.Lock, error) {
+				fakeLocker.EXPECT().ObtainLock(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, lockRequest *v1locker.LockCreateRequest) (lockerclient.Lock, error) {
 					if count == 0 {
 						count++
 					} else {
@@ -929,7 +929,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 		fakeLock.EXPECT().Done().AnyTimes()
 
 		fakeLocker := lockerclientfakes.NewMockLockerClient(mockController)
-		fakeLocker.EXPECT().ObtainLock(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, lockRequest *v1locker.CreateLockRequest) (lockerclient.Lock, error) {
+		fakeLocker.EXPECT().ObtainLock(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, lockRequest *v1locker.LockCreateRequest) (lockerclient.Lock, error) {
 			return fakeLock, nil
 		}).AnyTimes()
 
