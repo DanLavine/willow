@@ -108,7 +108,7 @@ paths:
             appplication/json:
               schema:
                 $ref: "../common/components.yaml#/components/schemas/ApiError"
-        409:
+        410:
           description: returned when there was an error processing the SessionID
           content:
             appplication/json:
