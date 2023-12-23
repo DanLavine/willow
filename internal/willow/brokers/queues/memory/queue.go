@@ -11,7 +11,7 @@ import (
 	"go.uber.org/zap"
 
 	btreeassociated "github.com/DanLavine/willow/internal/datastructures/btree_associated"
-	servererrors "github.com/DanLavine/willow/internal/server_errors"
+	"github.com/DanLavine/willow/pkg/models/api/common/errors"
 	v1willow "github.com/DanLavine/willow/pkg/models/api/willow/v1"
 )
 
@@ -79,9 +79,9 @@ func (q *Queue) Execute(ctx context.Context) error {
 }
 
 // Enqueue an item onto the message queue
-func (q *Queue) Enqueue(logger *zap.Logger, enqueueItemRequest *v1willow.EnqueueItemRequest) *servererrors.ApiError {
+func (q *Queue) Enqueue(logger *zap.Logger, enqueueItemRequest *v1willow.EnqueueItemRequest) *errors.ServerError {
 	logger = logger.Named("Enqueue")
-	var returnErr *servererrors.ApiError
+	var returnErr *errors.ServerError
 
 	// if a tag group already exists, enqueue an item
 	onFind := func(item any) {
@@ -109,7 +109,7 @@ func (q *Queue) Enqueue(logger *zap.Logger, enqueueItemRequest *v1willow.Enqueue
 
 	if _, err := q.tagGroups.CreateOrFind(btreeassociated.ConverDatatypesKeyValues(enqueueItemRequest.Tags), onCreate, onFind); err != nil {
 		logger.Error("failed to create or find the tag group", zap.Error(err))
-		return servererrors.InternalServerError.With("", err.Error())
+		return errors.InternalServerError
 	}
 
 	return returnErr
@@ -121,10 +121,10 @@ func (q *Queue) Enqueue(logger *zap.Logger, enqueueItemRequest *v1willow.Enqueue
 //	- logger - logger to record any errors
 //	- cancelContext - context from the http client to indicate if a client disconnects
 //	- selection - query to use when searching for tag groups
-func (q *Queue) Dequeue(logger *zap.Logger, cancelContext context.Context, selection datatypes.AssociatedKeyValuesQuery) (*v1willow.DequeueItemResponse, func(), func(), *servererrors.ApiError) {
+func (q *Queue) Dequeue(logger *zap.Logger, cancelContext context.Context, selection datatypes.AssociatedKeyValuesQuery) (*v1willow.DequeueItemResponse, func(), func(), *errors.ServerError) {
 	logger = logger.Named("DequeueItem")
 
-	var dequeueResponse func(logger *zap.Logger) (*v1willow.DequeueItemResponse, func(), func(), *servererrors.ApiError)
+	var dequeueResponse func(logger *zap.Logger) (*v1willow.DequeueItemResponse, func(), func(), *errors.ServerError)
 	channelOperations, reader := channelops.NewMergeRead[any](false, cancelContext, q.shutdownContext)
 
 	// add the channel operations if we don't find any values, or a new tag group is added during iteration
@@ -138,7 +138,7 @@ func (q *Queue) Dequeue(logger *zap.Logger, cancelContext context.Context, selec
 		select {
 		case response := <-tagGroup.dequeueChannel:
 			if response != nil {
-				dequeueResponse = response.(func(logger *zap.Logger) (*v1willow.DequeueItemResponse, func(), func(), *servererrors.ApiError))
+				dequeueResponse = response.(func(logger *zap.Logger) (*v1willow.DequeueItemResponse, func(), func(), *errors.ServerError))
 				return false
 			}
 		// Could add this optimization but its hard to test right here. So is there a better way to set evereything up?
@@ -165,15 +165,15 @@ func (q *Queue) Dequeue(logger *zap.Logger, cancelContext context.Context, selec
 	readerVal := <-reader
 	if readerVal != nil {
 		// something was found
-		return readerVal.(func(logger *zap.Logger) (*v1willow.DequeueItemResponse, func(), func(), *servererrors.ApiError))(logger)
+		return readerVal.(func(logger *zap.Logger) (*v1willow.DequeueItemResponse, func(), func(), *errors.ServerError))(logger)
 	}
 
-	return nil, nil, nil, servererrors.QueueClosed
+	return nil, nil, nil, &errors.ServerError{Message: "queue is closed.", StatusCode: http.StatusConflict}
 }
 
-func (q *Queue) ACK(logger *zap.Logger, ackItem *v1willow.ACK) *servererrors.ApiError {
+func (q *Queue) ACK(logger *zap.Logger, ackItem *v1willow.ACK) *errors.ServerError {
 	logger = logger.Named("ACK")
-	var ackError *servererrors.ApiError
+	var ackError *errors.ServerError
 
 	called := false
 	ack := func(item any) bool {
@@ -194,9 +194,10 @@ func (q *Queue) ACK(logger *zap.Logger, ackItem *v1willow.ACK) *servererrors.Api
 	}
 
 	if err := q.tagGroups.Delete(btreeassociated.ConverDatatypesKeyValues(ackItem.Tags), ack); err != nil {
-		return servererrors.InternalServerError.With("", err.Error())
+		logger.Error("Failed to delete ack item", zap.Error(err))
+		return errors.InternalServerError
 	} else if !called {
-		return &servererrors.ApiError{Message: "tag group not found", StatusCode: http.StatusBadRequest}
+		return &errors.ServerError{Message: "tag group not found", StatusCode: http.StatusBadRequest}
 	}
 
 	return ackError

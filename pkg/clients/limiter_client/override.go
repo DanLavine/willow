@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/DanLavine/willow/pkg/clients"
+	"github.com/DanLavine/willow/pkg/models/api"
 	"github.com/DanLavine/willow/pkg/models/api/common/errors"
 	v1common "github.com/DanLavine/willow/pkg/models/api/common/v1"
 	v1limiter "github.com/DanLavine/willow/pkg/models/api/limiter/v1"
@@ -28,8 +29,8 @@ func (lc *limiterClient) CreateOverride(ruleName string, override *v1limiter.Ove
 		return nil
 	case http.StatusBadRequest, http.StatusUnprocessableEntity, http.StatusInternalServerError:
 		apiError := &errors.Error{}
-		if err := apiError.Decode(lc.contentType, resp.Body); err != nil {
-			return errors.ClientError(err)
+		if err := api.DecodeAndValidateHttpResponse(resp, apiError); err != nil {
+			return err
 		}
 
 		return apiError
@@ -56,8 +57,8 @@ func (lc *limiterClient) DeleteOverride(ruleName, overrideName string) error {
 		return nil
 	case http.StatusBadRequest, http.StatusUnprocessableEntity, http.StatusInternalServerError:
 		apiError := &errors.Error{}
-		if err := apiError.Decode(lc.contentType, resp.Body); err != nil {
-			return errors.ClientError(err)
+		if err := api.DecodeAndValidateHttpResponse(resp, apiError); err != nil {
+			return err
 		}
 
 		return apiError
@@ -66,7 +67,7 @@ func (lc *limiterClient) DeleteOverride(ruleName, overrideName string) error {
 	}
 }
 
-func (lc *limiterClient) ListOverrides(ruleName string, query *v1common.AssociatedQuery) (*v1limiter.Overrides, error) {
+func (lc *limiterClient) ListOverrides(ruleName string, query *v1common.AssociatedQuery) (v1limiter.Overrides, error) {
 	// setup and make the request
 	resp, err := lc.client.Do(&clients.RequestData{
 		Method: "GET",
@@ -81,16 +82,16 @@ func (lc *limiterClient) ListOverrides(ruleName string, query *v1common.Associat
 	// parse the response
 	switch resp.StatusCode {
 	case http.StatusOK:
-		overrides := &v1limiter.Overrides{}
-		if err := overrides.Decode(lc.contentType, resp.Body); err != nil {
-			return nil, errors.ClientError(err)
+		overrides := v1limiter.Overrides{}
+		if err := api.DecodeAndValidateHttpResponse(resp, &overrides); err != nil {
+			return nil, err
 		}
 
 		return overrides, nil
 	case http.StatusBadRequest, http.StatusUnprocessableEntity, http.StatusInternalServerError:
 		apiError := &errors.Error{}
-		if err := apiError.Decode(lc.contentType, resp.Body); err != nil {
-			return nil, errors.ClientError(err)
+		if err := api.DecodeAndValidateHttpResponse(resp, apiError); err != nil {
+			return nil, err
 		}
 
 		return nil, apiError

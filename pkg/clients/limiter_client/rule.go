@@ -5,11 +5,12 @@ import (
 	"net/http"
 
 	"github.com/DanLavine/willow/pkg/clients"
+	"github.com/DanLavine/willow/pkg/models/api"
 	"github.com/DanLavine/willow/pkg/models/api/common/errors"
 	v1limiter "github.com/DanLavine/willow/pkg/models/api/limiter/v1"
 )
 
-func (lc *limiterClient) CreateRule(rule *v1limiter.RuleRequest) error {
+func (lc *limiterClient) CreateRule(rule *v1limiter.RuleCreateRequest) error {
 	// setup and make the request
 	resp, err := lc.client.Do(&clients.RequestData{
 		Method: "POST",
@@ -27,8 +28,8 @@ func (lc *limiterClient) CreateRule(rule *v1limiter.RuleRequest) error {
 		return nil
 	case http.StatusBadRequest, http.StatusUnprocessableEntity:
 		apiError := &errors.Error{}
-		if err := apiError.Decode(lc.contentType, resp.Body); err != nil {
-			return errors.ClientError(err)
+		if err := api.DecodeAndValidateHttpResponse(resp, apiError); err != nil {
+			return err
 		}
 
 		return apiError
@@ -37,7 +38,7 @@ func (lc *limiterClient) CreateRule(rule *v1limiter.RuleRequest) error {
 	}
 }
 
-func (lc *limiterClient) GetRule(ruleName string, query *v1limiter.RuleQuery) (*v1limiter.RuleResponse, error) {
+func (lc *limiterClient) GetRule(ruleName string, query *v1limiter.RuleQuery) (*v1limiter.Rule, error) {
 	// setup and make the request
 	resp, err := lc.client.Do(&clients.RequestData{
 		Method: "GET",
@@ -52,16 +53,16 @@ func (lc *limiterClient) GetRule(ruleName string, query *v1limiter.RuleQuery) (*
 	// parse the response
 	switch resp.StatusCode {
 	case http.StatusOK:
-		rule := &v1limiter.RuleResponse{}
-		if err := rule.Decode(lc.contentType, resp.Body); err != nil {
-			return nil, errors.ClientError(err)
+		rule := &v1limiter.Rule{}
+		if err := api.DecodeAndValidateHttpResponse(resp, rule); err != nil {
+			return nil, err
 		}
 
 		return rule, nil
 	case http.StatusBadRequest, http.StatusUnprocessableEntity:
 		apiError := &errors.Error{}
-		if err := apiError.Decode(lc.contentType, resp.Body); err != nil {
-			return nil, errors.ClientError(err)
+		if err := api.DecodeAndValidateHttpResponse(resp, apiError); err != nil {
+			return nil, err
 		}
 
 		return nil, apiError
@@ -70,7 +71,7 @@ func (lc *limiterClient) GetRule(ruleName string, query *v1limiter.RuleQuery) (*
 	}
 }
 
-func (lc *limiterClient) ListRules(query *v1limiter.RuleQuery) (*v1limiter.Rules, error) {
+func (lc *limiterClient) ListRules(query *v1limiter.RuleQuery) (v1limiter.Rules, error) {
 	// setup and make the request
 	resp, err := lc.client.Do(&clients.RequestData{
 		Method: "GET",
@@ -85,16 +86,16 @@ func (lc *limiterClient) ListRules(query *v1limiter.RuleQuery) (*v1limiter.Rules
 	// parse the response
 	switch resp.StatusCode {
 	case http.StatusOK:
-		rules := &v1limiter.Rules{}
-		if err := rules.Decode(lc.contentType, resp.Body); err != nil {
-			return nil, errors.ClientError(err)
+		rules := v1limiter.Rules{}
+		if err := api.DecodeAndValidateHttpResponse(resp, &rules); err != nil {
+			return nil, err
 		}
 
 		return rules, nil
 	case http.StatusBadRequest, http.StatusUnprocessableEntity:
 		apiError := &errors.Error{}
-		if err := apiError.Decode(lc.contentType, resp.Body); err != nil {
-			return nil, errors.ClientError(err)
+		if err := api.DecodeAndValidateHttpResponse(resp, apiError); err != nil {
+			return nil, err
 		}
 
 		return nil, apiError
@@ -103,7 +104,7 @@ func (lc *limiterClient) ListRules(query *v1limiter.RuleQuery) (*v1limiter.Rules
 	}
 }
 
-func (lc *limiterClient) UpdateRule(ruleName string, ruleUpdate *v1limiter.RuleUpdate) error {
+func (lc *limiterClient) UpdateRule(ruleName string, ruleUpdate *v1limiter.RuleUpdateRquest) error {
 	// setup and make the request
 	resp, err := lc.client.Do(&clients.RequestData{
 		Method: "PUT",
@@ -121,8 +122,8 @@ func (lc *limiterClient) UpdateRule(ruleName string, ruleUpdate *v1limiter.RuleU
 		return nil
 	case http.StatusBadRequest, http.StatusUnprocessableEntity:
 		apiError := &errors.Error{}
-		if err := apiError.Decode(lc.contentType, resp.Body); err != nil {
-			return errors.ClientError(err)
+		if err := api.DecodeAndValidateHttpResponse(resp, apiError); err != nil {
+			return err
 		}
 
 		return apiError
@@ -149,8 +150,8 @@ func (lc *limiterClient) DeleteRule(ruleName string) error {
 		return nil
 	case http.StatusInternalServerError:
 		apiError := &errors.Error{}
-		if err := apiError.Decode(lc.contentType, resp.Body); err != nil {
-			return errors.ClientError(err)
+		if err := api.DecodeAndValidateHttpResponse(resp, apiError); err != nil {
+			return err
 		}
 
 		return apiError

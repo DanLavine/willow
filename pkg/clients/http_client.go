@@ -4,10 +4,10 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
+	"fmt"
 	"net/http"
 
 	"github.com/DanLavine/willow/pkg/models/api"
-	"github.com/DanLavine/willow/pkg/models/api/common/errors"
 	"golang.org/x/net/http2"
 )
 
@@ -23,7 +23,7 @@ type HttpClient interface {
 type httpClient struct {
 	client *http.Client
 
-	contentType api.ContentType
+	contentType string
 }
 
 // Genreate a new HTTP Client from a valid configuration
@@ -45,7 +45,7 @@ func NewHTTPClient(cfg *Config) (*httpClient, error) {
 
 	return &httpClient{
 		client:      client,
-		contentType: cfg.ContentType,
+		contentType: cfg.ContentEncoding,
 	}, nil
 }
 
@@ -64,36 +64,32 @@ func (httpClient *httpClient) do(ctx context.Context, requestData *RequestData) 
 	var err error
 	var req *http.Request
 
-	// always validate the requested model first
-	if requestData.Model != nil {
-		if err = requestData.Model.Validate(); err != nil {
-			return nil, errors.ClientError(err)
-		}
-	}
-
 	// make the request bassed off the content type
 	switch httpClient.contentType {
 	case api.ContentTypeJSON:
+
 		// setup request with proper encoding
 		if requestData.Model != nil {
-			if ctx == context.Background() {
-				req, err = http.NewRequest(requestData.Method, requestData.Path, bytes.NewBuffer(requestData.Model.EncodeJSON()))
-			} else {
-				req, err = http.NewRequestWithContext(ctx, requestData.Method, requestData.Path, bytes.NewBuffer(requestData.Model.EncodeJSON()))
+			// validate the model
+			if err := requestData.Model.Validate(); err != nil {
+				return nil, fmt.Errorf("failed to validate model localy, not sending request: %w", err)
 			}
 
-			// add the proper header for the content type. Responses still need to know what value to respond back as
+			// encode the mode
+			data, err := requestData.Model.EncodeJSON()
+			if err != nil {
+				return nil, fmt.Errorf("failed to encode the model local, not sending request: %w", err)
+			}
+
+			req, err = http.NewRequestWithContext(ctx, requestData.Method, requestData.Path, bytes.NewBuffer(data))
+			if err != nil {
+				return nil, fmt.Errorf("unexpected error setting up http request: %w", err)
+			}
 		} else {
-			if ctx == context.Background() {
-				req, err = http.NewRequest(requestData.Method, requestData.Path, nil)
-			} else {
-				req, err = http.NewRequestWithContext(ctx, requestData.Method, requestData.Path, nil)
-
+			req, err = http.NewRequestWithContext(ctx, requestData.Method, requestData.Path, nil)
+			if err != nil {
+				return nil, fmt.Errorf("unexpected error setting up http request: %w", err)
 			}
-		}
-
-		if err != nil {
-			return nil, errors.ClientError(err)
 		}
 	}
 

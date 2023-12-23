@@ -2,10 +2,7 @@ package v1
 
 import (
 	"encoding/json"
-	"io"
 
-	"github.com/DanLavine/willow/pkg/models/api"
-	"github.com/DanLavine/willow/pkg/models/api/common/errors"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 )
 
@@ -15,6 +12,8 @@ import (
 type AssociatedQuery struct {
 	// Query for the KeyValues that defined the various API Models
 	AssociatedKeyValues datatypes.AssociatedKeyValuesQuery
+
+	// #TODO: Order BY + Pagination options
 }
 
 //	RETURNS:
@@ -33,33 +32,21 @@ func (query *AssociatedQuery) Validate() error {
 //	- []byte - encoded JSON byte array for the AssociatedQuery
 //
 // EncodeJSON encodes the model to a valid JSON format
-func (query *AssociatedQuery) EncodeJSON() []byte {
-	data, _ := json.Marshal(query)
-	return data
+func (query *AssociatedQuery) EncodeJSON() ([]byte, error) {
+	return json.Marshal(query)
 }
 
 //	PARAMETERS:
-//	- contentType - how to interperate the stream
-//	- reader - stream to read the encoded AssociatedQuery data from
+//	- data - encoded JSON data to parse AssociatedQuery from
 //
 //	RETURNS:
-//	- error - any error encoutered when reading the stream or AssociatedQuery is invalid
+//	- error - any error encoutered when reading or parsing the data
 //
-// Decode can easily parse the response body from an http request
-func (query *AssociatedQuery) Decode(contentType api.ContentType, reader io.ReadCloser) error {
-	switch contentType {
-	case api.ContentTypeJSON:
-		requestBody, err := io.ReadAll(reader)
-		if err != nil {
-			return errors.FailedToReadStreamBody(err)
-		}
-
-		if err := json.Unmarshal(requestBody, query); err != nil {
-			return errors.FailedToDecodeBody(err)
-		}
-	default:
-		return errors.UnknownContentType(contentType)
+// Decode can convertes the encoded byte array into the Object Decode was called on
+func (query *AssociatedQuery) DecodeJSON(data []byte) error {
+	if err := json.Unmarshal(data, query); err != nil {
+		return err
 	}
 
-	return query.Validate()
+	return nil
 }

@@ -8,7 +8,7 @@ import (
 	context "context"
 	reflect "reflect"
 
-	servererrors "github.com/DanLavine/willow/internal/server_errors"
+	errors "github.com/DanLavine/willow/pkg/models/api/common/errors"
 	v1 "github.com/DanLavine/willow/pkg/models/api/willow/v1"
 	datatypes "github.com/DanLavine/willow/pkg/models/datatypes"
 	gomock "go.uber.org/mock/gomock"
@@ -39,10 +39,10 @@ func (m *MockManagedQueue) EXPECT() *MockManagedQueueMockRecorder {
 }
 
 // ACK mocks base method.
-func (m *MockManagedQueue) ACK(arg0 *zap.Logger, arg1 *v1.ACK) *servererrors.ApiError {
+func (m *MockManagedQueue) ACK(arg0 *zap.Logger, arg1 *v1.ACK) *errors.ServerError {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ACK", arg0, arg1)
-	ret0, _ := ret[0].(*servererrors.ApiError)
+	ret0, _ := ret[0].(*errors.ServerError)
 	return ret0
 }
 
@@ -53,13 +53,13 @@ func (mr *MockManagedQueueMockRecorder) ACK(arg0, arg1 interface{}) *gomock.Call
 }
 
 // Dequeue mocks base method.
-func (m *MockManagedQueue) Dequeue(arg0 *zap.Logger, arg1 context.Context, arg2 datatypes.AssociatedKeyValuesQuery) (*v1.DequeueItemResponse, func(), func(), *servererrors.ApiError) {
+func (m *MockManagedQueue) Dequeue(arg0 *zap.Logger, arg1 context.Context, arg2 datatypes.AssociatedKeyValuesQuery) (*v1.DequeueItemResponse, func(), func(), *errors.ServerError) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Dequeue", arg0, arg1, arg2)
 	ret0, _ := ret[0].(*v1.DequeueItemResponse)
 	ret1, _ := ret[1].(func())
 	ret2, _ := ret[2].(func())
-	ret3, _ := ret[3].(*servererrors.ApiError)
+	ret3, _ := ret[3].(*errors.ServerError)
 	return ret0, ret1, ret2, ret3
 }
 
@@ -70,10 +70,10 @@ func (mr *MockManagedQueueMockRecorder) Dequeue(arg0, arg1, arg2 interface{}) *g
 }
 
 // Enqueue mocks base method.
-func (m *MockManagedQueue) Enqueue(arg0 *zap.Logger, arg1 *v1.EnqueueItemRequest) *servererrors.ApiError {
+func (m *MockManagedQueue) Enqueue(arg0 *zap.Logger, arg1 *v1.EnqueueItemRequest) *errors.ServerError {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Enqueue", arg0, arg1)
-	ret0, _ := ret[0].(*servererrors.ApiError)
+	ret0, _ := ret[0].(*errors.ServerError)
 	return ret0
 }
 

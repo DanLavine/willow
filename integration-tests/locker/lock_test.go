@@ -29,11 +29,11 @@ func setupClient(g *GomegaWithT, ctx context.Context, url string) lockerclient.L
 	_, currentDir, _, _ := runtime.Caller(0)
 
 	cfg := &clients.Config{
-		URL:           url,
-		ContentType:   api.ContentTypeJSON,
-		CAFile:        filepath.Join(currentDir, "..", "..", "..", "testhelpers", "tls-keys", "ca.crt"),
-		ClientKeyFile: filepath.Join(currentDir, "..", "..", "..", "testhelpers", "tls-keys", "client.key"),
-		ClientCRTFile: filepath.Join(currentDir, "..", "..", "..", "testhelpers", "tls-keys", "client.crt"),
+		URL:             url,
+		ContentEncoding: api.ContentTypeJSON,
+		CAFile:          filepath.Join(currentDir, "..", "..", "..", "testhelpers", "tls-keys", "ca.crt"),
+		ClientKeyFile:   filepath.Join(currentDir, "..", "..", "..", "testhelpers", "tls-keys", "client.key"),
+		ClientCRTFile:   filepath.Join(currentDir, "..", "..", "..", "testhelpers", "tls-keys", "client.crt"),
 	}
 	g.Expect(cfg.Validate()).ToNot(HaveOccurred())
 
@@ -258,7 +258,11 @@ func TestLocker_List_API(t *testing.T) {
 		query := v1common.AssociatedQuery{
 			AssociatedKeyValues: datatypes.AssociatedKeyValuesQuery{},
 		}
-		listLocks, err := http.NewRequest("GET", fmt.Sprintf("%s/v1/locks", testConstruct.ServerURL), bytes.NewBuffer(query.EncodeJSON()))
+		g.Expect(query.Validate()).ToNot(HaveOccurred())
+		data, err := query.EncodeJSON()
+		g.Expect(err).ToNot(HaveOccurred())
+
+		listLocks, err := http.NewRequest("GET", fmt.Sprintf("%s/v1/locks", testConstruct.ServerURL), bytes.NewBuffer(data))
 		listLocks.Header.Add("Content-Type", "application/json")
 		g.Expect(err).ToNot(HaveOccurred())
 
@@ -266,17 +270,17 @@ func TestLocker_List_API(t *testing.T) {
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(resp.StatusCode).To(Equal(http.StatusOK))
 
-		data, err := io.ReadAll(resp.Body)
+		data, err = io.ReadAll(resp.Body)
 		g.Expect(err).ToNot(HaveOccurred())
 
-		locks := v1locker.LockQueryResponse{}
+		locks := v1locker.Locks{}
 		g.Expect(json.Unmarshal(data, &locks)).ToNot(HaveOccurred())
-		g.Expect(len(locks.Locks)).To(Equal(2))
+		g.Expect(len(locks)).To(Equal(2))
 
-		if reflect.DeepEqual(locks.Locks[0].KeyValues.SoretedKeys(), []string{"key1", "key2"}) {
-			g.Expect(locks.Locks[1].KeyValues.SoretedKeys()).To(Equal([]string{"key1", "key3"}))
+		if reflect.DeepEqual(locks[0].KeyValues.SoretedKeys(), []string{"key1", "key2"}) {
+			g.Expect(locks[1].KeyValues.SoretedKeys()).To(Equal([]string{"key1", "key3"}))
 		} else {
-			g.Expect(locks.Locks[1].KeyValues.SoretedKeys()).To(Equal([]string{"key1", "key2"}))
+			g.Expect(locks[1].KeyValues.SoretedKeys()).To(Equal([]string{"key1", "key2"}))
 		}
 	})
 }
@@ -335,7 +339,11 @@ func TestLocker_Async_API_Threading_Checks(t *testing.T) {
 		query := v1common.AssociatedQuery{
 			AssociatedKeyValues: datatypes.AssociatedKeyValuesQuery{},
 		}
-		listLocks, err := http.NewRequest("GET", fmt.Sprintf("%s/v1/locks", testConstruct.ServerURL), bytes.NewBuffer(query.EncodeJSON()))
+		g.Expect(query.Validate()).ToNot(HaveOccurred())
+		data, err := query.EncodeJSON()
+		g.Expect(err).ToNot(HaveOccurred())
+
+		listLocks, err := http.NewRequest("GET", fmt.Sprintf("%s/v1/locks", testConstruct.ServerURL), bytes.NewBuffer(data))
 		listLocks.Header.Add("Content-Type", "application/json")
 		g.Expect(err).ToNot(HaveOccurred())
 
@@ -344,12 +352,12 @@ func TestLocker_Async_API_Threading_Checks(t *testing.T) {
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(resp.StatusCode).To(Equal(http.StatusOK))
 
-		data, err := io.ReadAll(resp.Body)
+		data, err = io.ReadAll(resp.Body)
 		g.Expect(err).ToNot(HaveOccurred())
 
-		locks := v1locker.LockQueryResponse{}
+		locks := v1locker.Locks{}
 		g.Expect(json.Unmarshal(data, &locks)).ToNot(HaveOccurred())
-		g.Expect(len(locks.Locks)).To(Equal(0))
+		g.Expect(len(locks)).To(Equal(0))
 	})
 
 	t.Run("It can request many differnt lock combinations many times", func(t *testing.T) {
@@ -400,7 +408,11 @@ func TestLocker_Async_API_Threading_Checks(t *testing.T) {
 		query := v1common.AssociatedQuery{
 			AssociatedKeyValues: datatypes.AssociatedKeyValuesQuery{},
 		}
-		listLocks, err := http.NewRequest("GET", fmt.Sprintf("%s/v1/locks", testConstruct.ServerURL), bytes.NewBuffer(query.EncodeJSON()))
+		g.Expect(query.Validate()).ToNot(HaveOccurred())
+		data, err := query.EncodeJSON()
+		g.Expect(err).ToNot(HaveOccurred())
+
+		listLocks, err := http.NewRequest("GET", fmt.Sprintf("%s/v1/locks", testConstruct.ServerURL), bytes.NewBuffer(data))
 		listLocks.Header.Add("Content-Type", "application/json")
 		g.Expect(err).ToNot(HaveOccurred())
 
@@ -409,12 +421,12 @@ func TestLocker_Async_API_Threading_Checks(t *testing.T) {
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(resp.StatusCode).To(Equal(http.StatusOK))
 
-		data, err := io.ReadAll(resp.Body)
+		data, err = io.ReadAll(resp.Body)
 		g.Expect(err).ToNot(HaveOccurred())
 
-		locks := v1locker.LockQueryResponse{}
+		locks := v1locker.Locks{}
 		g.Expect(json.Unmarshal(data, &locks)).ToNot(HaveOccurred())
-		g.Expect(len(locks.Locks)).To(Equal(0))
+		g.Expect(len(locks)).To(Equal(0))
 	})
 
 }

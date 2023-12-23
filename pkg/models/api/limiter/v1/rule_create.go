@@ -3,70 +3,66 @@ package v1
 import (
 	"encoding/json"
 	"fmt"
-	"io"
-
-	"github.com/DanLavine/willow/pkg/models/api"
-	"github.com/DanLavine/willow/pkg/models/api/common/errors"
 )
 
-type RuleRequest struct {
-	// Name of the rule
-	Name string // save this as the _associated_id in the the tree?
+// RuleCreateRequest contains all the properties needed when creating a new Limiter rule
+type RuleCreateRequest struct {
+	// Name of the Rule to create. Must be unique for all Rules
+	Name string
 
-	// These can be used to create a rule groupiing that any tags will have to match against
-	GroupBy []string // these are the logical keys to know what values we are checking against on the counters
+	// GroupBy contains the logical "key" grouping of any KeyValues for the counters.
+	GroupBy []string
 
-	// Limit dictates what value of grouped counter tags to allow untill a limit is reached
+	// Limit dictates what value of grouped counter KeyValues to allow untill a limit is reached
 	Limit uint64
 }
 
 //	RETURNS:
-//	- error - any errors encountered with the response object
+//	- error - error describing any possible issues and the steps to rectify them
 //
-// Validate is used to ensure that CreateLockResponse has all required fields set
-func (req *RuleRequest) Validate() error {
+// Validate ensures the RuleCreateRequest has all required fields set
+func (req *RuleCreateRequest) Validate() error {
 	if req.Name == "" {
-		return fmt.Errorf("'Name' is the empty string")
+		return errorNameIsInvalid
 	}
 
 	if len(req.GroupBy) == 0 {
-		return fmt.Errorf("'GroupBy' tags requres at least 1 Key")
+		return errorGroupByInvalidLength
+	}
+
+	// ensure no keys are duplicated
+	seenKeys := map[string]struct{}{}
+	for _, key := range req.GroupBy {
+		if _, ok := seenKeys[key]; ok {
+			return fmt.Errorf("%w: %s", errorGroupByInvalidKeys, key)
+		}
+
+		seenKeys[key] = struct{}{}
 	}
 
 	return nil
 }
 
 //	RETURNS:
-//	- []byte - byte array that can be sent over an http client
+//	- []byte - encoded JSON byte array for the RuleCreateRequest
+//	- error - error encoding to JSON
 //
 // EncodeJSON encodes the model to a valid JSON format
-func (req *RuleRequest) EncodeJSON() []byte {
-	data, _ := json.Marshal(req)
-	return data
+func (req *RuleCreateRequest) EncodeJSON() ([]byte, error) {
+	return json.Marshal(req)
 }
 
 //	PARAMETERS:
-//	- contentType - how to interperate the stream. Valida values [application/json]
-//	- reader - stream to read the encoded CreateLockResponse data from
+//	- data - encoded JSON data to parse RuleCreateRequest from
 //
 //	RETURNS:
-//	- error - any error encoutered when reading the response
+//	- error - any error encoutered when reading or parsing the data
 //
-// Decode can easily parse the response body from an http create request
-func (req *RuleRequest) Decode(contentType api.ContentType, reader io.ReadCloser) error {
-	switch contentType {
-	case api.ContentTypeJSON:
-		requestBody, err := io.ReadAll(reader)
-		if err != nil {
-			return errors.FailedToReadStreamBody(err)
-		}
-
-		if err := json.Unmarshal(requestBody, req); err != nil {
-			return errors.FailedToDecodeBody(err)
-		}
-	default:
-		return errors.UnknownContentType(contentType)
+// Decode can convertes the encoded byte array into the Object Decode was called on
+func (req *RuleCreateRequest) DecodeJSON(data []byte) error {
+	if err := json.Unmarshal(data, req); err != nil {
+		return err
 	}
 
-	return req.Validate()
+	return nil
 }

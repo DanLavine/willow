@@ -3,10 +3,7 @@ package v1
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 
-	"github.com/DanLavine/willow/pkg/models/api"
-	"github.com/DanLavine/willow/pkg/models/api/common/errors"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 )
 
@@ -58,97 +55,24 @@ func (ruleQuery *RuleQuery) Validate() error {
 
 //	RETURNS:
 //	- []byte - byte array that can be sent over an http client
+//	- error - error encoding to JSON
 //
 // EncodeJSON encodes the model to a valid JSON format
-func (ruleQuery *RuleQuery) EncodeJSON() []byte {
-	data, _ := json.Marshal(ruleQuery)
-	return data
+func (ruleQuery *RuleQuery) EncodeJSON() ([]byte, error) {
+	return json.Marshal(ruleQuery)
 }
 
 //	PARAMETERS:
-//	- contentType - how to interperate the stream. Valida values [application/json]
-//	- reader - stream to read the encoded CreateLockResponse data from
+//	- data - encoded JSON data to parse RuleQuery from
 //
 //	RETURNS:
-//	- error - any error encoutered when reading the response
+//	- error - any error encoutered when reading or parsing the data
 //
-// Decode can easily parse the response body from an http create request
-func (ruleQuery *RuleQuery) Decode(contentType api.ContentType, reader io.ReadCloser) error {
-	switch contentType {
-	case api.ContentTypeJSON:
-		requestBody, err := io.ReadAll(reader)
-		if err != nil {
-			return errors.FailedToReadStreamBody(err)
-		}
-
-		if err := json.Unmarshal(requestBody, ruleQuery); err != nil {
-			return errors.FailedToDecodeBody(err)
-		}
-	default:
-		return errors.UnknownContentType(contentType)
-	}
-
-	return ruleQuery.Validate()
-}
-
-// Collection of rules
-type Rules struct {
-	Rules []*RuleResponse
-}
-
-//	RETURNS:
-//	- error - any errors encountered with the response object
-//
-// Validate is used to ensure that CreateLockResponse has all required fields set
-func (rules *Rules) Validate() error {
-	if len(rules.Rules) == 0 {
-		return nil
-	}
-
-	for index, rule := range rules.Rules {
-		if rule == nil {
-			return fmt.Errorf("invalid index in rules at indexLoc: %d: rule cannot be nil", index)
-		}
-
-		if err := rule.Validate(); err != nil {
-			return fmt.Errorf("invalid index in rules %d: %w", index, err)
-		}
+// Decode can convertes the encoded byte array into the Object Decode was called on
+func (ruleQuery *RuleQuery) DecodeJSON(data []byte) error {
+	if err := json.Unmarshal(data, ruleQuery); err != nil {
+		return err
 	}
 
 	return nil
-}
-
-//	RETURNS:
-//	- []byte - byte array that can be sent over an http client
-//
-// EncodeJSON encodes the model to a valid JSON format
-func (rules *Rules) EncodeJSON() []byte {
-	data, _ := json.Marshal(rules)
-	return data
-}
-
-//	PARAMETERS:
-//	- contentType - how to interperate the stream. Valida values [application/json]
-//	- reader - stream to read the encoded CreateLockResponse data from
-//
-//	RETURNS:
-//	- error - any error encoutered when reading the response
-//
-// Decode can easily parse the response body from an http create request
-func (rules *Rules) Decode(contentType api.ContentType, reader io.ReadCloser) error {
-	switch contentType {
-	case api.ContentTypeJSON:
-		requestBody, err := io.ReadAll(reader)
-		if err != nil {
-			return errors.FailedToReadStreamBody(err)
-		}
-
-		if err := json.Unmarshal(requestBody, rules); err != nil {
-			return errors.FailedToDecodeBody(err)
-		}
-	default:
-		return errors.UnknownContentType(contentType)
-	}
-
-	return rules.Validate()
 }

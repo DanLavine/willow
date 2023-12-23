@@ -29,7 +29,7 @@ type lock struct {
 	// remote server client configuration
 	url         string
 	client      clients.HttpClient
-	contentType api.ContentType
+	contentType string
 
 	// record error callback if configured. Can be used to monitor any unexpeded errors
 	// with the remote service and record them
@@ -49,7 +49,7 @@ type lock struct {
 	timeout time.Duration
 }
 
-func newLock(sessionID string, timeout time.Duration, url string, client clients.HttpClient, contentType api.ContentType, heartbeatErrorCallback func(err error), releaseLockCallback func()) *lock {
+func newLock(sessionID string, timeout time.Duration, url string, client clients.HttpClient, contentType string, heartbeatErrorCallback func(err error), releaseLockCallback func()) *lock {
 	return &lock{
 		lock:     new(sync.Mutex),
 		released: false,
@@ -139,7 +139,7 @@ func (l *lock) heartbeat() int {
 	case http.StatusBadRequest:
 		// there was an error with the request body
 		apiError := &errors.Error{}
-		if err := apiError.Decode(api.ContentTypeFromResponse(resp), resp.Body); err != nil {
+		if err := api.DecodeAndValidateHttpResponse(resp, apiError); err != nil {
 			if l.heartbeatErrorCallback != nil {
 				l.heartbeatErrorCallback(err)
 			}
@@ -153,9 +153,9 @@ func (l *lock) heartbeat() int {
 	case http.StatusGone:
 		// there was an error with the sessionID
 		heartbeatError := &errors.Error{}
-		if err := heartbeatError.Decode(api.ContentTypeFromResponse(resp), resp.Body); err != nil {
+		if err := api.DecodeAndValidateHttpResponse(resp, heartbeatError); err != nil {
 			if l.heartbeatErrorCallback != nil {
-				l.heartbeatErrorCallback(errors.ClientError(err))
+				l.heartbeatErrorCallback(err)
 			}
 		} else {
 			if l.heartbeatErrorCallback != nil {
@@ -227,8 +227,8 @@ func (l *lock) release() error {
 	case http.StatusBadRequest:
 		// there was an error parsing the request body
 		apiError := &errors.Error{}
-		if err := apiError.Decode(api.ContentTypeFromResponse(resp), resp.Body); err != nil {
-			return errors.ClientError(err)
+		if err := api.DecodeAndValidateHttpResponse(resp, apiError); err != nil {
+			return err
 		}
 
 		return apiError

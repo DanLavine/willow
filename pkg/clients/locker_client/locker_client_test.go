@@ -18,8 +18,8 @@ func TestLockerClient_New(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	cfg := &clients.Config{
-		URL:         "doesn't matter here",
-		ContentType: api.ContentTypeJSON,
+		URL:             "doesn't matter here",
+		ContentEncoding: api.ContentTypeJSON,
 	}
 
 	t.Run("It returns an error if the context is nil, Background, TODO", func(t *testing.T) {
@@ -78,7 +78,7 @@ func TestLockerClient_ObtainLock(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel()
 
-		cfg := &clients.Config{URL: "http://127.0.0.1:8080", ContentType: api.ContentTypeJSON}
+		cfg := &clients.Config{URL: "http://127.0.0.1:8080"}
 
 		lockerClient, err := NewLockerClient(ctx, cfg, nil)
 		g.Expect(err).ToNot(HaveOccurred())
@@ -97,7 +97,7 @@ func TestLockerClient_ObtainLock(t *testing.T) {
 		clientCtx, clienetCancel := context.WithCancel(context.Background())
 		defer clienetCancel()
 
-		cfg := &clients.Config{URL: "http://127.0.0.1:8080", ContentType: api.ContentTypeJSON}
+		cfg := &clients.Config{URL: "http://127.0.0.1:8080"}
 
 		lockerClient, err := NewLockerClient(clientCtx, cfg, nil)
 		g.Expect(err).ToNot(HaveOccurred())
@@ -117,7 +117,7 @@ func TestLockerClient_ObtainLock(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
-		cfg := &clients.Config{URL: "bad url", ContentType: api.ContentTypeJSON}
+		cfg := &clients.Config{URL: "bad url"}
 
 		lockerClient, err := NewLockerClient(ctx, cfg, nil)
 		g.Expect(err).ToNot(HaveOccurred())
@@ -143,16 +143,14 @@ func TestLockerClient_ObtainLock(t *testing.T) {
 				Timeout:   time.Second,
 			}
 
-			w.Header().Add("Content-Type", "application/json")
-			w.WriteHeader(http.StatusCreated)
-			w.Write(createLockResponse.EncodeJSON())
+			api.EncodeAndSendHttpResponse(http.Header{}, w, http.StatusOK, createLockResponse)
 		})
 		server := setupServerHttp(mux)
 		defer server.Close()
 
 		// setup client
 		clientCtx, clientCancel := context.WithCancel(context.Background())
-		cfg := &clients.Config{URL: server.URL, ContentType: api.ContentTypeJSON}
+		cfg := &clients.Config{URL: server.URL}
 
 		lockerClient, err := NewLockerClient(clientCtx, cfg, nil)
 		g.Expect(err).ToNot(HaveOccurred())
@@ -179,7 +177,7 @@ func TestLockerClient_ObtainLock(t *testing.T) {
 		g.Expect(lock).To(BeNil())
 	})
 
-	t.Run("Context when the response is http.StatusCreated", func(t *testing.T) {
+	t.Run("Context when the response is http.StatusOK", func(t *testing.T) {
 		t.Run("It can obtain a lock for the provided key values", func(t *testing.T) {
 			// setup server
 			mux := http.NewServeMux()
@@ -188,9 +186,8 @@ func TestLockerClient_ObtainLock(t *testing.T) {
 					SessionID: "24",
 					Timeout:   time.Second,
 				}
-				w.Header().Add("Content-Type", "application/json")
-				w.WriteHeader(http.StatusCreated)
-				w.Write(createLockResponse.EncodeJSON())
+				_, err := api.EncodeAndSendHttpResponse(http.Header{}, w, http.StatusOK, createLockResponse)
+				g.Expect(err).ToNot(HaveOccurred())
 			})
 			server := setupServerHttp(mux)
 			defer server.Close()
@@ -199,7 +196,7 @@ func TestLockerClient_ObtainLock(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 
-			cfg := &clients.Config{URL: server.URL, ContentType: api.ContentTypeJSON}
+			cfg := &clients.Config{URL: server.URL}
 
 			lockerClient, err := NewLockerClient(ctx, cfg, nil)
 			g.Expect(err).ToNot(HaveOccurred())
@@ -221,9 +218,8 @@ func TestLockerClient_ObtainLock(t *testing.T) {
 					SessionID: "24",
 					Timeout:   time.Second,
 				}
-				w.Header().Add("Content-Type", "application/json")
-				w.WriteHeader(http.StatusCreated)
-				w.Write(createLockResponse.EncodeJSON())
+				_, err := api.EncodeAndSendHttpResponse(http.Header{}, w, http.StatusOK, createLockResponse)
+				g.Expect(err).ToNot(HaveOccurred())
 			})
 			server := setupServerHttp(mux)
 			defer server.Close()
@@ -232,7 +228,7 @@ func TestLockerClient_ObtainLock(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 
-			cfg := &clients.Config{URL: server.URL, ContentType: api.ContentTypeJSON}
+			cfg := &clients.Config{URL: server.URL}
 
 			lockerClient, err := NewLockerClient(ctx, cfg, nil)
 			g.Expect(err).ToNot(HaveOccurred())
@@ -259,7 +255,7 @@ func TestLockerClient_ObtainLock(t *testing.T) {
 			mux.HandleFunc("/v1/locks", func(w http.ResponseWriter, r *http.Request) {
 				w.Header().Add("content-length", "5")
 				w.Header().Add("Content-Type", "application/json")
-				w.WriteHeader(http.StatusCreated)
+				w.WriteHeader(http.StatusOK)
 				w.Write([]byte(`this has a bad header`))
 			})
 			server := setupServerHttp(mux)
@@ -268,7 +264,7 @@ func TestLockerClient_ObtainLock(t *testing.T) {
 			// setup client
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
-			cfg := &clients.Config{URL: server.URL, ContentType: api.ContentTypeJSON}
+			cfg := &clients.Config{URL: server.URL}
 
 			lockerClient, err := NewLockerClient(ctx, cfg, nil)
 			g.Expect(err).ToNot(HaveOccurred())
@@ -277,7 +273,7 @@ func TestLockerClient_ObtainLock(t *testing.T) {
 			// try to obtain the lock
 			lock, err := lockerClient.ObtainLock(ctx, &v1locker.LockCreateRequest{KeyValues: datatypes.KeyValues{"one": datatypes.Float32(3.4)}})
 			g.Expect(err).To(HaveOccurred())
-			g.Expect(err.Error()).To(ContainSubstring("client error: failed to read stream body"))
+			g.Expect(err.Error()).To(ContainSubstring("failed to read http response body"))
 			g.Expect(lock).To(BeNil())
 		})
 
@@ -286,7 +282,7 @@ func TestLockerClient_ObtainLock(t *testing.T) {
 			mux := http.NewServeMux()
 			mux.HandleFunc("/v1/locks", func(w http.ResponseWriter, r *http.Request) {
 				w.Header().Add("Content-Type", "application/json")
-				w.WriteHeader(http.StatusCreated)
+				w.WriteHeader(http.StatusOK)
 				w.Write([]byte(`this has a bad json`))
 			})
 			server := setupServerHttp(mux)
@@ -295,7 +291,7 @@ func TestLockerClient_ObtainLock(t *testing.T) {
 			// setup client
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
-			cfg := &clients.Config{URL: server.URL, ContentType: api.ContentTypeJSON}
+			cfg := &clients.Config{URL: server.URL}
 
 			lockerClient, err := NewLockerClient(ctx, cfg, nil)
 			g.Expect(err).ToNot(HaveOccurred())
@@ -304,7 +300,7 @@ func TestLockerClient_ObtainLock(t *testing.T) {
 			// try to obtain the lock
 			lock, err := lockerClient.ObtainLock(ctx, &v1locker.LockCreateRequest{KeyValues: datatypes.KeyValues{"one": datatypes.Float32(3.4)}})
 			g.Expect(err).To(HaveOccurred())
-			g.Expect(err.Error()).To(ContainSubstring("client error: failed to decode stream body"))
+			g.Expect(err.Error()).To(ContainSubstring("failed to decode response"))
 			g.Expect(lock).To(BeNil())
 		})
 
@@ -318,15 +314,14 @@ func TestLockerClient_ObtainLock(t *testing.T) {
 					SessionID: "24",
 					Timeout:   time.Second,
 				}
-				w.Header().Add("Content-Type", "application/json")
-				w.WriteHeader(http.StatusCreated)
-				w.Write(createLockResponse.EncodeJSON())
+				_, err := api.EncodeAndSendHttpResponse(http.Header{}, w, http.StatusOK, createLockResponse)
+				g.Expect(err).ToNot(HaveOccurred())
 			})
 			server := setupServerHttp(mux)
 			defer server.Close()
 
 			// setup client
-			cfg := &clients.Config{URL: server.URL, ContentType: api.ContentTypeJSON}
+			cfg := &clients.Config{URL: server.URL}
 
 			clientCtx, clientCancel := context.WithCancel(context.Background())
 			defer clientCancel()

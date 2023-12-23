@@ -19,7 +19,7 @@ type Config struct {
 	// thought behind this is that different content types can help with various workflows:
 	//	1. application/json - easy to understand and reason about when manually testing
 	//  2. application/octet-stream - faster to use if there are no rules, and Willow is processing lots of data (not yet implemented)
-	ContentType api.ContentType
+	ContentEncoding string
 
 	// if these values are set, then the config will validate and use the custom tls keys file for https.
 	// All of these should be the absolute path to the files
@@ -42,11 +42,15 @@ func (cfg *Config) Validate() error {
 		return fmt.Errorf("client's Config.URL cannot be empty")
 	}
 
-	switch cfg.ContentType {
+	switch cfg.ContentEncoding {
 	case api.ContentTypeJSON:
 		// these are all valid
 	default:
-		return fmt.Errorf("unknown content type: %s", cfg.ContentType)
+		if cfg.ContentEncoding == "" {
+			cfg.ContentEncoding = api.ContentTypeJSON
+		} else {
+			return fmt.Errorf("unknown content type: %s", cfg.ContentEncoding)
+		}
 	}
 
 	if cfg.CAFile == "" && cfg.ClientCRTFile == "" && cfg.ClientKeyFile == "" {

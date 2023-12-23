@@ -8,7 +8,7 @@ import (
 	reflect "reflect"
 
 	v1limitermodels "github.com/DanLavine/willow/internal/limiter/v1_limiter_models"
-	servererrors "github.com/DanLavine/willow/internal/server_errors"
+	errors "github.com/DanLavine/willow/pkg/models/api/common/errors"
 	v1 "github.com/DanLavine/willow/pkg/models/api/common/v1"
 	v10 "github.com/DanLavine/willow/pkg/models/api/limiter/v1"
 	datatypes "github.com/DanLavine/willow/pkg/models/datatypes"
@@ -40,10 +40,10 @@ func (m *MockRule) EXPECT() *MockRuleMockRecorder {
 }
 
 // CascadeDeletion mocks base method.
-func (m *MockRule) CascadeDeletion(arg0 *zap.Logger) *servererrors.ApiError {
+func (m *MockRule) CascadeDeletion(arg0 *zap.Logger) *errors.ServerError {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CascadeDeletion", arg0)
-	ret0, _ := ret[0].(*servererrors.ApiError)
+	ret0, _ := ret[0].(*errors.ServerError)
 	return ret0
 }
 
@@ -54,10 +54,10 @@ func (mr *MockRuleMockRecorder) CascadeDeletion(arg0 interface{}) *gomock.Call {
 }
 
 // DeleteOverride mocks base method.
-func (m *MockRule) DeleteOverride(arg0 *zap.Logger, arg1 string) *servererrors.ApiError {
+func (m *MockRule) DeleteOverride(arg0 *zap.Logger, arg1 string) *errors.ServerError {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeleteOverride", arg0, arg1)
-	ret0, _ := ret[0].(*servererrors.ApiError)
+	ret0, _ := ret[0].(*errors.ServerError)
 	return ret0
 }
 
@@ -68,11 +68,11 @@ func (mr *MockRuleMockRecorder) DeleteOverride(arg0, arg1 interface{}) *gomock.C
 }
 
 // FindLimits mocks base method.
-func (m *MockRule) FindLimits(arg0 *zap.Logger, arg1 datatypes.KeyValues) (v1limitermodels.Limits, *servererrors.ApiError) {
+func (m *MockRule) FindLimits(arg0 *zap.Logger, arg1 datatypes.KeyValues) (v1limitermodels.Limits, *errors.ServerError) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "FindLimits", arg0, arg1)
 	ret0, _ := ret[0].(v1limitermodels.Limits)
-	ret1, _ := ret[1].(*servererrors.ApiError)
+	ret1, _ := ret[1].(*errors.ServerError)
 	return ret0, ret1
 }
 
@@ -83,10 +83,10 @@ func (mr *MockRuleMockRecorder) FindLimits(arg0, arg1 interface{}) *gomock.Call 
 }
 
 // Get mocks base method.
-func (m *MockRule) Get(arg0 *v10.RuleQuery) *v10.RuleResponse {
+func (m *MockRule) Get(arg0 *v10.RuleQuery) *v10.Rule {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Get", arg0)
-	ret0, _ := ret[0].(*v10.RuleResponse)
+	ret0, _ := ret[0].(*v10.Rule)
 	return ret0
 }
 
@@ -125,11 +125,11 @@ func (mr *MockRuleMockRecorder) Name() *gomock.Call {
 }
 
 // QueryOverrides mocks base method.
-func (m *MockRule) QueryOverrides(arg0 *zap.Logger, arg1 *v1.AssociatedQuery) (*v10.Overrides, *servererrors.ApiError) {
+func (m *MockRule) QueryOverrides(arg0 *zap.Logger, arg1 *v1.AssociatedQuery) (v10.Overrides, *errors.ServerError) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "QueryOverrides", arg0, arg1)
-	ret0, _ := ret[0].(*v10.Overrides)
-	ret1, _ := ret[1].(*servererrors.ApiError)
+	ret0, _ := ret[0].(v10.Overrides)
+	ret1, _ := ret[1].(*errors.ServerError)
 	return ret0, ret1
 }
 
@@ -140,10 +140,10 @@ func (mr *MockRuleMockRecorder) QueryOverrides(arg0, arg1 interface{}) *gomock.C
 }
 
 // SetOverride mocks base method.
-func (m *MockRule) SetOverride(arg0 *zap.Logger, arg1 *v10.Override) *servererrors.ApiError {
+func (m *MockRule) SetOverride(arg0 *zap.Logger, arg1 *v10.Override) *errors.ServerError {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetOverride", arg0, arg1)
-	ret0, _ := ret[0].(*servererrors.ApiError)
+	ret0, _ := ret[0].(*errors.ServerError)
 	return ret0
 }
 
@@ -154,7 +154,7 @@ func (mr *MockRuleMockRecorder) SetOverride(arg0, arg1 interface{}) *gomock.Call
 }
 
 // Update mocks base method.
-func (m *MockRule) Update(arg0 *zap.Logger, arg1 *v10.RuleUpdate) {
+func (m *MockRule) Update(arg0 *zap.Logger, arg1 *v10.RuleUpdateRquest) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "Update", arg0, arg1)
 }

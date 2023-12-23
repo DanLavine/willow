@@ -43,9 +43,8 @@ func AddV1LimiterRoutes(mux *urlrouter.Router, v1Handler handlers.V1LimiterRuleH
 	mux.HandleFunc("DELETE", "/v1/limiter/rules/:rule_name/overrides/:override_name", v1Handler.DeleteOverride)
 
 	// operations to check items against arbitrary rules
+	mux.HandleFunc("PUT", "/v1/limiter/counters", v1Handler.UpdateCounters)
 	mux.HandleFunc("GET", "/v1/limiter/counters", v1Handler.ListCounters)
-	mux.HandleFunc("POST", "/v1/limiter/counters", v1Handler.Increment)
-	mux.HandleFunc("DELETE", "/v1/limiter/counters", v1Handler.Decrement)
 
 	// operations to setup or clean counters without checking rules
 	mux.HandleFunc("POST", "/v1/limiter/counters/set", v1Handler.SetCounters)

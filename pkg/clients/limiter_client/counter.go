@@ -5,16 +5,17 @@ import (
 	"net/http"
 
 	"github.com/DanLavine/willow/pkg/clients"
+	"github.com/DanLavine/willow/pkg/models/api"
 	"github.com/DanLavine/willow/pkg/models/api/common/errors"
 
 	v1common "github.com/DanLavine/willow/pkg/models/api/common/v1"
 	v1limiter "github.com/DanLavine/willow/pkg/models/api/limiter/v1"
 )
 
-func (lc *limiterClient) IncrementCounter(counter *v1limiter.Counter) error {
+func (lc *limiterClient) UpdateCounter(counter *v1limiter.Counter) error {
 	// setup and make the request
 	resp, err := lc.client.Do(&clients.RequestData{
-		Method: "POST",
+		Method: "PUT",
 		Path:   fmt.Sprintf("%s/v1/limiter/counters", lc.url),
 		Model:  counter,
 	})
@@ -30,8 +31,8 @@ func (lc *limiterClient) IncrementCounter(counter *v1limiter.Counter) error {
 		return nil
 	case http.StatusBadRequest, http.StatusConflict, http.StatusInternalServerError:
 		apiError := &errors.Error{}
-		if err := apiError.Decode(lc.contentType, resp.Body); err != nil {
-			return errors.ClientError(err)
+		if err := api.DecodeAndValidateHttpResponse(resp, apiError); err != nil {
+			return err
 		}
 
 		return apiError
@@ -40,36 +41,36 @@ func (lc *limiterClient) IncrementCounter(counter *v1limiter.Counter) error {
 	}
 }
 
-func (lc *limiterClient) DecrementCounter(counter *v1limiter.Counter) error {
-	// setup and make the request
-	resp, err := lc.client.Do(&clients.RequestData{
-		Method: "DELETE",
-		Path:   fmt.Sprintf("%s/v1/limiter/counters", lc.url),
-		Model:  counter,
-	})
+// func (lc *limiterClient) DecrementCounter(counter *v1limiter.Counter) error {
+// 	// setup and make the request
+// 	resp, err := lc.client.Do(&clients.RequestData{
+// 		Method: "DELETE",
+// 		Path:   fmt.Sprintf("%s/v1/limiter/counters", lc.url),
+// 		Model:  counter,
+// 	})
 
-	if err != nil {
-		return err
-	}
+// 	if err != nil {
+// 		return err
+// 	}
 
-	// parse the response
-	switch resp.StatusCode {
-	case http.StatusNoContent:
-		// success case and nothing to return
-		return nil
-	case http.StatusBadRequest, http.StatusInternalServerError:
-		apiError := &errors.Error{}
-		if err := apiError.Decode(lc.contentType, resp.Body); err != nil {
-			return errors.ClientError(err)
-		}
+// 	// parse the response
+// 	switch resp.StatusCode {
+// 	case http.StatusNoContent:
+// 		// success case and nothing to return
+// 		return nil
+// 	case http.StatusBadRequest, http.StatusInternalServerError:
+// 		apiError := &errors.Error{}
+// 		if err := api.DecodeAndValidateHttpResponse(resp, apiError); err != nil {
+// 			return err
+// 		}
 
-		return apiError
-	default:
-		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
-	}
-}
+// 		return apiError
+// 	default:
+// 		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+// 	}
+// }
 
-func (lc *limiterClient) ListCounters(query *v1common.AssociatedQuery) (*v1limiter.CountersResponse, error) {
+func (lc *limiterClient) ListCounters(query *v1common.AssociatedQuery) (v1limiter.Counters, error) {
 	// setup and make the request
 	resp, err := lc.client.Do(&clients.RequestData{
 		Method: "GET",
@@ -84,16 +85,16 @@ func (lc *limiterClient) ListCounters(query *v1common.AssociatedQuery) (*v1limit
 	// parse the response
 	switch resp.StatusCode {
 	case http.StatusOK:
-		countersResponse := &v1limiter.CountersResponse{}
-		if err := countersResponse.Decode(lc.contentType, resp.Body); err != nil {
-			return nil, errors.ClientError(err)
+		counters := v1limiter.Counters{}
+		if err := api.DecodeAndValidateHttpResponse(resp, &counters); err != nil {
+			return nil, err
 		}
 
-		return countersResponse, nil
+		return counters, nil
 	case http.StatusBadRequest, http.StatusInternalServerError:
 		apiError := &errors.Error{}
-		if err := apiError.Decode(lc.contentType, resp.Body); err != nil {
-			return nil, errors.ClientError(err)
+		if err := api.DecodeAndValidateHttpResponse(resp, apiError); err != nil {
+			return nil, err
 		}
 
 		return nil, apiError
@@ -102,7 +103,7 @@ func (lc *limiterClient) ListCounters(query *v1common.AssociatedQuery) (*v1limit
 	}
 }
 
-func (lc *limiterClient) SetCounters(counters *v1limiter.CounterSet) error {
+func (lc *limiterClient) SetCounters(counters *v1limiter.Counter) error {
 	// setup and make the request
 	resp, err := lc.client.Do(&clients.RequestData{
 		Method: "POST",
@@ -121,8 +122,8 @@ func (lc *limiterClient) SetCounters(counters *v1limiter.CounterSet) error {
 		return nil
 	case http.StatusBadRequest, http.StatusInternalServerError:
 		apiError := &errors.Error{}
-		if err := apiError.Decode(lc.contentType, resp.Body); err != nil {
-			return errors.ClientError(err)
+		if err := api.DecodeAndValidateHttpResponse(resp, apiError); err != nil {
+			return err
 		}
 
 		return apiError

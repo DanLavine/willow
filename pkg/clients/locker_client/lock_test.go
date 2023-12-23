@@ -32,7 +32,7 @@ func setupLock(server *httptest.Server) (*lock, *atomic.Int64, *atomic.Int64, *[
 		lostLockCallbackCounter.Add(1)
 	}
 
-	cfg := &clients.Config{URL: server.URL, ContentType: api.ContentTypeJSON}
+	cfg := &clients.Config{URL: server.URL}
 	client, err := clients.NewHTTPClient(cfg)
 	if err != nil {
 		panic(err)
@@ -235,7 +235,7 @@ func TestLock_heartbeat(t *testing.T) {
 		})
 	})
 
-	t.Run("Context when the response code is http.StatusBadRequest or http.StatusConflict", func(t *testing.T) {
+	t.Run("Context when the response code is http.StatusBadRequest or http.StatusGone", func(t *testing.T) {
 		t.Run("It calls heartbeatErrorCallback if the response body cannot be read", func(t *testing.T) {
 			counter := 0
 			mux := http.NewServeMux()
@@ -250,7 +250,7 @@ func TestLock_heartbeat(t *testing.T) {
 				default:
 					w.Header().Add("content-length", "5")
 					w.Header().Add("Content-Type", "application/json")
-					w.WriteHeader(http.StatusConflict)
+					w.WriteHeader(http.StatusGone)
 					w.Write([]byte(`this isn't json`))
 				}
 			})
@@ -263,13 +263,13 @@ func TestLock_heartbeat(t *testing.T) {
 			lock.heartbeat()
 			g.Expect(lostCounter.Load()).To(Equal(int64(0)))
 			g.Expect(hertbeatErrorCounter.Load()).To(Equal(int64(1)))
-			g.Expect((*heartbeatErrs)[0].Error()).To(ContainSubstring("failed to read error's response stream from the server: unexpected EOF"))
+			g.Expect((*heartbeatErrs)[0].Error()).To(ContainSubstring("failed to read http response body: unexpected EOF"))
 
 			// conflict
 			lock.heartbeat()
 			g.Expect(lostCounter.Load()).To(Equal(int64(1)))
 			g.Expect(hertbeatErrorCounter.Load()).To(Equal(int64(2)))
-			g.Expect((*heartbeatErrs)[1].Error()).To(ContainSubstring("client error: failed to read stream body: unexpected EOF"))
+			g.Expect((*heartbeatErrs)[1].Error()).To(ContainSubstring("failed to read http response body: unexpected EOF"))
 		})
 	})
 
@@ -289,16 +289,15 @@ func TestLock_heartbeat(t *testing.T) {
 			lock.heartbeat()
 			g.Expect(lostCounter.Load()).To(Equal(int64(0)))
 			g.Expect(hertbeatErrorCounter.Load()).To(Equal(int64(1)))
-			g.Expect((*heartbeatErrs)[0].Error()).To(ContainSubstring("failed to decode error from the server"))
+			g.Expect((*heartbeatErrs)[0].Error()).To(ContainSubstring("failed to decode api error response"))
 		})
 
 		t.Run("It calls the heartbeatErrorCallback with the remote error", func(t *testing.T) {
 			mux := http.NewServeMux()
 			mux.HandleFunc("/v1/locks/someID/heartbeat", func(w http.ResponseWriter, r *http.Request) {
 				apiErr := &errors.Error{Message: "this is the api error"}
-				w.Header().Add("Content-Type", "application/json")
-				w.WriteHeader(http.StatusBadRequest)
-				w.Write(apiErr.EncodeJSON())
+				_, err := api.EncodeAndSendHttpResponse(http.Header{}, w, http.StatusBadRequest, apiErr)
+				g.Expect(err).ToNot(HaveOccurred())
 			})
 
 			server := setupServerHttp(mux)
@@ -312,12 +311,12 @@ func TestLock_heartbeat(t *testing.T) {
 		})
 	})
 
-	t.Run("Context when the response code is http.StatusConflict", func(t *testing.T) {
+	t.Run("Context when the response code is http.StatusGone", func(t *testing.T) {
 		t.Run("It calls the heartbeatErrorCallback if the server response cannot be parsed", func(t *testing.T) {
 			mux := http.NewServeMux()
 			mux.HandleFunc("/v1/locks/someID/heartbeat", func(w http.ResponseWriter, r *http.Request) {
 				w.Header().Add("Content-Type", "application/json")
-				w.WriteHeader(http.StatusConflict)
+				w.WriteHeader(http.StatusGone)
 				w.Write([]byte(`this isn't json`))
 			})
 
@@ -328,7 +327,7 @@ func TestLock_heartbeat(t *testing.T) {
 			lock.heartbeat()
 			g.Expect(lostCounter.Load()).To(Equal(int64(1)))
 			g.Expect(hertbeatErrorCounter.Load()).To(Equal(int64(1)))
-			g.Expect((*heartbeatErrs)[0].Error()).To(ContainSubstring("client error: failed to decode stream body"))
+			g.Expect((*heartbeatErrs)[0].Error()).To(ContainSubstring("failed to decode api error response:"))
 		})
 
 		t.Run("It calls the lostLock callback and returns the original server error when the response is parsed", func(t *testing.T) {
@@ -337,10 +336,8 @@ func TestLock_heartbeat(t *testing.T) {
 				heartbeatError := &errors.Error{
 					Message: "the session id does not exist",
 				}
-
-				w.Header().Add("Content-Type", "application/json")
-				w.WriteHeader(http.StatusConflict)
-				w.Write(heartbeatError.EncodeJSON())
+				_, err := api.EncodeAndSendHttpResponse(http.Header{}, w, http.StatusGone, heartbeatError)
+				g.Expect(err).ToNot(HaveOccurred())
 			})
 
 			server := setupServerHttp(mux)
@@ -423,9 +420,8 @@ func TestLock_release(t *testing.T) {
 			})
 			mux.HandleFunc("/v1/locks/someID", func(w http.ResponseWriter, r *http.Request) {
 				apiErr := &errors.Error{Message: "bad request budy"}
-				w.Header().Add("Content-Type", "application/json")
-				w.WriteHeader(http.StatusBadRequest)
-				w.Write(apiErr.EncodeJSON())
+				_, err := api.EncodeAndSendHttpResponse(http.Header{}, w, http.StatusBadRequest, apiErr)
+				g.Expect(err).ToNot(HaveOccurred())
 			})
 
 			server := setupServerHttp(mux)
@@ -483,7 +479,7 @@ func TestLock_release(t *testing.T) {
 			// release the lock
 			err := lock.Release()
 			g.Expect(err).To(HaveOccurred())
-			g.Expect(err.Error()).To(ContainSubstring("client error: failed to read error's response stream from the server"))
+			g.Expect(err.Error()).To(ContainSubstring("failed to read http response body"))
 			g.Expect(lock.Done()).To(BeClosed())
 
 			g.Expect(lostCounter.Load()).To(Equal(int64(1)))
@@ -520,7 +516,7 @@ func TestLock_release(t *testing.T) {
 			// release the lock
 			err := lock.Release()
 			g.Expect(err).To(HaveOccurred())
-			g.Expect(err.Error()).To(ContainSubstring("client error: failed to decode error from the server"))
+			g.Expect(err.Error()).To(ContainSubstring("failed to decode api error response"))
 			g.Expect(lock.Done()).To(BeClosed())
 
 			g.Expect(lostCounter.Load()).To(Equal(int64(1)))

@@ -11,46 +11,50 @@ import (
 	"github.com/DanLavine/willow/internal/limiter/counters"
 	"github.com/DanLavine/willow/internal/limiter/rules"
 	v1limitermodels "github.com/DanLavine/willow/internal/limiter/v1_limiter_models"
-	servererrors "github.com/DanLavine/willow/internal/server_errors"
 	lockerclient "github.com/DanLavine/willow/pkg/clients/locker_client"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
 
+	"github.com/DanLavine/willow/pkg/models/api/common/errors"
 	v1common "github.com/DanLavine/willow/pkg/models/api/common/v1"
 	v1limiter "github.com/DanLavine/willow/pkg/models/api/limiter/v1"
 	v1locker "github.com/DanLavine/willow/pkg/models/api/locker/v1"
 )
 
 var (
-	LimitReached = &servererrors.ApiError{Message: "Limit has already been reached for requested key values", StatusCode: http.StatusConflict}
+	LimitReached = &errors.ServerError{Message: "Limit has already been reached for requested key values", StatusCode: http.StatusConflict}
 )
+
+func errorMissingRuleName(name string) *errors.ServerError {
+	return &errors.ServerError{Message: fmt.Sprintf("failed to find rule '%s' by name", name), StatusCode: http.StatusUnprocessableEntity}
+}
 
 // Handles CRUD backend logic for Limit operations
 type RulesManager interface {
 	// create
-	Create(logger *zap.Logger, rule *v1limiter.RuleRequest) *servererrors.ApiError
+	Create(logger *zap.Logger, rule *v1limiter.RuleCreateRequest) *errors.ServerError
 
 	// update
-	Update(logger *zap.Logger, name string, update *v1limiter.RuleUpdate) *servererrors.ApiError
+	Update(logger *zap.Logger, name string, update *v1limiter.RuleUpdateRquest) *errors.ServerError
 
 	// read
-	Get(logger *zap.Logger, name string, query *v1limiter.RuleQuery) *v1limiter.RuleResponse
-	List(logger *zap.Logger, query *v1limiter.RuleQuery) (*v1limiter.Rules, *servererrors.ApiError)
+	Get(logger *zap.Logger, name string, query *v1limiter.RuleQuery) *v1limiter.Rule
+	List(logger *zap.Logger, query *v1limiter.RuleQuery) (v1limiter.Rules, *errors.ServerError)
 
 	// delete operations
-	Delete(logger *zap.Logger, name string) *servererrors.ApiError
+	Delete(logger *zap.Logger, name string) *errors.ServerError
 
 	// override operations
-	ListOverrides(logger *zap.Logger, ruleName string, query *v1common.AssociatedQuery) (*v1limiter.Overrides, *servererrors.ApiError)
-	CreateOverride(logger *zap.Logger, ruleName string, override *v1limiter.Override) *servererrors.ApiError
-	DeleteOverride(logger *zap.Logger, ruleName string, overrideName string) *servererrors.ApiError
+	ListOverrides(logger *zap.Logger, ruleName string, query *v1common.AssociatedQuery) (v1limiter.Overrides, *errors.ServerError)
+	CreateOverride(logger *zap.Logger, ruleName string, override *v1limiter.Override) *errors.ServerError
+	DeleteOverride(logger *zap.Logger, ruleName string, overrideName string) *errors.ServerError
 
 	// counter operations
-	ListCounters(logger *zap.Logger, query *v1common.AssociatedQuery) (*v1limiter.CountersResponse, *servererrors.ApiError)
-	IncrementCounters(logger *zap.Logger, requestContext context.Context, lockerClient lockerclient.LockerClient, increment *v1limiter.Counter) *servererrors.ApiError
-	DecrementCounters(logger *zap.Logger, decrement *v1limiter.Counter) *servererrors.ApiError
-	SetCounters(logger *zap.Logger, setCounters *v1limiter.CounterSet) *servererrors.ApiError
+	ListCounters(logger *zap.Logger, query *v1common.AssociatedQuery) (v1limiter.Counters, *errors.ServerError)
+	IncrementCounters(logger *zap.Logger, requestContext context.Context, lockerClient lockerclient.LockerClient, increment *v1limiter.Counter) *errors.ServerError
+	DecrementCounters(logger *zap.Logger, decrement *v1limiter.Counter) *errors.ServerError
+	SetCounters(logger *zap.Logger, setCounters *v1limiter.Counter) *errors.ServerError
 }
 
 type rulesManger struct {
@@ -73,7 +77,7 @@ func NewRulesManger(ruleConstructor rules.RuleConstructor) *rulesManger {
 }
 
 // Create new group rule operation
-func (rm *rulesManger) Create(logger *zap.Logger, rule *v1limiter.RuleRequest) *servererrors.ApiError {
+func (rm *rulesManger) Create(logger *zap.Logger, rule *v1limiter.RuleCreateRequest) *errors.ServerError {
 	logger = logger.Named("Create")
 	onCreate := func() any {
 		return rm.ruleConstructor.New(rule)
@@ -90,13 +94,13 @@ func (rm *rulesManger) Create(logger *zap.Logger, rule *v1limiter.RuleRequest) *
 		switch err {
 		case btreeassociated.ErrorCreateFailureKeyValuesExist:
 			logger.Warn("failed to create new rule because keys exist", zap.Error(err))
-			return (&servererrors.ApiError{Message: "failed to create rule.", StatusCode: http.StatusUnprocessableEntity}).With("group by keys to not be in use", "group by keys are in use by another rule")
+			return &errors.ServerError{Message: "failed to create rule. GroupBy keys already in use by another rule", StatusCode: http.StatusUnprocessableEntity}
 		case btreeassociated.ErrorAssociatedIDAlreadyExists:
 			logger.Warn("failed to create new rule because name exist", zap.Error(err))
-			return (&servererrors.ApiError{Message: "failed to create rule.", StatusCode: http.StatusUnprocessableEntity}).With("name to not be in use", "name is already in use by another rule")
+			return &errors.ServerError{Message: "failed to create rule. Name is already in use", StatusCode: http.StatusUnprocessableEntity}
 		default:
 			logger.Error("failed to create or find a new rule", zap.Error(err))
-			return (&servererrors.ApiError{Message: "failed to create, unexpected error.", StatusCode: http.StatusInternalServerError}).With("", err.Error())
+			return &errors.ServerError{Message: "failed to create, unexpected error.", StatusCode: http.StatusInternalServerError}
 		}
 	}
 
@@ -104,10 +108,10 @@ func (rm *rulesManger) Create(logger *zap.Logger, rule *v1limiter.RuleRequest) *
 }
 
 // Get a group rule by name
-func (rm *rulesManger) Get(logger *zap.Logger, name string, query *v1limiter.RuleQuery) *v1limiter.RuleResponse {
+func (rm *rulesManger) Get(logger *zap.Logger, name string, query *v1limiter.RuleQuery) *v1limiter.Rule {
 	logger = logger.Named("Get").With(zap.String("name", name))
 
-	var rule *v1limiter.RuleResponse
+	var rule *v1limiter.Rule
 	onFind := func(item any) {
 		rule = item.(*btreeassociated.AssociatedKeyValues).Value().(rules.Rule).Get(query)
 	}
@@ -126,13 +130,13 @@ func (rm *rulesManger) Get(logger *zap.Logger, name string, query *v1limiter.Rul
 // list all group rules that match the provided key values
 //
 // Can also include the overrides
-func (rm *rulesManger) List(logger *zap.Logger, query *v1limiter.RuleQuery) (*v1limiter.Rules, *servererrors.ApiError) {
+func (rm *rulesManger) List(logger *zap.Logger, query *v1limiter.RuleQuery) (v1limiter.Rules, *errors.ServerError) {
 	logger = logger.Named("List")
-	foundRules := &v1limiter.Rules{}
+	foundRules := v1limiter.Rules{}
 
 	onFindMatchingRule := func(associatedKeyValues *btreeassociated.AssociatedKeyValues) bool {
 		rule := associatedKeyValues.Value().(rules.Rule)
-		foundRules.Rules = append(foundRules.Rules, rule.Get(query))
+		foundRules = append(foundRules, rule.Get(query))
 
 		return true
 	}
@@ -141,14 +145,14 @@ func (rm *rulesManger) List(logger *zap.Logger, query *v1limiter.RuleQuery) (*v1
 	case nil:
 		if err := rm.rules.Query(datatypes.AssociatedKeyValuesQuery{}, onFindMatchingRule); err != nil {
 			logger.Error("faild to query for rules", zap.Error(err))
-			return nil, &servererrors.ApiError{Message: "Internal server error", StatusCode: http.StatusInternalServerError}
+			return nil, &errors.ServerError{Message: "Internal server error", StatusCode: http.StatusInternalServerError}
 		}
 	default:
 		// special match logic. we alwys need to look for empty strings as a 'Select All' operation
 		// these need to be converted to empty string. duh
 		if err := rm.rules.MatchPermutations(keyValuesToRuleQuery(*query.KeyValues), onFindMatchingRule); err != nil {
 			logger.Error("faild to match for rules", zap.Error(err))
-			return nil, &servererrors.ApiError{Message: "Internal server error", StatusCode: http.StatusInternalServerError}
+			return nil, &errors.ServerError{Message: "Internal server error", StatusCode: http.StatusInternalServerError}
 		}
 	}
 
@@ -156,7 +160,7 @@ func (rm *rulesManger) List(logger *zap.Logger, query *v1limiter.RuleQuery) (*v1
 }
 
 // Update a rule by name
-func (rm *rulesManger) Update(logger *zap.Logger, name string, update *v1limiter.RuleUpdate) *servererrors.ApiError {
+func (rm *rulesManger) Update(logger *zap.Logger, name string, update *v1limiter.RuleUpdateRquest) *errors.ServerError {
 	logger = logger.Named("Update").With(zap.String("rule_name", name))
 
 	found := false
@@ -168,23 +172,23 @@ func (rm *rulesManger) Update(logger *zap.Logger, name string, update *v1limiter
 
 	if err := rm.rules.FindByAssociatedID(name, onFind); err != nil {
 		logger.Error("failed to find rule by AssociatedID because of an internal server error", zap.Error(err))
-		return &servererrors.ApiError{Message: "failed to find rule by name because of an internal server error", StatusCode: http.StatusInternalServerError}
+		return &errors.ServerError{Message: "failed to find rule by name because of an internal server error", StatusCode: http.StatusInternalServerError}
 	}
 
 	if !found {
 		logger.Warn("failed to find rule by AssociatedID")
-		return (&servererrors.ApiError{Message: "failed to find rule by name", StatusCode: http.StatusUnprocessableEntity}).With(fmt.Sprintf("name %s", name), "no rule found by that name")
+		return &errors.ServerError{Message: fmt.Sprintf("failed to find rule '%s' by name", name), StatusCode: http.StatusUnprocessableEntity}
 	}
 
 	return nil
 }
 
 // Delete a rule by name
-func (rm *rulesManger) Delete(logger *zap.Logger, name string) *servererrors.ApiError {
+func (rm *rulesManger) Delete(logger *zap.Logger, name string) *errors.ServerError {
 	logger = logger.Named("DeleteGroupRule").With(zap.String("rule_name", name))
 
 	deleteCalled := false
-	var cascadeError *servererrors.ApiError
+	var cascadeError *errors.ServerError
 	canDelete := func(item any) bool {
 		deleteCalled = true
 
@@ -203,7 +207,7 @@ func (rm *rulesManger) Delete(logger *zap.Logger, name string) *servererrors.Api
 
 	if err := rm.rules.DeleteByAssociatedID(name, canDelete); err != nil {
 		logger.Error("failed to lookup rule for deletion", zap.String("name", name), zap.Error(err))
-		return &servererrors.ApiError{Message: "failed to delete rule by name", StatusCode: http.StatusInternalServerError}
+		return &errors.ServerError{Message: "failed to delete rule by name", StatusCode: http.StatusInternalServerError}
 	}
 
 	if !deleteCalled {
@@ -214,12 +218,12 @@ func (rm *rulesManger) Delete(logger *zap.Logger, name string) *servererrors.Api
 }
 
 // Create an override for a rule by name
-func (rm *rulesManger) ListOverrides(logger *zap.Logger, ruleName string, query *v1common.AssociatedQuery) (*v1limiter.Overrides, *servererrors.ApiError) {
+func (rm *rulesManger) ListOverrides(logger *zap.Logger, ruleName string, query *v1common.AssociatedQuery) (v1limiter.Overrides, *errors.ServerError) {
 	logger = logger.Named("ListOverrides")
 
 	found := false
-	overrides := &v1limiter.Overrides{}
-	var overrideErr *servererrors.ApiError
+	overrides := v1limiter.Overrides{}
+	var overrideErr *errors.ServerError
 	onFind := func(item any) {
 		found = true
 		rule := item.(*btreeassociated.AssociatedKeyValues).Value().(rules.Rule)
@@ -228,22 +232,22 @@ func (rm *rulesManger) ListOverrides(logger *zap.Logger, ruleName string, query 
 
 	if err := rm.rules.FindByAssociatedID(ruleName, onFind); err != nil {
 		logger.Error("failed to find rule by associatedid", zap.String("name", ruleName), zap.Error(err))
-		return overrides, (&servererrors.ApiError{Message: "failed to find rule by name", StatusCode: http.StatusUnprocessableEntity}).With(fmt.Sprintf("name %s", ruleName), "no rule found by that name")
+		return overrides, errorMissingRuleName(ruleName)
 	}
 
 	if !found {
-		overrideErr = &servererrors.ApiError{Message: fmt.Sprintf("Rule %s not found", ruleName), StatusCode: http.StatusNotFound}
+		overrideErr = &errors.ServerError{Message: fmt.Sprintf("Rule %s not found", ruleName), StatusCode: http.StatusNotFound}
 	}
 
 	return overrides, overrideErr
 }
 
 // Create an override for a rule by name
-func (rm *rulesManger) CreateOverride(logger *zap.Logger, ruleName string, override *v1limiter.Override) *servererrors.ApiError {
+func (rm *rulesManger) CreateOverride(logger *zap.Logger, ruleName string, override *v1limiter.Override) *errors.ServerError {
 	logger = logger.Named("CreateOverride")
 
 	found := false
-	var overrideErr *servererrors.ApiError
+	var overrideErr *errors.ServerError
 	onFind := func(item any) {
 		found = true
 		rule := item.(*btreeassociated.AssociatedKeyValues).Value().(rules.Rule)
@@ -252,22 +256,22 @@ func (rm *rulesManger) CreateOverride(logger *zap.Logger, ruleName string, overr
 
 	if err := rm.rules.FindByAssociatedID(ruleName, onFind); err != nil {
 		logger.Error("failed to find rule by associatedid", zap.String("name", ruleName), zap.Error(err))
-		return (&servererrors.ApiError{Message: "failed to find rule by name", StatusCode: http.StatusUnprocessableEntity}).With(fmt.Sprintf("name %s", ruleName), "no rule found by that name")
+		return errorMissingRuleName(ruleName)
 	}
 
 	if !found {
-		overrideErr = &servererrors.ApiError{Message: fmt.Sprintf("Rule %s not found", ruleName), StatusCode: http.StatusNotFound}
+		overrideErr = &errors.ServerError{Message: fmt.Sprintf("Rule %s not found", ruleName), StatusCode: http.StatusNotFound}
 	}
 
 	return overrideErr
 }
 
 // Delete an override
-func (rm *rulesManger) DeleteOverride(logger *zap.Logger, ruleName string, overrideName string) *servererrors.ApiError {
+func (rm *rulesManger) DeleteOverride(logger *zap.Logger, ruleName string, overrideName string) *errors.ServerError {
 	logger = logger.Named("DeleteOverride")
 
 	found := false
-	var overrideErr *servererrors.ApiError
+	var overrideErr *errors.ServerError
 	onFind := func(item any) {
 		found = true
 		rule := item.(*btreeassociated.AssociatedKeyValues).Value().(rules.Rule)
@@ -276,48 +280,48 @@ func (rm *rulesManger) DeleteOverride(logger *zap.Logger, ruleName string, overr
 
 	if err := rm.rules.FindByAssociatedID(ruleName, onFind); err != nil {
 		logger.Error("failed to find rule by AssociatedID", zap.String("name", ruleName), zap.Error(err))
-		return (&servererrors.ApiError{Message: "failed to find rule by name", StatusCode: http.StatusUnprocessableEntity}).With(fmt.Sprintf("name %s", ruleName), "no rule found by that name")
+		return errorMissingRuleName(ruleName)
 	}
 
 	if !found {
-		overrideErr = &servererrors.ApiError{Message: fmt.Sprintf("Rule %s not found", ruleName), StatusCode: http.StatusNotFound}
+		overrideErr = &errors.ServerError{Message: fmt.Sprintf("Rule %s not found", ruleName), StatusCode: http.StatusNotFound}
 	}
 
 	return overrideErr
 }
 
 // List a all counters that match the query
-func (rm *rulesManger) ListCounters(logger *zap.Logger, query *v1common.AssociatedQuery) (*v1limiter.CountersResponse, *servererrors.ApiError) {
+func (rm *rulesManger) ListCounters(logger *zap.Logger, query *v1common.AssociatedQuery) (v1limiter.Counters, *errors.ServerError) {
 	logger = logger.Named("ListCounters")
 
-	countersResponse := &v1limiter.CountersResponse{}
+	countersResponse := v1limiter.Counters{}
 
 	onFindPagination := func(associatedKeyValues *btreeassociated.AssociatedKeyValues) bool {
 		counter := associatedKeyValues.Value().(*counters.Counter)
 
-		newCounter := &v1limiter.CounterResponse{
+		newCounter := &v1limiter.Counter{
 			KeyValues: associatedKeyValues.KeyValues().StripAssociatedID().RetrieveStringDataType(),
 			Counters:  counter.Load(),
 		}
 
-		countersResponse.Counters = append(countersResponse.Counters, newCounter)
+		countersResponse = append(countersResponse, newCounter)
 		return true
 	}
 
 	if err := rm.counters.Query(query.AssociatedKeyValues, onFindPagination); err != nil {
 		logger.Error("Failed to query key values", zap.Error(err))
-		return countersResponse, servererrors.InternalServerError
+		return countersResponse, errors.InternalServerError
 	}
 
 	return countersResponse, nil
 }
 
 // Increment trys to add to a group of key value pairs, and returns an error if any rules have hit the limit
-func (rm *rulesManger) IncrementCounters(logger *zap.Logger, requestContext context.Context, lockerClient lockerclient.LockerClient, increment *v1limiter.Counter) *servererrors.ApiError {
+func (rm *rulesManger) IncrementCounters(logger *zap.Logger, requestContext context.Context, lockerClient lockerclient.LockerClient, increment *v1limiter.Counter) *errors.ServerError {
 	logger = logger.Named("IncrementCounters")
 
 	var foundRules []rules.Rule
-	var limitErr *servererrors.ApiError
+	var limitErr *errors.ServerError
 
 	// 1. query the rules that match the tags for our key values and record all the group by with their limit
 	allLimits := v1limitermodels.Limits{}
@@ -343,7 +347,7 @@ func (rm *rulesManger) IncrementCounters(logger *zap.Logger, requestContext cont
 	// find all rules that match the permutation of the Increment's KeyValues
 	if err := rm.rules.MatchPermutations(keyValuesToRuleQuery(increment.KeyValues), onFindMatchingRule); err != nil {
 		logger.Error("Failed to query rules", zap.Error(err))
-		return servererrors.InternalServerError
+		return errors.InternalServerError
 	}
 
 	// there was an error finding lmits. This shouldn't happen
@@ -380,7 +384,7 @@ func (rm *rulesManger) IncrementCounters(logger *zap.Logger, requestContext cont
 			lockerLock, err := lockerClient.ObtainLock(requestContext, lockKeyValues)
 			if err != nil {
 				logger.Error("failed to obtain a lock from the locker service", zap.Any("key values", lockKeyValues), zap.Error(err))
-				return servererrors.InternalServerError
+				return errors.InternalServerError
 			}
 
 			// setup monitor for when a lock is released
@@ -399,7 +403,7 @@ func (rm *rulesManger) IncrementCounters(logger *zap.Logger, requestContext cont
 		if err := channelOps.MergeOrToOne(successChan); err != nil {
 			// lock is already lost so bail early
 			logger.Error("a lock was released unexpedily")
-			return servererrors.InternalServerError
+			return errors.InternalServerError
 		}
 
 		// ensure that we didn't cancel obtaining any locks by triggering a select. there is small chance that a lock was lost,
@@ -408,7 +412,7 @@ func (rm *rulesManger) IncrementCounters(logger *zap.Logger, requestContext cont
 		if !ok {
 			// lost a lock or canceled obtaining the locks
 			logger.Error("a lock was released unexpedily")
-			return servererrors.InternalServerError
+			return errors.InternalServerError
 		}
 
 		// 3. for each limit, count the possible rules that match and ensure that they are under the current limites
@@ -423,37 +427,37 @@ func (rm *rulesManger) IncrementCounters(logger *zap.Logger, requestContext cont
 				query.KeyValueSelection.KeyValues[key] = datatypes.Value{Value: &tmp, ValueComparison: datatypes.EqualsPtr()}
 			}
 
-			counter := uint64(0)
+			counter := int64(0)
 			onQuery := func(associatedKeyValues *btreeassociated.AssociatedKeyValues) bool {
 				counter += associatedKeyValues.Value().(*counters.Counter).Load()
-				return counter < singleLimit.Limit
+				return counter < int64(singleLimit.Limit) // check to exit query early if this fails
 			}
 
 			if err := rm.counters.Query(query, onQuery); err != nil {
 				//if err := rm.counters.Query(datatypes.AssociatedKeyValuesQuery{}, onQuery); err != nil {
 				logger.Error("Failed to query the current counters", zap.Error(err))
-				return &servererrors.ApiError{Message: "Failed to query the current counters", StatusCode: http.StatusInternalServerError}
+				return &errors.ServerError{Message: "Failed to query the current counters", StatusCode: http.StatusInternalServerError}
 			}
 
-			if counter >= singleLimit.Limit {
+			if counter >= int64(singleLimit.Limit) {
 				logger.Info("Limit already reached", zap.String("rule name", singleLimit.Name))
-				return &servererrors.ApiError{Message: fmt.Sprintf("Limit has already been reached for rule '%s'", singleLimit.Name), StatusCode: http.StatusConflict}
+				return &errors.ServerError{Message: fmt.Sprintf("Limit has already been reached for rule '%s'", singleLimit.Name), StatusCode: http.StatusConflict}
 			}
 		}
 	}
 
 	// 4. we are under the limit, so update or create the requested tags
 	createCounter := func() any {
-		return &counters.Counter{Count: atomic.NewUint64(1)}
+		return &counters.Counter{Count: atomic.NewInt64(increment.Counters)}
 	}
 
 	incrementCounter := func(item any) {
-		item.(*btreeassociated.AssociatedKeyValues).Value().(*counters.Counter).Increment()
+		item.(*btreeassociated.AssociatedKeyValues).Value().(*counters.Counter).Update(increment.Counters)
 	}
 
 	if _, err := rm.counters.CreateOrFind(btreeassociated.ConverDatatypesKeyValues(increment.KeyValues), createCounter, incrementCounter); err != nil {
 		logger.Error("Failed to find or update the counter", zap.Error(err))
-		return servererrors.InternalServerError
+		return errors.InternalServerError
 	}
 
 	return nil
@@ -464,51 +468,51 @@ func (rm *rulesManger) IncrementCounters(logger *zap.Logger, requestContext cont
 //
 // Decrement is muuch easier than increment because we don't need to ensure any rules validation. So no locks are required
 // and we can just decrement the key values directly
-func (rm *rulesManger) DecrementCounters(logger *zap.Logger, decrement *v1limiter.Counter) *servererrors.ApiError {
+func (rm *rulesManger) DecrementCounters(logger *zap.Logger, decrement *v1limiter.Counter) *errors.ServerError {
 	logger = logger.Named("DecrementCounters")
 
 	decrementCounter := func(item any) bool {
-		count := item.(*btreeassociated.AssociatedKeyValues).Value().(*counters.Counter).Decrement()
+		count := item.(*btreeassociated.AssociatedKeyValues).Value().(*counters.Counter).Update(decrement.Counters)
 		return count == 0
 	}
 
 	if err := rm.counters.Delete(btreeassociated.ConverDatatypesKeyValues(decrement.KeyValues), decrementCounter); err != nil {
 		logger.Error("Failed to find or update the counter", zap.Error(err))
-		return servererrors.InternalServerError
+		return errors.InternalServerError
 	}
 
 	return nil
 }
 
-func (rm *rulesManger) SetCounters(logger *zap.Logger, countersSet *v1limiter.CounterSet) *servererrors.ApiError {
+func (rm *rulesManger) SetCounters(logger *zap.Logger, counter *v1limiter.Counter) *errors.ServerError {
 	logger = logger.Named("SetCounters")
 
-	switch countersSet.Count {
-	case 0:
+	if counter.Counters <= 0 {
+
 		// need to remove the key values
 		decrementCounter := func(item any) bool {
 			return true
 		}
 
-		if err := rm.counters.Delete(btreeassociated.ConverDatatypesKeyValues(countersSet.KeyValues), decrementCounter); err != nil {
+		if err := rm.counters.Delete(btreeassociated.ConverDatatypesKeyValues(counter.KeyValues), decrementCounter); err != nil {
 			logger.Error("Failed to delete the set counters", zap.Error(err))
-			return servererrors.InternalServerError
+			return errors.InternalServerError
 		}
 
 		return nil
-	default:
+	} else {
 		// need to create or set the key values
 		createCounter := func() any {
-			return &counters.Counter{Count: atomic.NewUint64(countersSet.Count)}
+			return &counters.Counter{Count: atomic.NewInt64(counter.Counters)}
 		}
 
 		incrementCounter := func(item any) {
-			item.(*btreeassociated.AssociatedKeyValues).Value().(*counters.Counter).Set(countersSet.Count)
+			item.(*btreeassociated.AssociatedKeyValues).Value().(*counters.Counter).Set(counter.Counters)
 		}
 
-		if _, err := rm.counters.CreateOrFind(btreeassociated.ConverDatatypesKeyValues(countersSet.KeyValues), createCounter, incrementCounter); err != nil {
+		if _, err := rm.counters.CreateOrFind(btreeassociated.ConverDatatypesKeyValues(counter.KeyValues), createCounter, incrementCounter); err != nil {
 			logger.Error("Failed to find or update the set counter", zap.Error(err))
-			return servererrors.InternalServerError
+			return errors.InternalServerError
 		}
 	}
 

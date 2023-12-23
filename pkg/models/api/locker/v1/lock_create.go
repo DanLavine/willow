@@ -2,10 +2,8 @@ package v1
 
 import (
 	"encoding/json"
-	"io"
 	"time"
 
-	"github.com/DanLavine/willow/pkg/models/api"
 	"github.com/DanLavine/willow/pkg/models/api/common/errors"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 )
@@ -26,7 +24,7 @@ type LockCreateRequest struct {
 // Validate ensures the LockCreateRequest has all required fields set
 func (req *LockCreateRequest) Validate() error {
 	if len(req.KeyValues) == 0 {
-		return keyValuesLenghtInvalid
+		return errors.KeyValuesLenghtInvalid
 	}
 
 	if err := req.KeyValues.Validate(); err != nil {
@@ -40,35 +38,23 @@ func (req *LockCreateRequest) Validate() error {
 //	- []byte - encoded JSON byte array for the LockCreateRequest
 //
 // EncodeJSON encodes the model to a valid JSON format
-func (req *LockCreateRequest) EncodeJSON() []byte {
-	data, _ := json.Marshal(req)
-	return data
+func (req *LockCreateRequest) EncodeJSON() ([]byte, error) {
+	return json.Marshal(req)
 }
 
 //	PARAMETERS:
-//	- contentType - how to interperate the stream
-//	- reader - stream to read the encoded LockCreateRequest data from
+//	- data - encoded JSON data to parse the LockCreateRequest from
 //
 //	RETURNS:
-//	- error - any error encoutered when reading the stream or LockCreateRequest is invalid
+//	- error - any error encoutered when reading or parsing the reader
 //
-// Decode can easily parse the response body from an http create request
-func (req *LockCreateRequest) Decode(contentType api.ContentType, reader io.ReadCloser) error {
-	switch contentType {
-	case api.ContentTypeJSON:
-		requestBody, err := io.ReadAll(reader)
-		if err != nil {
-			return errors.FailedToReadStreamBody(err)
-		}
-
-		if err := json.Unmarshal(requestBody, req); err != nil {
-			return errors.FailedToDecodeBody(err)
-		}
-	default:
-		return errors.UnknownContentType(contentType)
+// DecodeJSON can easily parse the response body from an http create request
+func (req *LockCreateRequest) DecodeJSON(data []byte) error {
+	if err := json.Unmarshal(data, req); err != nil {
+		return err
 	}
 
-	return req.Validate()
+	return nil
 }
 
 // LockCreateResponse is the response once a client recieves the Lock
@@ -99,35 +85,24 @@ func (resp *LockCreateResponse) Validate() error {
 
 //	RETURNS:
 //	- []byte - encoded JSON byte array for the LockCreateResponse
+//	- error - error encoding to JSON
 //
 // EncodeJSON encodes the model to a valid JSON format
-func (resp *LockCreateResponse) EncodeJSON() []byte {
-	data, _ := json.Marshal(resp)
-	return data
+func (resp *LockCreateResponse) EncodeJSON() ([]byte, error) {
+	return json.Marshal(resp)
 }
 
 //	PARAMETERS:
-//	- contentType - how to interperate the reader stream
-//	- reader - stream to read the encoded LockCreateResponse data from
+//	- data - encoded JSON data to parse the LockCreateResponse from
 //
 //	RETURNS:
-//	- error - any error encoutered when reading the stream or LockCreateResponse is invalid
+//	- error - any error encoutered when reading or parsing the reader
 //
-// Decode can easily parse the response body from an http create request
-func (resp *LockCreateResponse) Decode(contentType api.ContentType, reader io.ReadCloser) error {
-	switch contentType {
-	case api.ContentTypeJSON:
-		requestBody, err := io.ReadAll(reader)
-		if err != nil {
-			return errors.FailedToReadStreamBody(err)
-		}
-
-		if err := json.Unmarshal(requestBody, resp); err != nil {
-			return errors.FailedToDecodeBody(err)
-		}
-	default:
-		return errors.UnknownContentType(contentType)
+// DecodeJSON can easily parse the response body from an http create request
+func (resp *LockCreateResponse) DecodeJSON(data []byte) error {
+	if err := json.Unmarshal(data, resp); err != nil {
+		return err
 	}
 
-	return resp.Validate()
+	return nil
 }

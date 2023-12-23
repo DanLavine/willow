@@ -7,8 +7,8 @@ package queuesfakes
 import (
 	reflect "reflect"
 
-	servererrors "github.com/DanLavine/willow/internal/server_errors"
 	queues "github.com/DanLavine/willow/internal/willow/brokers/queues"
+	errors "github.com/DanLavine/willow/pkg/models/api/common/errors"
 	v1 "github.com/DanLavine/willow/pkg/models/api/willow/v1"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -37,11 +37,11 @@ func (m *MockQueueConstructor) EXPECT() *MockQueueConstructorMockRecorder {
 }
 
 // NewQueue mocks base method.
-func (m *MockQueueConstructor) NewQueue(arg0 *v1.Create) (queues.ManagedQueue, *servererrors.ApiError) {
+func (m *MockQueueConstructor) NewQueue(arg0 *v1.Create) (queues.ManagedQueue, *errors.ServerError) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "NewQueue", arg0)
 	ret0, _ := ret[0].(queues.ManagedQueue)
-	ret1, _ := ret[1].(*servererrors.ApiError)
+	ret1, _ := ret[1].(*errors.ServerError)
 	return ret0, ret1
 }
 

@@ -6,15 +6,21 @@ import (
 )
 
 // Error can be used to parse errors returned from services if the request was invalid
-type Error struct {
+type ServerError struct {
+	StatusCode int `json:"-"` // ignore this field in the json response since it is set in a header
+
 	Message string
 }
 
 //	RETURNS:
-//	- error - error describing any possible issues with the Error message and the steps to rectify them
+//	- error - error describing any possible issues with the ServerError and the steps to rectify them
 //
-// Validate ensures the Error has all required fields set
-func (err *Error) Validate() error {
+// Validate ensures the ServerError has all required fields set
+func (err *ServerError) Validate() error {
+	if err.StatusCode == 0 {
+		return fmt.Errorf("malformed error, there is no 'StatusCode' set")
+	}
+
 	if err.Message == "" {
 		return fmt.Errorf("malformed error, there is no 'Message'")
 	}
@@ -23,11 +29,11 @@ func (err *Error) Validate() error {
 }
 
 //	RETURNS:
-//	- []byte - encoded JSON byte array for the Error
+//	- []byte - encoded JSON byte array for the Lock
 //	- error - error encoding to JSON
 //
 // EncodeJSON encodes the model to a valid JSON format
-func (err *Error) EncodeJSON() ([]byte, error) {
+func (err *ServerError) EncodeJSON() ([]byte, error) {
 	return json.Marshal(err)
 }
 
@@ -38,9 +44,9 @@ func (err *Error) EncodeJSON() ([]byte, error) {
 //	- error - any error encoutered when reading the response
 //
 // DecodeJSON can easily parse the response body from an http create request into the object
-func (e *Error) DecodeJSON(data []byte) error {
+func (e *ServerError) DecodeJSON(data []byte) error {
 	if err := json.Unmarshal(data, e); err != nil {
-		return &Error{Message: fmt.Sprintf("failed to decode api error response: %s", err.Error())}
+		return fmt.Errorf("failed to decode error from the server: %w", err)
 	}
 
 	return nil
@@ -49,7 +55,7 @@ func (e *Error) DecodeJSON(data []byte) error {
 //	RETURNS:
 //	- string - error message
 //
-// Error returns the original message sent
-func (e *Error) Error() string {
+// Error returns the original message
+func (e *ServerError) Error() string {
 	return e.Message
 }

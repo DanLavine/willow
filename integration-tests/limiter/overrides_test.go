@@ -30,7 +30,7 @@ func Test_Limiter_Overrides_Create(t *testing.T) {
 		limiterClient := setupClient(g, limiterTestConstruct.ServerURL)
 
 		// create rule
-		rule := &v1.RuleRequest{
+		rule := &v1.RuleCreateRequest{
 			Name:    "rule1",
 			GroupBy: []string{"key1", "key2"},
 			Limit:   5,
@@ -75,7 +75,7 @@ func Test_Limiter_Overrides_Delete(t *testing.T) {
 		limiterClient := setupClient(g, limiterTestConstruct.ServerURL)
 
 		// create rule
-		rule := &v1.RuleRequest{
+		rule := &v1.RuleCreateRequest{
 			Name:    "rule1",
 			GroupBy: []string{"key1", "key2"},
 			Limit:   5,
@@ -125,7 +125,7 @@ func Test_Limiter_Overrides_List(t *testing.T) {
 		limiterClient := setupClient(g, limiterTestConstruct.ServerURL)
 
 		// create rule
-		rule := &v1.RuleRequest{
+		rule := &v1.RuleCreateRequest{
 			Name:    "rule1",
 			GroupBy: []string{"key1", "key2"},
 			Limit:   5,
@@ -171,6 +171,6 @@ func Test_Limiter_Overrides_List(t *testing.T) {
 
 		overrides, err := limiterClient.ListOverrides("rule1", query)
 		g.Expect(err).ToNot(HaveOccurred())
-		g.Expect(len(overrides.Overrides)).To(Equal(1))
+		g.Expect(len(overrides)).To(Equal(1))
 	})
 }

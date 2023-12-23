@@ -3,7 +3,7 @@ package queues
 import (
 	"context"
 
-	servererrors "github.com/DanLavine/willow/internal/server_errors"
+	"github.com/DanLavine/willow/pkg/models/api/common/errors"
 	v1willow "github.com/DanLavine/willow/pkg/models/api/willow/v1"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 
@@ -21,8 +21,8 @@ type QueueManager interface {
 	// - create - parameters to create a queue
 	//
 	// RETURNs:
-	// - servererrors.ApiError - any errors encountered when creating the queue
-	Create(logger *zap.Logger, create *v1willow.Create) *servererrors.ApiError
+	// - errors.ServerError - any errors encountered when creating the queue
+	Create(logger *zap.Logger, create *v1willow.Create) *errors.ServerError
 
 	// Find a particular queue
 	//
@@ -33,7 +33,7 @@ type QueueManager interface {
 	// RETURNS:
 	// - Queue - queue if the queue is defined
 	// - v1willow.Error - any errors encountered when finding the queue, or an error that it does not exist
-	Find(logger *zap.Logger, queue string) (Queue, *servererrors.ApiError)
+	Find(logger *zap.Logger, queue string) (Queue, *errors.ServerError)
 
 	// Get Metrics for all Queues
 	//
@@ -58,13 +58,13 @@ type ManagedQueue interface {
 // available to any clients.
 type Queue interface {
 	// Enqueue an item onto the queue
-	Enqueue(logger *zap.Logger, enqueueItem *v1willow.EnqueueItemRequest) *servererrors.ApiError
+	Enqueue(logger *zap.Logger, enqueueItem *v1willow.EnqueueItemRequest) *errors.ServerError
 
 	// Dequeue an item from the queue
-	Dequeue(logger *zap.Logger, cancelContext context.Context, selection datatypes.AssociatedKeyValuesQuery) (*v1willow.DequeueItemResponse, func(), func(), *servererrors.ApiError)
+	Dequeue(logger *zap.Logger, cancelContext context.Context, selection datatypes.AssociatedKeyValuesQuery) (*v1willow.DequeueItemResponse, func(), func(), *errors.ServerError)
 
 	// ACK a message
-	ACK(logger *zap.Logger, ackItem *v1willow.ACK) *servererrors.ApiError
+	ACK(logger *zap.Logger, ackItem *v1willow.ACK) *errors.ServerError
 
 	// Get Metrics info
 	Metrics() *v1willow.QueueMetricsResponse

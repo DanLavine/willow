@@ -6,7 +6,6 @@ import (
 	"github.com/DanLavine/willow/internal/logger"
 
 	"github.com/DanLavine/willow/pkg/models/api"
-	"github.com/DanLavine/willow/pkg/models/api/common/errors"
 	v1willow "github.com/DanLavine/willow/pkg/models/api/willow/v1"
 )
 
@@ -21,21 +20,21 @@ func (qh *queueHandler) Enqueue(w http.ResponseWriter, r *http.Request) {
 
 		// parse the enqueue request
 		enqueueItem := &v1willow.EnqueueItemRequest{}
-		if err := enqueueItem.Decode(api.ContentTypeFromRequest(r), r.Body); err != nil {
-			_, _ = api.HttpResponse(r, w, http.StatusBadRequest, errors.ServerError(err))
+		if err := api.DecodeAndValidateHttpRequest(r, enqueueItem); err != nil {
+			_, _ = api.EncodeAndSendHttpResponse(r.Header, w, err.StatusCode, err)
 			return
 		}
 
 		// find the queue
 		queue, err := qh.queueManager.Find(logger, enqueueItem.BrokerInfo.Name)
 		if err != nil {
-			_, _ = api.HttpResponse(r, w, err.StatusCode, err)
+			_, _ = api.EncodeAndSendHttpResponse(r.Header, w, err.StatusCode, err)
 			return
 		}
 
 		// enqueu the item
 		if err = queue.Enqueue(logger, enqueueItem); err != nil {
-			_, _ = api.HttpResponse(r, w, err.StatusCode, err)
+			_, _ = api.EncodeAndSendHttpResponse(r.Header, w, err.StatusCode, err)
 			return
 		}
 
@@ -56,27 +55,27 @@ func (qh *queueHandler) Dequeue(w http.ResponseWriter, r *http.Request) {
 
 		// parse the dequeue request
 		dequeueItemRequest := &v1willow.DequeueItemRequest{}
-		if err := dequeueItemRequest.Decode(api.ContentTypeFromRequest(r), r.Body); err != nil {
-			_, _ = api.HttpResponse(r, w, http.StatusBadRequest, errors.ServerError(err))
+		if err := api.DecodeAndValidateHttpRequest(r, dequeueItemRequest); err != nil {
+			_, _ = api.EncodeAndSendHttpResponse(r.Header, w, err.StatusCode, err)
 			return
 		}
 
 		// Find the queue
 		queue, err := qh.queueManager.Find(logger, dequeueItemRequest.Name)
 		if err != nil {
-			_, _ = api.HttpResponse(r, w, err.StatusCode, err)
+			_, _ = api.EncodeAndSendHttpResponse(r.Header, w, err.StatusCode, err)
 			return
 		}
 
 		// dequeue an item
 		dequeueItem, success, failure, err := queue.Dequeue(logger, r.Context(), dequeueItemRequest.Query)
 		if err != nil {
-			_, _ = api.HttpResponse(r, w, err.StatusCode, err)
+			_, _ = api.EncodeAndSendHttpResponse(r.Header, w, err.StatusCode, err)
 			return
 		}
 
 		// respond to the client with dequeued item
-		_, writeErr := api.HttpResponse(r, w, http.StatusOK, dequeueItem)
+		_, writeErr := api.EncodeAndSendHttpResponse(r.Header, w, http.StatusOK, dequeueItem)
 		if writeErr == nil {
 			// sent to the client, so advance item in the queue
 			success()
@@ -99,21 +98,21 @@ func (qh *queueHandler) ACK(w http.ResponseWriter, r *http.Request) {
 
 		// parse the dequeue request
 		ack := &v1willow.ACK{}
-		if err := ack.Decode(api.ContentTypeFromRequest(r), r.Body); err != nil {
-			_, _ = api.HttpResponse(r, w, http.StatusBadRequest, errors.ServerError(err))
+		if err := api.DecodeAndValidateHttpRequest(r, ack); err != nil {
+			_, _ = api.EncodeAndSendHttpResponse(r.Header, w, err.StatusCode, err)
 			return
 		}
 
 		// find the queue
 		queue, err := qh.queueManager.Find(logger, ack.BrokerInfo.Name)
 		if err != nil {
-			_, _ = api.HttpResponse(r, w, err.StatusCode, err)
+			_, _ = api.EncodeAndSendHttpResponse(r.Header, w, err.StatusCode, err)
 			return
 		}
 
 		// ack the item
 		if err = queue.ACK(logger, ack); err != nil {
-			_, _ = api.HttpResponse(r, w, err.StatusCode, err)
+			_, _ = api.EncodeAndSendHttpResponse(r.Header, w, err.StatusCode, err)
 			return
 		}
 

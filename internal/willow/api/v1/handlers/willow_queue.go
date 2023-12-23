@@ -6,7 +6,6 @@ import (
 	"github.com/DanLavine/willow/internal/logger"
 	"github.com/DanLavine/willow/internal/willow/brokers/queues"
 	"github.com/DanLavine/willow/pkg/models/api"
-	"github.com/DanLavine/willow/pkg/models/api/common/errors"
 
 	v1willow "github.com/DanLavine/willow/pkg/models/api/willow/v1"
 
@@ -43,14 +42,15 @@ func (qh *queueHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 		// parse the create request
 		createRequest := &v1willow.Create{}
-		if err := createRequest.Decode(api.ContentTypeFromRequest(r), r.Body); err != nil {
-			_, _ = api.HttpResponse(r, w, http.StatusBadRequest, errors.ServerError(err))
+		if err := api.DecodeAndValidateHttpRequest(r, createRequest); err != nil {
+			_, _ = api.EncodeAndSendHttpResponse(r.Header, w, err.StatusCode, err)
+
 			return
 		}
 
 		if createErr := qh.queueManager.Create(logger, createRequest); createErr != nil {
 			logger.Error("failed creating queue", zap.Error(createErr))
-			_, _ = api.HttpResponse(r, w, createErr.StatusCode, createErr)
+			_, _ = api.EncodeAndSendHttpResponse(r.Header, w, createErr.StatusCode, createErr)
 			return
 		}
 

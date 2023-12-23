@@ -16,13 +16,10 @@ TODO
 
 ## Open Questions
 
-1. On a server restart, what should happen to clients waiting for locks that are partialy thrrough a request?
-    a. Should they be dropped and cleared from disk?
-    b. Do we only wite to disk when we "have" all locks -> then respond -> shutdown
-    c. Can we "clean up" partially written data, that was never stored?
+Should there be a "Match" api as well as a "Query" api. "Match" doesn't have much use in terms
+of the locker service as the KeyValues need to be exact...
 
-2. Clients will need to re-establish which locks they actually have acces to using an "identifier"
-    a. "identifier" -> datatypes.StringMap
-
+So in the Limiter service, "Match" is more of a "generic find anything that contains these key values".
+So in that regard, "Match" is a behavior of the Limiter service.
 
 ## Usage

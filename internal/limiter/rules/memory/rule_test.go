@@ -10,8 +10,8 @@ import (
 	"go.uber.org/zap"
 )
 
-func defaultLimiterTestRule(g *GomegaWithT) *v1limiter.RuleRequest {
-	rule := &v1limiter.RuleRequest{
+func defaultLimiterTestRule(g *GomegaWithT) *v1limiter.RuleCreateRequest {
+	rule := &v1limiter.RuleCreateRequest{
 		Name:    "test",
 		GroupBy: []string{"key1", "key2"},
 		Limit:   5,
@@ -246,7 +246,7 @@ func TestRule_Update(t *testing.T) {
 		g.Expect(rule.limit).To(Equal(uint64(5)))
 
 		// update the limit to 1
-		rule.Update(zap.NewNop(), &v1limiter.RuleUpdate{Limit: 1})
+		rule.Update(zap.NewNop(), &v1limiter.RuleUpdateRquest{Limit: 1})
 
 		// check new limits
 		g.Expect(rule.limit).To(Equal(uint64(1)))
@@ -264,7 +264,7 @@ func TestRule_QueryOverrides(t *testing.T) {
 
 		overrides, err := rule.QueryOverrides(zap.NewNop(), query)
 		g.Expect(err).ToNot(HaveOccurred())
-		g.Expect(len(overrides.Overrides)).To(Equal(0))
+		g.Expect(len(overrides)).To(Equal(0))
 	})
 
 	t.Run("It returns only overrides sthat match the query", func(t *testing.T) {
@@ -301,8 +301,8 @@ func TestRule_QueryOverrides(t *testing.T) {
 
 		overrides, err := rule.QueryOverrides(zap.NewNop(), query)
 		g.Expect(err).ToNot(HaveOccurred())
-		g.Expect(len(overrides.Overrides)).To(Equal(1))
-		g.Expect(overrides.Overrides[0]).To(Equal(&v1limiter.Override{
+		g.Expect(len(overrides)).To(Equal(1))
+		g.Expect(overrides[0]).To(Equal(&v1limiter.Override{
 			Name:      "override name 1",
 			KeyValues: defaultValidKeyValues(g),
 			Limit:     72,
@@ -363,7 +363,7 @@ func TestRule_SetOverride(t *testing.T) {
 		// 2nd create with the same name should be a problem
 		err = rule.SetOverride(zap.NewNop(), override)
 		g.Expect(err).To(HaveOccurred())
-		g.Expect(err.Error()).To(ContainSubstring("name to not be in use"))
+		g.Expect(err.Error()).To(ContainSubstring("failed to create rule override. Name already in use for another override"))
 	})
 
 	t.Run("It returns an error if a rule override already exists with the same key values", func(t *testing.T) {
@@ -381,7 +381,7 @@ func TestRule_SetOverride(t *testing.T) {
 		// 2nd create with the same name should be a problem
 		err = rule.SetOverride(zap.NewNop(), override)
 		g.Expect(err).To(HaveOccurred())
-		g.Expect(err.Error()).To(ContainSubstring("key values to not have an override already"))
+		g.Expect(err.Error()).To(ContainSubstring("failed to create rule override. KeyValues already in use for another override"))
 	})
 }
 

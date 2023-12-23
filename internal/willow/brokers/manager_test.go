@@ -9,7 +9,7 @@ import (
 	"github.com/DanLavine/willow/internal/willow/brokers/queues/queuesfakes"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 
-	servererrors "github.com/DanLavine/willow/internal/server_errors"
+	"github.com/DanLavine/willow/pkg/models/api/common/errors"
 	v1willow "github.com/DanLavine/willow/pkg/models/api/willow/v1"
 
 	. "github.com/onsi/gomega"
@@ -30,9 +30,9 @@ func TestQueueManager_Create(t *testing.T) {
 		mockController := gomock.NewController(t)
 		defer mockController.Finish()
 		fakeQueueConstructor := queuesfakes.NewMockQueueConstructor(mockController)
-		fakeQueueConstructor.EXPECT().NewQueue(gomock.Any()).DoAndReturn(func(createParams *v1willow.Create) (queues.ManagedQueue, *servererrors.ApiError) {
+		fakeQueueConstructor.EXPECT().NewQueue(gomock.Any()).DoAndReturn(func(createParams *v1willow.Create) (queues.ManagedQueue, *errors.ServerError) {
 			fmt.Println("calling new queue")
-			return nil, &servererrors.ApiError{Message: "Failed to create queue"}
+			return nil, &errors.ServerError{Message: "Failed to create queue"}
 		}).Times(1)
 
 		// queue manager
@@ -51,7 +51,7 @@ func TestQueueManager_Create(t *testing.T) {
 		mockController := gomock.NewController(t)
 		defer mockController.Finish()
 		fakeQueueConstructor := queuesfakes.NewMockQueueConstructor(mockController)
-		fakeQueueConstructor.EXPECT().NewQueue(gomock.Any()).DoAndReturn(func(createParams *v1willow.Create) (queues.ManagedQueue, *servererrors.ApiError) {
+		fakeQueueConstructor.EXPECT().NewQueue(gomock.Any()).DoAndReturn(func(createParams *v1willow.Create) (queues.ManagedQueue, *errors.ServerError) {
 			return queuesfakes.NewMockManagedQueue(mockController), nil
 		}).Times(1)
 
@@ -73,7 +73,7 @@ func TestQueueManager_Find(t *testing.T) {
 		mockController := gomock.NewController(t)
 		defer mockController.Finish()
 		fakeQueueConstructor := queuesfakes.NewMockQueueConstructor(mockController)
-		fakeQueueConstructor.EXPECT().NewQueue(gomock.Any()).DoAndReturn(func(createParams *v1willow.Create) (queues.ManagedQueue, *servererrors.ApiError) {
+		fakeQueueConstructor.EXPECT().NewQueue(gomock.Any()).DoAndReturn(func(createParams *v1willow.Create) (queues.ManagedQueue, *errors.ServerError) {
 			return nil, nil
 		}).Times(0)
 
@@ -83,14 +83,14 @@ func TestQueueManager_Find(t *testing.T) {
 		queue, err := queueManager.Find(zap.NewNop(), "no queue")
 		g.Expect(queue).To(BeNil())
 		g.Expect(err).To(HaveOccurred())
-		g.Expect(err.Error()).To(ContainSubstring("Queue not found"))
+		g.Expect(err.Error()).To(ContainSubstring("queue not found"))
 	})
 
 	t.Run("it returns the proper queue", func(t *testing.T) {
 		mockController := gomock.NewController(t)
 		defer mockController.Finish()
 		fakeQueueConstructor := queuesfakes.NewMockQueueConstructor(mockController)
-		fakeQueueConstructor.EXPECT().NewQueue(gomock.Any()).DoAndReturn(func(createParams *v1willow.Create) (queues.ManagedQueue, *servererrors.ApiError) {
+		fakeQueueConstructor.EXPECT().NewQueue(gomock.Any()).DoAndReturn(func(createParams *v1willow.Create) (queues.ManagedQueue, *errors.ServerError) {
 			return queuesfakes.NewMockManagedQueue(mockController), nil
 		}).Times(5)
 

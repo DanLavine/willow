@@ -13,7 +13,6 @@ import (
 	"github.com/DanLavine/willow/internal/limiter/counters"
 	"github.com/DanLavine/willow/internal/limiter/rules"
 	"github.com/DanLavine/willow/internal/limiter/rules/rulefakes"
-	servererrors "github.com/DanLavine/willow/internal/server_errors"
 	lockerclient "github.com/DanLavine/willow/pkg/clients/locker_client"
 	"github.com/DanLavine/willow/pkg/clients/locker_client/lockerclientfakes"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
@@ -21,6 +20,7 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
 
+	"github.com/DanLavine/willow/pkg/models/api/common/errors"
 	v1common "github.com/DanLavine/willow/pkg/models/api/common/v1"
 	v1limiter "github.com/DanLavine/willow/pkg/models/api/limiter/v1"
 	v1locker "github.com/DanLavine/willow/pkg/models/api/locker/v1"
@@ -39,7 +39,7 @@ func setupMocks(t *testing.T) (*gomock.Controller, *rulefakes.MockRuleConstructo
 	fakeRule := rulefakes.NewMockRule(mockController)
 	fakeRuleConstructor := rulefakes.NewMockRuleConstructor(mockController)
 
-	fakeRuleConstructor.EXPECT().New(gomock.Any()).DoAndReturn(func(createParams *v1limiter.RuleRequest) rules.Rule {
+	fakeRuleConstructor.EXPECT().New(gomock.Any()).DoAndReturn(func(createParams *v1limiter.RuleCreateRequest) rules.Rule {
 		return fakeRule
 	}).AnyTimes()
 
@@ -54,7 +54,7 @@ func TestRulesManager_Create(t *testing.T) {
 		g.Expect(err).ToNot(HaveOccurred())
 		rulesManager := NewRulesManger(constructor)
 
-		createRequest := &v1limiter.RuleRequest{
+		createRequest := &v1limiter.RuleCreateRequest{
 			Name:    "test",
 			GroupBy: []string{"key1", "key2"},
 			Limit:   5,
@@ -70,7 +70,7 @@ func TestRulesManager_Create(t *testing.T) {
 		g.Expect(err).ToNot(HaveOccurred())
 		rulesManager := NewRulesManger(constructor)
 
-		createRequest := &v1limiter.RuleRequest{
+		createRequest := &v1limiter.RuleCreateRequest{
 			Name:    "test",
 			GroupBy: []string{"key1", "key2"},
 			Limit:   5,
@@ -90,7 +90,7 @@ func TestRulesManager_Create(t *testing.T) {
 		g.Expect(err).ToNot(HaveOccurred())
 		rulesManager := NewRulesManger(constructor)
 
-		createRequest := &v1limiter.RuleRequest{
+		createRequest := &v1limiter.RuleCreateRequest{
 			Name:    "test",
 			GroupBy: []string{"key1", "key2"},
 			Limit:   5,
@@ -130,7 +130,7 @@ func TestRulesManager_Get(t *testing.T) {
 		rulesManager := NewRulesManger(constructor)
 
 		// create the rule
-		createRequest := &v1limiter.RuleRequest{
+		createRequest := &v1limiter.RuleCreateRequest{
 			Name:    "test",
 			GroupBy: []string{"key1", "key2"},
 			Limit:   5,
@@ -181,7 +181,7 @@ func TestRulesManager_List(t *testing.T) {
 
 		rules, err := rulesManager.List(zap.NewNop(), ruleQuery)
 		g.Expect(err).ToNot(HaveOccurred())
-		g.Expect(rules).To(BeEmpty())
+		g.Expect(len(rules)).To(Equal(0))
 	})
 
 	t.Run("Context when there are a number of rules", func(t *testing.T) {
@@ -193,7 +193,7 @@ func TestRulesManager_List(t *testing.T) {
 		for i := 0; i < 5; i++ {
 			// single instance rule group by
 			// group by: {[key0], [key1], [key2], [key3], [key4]}
-			createRequest := &v1limiter.RuleRequest{
+			createRequest := &v1limiter.RuleCreateRequest{
 				Name:    fmt.Sprintf("test%d", i),
 				GroupBy: []string{fmt.Sprintf("key%d", i)},
 				Limit:   5,
@@ -224,7 +224,7 @@ func TestRulesManager_List(t *testing.T) {
 			// multi instance group by
 			// group by: {[key0, key1], [key0, key1, key2], ...}
 			keyValues[fmt.Sprintf("key%d", i)] = datatypes.Int(i)
-			createRequest := &v1limiter.RuleRequest{
+			createRequest := &v1limiter.RuleCreateRequest{
 				Name:    fmt.Sprintf("multi_test%d", i),
 				GroupBy: keyValues.Keys(),
 				Limit:   5,
@@ -269,7 +269,7 @@ func TestRulesManager_List(t *testing.T) {
 
 			rules, err := rulesManager.List(zap.NewNop(), ruleQuery)
 			g.Expect(err).ToNot(HaveOccurred())
-			g.Expect(len(rules.Rules)).To(Equal(9))
+			g.Expect(len(rules)).To(Equal(9))
 		})
 
 		t.Run("It can list all rules and their overrides", func(t *testing.T) {
@@ -280,9 +280,9 @@ func TestRulesManager_List(t *testing.T) {
 
 			rules, err := rulesManager.List(zap.NewNop(), ruleQuery)
 			g.Expect(err).ToNot(HaveOccurred())
-			g.Expect(len(rules.Rules)).To(Equal(9))
+			g.Expect(len(rules)).To(Equal(9))
 			for i := 0; i < 9; i++ {
-				g.Expect(len(rules.Rules[i].Overrides)).To(Equal(5))
+				g.Expect(len(rules[i].Overrides)).To(Equal(5))
 			}
 		})
 
@@ -302,10 +302,10 @@ func TestRulesManager_List(t *testing.T) {
 			// 1 for: [key0]
 			// 1 for: [key1]
 			// 1 for: [key0, key1]
-			g.Expect(len(rules.Rules)).To(Equal(3))
-			g.Expect(len(rules.Rules[0].Overrides)).To(Equal(0))
-			g.Expect(len(rules.Rules[1].Overrides)).To(Equal(0))
-			g.Expect(len(rules.Rules[2].Overrides)).To(Equal(0))
+			g.Expect(len(rules)).To(Equal(3))
+			g.Expect(len(rules[0].Overrides)).To(Equal(0))
+			g.Expect(len(rules[1].Overrides)).To(Equal(0))
+			g.Expect(len(rules[2].Overrides)).To(Equal(0))
 		})
 
 		t.Run("It can match a nummber of key values and includes any overrides that match the key values", func(t *testing.T) {
@@ -324,15 +324,15 @@ func TestRulesManager_List(t *testing.T) {
 			// 1 for: [key0]
 			// 1 for: [key1]
 			// 1 for: [key0, key1]
-			g.Expect(len(rules.Rules)).To(Equal(3))
+			g.Expect(len(rules)).To(Equal(3))
 
 			for i := 0; i < 3; i++ {
-				if reflect.DeepEqual(rules.Rules[i].GroupBy, []string{"key0"}) {
-					g.Expect(len(rules.Rules[i].Overrides)).To(Equal(1))
-				} else if reflect.DeepEqual(rules.Rules[i].GroupBy, []string{"key1"}) {
-					g.Expect(len(rules.Rules[i].Overrides)).To(Equal(0))
+				if reflect.DeepEqual(rules[i].GroupBy, []string{"key0"}) {
+					g.Expect(len(rules[i].Overrides)).To(Equal(1))
+				} else if reflect.DeepEqual(rules[i].GroupBy, []string{"key1"}) {
+					g.Expect(len(rules[i].Overrides)).To(Equal(0))
 				} else {
-					g.Expect(len(rules.Rules[i].Overrides)).To(Equal(1))
+					g.Expect(len(rules[i].Overrides)).To(Equal(1))
 				}
 			}
 		})
@@ -347,13 +347,13 @@ func TestRulesManager_Update(t *testing.T) {
 		g.Expect(err).ToNot(HaveOccurred())
 		rulesManager := NewRulesManger(constructor)
 
-		ruleUpdate := &v1limiter.RuleUpdate{
+		ruleUpdate := &v1limiter.RuleUpdateRquest{
 			Limit: 12,
 		}
 
 		err = rulesManager.Update(zap.NewNop(), "doesn't exist", ruleUpdate)
 		g.Expect(err).ToNot(BeNil())
-		g.Expect(err.Error()).To(ContainSubstring("failed to find rule by name"))
+		g.Expect(err.Error()).To(ContainSubstring("failed to find rule 'doesn't exist' by name"))
 	})
 
 	t.Run("It can update a rule by name", func(t *testing.T) {
@@ -362,7 +362,7 @@ func TestRulesManager_Update(t *testing.T) {
 		rulesManager := NewRulesManger(constructor)
 
 		// create the rule
-		createRequest := &v1limiter.RuleRequest{
+		createRequest := &v1limiter.RuleCreateRequest{
 			Name:    "test",
 			GroupBy: []string{"key1", "key2"},
 			Limit:   5,
@@ -371,7 +371,7 @@ func TestRulesManager_Update(t *testing.T) {
 		g.Expect(rulesManager.Create(zap.NewNop(), createRequest)).ToNot(HaveOccurred())
 
 		// update the rule
-		ruleUpdate := &v1limiter.RuleUpdate{
+		ruleUpdate := &v1limiter.RuleUpdateRquest{
 			Limit: 12,
 		}
 		err = rulesManager.Update(zap.NewNop(), "test", ruleUpdate)
@@ -401,7 +401,7 @@ func TestRulesManager_Delete(t *testing.T) {
 		rulesManager := NewRulesManger(constructor)
 
 		// create the rule
-		createRequest := &v1limiter.RuleRequest{
+		createRequest := &v1limiter.RuleCreateRequest{
 			Name:    "test",
 			GroupBy: []string{"key1", "key2"},
 			Limit:   5,
@@ -424,14 +424,14 @@ func TestRulesManager_Delete(t *testing.T) {
 			defer mockController.Finish()
 
 			// ensure cascade delete is called
-			mockRule.EXPECT().CascadeDeletion(gomock.Any()).DoAndReturn(func(logger *zap.Logger) *servererrors.ApiError {
+			mockRule.EXPECT().CascadeDeletion(gomock.Any()).DoAndReturn(func(logger *zap.Logger) *errors.ServerError {
 				return nil
 			}).Times(1)
 
 			rulesManager := NewRulesManger(mockConstructor)
 
 			// create the rule
-			createRequest := &v1limiter.RuleRequest{
+			createRequest := &v1limiter.RuleCreateRequest{
 				Name:    "test",
 				GroupBy: []string{"key1", "key2"},
 				Limit:   5,
@@ -455,17 +455,17 @@ func TestRulesManager_Delete(t *testing.T) {
 			defer mockController.Finish()
 
 			// ensure cascade delete and Get are called
-			mockRule.EXPECT().CascadeDeletion(gomock.Any()).DoAndReturn(func(logger *zap.Logger) *servererrors.ApiError {
-				return &servererrors.ApiError{Message: "failed to cascade delete", StatusCode: http.StatusInternalServerError}
+			mockRule.EXPECT().CascadeDeletion(gomock.Any()).DoAndReturn(func(logger *zap.Logger) *errors.ServerError {
+				return &errors.ServerError{Message: "failed to cascade delete", StatusCode: http.StatusInternalServerError}
 			}).Times(1)
-			mockRule.EXPECT().Get(gomock.Any()).DoAndReturn(func(includeOverrides *v1limiter.RuleQuery) *v1limiter.RuleResponse {
-				return &v1limiter.RuleResponse{}
+			mockRule.EXPECT().Get(gomock.Any()).DoAndReturn(func(includeOverrides *v1limiter.RuleQuery) *v1limiter.Rule {
+				return &v1limiter.Rule{}
 			}).Times(1)
 
 			rulesManager := NewRulesManger(mockConstructor)
 
 			// create the rule
-			createRequest := &v1limiter.RuleRequest{
+			createRequest := &v1limiter.RuleCreateRequest{
 				Name:    "test",
 				GroupBy: []string{"key1", "key2"},
 				Limit:   5,
@@ -509,14 +509,14 @@ func TestRulesManager_ListOverrides(t *testing.T) {
 		overrides, err := rulesManager.ListOverrides(zap.NewNop(), "test1", query)
 		g.Expect(err).To(HaveOccurred())
 		g.Expect(err.Error()).To(ContainSubstring("Rule test1 not found"))
-		g.Expect(len(overrides.Overrides)).To(Equal(0))
+		g.Expect(len(overrides)).To(Equal(0))
 	})
 
 	t.Run("It returns the overrides for the query", func(t *testing.T) {
 		rulesManager := NewRulesManger(constructor)
 
 		// create rule
-		createRule := &v1limiter.RuleRequest{
+		createRule := &v1limiter.RuleCreateRequest{
 			Name:    "test1",
 			GroupBy: []string{"key1"},
 			Limit:   uint64(12),
@@ -543,8 +543,8 @@ func TestRulesManager_ListOverrides(t *testing.T) {
 
 		overrides, err := rulesManager.ListOverrides(zap.NewNop(), "test1", query)
 		g.Expect(err).ToNot(HaveOccurred())
-		g.Expect(len(overrides.Overrides)).To(Equal(1))
-		g.Expect(overrides.Overrides[0].Name).To(Equal("override0"))
+		g.Expect(len(overrides)).To(Equal(1))
+		g.Expect(overrides[0].Name).To(Equal("override0"))
 	})
 }
 
@@ -575,7 +575,7 @@ func TestRulesManager_CreateOverride(t *testing.T) {
 		rulesManager := NewRulesManger(constructor)
 
 		// create rule
-		createRule := &v1limiter.RuleRequest{
+		createRule := &v1limiter.RuleCreateRequest{
 			Name:    "test1",
 			GroupBy: []string{"key1"},
 			Limit:   uint64(12),
@@ -625,7 +625,7 @@ func TestRulesManager_DeleteOverride(t *testing.T) {
 		rulesManager := NewRulesManger(constructor)
 
 		// create rule
-		createRule := &v1limiter.RuleRequest{
+		createRule := &v1limiter.RuleCreateRequest{
 			Name:    "test1",
 			GroupBy: []string{"key1"},
 			Limit:   uint64(12),
@@ -643,7 +643,7 @@ func TestRulesManager_DeleteOverride(t *testing.T) {
 		rulesManager := NewRulesManger(constructor)
 
 		// create rule
-		createRule := &v1limiter.RuleRequest{
+		createRule := &v1limiter.RuleCreateRequest{
 			Name:    "test1",
 			GroupBy: []string{"key1"},
 			Limit:   uint64(12),
@@ -685,6 +685,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 			KeyValues: datatypes.KeyValues{
 				"key1": datatypes.String("1"),
 			},
+			Counters: 1,
 		}
 
 		err := rulesManager.IncrementCounters(zap.NewNop(), ctx, nil, counter)
@@ -698,7 +699,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 
 		for i := 0; i < 5; i++ {
 			// single instance rule group by
-			createRequest := &v1limiter.RuleRequest{
+			createRequest := &v1limiter.RuleCreateRequest{
 				Name:    fmt.Sprintf("test%d", i),
 				GroupBy: []string{fmt.Sprintf("key%d", i)},
 				Limit:   uint64(i),
@@ -713,6 +714,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 				"key1": datatypes.String("1"),
 				"key2": datatypes.String("2"),
 			},
+			Counters: 1,
 		}
 
 		err := rulesManager.IncrementCounters(zap.NewNop(), ctx, nil, counter)
@@ -726,7 +728,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 		defer cancel()
 
 		// single instance rule group by
-		createRequest := &v1limiter.RuleRequest{
+		createRequest := &v1limiter.RuleCreateRequest{
 			Name:    "test1",
 			GroupBy: []string{"key1"},
 			Limit:   15,
@@ -756,6 +758,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 				"key3": datatypes.Int(3),
 				"key4": datatypes.Int(4),
 			},
+			Counters: 1,
 		}
 
 		err := rulesManager.IncrementCounters(zap.NewNop(), ctx, nil, counter)
@@ -772,7 +775,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 			//setup rules
 			for i := 0; i < 5; i++ {
 				// single instance rule group by
-				createRequest := &v1limiter.RuleRequest{
+				createRequest := &v1limiter.RuleCreateRequest{
 					Name:    fmt.Sprintf("test%d", i),
 					GroupBy: []string{fmt.Sprintf("key%d", i)},
 					Limit:   uint64(i),
@@ -786,6 +789,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 					"key1": datatypes.String("1"),
 					"key2": datatypes.String("2"),
 				},
+				Counters: 1,
 			}
 
 			mockController := gomock.NewController(t)
@@ -812,7 +816,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 
 				for i := 0; i < 5; i++ {
 					// single instance rule group by
-					createRequest := &v1limiter.RuleRequest{
+					createRequest := &v1limiter.RuleCreateRequest{
 						Name:    fmt.Sprintf("test%d", i),
 						GroupBy: []string{fmt.Sprintf("key%d", i)},
 						Limit:   uint64(i),
@@ -826,6 +830,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 						"key1": datatypes.String("1"),
 						"key2": datatypes.String("2"),
 					},
+					Counters: 1,
 				}
 
 				mockController := gomock.NewController(t)
@@ -852,7 +857,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 
 				err := rulesManager.IncrementCounters(testLgger, ctx, fakeLocker, counter)
 				g.Expect(err).To(HaveOccurred())
-				g.Expect(err).To(Equal(servererrors.InternalServerError))
+				g.Expect(err).To(Equal(errors.InternalServerError))
 				g.Expect(len(testLogs.All())).To(Equal(1))
 				g.Expect(testLogs.All()[0].Message).To(ContainSubstring("failed to obtain a lock from the locker service"))
 			})
@@ -860,15 +865,13 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 
 		t.Run("Context when a lock is lost that was already obtained", func(t *testing.T) {
 			t.Run("It returns an error and releases any locks currently held", func(t *testing.T) {
-				// DSL: this is a bit of a flaky tests since we want to ensure a goroutine reads the done chan properly.
-
 				rulesManager := NewRulesManger(constructor)
 				ctx, cancel := context.WithCancel(context.Background())
 				defer cancel()
 
 				for i := 0; i < 5; i++ {
 					// single instance rule group by
-					createRequest := &v1limiter.RuleRequest{
+					createRequest := &v1limiter.RuleCreateRequest{
 						Name:    fmt.Sprintf("test%d", i),
 						GroupBy: []string{fmt.Sprintf("key%d", i)},
 						Limit:   uint64(i),
@@ -882,6 +885,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 						"key1": datatypes.String("1"),
 						"key2": datatypes.String("2"),
 					},
+					Counters: 1,
 				}
 
 				mockController := gomock.NewController(t)
@@ -914,7 +918,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 
 				err := rulesManager.IncrementCounters(testLgger, ctx, fakeLocker, counter)
 				g.Expect(err).To(HaveOccurred())
-				g.Expect(err).To(Equal(servererrors.InternalServerError))
+				g.Expect(err).To(Equal(errors.InternalServerError))
 				g.Expect(len(testLogs.All())).To(Equal(1))
 				g.Expect(testLogs.All()[0].Message).To(ContainSubstring("a lock was released unexpedily"))
 			})
@@ -939,7 +943,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 			defer cancel()
 
 			// single instance rule group by
-			createRequest := &v1limiter.RuleRequest{
+			createRequest := &v1limiter.RuleCreateRequest{
 				Name:    "test0",
 				GroupBy: []string{"key0", "key1"},
 				Limit:   5,
@@ -953,6 +957,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 					"key1": datatypes.String("2"),
 					"key3": datatypes.String("3"),
 				},
+				Counters: 1,
 			}
 
 			// counter shuold be added
@@ -977,7 +982,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 			defer cancel()
 
 			// single instance rule group by
-			createRequest := &v1limiter.RuleRequest{
+			createRequest := &v1limiter.RuleCreateRequest{
 				Name:    "test0",
 				GroupBy: []string{"key0", "key1"},
 				Limit:   5,
@@ -991,6 +996,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 					"key1": datatypes.String("2"),
 					"key3": datatypes.String("3"),
 				},
+				Counters: 1,
 			}
 
 			// counter shuold be added
@@ -1000,7 +1006,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 			g.Expect(rulesManager.IncrementCounters(zap.NewNop(), ctx, fakeLocker, counter)).ToNot(HaveOccurred())
 
 			// ensure the counter was added
-			count := uint64(0)
+			count := int64(0)
 			onFind := func(item any) {
 				count = item.(*btreeassociated.AssociatedKeyValues).Value().(*counters.Counter).Load()
 			}
@@ -1008,7 +1014,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 			id, counterErr := rulesManager.counters.Find(btreeassociated.ConverDatatypesKeyValues(counter.KeyValues), onFind)
 			g.Expect(id).ToNot(Equal(""))
 			g.Expect(counterErr).ToNot(HaveOccurred())
-			g.Expect(count).To(Equal(uint64(4)))
+			g.Expect(count).To(Equal(int64(4)))
 		})
 
 		t.Run("It returns an error if the counter >= the limit", func(t *testing.T) {
@@ -1017,7 +1023,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 			defer cancel()
 
 			// single instance rule group by
-			createRequest := &v1limiter.RuleRequest{
+			createRequest := &v1limiter.RuleCreateRequest{
 				Name:    "test0",
 				GroupBy: []string{"key0", "key1"},
 				Limit:   1,
@@ -1029,8 +1035,8 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 				KeyValues: datatypes.KeyValues{
 					"key0": datatypes.String("0"),
 					"key1": datatypes.String("1"),
-					//"key3": datatypes.String("3"),
 				},
+				Counters: 1,
 			}
 
 			// first counter should be added
@@ -1043,7 +1049,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 			g.Expect(err.Error()).To(ContainSubstring("Limit has already been reached for rule"))
 
 			// ensure the counter was only ever incremented 1 time
-			count := uint64(0)
+			count := int64(0)
 			onFind := func(item any) {
 				count = item.(*btreeassociated.AssociatedKeyValues).Value().(*counters.Counter).Load()
 			}
@@ -1051,7 +1057,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 			id, counterErr := rulesManager.counters.Find(btreeassociated.ConverDatatypesKeyValues(counter.KeyValues), onFind)
 			g.Expect(id).ToNot(Equal(""))
 			g.Expect(counterErr).ToNot(HaveOccurred())
-			g.Expect(count).To(Equal(uint64(1)))
+			g.Expect(count).To(Equal(int64(1)))
 		})
 
 		t.Run("It returns an error if the counter >= the limit with any combination of different counters", func(t *testing.T) {
@@ -1060,7 +1066,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 			defer cancel()
 
 			// single instance rule group by
-			createRequest := &v1limiter.RuleRequest{
+			createRequest := &v1limiter.RuleCreateRequest{
 				Name:    "test0",
 				GroupBy: []string{"key0", "key1"},
 				Limit:   1,
@@ -1074,6 +1080,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 					"key1": datatypes.String("1"),
 					"key2": datatypes.String("2"),
 				},
+				Counters: 1,
 			}
 			counter2 := &v1limiter.Counter{
 				KeyValues: datatypes.KeyValues{
@@ -1081,6 +1088,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 					"key1": datatypes.String("1"),
 					"key3": datatypes.String("3"),
 				},
+				Counters: 1,
 			}
 
 			// first counter should be added
@@ -1093,7 +1101,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 			g.Expect(err.Error()).To(ContainSubstring("Limit has already been reached for rule"))
 
 			// ensure the counter was only ever incremented 1 time
-			count := uint64(0)
+			count := int64(0)
 			onFind := func(item any) {
 				count = item.(*btreeassociated.AssociatedKeyValues).Value().(*counters.Counter).Load()
 			}
@@ -1101,13 +1109,13 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 			id, counterErr := rulesManager.counters.Find(btreeassociated.ConverDatatypesKeyValues(counter1.KeyValues), onFind)
 			g.Expect(id).ToNot(Equal(""))
 			g.Expect(counterErr).ToNot(HaveOccurred())
-			g.Expect(count).To(Equal(uint64(1)))
+			g.Expect(count).To(Equal(int64(1)))
 
 			count = 0 // reset the counter
 			id, counterErr = rulesManager.counters.Find(btreeassociated.ConverDatatypesKeyValues(counter2.KeyValues), onFind)
 			g.Expect(id).To(Equal(""))
 			g.Expect(counterErr).ToNot(HaveOccurred())
-			g.Expect(count).To(Equal(uint64(0)))
+			g.Expect(count).To(Equal(int64(0)))
 		})
 
 		t.Run("It returns an error if any rule has hit the limit", func(t *testing.T) {
@@ -1116,7 +1124,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 			defer cancel()
 
 			// restrictive rule
-			createRequest := &v1limiter.RuleRequest{
+			createRequest := &v1limiter.RuleCreateRequest{
 				Name:    "test0",
 				GroupBy: []string{"key0", "key1"},
 				Limit:   1,
@@ -1126,7 +1134,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 
 			// non restrictive rules
 			for i := 1; i < 5; i++ {
-				createRequest := &v1limiter.RuleRequest{
+				createRequest := &v1limiter.RuleCreateRequest{
 					Name:    fmt.Sprintf("test%d", i),
 					GroupBy: []string{fmt.Sprintf("key%d", i), fmt.Sprintf("key%d", i+1)},
 					Limit:   uint64(i + 10),
@@ -1142,6 +1150,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 					"key2": datatypes.String("2"),
 					"key3": datatypes.String("3"),
 				},
+				Counters: 1,
 			}
 
 			// first counter should be added
@@ -1154,7 +1163,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 			g.Expect(err.Error()).To(ContainSubstring("Limit has already been reached for rule"))
 
 			// ensure the counter was only ever incremented 1 time
-			count := uint64(0)
+			count := int64(0)
 			onFind := func(item any) {
 				count = item.(*btreeassociated.AssociatedKeyValues).Value().(*counters.Counter).Load()
 			}
@@ -1162,7 +1171,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 			id, counterErr := rulesManager.counters.Find(btreeassociated.ConverDatatypesKeyValues(counter.KeyValues), onFind)
 			g.Expect(id).ToNot(Equal(""))
 			g.Expect(counterErr).ToNot(HaveOccurred())
-			g.Expect(count).To(Equal(uint64(1)))
+			g.Expect(count).To(Equal(int64(1)))
 		})
 
 		t.Run("It returns an error if any rule's overrides hit the limit", func(t *testing.T) {
@@ -1171,7 +1180,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 			defer cancel()
 
 			// restrictive rule
-			createRequest := &v1limiter.RuleRequest{
+			createRequest := &v1limiter.RuleCreateRequest{
 				Name:    "test0",
 				GroupBy: []string{"key0", "key1"},
 				Limit:   1,
@@ -1197,6 +1206,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 					"key1": datatypes.String("1"),
 					"key2": datatypes.String("2"),
 				},
+				Counters: 1,
 			}
 
 			// first counter should be added
@@ -1208,7 +1218,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 			g.Expect(err).ToNot(HaveOccurred())
 
 			// ensure the counter was only ever incremented 1 time
-			count := uint64(0)
+			count := int64(0)
 			onFind := func(item any) {
 				count = item.(*btreeassociated.AssociatedKeyValues).Value().(*counters.Counter).Load()
 			}
@@ -1216,7 +1226,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 			id, counterErr := rulesManager.counters.Find(btreeassociated.ConverDatatypesKeyValues(counter.KeyValues), onFind)
 			g.Expect(id).ToNot(Equal(""))
 			g.Expect(counterErr).ToNot(HaveOccurred())
-			g.Expect(count).To(Equal(uint64(2)))
+			g.Expect(count).To(Equal(int64(2)))
 		})
 
 	})
@@ -1235,6 +1245,7 @@ func TestRulesManager_DecrementCounters(t *testing.T) {
 			KeyValues: datatypes.KeyValues{
 				"key1": datatypes.String("1"),
 			},
+			Counters: 1,
 		}
 
 		err := rulesManager.DecrementCounters(zap.NewNop(), counter)
@@ -1253,6 +1264,7 @@ func TestRulesManager_DecrementCounters(t *testing.T) {
 				"key1": datatypes.String("1"),
 				"key2": datatypes.String("2"),
 			},
+			Counters: 1,
 		}
 		g.Expect(rulesManager.IncrementCounters(zap.NewNop(), ctx, nil, counter)).ToNot(HaveOccurred())
 		g.Expect(rulesManager.IncrementCounters(zap.NewNop(), ctx, nil, counter)).ToNot(HaveOccurred())
@@ -1260,7 +1272,7 @@ func TestRulesManager_DecrementCounters(t *testing.T) {
 		g.Expect(rulesManager.IncrementCounters(zap.NewNop(), ctx, nil, counter)).ToNot(HaveOccurred())
 
 		// ensure the counter value is correct
-		count := uint64(0)
+		count := int64(0)
 		onFind := func(item any) {
 			count = item.(*btreeassociated.AssociatedKeyValues).Value().(*counters.Counter).Load()
 		}
@@ -1268,18 +1280,26 @@ func TestRulesManager_DecrementCounters(t *testing.T) {
 		id, err := rulesManager.counters.Find(btreeassociated.ConverDatatypesKeyValues(counter.KeyValues), onFind)
 		g.Expect(id).ToNot(Equal(""))
 		g.Expect(err).ToNot(HaveOccurred())
-		g.Expect(count).To(Equal(uint64(4)))
+		g.Expect(count).To(Equal(int64(4)))
 
 		// run a decrement count
-		err = rulesManager.DecrementCounters(zap.NewNop(), counter)
+		decrementCounter := &v1limiter.Counter{
+			KeyValues: datatypes.KeyValues{
+				"key0": datatypes.String("0"),
+				"key1": datatypes.String("1"),
+				"key2": datatypes.String("2"),
+			},
+			Counters: -1,
+		}
+		err = rulesManager.DecrementCounters(zap.NewNop(), decrementCounter)
 		g.Expect(err).ToNot(HaveOccurred())
 
 		// ensure the counter was decremented correctly
-		count = uint64(0)
+		count = int64(0)
 		id, err = rulesManager.counters.Find(btreeassociated.ConverDatatypesKeyValues(counter.KeyValues), onFind)
 		g.Expect(id).ToNot(Equal(""))
 		g.Expect(err).ToNot(HaveOccurred())
-		g.Expect(count).To(Equal(uint64(3)))
+		g.Expect(count).To(Equal(int64(3)))
 	})
 
 	t.Run("It removes a counter when the count is at 1", func(t *testing.T) {
@@ -1294,11 +1314,12 @@ func TestRulesManager_DecrementCounters(t *testing.T) {
 				"key1": datatypes.String("1"),
 				"key2": datatypes.String("2"),
 			},
+			Counters: 1,
 		}
 		g.Expect(rulesManager.IncrementCounters(zap.NewNop(), ctx, nil, counter)).ToNot(HaveOccurred())
 
 		// ensure the counter value is correct
-		count := uint64(0)
+		count := int64(0)
 		onFind := func(item any) {
 			count = item.(*btreeassociated.AssociatedKeyValues).Value().(*counters.Counter).Load()
 		}
@@ -1306,18 +1327,26 @@ func TestRulesManager_DecrementCounters(t *testing.T) {
 		id, err := rulesManager.counters.Find(btreeassociated.ConverDatatypesKeyValues(counter.KeyValues), onFind)
 		g.Expect(id).ToNot(Equal(""))
 		g.Expect(err).ToNot(HaveOccurred())
-		g.Expect(count).To(Equal(uint64(1)))
+		g.Expect(count).To(Equal(int64(1)))
 
 		// run a decrement count
-		err = rulesManager.DecrementCounters(zap.NewNop(), counter)
+		decrementCounter := &v1limiter.Counter{
+			KeyValues: datatypes.KeyValues{
+				"key0": datatypes.String("0"),
+				"key1": datatypes.String("1"),
+				"key2": datatypes.String("2"),
+			},
+			Counters: -1,
+		}
+		err = rulesManager.DecrementCounters(zap.NewNop(), decrementCounter)
 		g.Expect(err).ToNot(HaveOccurred())
 
 		// ensure the counter was decremented correctly
-		count = uint64(0)
+		count = int64(0)
 		id, err = rulesManager.counters.Find(btreeassociated.ConverDatatypesKeyValues(counter.KeyValues), onFind)
 		g.Expect(id).To(Equal(""))
 		g.Expect(err).ToNot(HaveOccurred())
-		g.Expect(count).To(Equal(uint64(0)))
+		g.Expect(count).To(Equal(int64(0)))
 	})
 }
 
@@ -1345,7 +1374,7 @@ func TestRulesManager_ListCounters(t *testing.T) {
 		}
 
 		countersResponse, err := rulesManager.ListCounters(zap.NewNop(), query)
-		g.Expect(len(countersResponse.Counters)).To(Equal(0))
+		g.Expect(len(countersResponse)).To(Equal(0))
 		g.Expect(err).ToNot(HaveOccurred())
 	})
 
@@ -1362,6 +1391,7 @@ func TestRulesManager_ListCounters(t *testing.T) {
 		}
 		counter1 := &v1limiter.Counter{
 			KeyValues: keyValuesOne,
+			Counters:  1,
 		}
 		g.Expect(rulesManager.IncrementCounters(zap.NewNop(), ctx, nil, counter1)).ToNot(HaveOccurred())
 		g.Expect(rulesManager.IncrementCounters(zap.NewNop(), ctx, nil, counter1)).ToNot(HaveOccurred())
@@ -1374,6 +1404,7 @@ func TestRulesManager_ListCounters(t *testing.T) {
 		}
 		counter2 := &v1limiter.Counter{
 			KeyValues: keyValuesTwo,
+			Counters:  1,
 		}
 		g.Expect(rulesManager.IncrementCounters(zap.NewNop(), ctx, nil, counter2)).ToNot(HaveOccurred())
 
@@ -1381,6 +1412,7 @@ func TestRulesManager_ListCounters(t *testing.T) {
 			KeyValues: datatypes.KeyValues{
 				"key0": datatypes.Int(0),
 			},
+			Counters: 1,
 		}
 		g.Expect(rulesManager.IncrementCounters(zap.NewNop(), ctx, nil, counter3)).ToNot(HaveOccurred())
 
@@ -1388,6 +1420,7 @@ func TestRulesManager_ListCounters(t *testing.T) {
 			KeyValues: datatypes.KeyValues{
 				"key1": datatypes.String("0"),
 			},
+			Counters: 1,
 		}
 		g.Expect(rulesManager.IncrementCounters(zap.NewNop(), ctx, nil, counter4)).ToNot(HaveOccurred())
 
@@ -1396,6 +1429,7 @@ func TestRulesManager_ListCounters(t *testing.T) {
 				"key0": datatypes.Int(0),
 				"key1": datatypes.String("0"),
 			},
+			Counters: 1,
 		}
 		g.Expect(rulesManager.IncrementCounters(zap.NewNop(), ctx, nil, counter5)).ToNot(HaveOccurred())
 
@@ -1428,18 +1462,18 @@ func TestRulesManager_ListCounters(t *testing.T) {
 			},
 		}
 
-		resp1 := &v1limiter.CounterResponse{
+		resp1 := &v1limiter.Counter{
 			KeyValues: keyValuesOne,
 			Counters:  3,
 		}
-		resp2 := &v1limiter.CounterResponse{
+		resp2 := &v1limiter.Counter{
 			KeyValues: keyValuesTwo,
 			Counters:  1,
 		}
 
 		countersResponse, err := rulesManager.ListCounters(zap.NewNop(), query)
-		g.Expect(len(countersResponse.Counters)).To(Equal(2))
-		g.Expect(countersResponse.Counters).To(ConsistOf(resp1, resp2))
+		g.Expect(len(countersResponse)).To(Equal(2))
+		g.Expect(countersResponse).To(ConsistOf(resp1, resp2))
 		g.Expect(err).ToNot(HaveOccurred())
 	})
 }
@@ -1458,9 +1492,9 @@ func TestRulesManager_SetCounters(t *testing.T) {
 			"key1": datatypes.Int(1),
 			"key2": datatypes.Float64(3.4),
 		}
-		countersSet := &v1limiter.CounterSet{
+		countersSet := &v1limiter.Counter{
 			KeyValues: kvs,
-			Count:     87,
+			Counters:  87,
 		}
 
 		err := rulesManager.SetCounters(zap.NewNop(), countersSet)
@@ -1472,9 +1506,9 @@ func TestRulesManager_SetCounters(t *testing.T) {
 		}
 
 		countersResponse, err := rulesManager.ListCounters(zap.NewNop(), query)
-		g.Expect(len(countersResponse.Counters)).To(Equal(1))
-		g.Expect(countersResponse.Counters[0].KeyValues).To(Equal(kvs))
-		g.Expect(countersResponse.Counters[0].Counters).To(Equal(uint64(87)))
+		g.Expect(len(countersResponse)).To(Equal(1))
+		g.Expect(countersResponse[0].KeyValues).To(Equal(kvs))
+		g.Expect(countersResponse[0].Counters).To(Equal(int64(87)))
 		g.Expect(err).ToNot(HaveOccurred())
 	})
 
@@ -1490,13 +1524,14 @@ func TestRulesManager_SetCounters(t *testing.T) {
 		}
 		counter := &v1limiter.Counter{
 			KeyValues: kvs,
+			Counters:  1,
 		}
 		g.Expect(rulesManager.IncrementCounters(zap.NewNop(), ctx, nil, counter)).ToNot(HaveOccurred())
 
 		// set the counters
-		countersSet := &v1limiter.CounterSet{
+		countersSet := &v1limiter.Counter{
 			KeyValues: kvs,
-			Count:     0,
+			Counters:  0,
 		}
 
 		err := rulesManager.SetCounters(zap.NewNop(), countersSet)
@@ -1508,7 +1543,7 @@ func TestRulesManager_SetCounters(t *testing.T) {
 		}
 
 		countersResponse, err := rulesManager.ListCounters(zap.NewNop(), query)
-		g.Expect(len(countersResponse.Counters)).To(Equal(0))
+		g.Expect(len(countersResponse)).To(Equal(0))
 		g.Expect(err).ToNot(HaveOccurred())
 	})
 }

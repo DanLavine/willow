@@ -2,32 +2,30 @@ package limiterclient
 
 import (
 	"github.com/DanLavine/willow/pkg/clients"
-	"github.com/DanLavine/willow/pkg/models/api"
 	v1common "github.com/DanLavine/willow/pkg/models/api/common/v1"
 	v1limiter "github.com/DanLavine/willow/pkg/models/api/limiter/v1"
 )
 
 type LimiterClient interface {
 	// rule operations
-	CreateRule(rule *v1limiter.RuleRequest) error
+	CreateRule(rule *v1limiter.RuleCreateRequest) error
 
-	GetRule(ruleName string, query *v1limiter.RuleQuery) (*v1limiter.RuleResponse, error)
-	ListRules(query *v1limiter.RuleQuery) (*v1limiter.Rules, error)
+	GetRule(ruleName string, query *v1limiter.RuleQuery) (*v1limiter.Rule, error)
+	ListRules(query *v1limiter.RuleQuery) (v1limiter.Rules, error)
 
-	UpdateRule(ruleName string, ruleUpdate *v1limiter.RuleUpdate) error
+	UpdateRule(ruleName string, ruleUpdate *v1limiter.RuleUpdateRquest) error
 
 	DeleteRule(ruleName string) error
 
 	// override operations
-	ListOverrides(ruleName string, query *v1common.AssociatedQuery) (*v1limiter.Overrides, error)
+	ListOverrides(ruleName string, query *v1common.AssociatedQuery) (v1limiter.Overrides, error)
 	CreateOverride(ruleName string, override *v1limiter.Override) error
 	DeleteOverride(ruleName string, overrideName string) error
 
 	// counter operations
-	ListCounters(query *v1common.AssociatedQuery) (*v1limiter.CountersResponse, error)
-	IncrementCounter(counter *v1limiter.Counter) error
-	DecrementCounter(counter *v1limiter.Counter) error
-	SetCounters(counters *v1limiter.CounterSet) error
+	ListCounters(query *v1common.AssociatedQuery) (v1limiter.Counters, error)
+	UpdateCounter(counter *v1limiter.Counter) error
+	SetCounters(counters *v1limiter.Counter) error
 }
 
 // client to connect with remote limiter service
@@ -39,7 +37,7 @@ type limiterClient struct {
 	client clients.HttpClient
 
 	// type to understand request/response formats
-	contentType api.ContentType
+	contentType string
 }
 
 func NewLimiterClient(cfg *clients.Config) (LimiterClient, error) {
@@ -51,6 +49,6 @@ func NewLimiterClient(cfg *clients.Config) (LimiterClient, error) {
 	return &limiterClient{
 		url:         cfg.URL,
 		client:      httpClient,
-		contentType: cfg.ContentType,
+		contentType: cfg.ContentEncoding,
 	}, nil
 }

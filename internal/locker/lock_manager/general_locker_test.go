@@ -374,32 +374,32 @@ func TestGeneralLocker_ListLocks(t *testing.T) {
 		g.Expect(query.Validate()).ToNot(HaveOccurred())
 
 		locks := generalLocker.LocksQuery(&v1.AssociatedQuery{AssociatedKeyValues: query})
-		g.Expect(len(locks.Locks)).To(Equal(2))
+		g.Expect(len(locks)).To(Equal(2))
 
-		if locks.Locks[0].SessionID == lock2.SessionID {
-			g.Expect(locks.Locks[0].SessionID).To(Equal(lock2.SessionID))
-			g.Expect(locks.Locks[0].LocksHeldOrWaiting).To(Equal(1))
-			g.Expect(locks.Locks[0].KeyValues).To(Equal(datatypes.KeyValues{"1": datatypes.String("one"), "4": datatypes.Int(2), "5": datatypes.Uint64(3)}))
-			g.Expect(locks.Locks[0].Timeout).To(Equal(15 * time.Second))
-			g.Expect(locks.Locks[0].TimeTillExipre).ToNot(Equal(0))
+		if locks[0].SessionID == lock2.SessionID {
+			g.Expect(locks[0].SessionID).To(Equal(lock2.SessionID))
+			g.Expect(locks[0].LocksHeldOrWaiting).To(Equal(1))
+			g.Expect(locks[0].KeyValues).To(Equal(datatypes.KeyValues{"1": datatypes.String("one"), "4": datatypes.Int(2), "5": datatypes.Uint64(3)}))
+			g.Expect(locks[0].Timeout).To(Equal(15 * time.Second))
+			g.Expect(locks[0].TimeTillExipre).ToNot(Equal(0))
 
-			g.Expect(locks.Locks[1].SessionID).To(Equal(lock1.SessionID))
-			g.Expect(locks.Locks[1].LocksHeldOrWaiting).To(Equal(1))
-			g.Expect(locks.Locks[1].KeyValues).To(Equal(datatypes.KeyValues{"1": datatypes.String("one"), "2": datatypes.Int(2), "3": datatypes.Uint64(3)}))
-			g.Expect(locks.Locks[1].Timeout).To(Equal(15 * time.Second))
-			g.Expect(locks.Locks[1].TimeTillExipre).ToNot(Equal(0))
+			g.Expect(locks[1].SessionID).To(Equal(lock1.SessionID))
+			g.Expect(locks[1].LocksHeldOrWaiting).To(Equal(1))
+			g.Expect(locks[1].KeyValues).To(Equal(datatypes.KeyValues{"1": datatypes.String("one"), "2": datatypes.Int(2), "3": datatypes.Uint64(3)}))
+			g.Expect(locks[1].Timeout).To(Equal(15 * time.Second))
+			g.Expect(locks[1].TimeTillExipre).ToNot(Equal(0))
 		} else {
-			g.Expect(locks.Locks[1].SessionID).To(Equal(lock2.SessionID))
-			g.Expect(locks.Locks[1].LocksHeldOrWaiting).To(Equal(1))
-			g.Expect(locks.Locks[1].KeyValues).To(Equal(datatypes.KeyValues{"1": datatypes.String("one"), "4": datatypes.Int(2), "5": datatypes.Uint64(3)}))
-			g.Expect(locks.Locks[1].Timeout).To(Equal(15 * time.Second))
-			g.Expect(locks.Locks[1].TimeTillExipre).ToNot(Equal(0))
+			g.Expect(locks[1].SessionID).To(Equal(lock2.SessionID))
+			g.Expect(locks[1].LocksHeldOrWaiting).To(Equal(1))
+			g.Expect(locks[1].KeyValues).To(Equal(datatypes.KeyValues{"1": datatypes.String("one"), "4": datatypes.Int(2), "5": datatypes.Uint64(3)}))
+			g.Expect(locks[1].Timeout).To(Equal(15 * time.Second))
+			g.Expect(locks[1].TimeTillExipre).ToNot(Equal(0))
 
-			g.Expect(locks.Locks[0].SessionID).To(Equal(lock1.SessionID))
-			g.Expect(locks.Locks[0].LocksHeldOrWaiting).To(Equal(1))
-			g.Expect(locks.Locks[0].KeyValues).To(Equal(datatypes.KeyValues{"1": datatypes.String("one"), "2": datatypes.Int(2), "3": datatypes.Uint64(3)}))
-			g.Expect(locks.Locks[0].Timeout).To(Equal(15 * time.Second))
-			g.Expect(locks.Locks[0].TimeTillExipre).ToNot(Equal(0))
+			g.Expect(locks[0].SessionID).To(Equal(lock1.SessionID))
+			g.Expect(locks[0].LocksHeldOrWaiting).To(Equal(1))
+			g.Expect(locks[0].KeyValues).To(Equal(datatypes.KeyValues{"1": datatypes.String("one"), "2": datatypes.Int(2), "3": datatypes.Uint64(3)}))
+			g.Expect(locks[0].Timeout).To(Equal(15 * time.Second))
+			g.Expect(locks[0].TimeTillExipre).ToNot(Equal(0))
 		}
 	})
 }
@@ -425,7 +425,7 @@ func TestGeneralLocker_Heartbeat(t *testing.T) {
 
 		err := generalLocker.Heartbeat("bad id")
 		g.Expect(err).ToNot(BeNil())
-		g.Expect(err.Error).To(ContainSubstring("SessionID could not be found"))
+		g.Expect(err.Error()).To(ContainSubstring("SessionID could not be found"))
 	})
 
 	t.Run("It keeps the lock around as long as the heartbeats are received", func(t *testing.T) {
@@ -453,7 +453,7 @@ func TestGeneralLocker_Heartbeat(t *testing.T) {
 		}
 
 		locks := generalLocker.LocksQuery(generalQuery)
-		g.Expect(len(locks.Locks)).To(Equal(1))
+		g.Expect(len(locks)).To(Equal(1))
 	})
 
 	t.Run("It removes the lock if no heartbeats are received", func(t *testing.T) {
@@ -475,7 +475,7 @@ func TestGeneralLocker_Heartbeat(t *testing.T) {
 		g.Expect(lockResp).ToNot(BeNil())
 
 		g.Eventually(func() int {
-			return len(generalLocker.LocksQuery(generalQuery).Locks)
+			return len(generalLocker.LocksQuery(generalQuery))
 		}).Should(Equal(0))
 	})
 
@@ -508,7 +508,7 @@ func TestGeneralLocker_Heartbeat(t *testing.T) {
 
 			// the locks should still be listed
 			locks := generalLocker.LocksQuery(generalQuery)
-			g.Expect(len(locks.Locks)).To(Equal(1))
+			g.Expect(len(locks)).To(Equal(1))
 		})
 	})
 }

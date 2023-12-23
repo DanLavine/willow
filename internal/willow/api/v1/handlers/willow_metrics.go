@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/DanLavine/willow/internal/willow/brokers/queues"
+	"github.com/DanLavine/willow/pkg/models/api"
 	"go.uber.org/zap"
 )
 
@@ -32,8 +33,7 @@ func (mh *metricsHandler) Metrics(w http.ResponseWriter, r *http.Request) {
 	case "GET":
 		metrics := mh.queueManager.Metrics()
 
-		w.WriteHeader(http.StatusOK)
-		w.Write(metrics.EncodeJSON())
+		_, _ = api.EncodeAndSendHttpResponse(r.Header, w, http.StatusOK, metrics)
 	default:
 		w.WriteHeader(http.StatusNotFound)
 	}

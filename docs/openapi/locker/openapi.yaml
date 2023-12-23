@@ -39,7 +39,7 @@ paths:
                   minLength: 1
                   $ref: "../common/components.yaml#/components/schemas/KeyValues"
       responses:
-        201:
+        200:
           description: created or obtained the lock
           content:
             appplication/json:

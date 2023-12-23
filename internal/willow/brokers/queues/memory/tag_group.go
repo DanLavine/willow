@@ -14,7 +14,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/DanLavine/willow/internal/datastructures/btree"
-	servererrors "github.com/DanLavine/willow/internal/server_errors"
+	"github.com/DanLavine/willow/pkg/models/api/common/errors"
 	v1willow "github.com/DanLavine/willow/pkg/models/api/willow/v1"
 )
 
@@ -122,7 +122,7 @@ func (tg *tagGroup) Execute(ctx context.Context) error {
 //	- func() - onSuccess callback if the caller was able to process the request
 //	- func() - onFailure callback if the caller faild to process the request
 //	- *v1willow.Error - error with the queue
-func (tg *tagGroup) dequeue(logger *zap.Logger) (*v1willow.DequeueItemResponse, func(), func(), *servererrors.ApiError) {
+func (tg *tagGroup) dequeue(logger *zap.Logger) (*v1willow.DequeueItemResponse, func(), func(), *errors.ServerError) {
 	logger = logger.Named("dequeue")
 
 	// pull the first item to process
@@ -174,7 +174,7 @@ func (tg *tagGroup) dequeue(logger *zap.Logger) (*v1willow.DequeueItemResponse, 
 
 // Enqueue a new item onto the tag group.
 // If this was to be used in a "trigger", would need to return the tag group itself, to pull an item?
-func (tg *tagGroup) Enqueue(logger *zap.Logger, totalQueueCounter *Counter, queueItem *v1willow.EnqueueItemRequest) *servererrors.ApiError {
+func (tg *tagGroup) Enqueue(logger *zap.Logger, totalQueueCounter *Counter, queueItem *v1willow.EnqueueItemRequest) *errors.ServerError {
 	logger = logger.Named("Enqueue")
 	tg.lock.Lock()
 	defer tg.lock.Unlock()
@@ -215,7 +215,7 @@ func (tg *tagGroup) Enqueue(logger *zap.Logger, totalQueueCounter *Counter, queu
 		return nil
 	}
 
-	return servererrors.MaxEnqueuedItems
+	return &errors.ServerError{Message: "Queue has reached max allowed enqueued items.", StatusCode: http.StatusConflict}
 }
 
 // ACK is the response to a processing item.
@@ -227,7 +227,7 @@ func (tg *tagGroup) Enqueue(logger *zap.Logger, totalQueueCounter *Counter, queu
 // RESPONSE:
 // - bool - bool to indicate if the tag group should be removed (True if there are no more items processing or waiting to process)
 // - *v1willow.Error - internal error encountered
-func (tg *tagGroup) ACK(logger *zap.Logger, totalQueueCounter *Counter, ackItem *v1willow.ACK) *servererrors.ApiError {
+func (tg *tagGroup) ACK(logger *zap.Logger, totalQueueCounter *Counter, ackItem *v1willow.ACK) *errors.ServerError {
 	logger = logger.Named("ACK")
 
 	processed := false
@@ -274,7 +274,7 @@ func (tg *tagGroup) ACK(logger *zap.Logger, totalQueueCounter *Counter, ackItem 
 	}
 
 	if !processed {
-		return &servererrors.ApiError{Message: fmt.Sprintf("ID %s does not exist for tag group: %v", ackItem.ID, ackItem.BrokerInfo.Tags), StatusCode: http.StatusBadRequest}
+		return &errors.ServerError{Message: fmt.Sprintf("ID %s does not exist for tag group: %v", ackItem.ID, ackItem.BrokerInfo.Tags), StatusCode: http.StatusBadRequest}
 	}
 
 	return nil

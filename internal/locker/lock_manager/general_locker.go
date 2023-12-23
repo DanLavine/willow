@@ -7,8 +7,8 @@ import (
 
 	"github.com/DanLavine/goasync"
 	btreeassociated "github.com/DanLavine/willow/internal/datastructures/btree_associated"
-	servererrors "github.com/DanLavine/willow/internal/server_errors"
 
+	"github.com/DanLavine/willow/pkg/models/api/common/errors"
 	v1common "github.com/DanLavine/willow/pkg/models/api/common/v1"
 	v1locker "github.com/DanLavine/willow/pkg/models/api/locker/v1"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
@@ -19,10 +19,10 @@ type GeneralLocker interface {
 	ObtainLock(clientCtx context.Context, createRequest *v1locker.LockCreateRequest) *v1locker.LockCreateResponse
 
 	// Heartbeat any number of locks so we know they are still running properly
-	Heartbeat(sessions string) *servererrors.ApiError
+	Heartbeat(sessions string) *errors.ServerError
 
 	// Find all locks currently held in the tree
-	LocksQuery(query *v1common.AssociatedQuery) *v1locker.LockQueryResponse
+	LocksQuery(query *v1common.AssociatedQuery) v1locker.Locks
 
 	// Release or delete a specific lock
 	ReleaseLock(lockID string)
@@ -71,15 +71,15 @@ func NewGeneralLocker(tree btreeassociated.BTreeAssociated) *generalLocker {
 }
 
 // List all locks held
-func (generalLocker *generalLocker) LocksQuery(query *v1common.AssociatedQuery) *v1locker.LockQueryResponse {
-	locks := &v1locker.LockQueryResponse{}
+func (generalLocker *generalLocker) LocksQuery(query *v1common.AssociatedQuery) v1locker.Locks {
+	locks := v1locker.Locks{}
 
 	onPaginate := func(associatedKeyValues *btreeassociated.AssociatedKeyValues) bool {
 		generalLock := associatedKeyValues.Value().(*generalLock)
 		generalLock.counterLock.RLock()
 		defer generalLock.counterLock.RUnlock()
 
-		locks.Locks = append(locks.Locks, &v1locker.Lock{
+		locks = append(locks, &v1locker.Lock{
 			SessionID:          associatedKeyValues.AssociatedID(),
 			KeyValues:          associatedKeyValues.KeyValues().RetrieveStringDataType().StripKey(btreeassociated.ReservedID),
 			Timeout:            generalLock.timeout,
@@ -155,7 +155,7 @@ func (generalLocker *generalLocker) ObtainLock(clientCtx context.Context, create
 }
 
 // heartbeat a particualr session key values
-func (generalLocker *generalLocker) Heartbeat(sessionID string) *servererrors.ApiError {
+func (generalLocker *generalLocker) Heartbeat(sessionID string) *errors.ServerError {
 	found := false
 	onFind := func(item any) {
 		generalLock := item.(*btreeassociated.AssociatedKeyValues).Value().(*generalLock)
@@ -173,7 +173,7 @@ func (generalLocker *generalLocker) Heartbeat(sessionID string) *servererrors.Ap
 	_ = generalLocker.locks.FindByAssociatedID(sessionID, onFind)
 
 	if !found {
-		return &servererrors.ApiError{Message: "SessionID could not be found", StatusCode: http.StatusGone}
+		return &errors.ServerError{Message: "SessionID could not be found", StatusCode: http.StatusGone}
 	}
 
 	return nil

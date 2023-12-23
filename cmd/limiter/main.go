@@ -39,11 +39,11 @@ func main() {
 
 	// setup locker client
 	clientConfig := &clients.Config{
-		URL:           *cfg.LockerURL,
-		ContentType:   commonapi.ContentTypeJSON,
-		CAFile:        *cfg.LimiterCA,
-		ClientKeyFile: *cfg.LockerClientKey,
-		ClientCRTFile: *cfg.LockerClientCRT,
+		URL:             *cfg.LockerURL,
+		ContentEncoding: commonapi.ContentTypeJSON,
+		CAFile:          *cfg.LimiterCA,
+		ClientKeyFile:   *cfg.LockerClientKey,
+		ClientCRTFile:   *cfg.LockerClientCRT,
 	}
 	lockerClient, err := lockerclient.NewLockerClient(shutdown, clientConfig, nil)
 	if err != nil {

@@ -45,7 +45,7 @@ type lockerclient struct {
 	// client to connect with the remote Locker service
 	url         string
 	client      clients.HttpClient
-	contentType api.ContentType
+	contentType string
 
 	// callback to client if a lock was somehow released on the server beccause heartbeats are failing
 	heartbeatErrorCallback func(keyValues datatypes.KeyValues, err error)
@@ -85,7 +85,7 @@ func NewLockerClient(ctx context.Context, cfg *clients.Config, heartbeatErrorCal
 		done:                   done,
 		url:                    cfg.URL,
 		client:                 httpClient,
-		contentType:            cfg.ContentType,
+		contentType:            cfg.ContentEncoding,
 		heartbeatErrorCallback: heartbeatErrorCallback,
 		locks:                  btreeassociated.NewThreadSafe(),
 		asyncManager:           asyncManager,
@@ -195,11 +195,11 @@ func (lc *lockerclient) ObtainLock(ctx context.Context, lockRequest *v1locker.Lo
 			}
 
 			switch resp.StatusCode {
-			case http.StatusCreated:
+			case http.StatusOK:
 				// created the lock, need to record the session id and start hearbeating
 				createLockResponse := &v1locker.LockCreateResponse{}
-				if err := createLockResponse.Decode(api.ContentTypeFromResponse(resp), resp.Body); err != nil {
-					lockErr = errors.ClientError(err)
+				if err := api.DecodeAndValidateHttpResponse(resp, createLockResponse); err != nil {
+					lockErr = err
 					return nil
 				}
 
@@ -233,8 +233,8 @@ func (lc *lockerclient) ObtainLock(ctx context.Context, lockRequest *v1locker.Lo
 			case http.StatusBadRequest:
 				// there was an error with the request. possibly a mismatch on client server versions
 				apiError := &errors.Error{}
-				if err := apiError.Decode(api.ContentTypeFromResponse(resp), resp.Body); err != nil {
-					lockErr = errors.ClientError(err)
+				if err := api.DecodeAndValidateHttpResponse(resp, apiError); err != nil {
+					lockErr = err
 				} else {
 					lockErr = apiError
 				}

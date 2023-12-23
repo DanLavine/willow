@@ -1,13 +1,10 @@
 package rules
 
 import (
-	"sort"
-
 	v1limitermodels "github.com/DanLavine/willow/internal/limiter/v1_limiter_models"
+	"github.com/DanLavine/willow/pkg/models/api/common/errors"
 	v1common "github.com/DanLavine/willow/pkg/models/api/common/v1"
 	v1limiter "github.com/DanLavine/willow/pkg/models/api/limiter/v1"
-
-	servererrors "github.com/DanLavine/willow/internal/server_errors"
 
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 	"go.uber.org/zap"
@@ -21,59 +18,23 @@ type Rule interface {
 	GetGroupByKeys() []string
 
 	// Update a particualr rule's default limit values
-	Update(logger *zap.Logger, update *v1limiter.RuleUpdate)
+	Update(logger *zap.Logger, update *v1limiter.RuleUpdateRquest)
 
 	// query overrides for a particular rule
-	QueryOverrides(logger *zap.Logger, query *v1common.AssociatedQuery) (*v1limiter.Overrides, *servererrors.ApiError)
+	QueryOverrides(logger *zap.Logger, query *v1common.AssociatedQuery) (v1limiter.Overrides, *errors.ServerError)
 
 	// set an override for a particualr group of tags
-	SetOverride(logger *zap.Logger, override *v1limiter.Override) *servererrors.ApiError
+	SetOverride(logger *zap.Logger, override *v1limiter.Override) *errors.ServerError
 
 	// Delete an override for a particualr group of tags
-	DeleteOverride(logger *zap.Logger, overrideName string) *servererrors.ApiError
+	DeleteOverride(logger *zap.Logger, overrideName string) *errors.ServerError
 
 	// Operation that is calledfor cascading deletes because the rule is being deleted
-	CascadeDeletion(logger *zap.Logger) *servererrors.ApiError
+	CascadeDeletion(logger *zap.Logger) *errors.ServerError
 
 	// Find the limits for a particualr group of tags including any overrides
-	FindLimits(logger *zap.Logger, keyValues datatypes.KeyValues) (v1limitermodels.Limits, *servererrors.ApiError)
+	FindLimits(logger *zap.Logger, keyValues datatypes.KeyValues) (v1limitermodels.Limits, *errors.ServerError)
 
 	// Get a rule response for Read operations
-	Get(includeOverrides *v1limiter.RuleQuery) *v1limiter.RuleResponse
-}
-
-func SortRulesGroupBy(rules []Rule) [][]string {
-	sortedGroupBy := [][]string{}
-
-	for _, rule := range rules {
-		sortedGroupBy = append(sortedGroupBy, rule.GetGroupByKeys())
-	}
-
-	// 1. sort by lenght of rules
-	// 2. sort by keys within each length
-	sort.SliceStable(sortedGroupBy, func(i, j int) bool {
-		if len(sortedGroupBy[i]) < len(sortedGroupBy[j]) {
-			return true
-		}
-
-		if len(sortedGroupBy[i]) == len(sortedGroupBy[j]) {
-			sortedKeysI := sort.StringSlice(sortedGroupBy[i])
-			sortedKeysJ := sort.StringSlice(sortedGroupBy[j])
-
-			for index, value := range sortedKeysI {
-				if value < sortedKeysJ[index] {
-					return true
-				} else if sortedKeysJ[index] < value {
-					return false
-				}
-			}
-
-			// at this point, all values must be in the proper order
-			return true
-		}
-
-		return false
-	})
-
-	return sortedGroupBy
+	Get(includeOverrides *v1limiter.RuleQuery) *v1limiter.Rule
 }

@@ -7,7 +7,6 @@ import (
 	"github.com/DanLavine/willow/internal/config"
 	"github.com/DanLavine/willow/internal/logger"
 	"github.com/DanLavine/willow/pkg/models/api"
-	"github.com/DanLavine/willow/pkg/models/api/common/errors"
 
 	lockmanager "github.com/DanLavine/willow/internal/locker/lock_manager"
 	v1common "github.com/DanLavine/willow/pkg/models/api/common/v1"
@@ -53,8 +52,8 @@ func (lh *lockerHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	// parse the create lock request
 	createLockerRequest := &v1locker.LockCreateRequest{}
-	if err := createLockerRequest.Decode(api.ContentTypeFromRequest(r), r.Body); err != nil {
-		_, _ = api.HttpResponse(r, w, http.StatusBadRequest, errors.ServerError(err))
+	if err := api.DecodeAndValidateHttpRequest(r, createLockerRequest); err != nil {
+		_, _ = api.EncodeAndSendHttpResponse(r.Header, w, err.StatusCode, err)
 		return
 	}
 
@@ -65,9 +64,7 @@ func (lh *lockerHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	if lockResponse := lh.generalLocker.ObtainLock(r.Context(), createLockerRequest); lockResponse != nil {
 		// obtained lock, send response to the client
-		w.Header().Set("Content-Type", r.Header.Get("Content-Type"))
-		w.WriteHeader(http.StatusCreated)
-		if _, respErr := api.HttpResponse(r, w, http.StatusCreated, lockResponse); respErr != nil {
+		if _, respErr := api.EncodeAndSendHttpResponse(r.Header, w, http.StatusOK, lockResponse); respErr != nil {
 			// failing to write the response to the client means we should free the lock
 			logger.Error("Failed to write lock response to client", zap.Error(respErr))
 			lh.generalLocker.ReleaseLock(lockResponse.SessionID)
@@ -75,7 +72,8 @@ func (lh *lockerHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// in this case, the client should be disconnected or we are shutting down and they need to retry
-	_, _ = api.HttpResponse(r, w, http.StatusServiceUnavailable, nil)
+	_, _ = api.EncodeAndSendHttpResponse(r.Header, w, http.StatusServiceUnavailable, nil)
+
 }
 
 func (lh *lockerHandler) Heartbeat(w http.ResponseWriter, r *http.Request) {
@@ -91,10 +89,10 @@ func (lh *lockerHandler) Heartbeat(w http.ResponseWriter, r *http.Request) {
 
 	if heartbeatError == nil {
 		// heartbeat was successful
-		_, _ = api.HttpResponse(r, w, http.StatusOK, nil)
+		_, _ = api.EncodeAndSendHttpResponse(r.Header, w, http.StatusOK, nil)
 	} else {
 		// there was an error heartbeating
-		_, _ = api.HttpResponse(r, w, heartbeatError.StatusCode, heartbeatError)
+		_, _ = api.EncodeAndSendHttpResponse(r.Header, w, heartbeatError.StatusCode, heartbeatError)
 	}
 }
 
@@ -105,8 +103,8 @@ func (lh *lockerHandler) List(w http.ResponseWriter, r *http.Request) {
 
 	// parse the associaed query
 	query := &v1common.AssociatedQuery{}
-	if err := query.Decode(api.ContentTypeFromRequest(r), r.Body); err != nil {
-		_, _ = api.HttpResponse(r, w, http.StatusBadRequest, errors.ServerError(err))
+	if err := api.DecodeAndValidateHttpRequest(r, query); err != nil {
+		_, _ = api.EncodeAndSendHttpResponse(r.Header, w, err.StatusCode, err)
 		return
 	}
 
@@ -114,7 +112,7 @@ func (lh *lockerHandler) List(w http.ResponseWriter, r *http.Request) {
 	locks := lh.generalLocker.LocksQuery(query)
 
 	// respond and ignore the errors
-	_, _ = api.HttpResponse(r, w, http.StatusOK, locks)
+	_, _ = api.EncodeAndSendHttpResponse(r.Header, w, http.StatusOK, &locks)
 }
 
 func (lh *lockerHandler) Delete(w http.ResponseWriter, r *http.Request) {
@@ -129,5 +127,5 @@ func (lh *lockerHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	lh.generalLocker.ReleaseLock(namedParameters["_associated_id"])
 
 	// respond and ignore the errors
-	_, _ = api.HttpResponse(r, w, http.StatusNoContent, nil)
+	_, _ = api.EncodeAndSendHttpResponse(r.Header, w, http.StatusNoContent, nil)
 }

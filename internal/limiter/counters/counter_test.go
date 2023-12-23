@@ -6,31 +6,26 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func Test_Counter_Increment(t *testing.T) {
+func Test_Counter_Update(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	t.Run("It adds 1 to the counter", func(t *testing.T) {
+	t.Run("It can add to the counter", func(t *testing.T) {
 		counter := New()
 
-		g.Expect(counter.Increment()).To(Equal(uint64(1)))
-		g.Expect(counter.Increment()).To(Equal(uint64(2)))
-		g.Expect(counter.Increment()).To(Equal(uint64(3)))
+		g.Expect(counter.Update(1)).To(Equal(int64(1)))
+		g.Expect(counter.Update(1)).To(Equal(int64(2)))
+		g.Expect(counter.Update(2)).To(Equal(int64(4)))
 	})
-}
 
-func Test_Counter_Decrement(t *testing.T) {
-	g := NewGomegaWithT(t)
-
-	t.Run("It removed 1 from the counter", func(t *testing.T) {
+	t.Run("It cam decrement the counter", func(t *testing.T) {
 		counter := New()
 
-		g.Expect(counter.Increment()).To(Equal(uint64(1)))
-		g.Expect(counter.Increment()).To(Equal(uint64(2)))
-		g.Expect(counter.Increment()).To(Equal(uint64(3)))
-
-		g.Expect(counter.Decrement()).To(Equal(uint64(2)))
-		g.Expect(counter.Decrement()).To(Equal(uint64(1)))
-		g.Expect(counter.Decrement()).To(Equal(uint64(0)))
+		g.Expect(counter.Update(1)).To(Equal(int64(1)))
+		g.Expect(counter.Update(1)).To(Equal(int64(2)))
+		g.Expect(counter.Update(2)).To(Equal(int64(4)))
+		g.Expect(counter.Update(-1)).To(Equal(int64(3)))
+		g.Expect(counter.Update(-1)).To(Equal(int64(2)))
+		g.Expect(counter.Update(-2)).To(Equal(int64(0)))
 	})
 }
 
@@ -40,10 +35,10 @@ func Test_Counter_Load(t *testing.T) {
 	t.Run("It loads the current value for the counter", func(t *testing.T) {
 		counter := New()
 
-		g.Expect(counter.Increment()).To(Equal(uint64(1)))
-		g.Expect(counter.Increment()).To(Equal(uint64(2)))
-		g.Expect(counter.Increment()).To(Equal(uint64(3)))
+		g.Expect(counter.Update(1)).To(Equal(int64(1)))
+		g.Expect(counter.Update(1)).To(Equal(int64(2)))
+		g.Expect(counter.Update(1)).To(Equal(int64(3)))
 
-		g.Expect(counter.Load()).To(Equal(uint64(3)))
+		g.Expect(counter.Load()).To(Equal(int64(3)))
 	})
 }

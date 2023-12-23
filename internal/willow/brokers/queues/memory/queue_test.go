@@ -5,9 +5,9 @@ import (
 	"testing"
 
 	"github.com/DanLavine/goasync"
-	servererrors "github.com/DanLavine/willow/internal/server_errors"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 
+	"github.com/DanLavine/willow/pkg/models/api/common/errors"
 	v1willow "github.com/DanLavine/willow/pkg/models/api/willow/v1"
 
 	. "github.com/onsi/gomega"
@@ -46,7 +46,7 @@ func TestMemoryQueue_Enqueue(t *testing.T) {
 
 		err := queue.Enqueue(zap.NewNop(), &v1willow.EnqueueItemRequest{BrokerInfo: v1willow.BrokerInfo{Name: "test"}, Data: []byte(``)})
 		g.Expect(err).ToNot(BeNil())
-		g.Expect(err.Error()).To(ContainSubstring("Internal Server Error. Actual: keyValuePairs cannot be empty."))
+		g.Expect(err.Error()).To(ContainSubstring("Internal Server Error"))
 	})
 
 	t.Run("it records that an item is ready", func(t *testing.T) {
@@ -149,7 +149,7 @@ func TestMemoryQueue_Enqueue(t *testing.T) {
 
 		err := queue.Enqueue(zap.NewNop(), enqueueItemNotUpdateable)
 		g.Expect(err).To(HaveOccurred())
-		g.Expect(err).To(Equal(servererrors.MaxEnqueuedItems))
+		g.Expect(err.Error()).To(Equal("Queue has reached max allowed enqueued items."))
 	})
 }
 
@@ -200,7 +200,7 @@ func TestMemoryQueue_Dequeue(t *testing.T) {
 		var dequeue *v1willow.DequeueItemResponse
 		var onSuccess func()
 		var onFail func()
-		var err *servererrors.ApiError
+		var err *errors.ServerError
 		g.Eventually(func() bool {
 			dequeue, onSuccess, onFail, err = queue.Dequeue(zap.NewNop(), context.Background(), globalSelect)
 			return true
@@ -221,7 +221,7 @@ func TestMemoryQueue_Dequeue(t *testing.T) {
 		var dequeue *v1willow.DequeueItemResponse
 		var onSuccess func()
 		var onFail func()
-		var err *servererrors.ApiError
+		var err *errors.ServerError
 		g.Eventually(func() bool {
 			dequeue, onSuccess, onFail, err = queue.Dequeue(zap.NewNop(), cancelContext, globalSelect)
 			return true
@@ -239,7 +239,7 @@ func TestMemoryQueue_Dequeue(t *testing.T) {
 		var dequeue *v1willow.DequeueItemResponse
 		var onSuccess func()
 		var onFail func()
-		var err *servererrors.ApiError
+		var err *errors.ServerError
 		received := make(chan struct{})
 		go func() {
 			dequeue, onSuccess, onFail, err = queue.Dequeue(zap.NewNop(), context.Background(), globalSelect)
@@ -300,7 +300,7 @@ func TestMemoryQueue_Dequeue(t *testing.T) {
 		var dequeue *v1willow.DequeueItemResponse
 		var onSuccess func()
 		var onFail func()
-		var err *servererrors.ApiError
+		var err *errors.ServerError
 		received := make(chan struct{})
 		go func() {
 			dequeue, onSuccess, onFail, err = queue.Dequeue(zap.NewNop(), context.Background(), globalSelect)

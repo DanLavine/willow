@@ -320,12 +320,15 @@ paths:
                   ApiError:
                     $ref: "../common/components.yaml#/components/schemas/ApiError"
   /v1/limiter/counters:
-    post:
-      operationId: increment Counters
+    put:
+      operationId: create or update Counters
       description: |
-        Increment a `Counter` which is a collection of `KeyValues`. As part of this operation, all `Rules` are matched
-        to ensure that they have not reached a limit for the `KeyValues` in this request. If that has happened,
-        then the request will fail and it is up to the client to eventually retry the request.
+        Create or Update a `Counter` which is a collection of `KeyValues`. If the `Counters` is positive, then the counters
+        will be incremented and all `Rules` are matched to ensure that they have not reached a limit for the `KeyValues`.
+        If that has happened, then the request will fail and it is up to the client to eventually retry the request.
+
+        If the `Countres` is negative, then the counters will be decremented. If the total counters is less than or equal
+        to 0 after the applied changes, the `Counter` is removed from the service
       requestBody:
         required: true
         content:
@@ -402,39 +405,8 @@ paths:
                 properties:
                   ApiError:
                     $ref: "../common/components.yaml#/components/schemas/ApiError"
-    delete:
-      operationId: decrement Counters
-      requestBody:
-        description: |
-          Decrement the group of `KeyValues`. If the counter would be 0, the group is removed entierly
-        required: true
-        content:
-          appplication/json:
-            schema:
-              $ref: "../common/components.yaml#/components/schemas/KeyValues"
-      responses:
-        204:
-          description: "`KeyValues` Group was decremeneted"
-        400:
-          description: Error parsing or validating the request body
-          content:
-            appplication/json:
-              schema:
-                type: object
-                properties:
-                  ApiError:
-                    $ref: "../common/components.yaml#/components/schemas/ApiError"
-        500:
-          description: Internal error that should be addressed by the service maintainer
-          content:
-            appplication/json:
-              schema:
-                type: object
-                properties:
-                  ApiError:
-                    $ref: "../common/components.yaml#/components/schemas/ApiError"
   /v1/limiter/counters/set:
-    post:
+    put:
       operationId: set Counters
       description: |
         Set a spcific `Counter` without checking or enforcinig any `Rules`. This API should only be used as
@@ -597,6 +569,16 @@ components:
       type: object
       required:
         - KeyValues
+        - Counters
       properties:
         KeyValues:
           $ref: "../common/components.yaml#/components/schemas/KeyValues"
+        Counters:
+          description: |
+            1. On incrment, increase the counters for the associaated `KeyValues`.\
+            2. On Decrement, decrease the counters for the associaated `KeyValues`.\
+            3. On set, these are forcefully setting the counters for the associated `KeyValues`.
+
+            When ever updating the counters, if the count is less than or equal to 0, the counters
+            is removed service side
+          type: integer

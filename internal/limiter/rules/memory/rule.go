@@ -8,10 +8,9 @@ import (
 	btreeassociated "github.com/DanLavine/willow/internal/datastructures/btree_associated"
 
 	v1limitermodels "github.com/DanLavine/willow/internal/limiter/v1_limiter_models"
+	"github.com/DanLavine/willow/pkg/models/api/common/errors"
 	v1common "github.com/DanLavine/willow/pkg/models/api/common/v1"
 	v1limiter "github.com/DanLavine/willow/pkg/models/api/limiter/v1"
-
-	servererrors "github.com/DanLavine/willow/internal/server_errors"
 
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 	"go.uber.org/zap"
@@ -33,7 +32,7 @@ type ruleOverride struct {
 	limit uint64
 }
 
-func NewRule(ruleModel *v1limiter.RuleRequest) *rule {
+func NewRule(ruleModel *v1limiter.RuleCreateRequest) *rule {
 	return &rule{
 		ruleModelLock: new(sync.RWMutex),
 		name:          ruleModel.Name,
@@ -47,7 +46,7 @@ func NewRule(ruleModel *v1limiter.RuleRequest) *rule {
 //
 //	PARAMS:
 //	- includeOverrodes - iff true, will also include any rule overrides. This can be a SLOW operation.
-func (r *rule) Get(includeOverrides *v1limiter.RuleQuery) *v1limiter.RuleResponse {
+func (r *rule) Get(includeOverrides *v1limiter.RuleQuery) *v1limiter.Rule {
 	r.ruleModelLock.RLock()
 	defer r.ruleModelLock.RUnlock()
 
@@ -81,7 +80,7 @@ func (r *rule) Get(includeOverrides *v1limiter.RuleQuery) *v1limiter.RuleRespons
 		}
 	}
 
-	ruleResponse := &v1limiter.RuleResponse{
+	ruleResponse := &v1limiter.Rule{
 		Name:      r.name,
 		GroupBy:   r.groupBy,
 		Limit:     r.limit,
@@ -97,7 +96,7 @@ func (r *rule) Get(includeOverrides *v1limiter.RuleQuery) *v1limiter.RuleRespons
 //	I.E
 //	1. {"key1":"1", "key2":"2"}, Limit 5
 //	2. {"key1":"1"}, Limit 2 <- this is always more restrictive and we don't care about the 1st rule anymore
-func (r *rule) FindLimits(logger *zap.Logger, keyValues datatypes.KeyValues) (v1limitermodels.Limits, *servererrors.ApiError) {
+func (r *rule) FindLimits(logger *zap.Logger, keyValues datatypes.KeyValues) (v1limitermodels.Limits, *errors.ServerError) {
 	r.ruleModelLock.RLock()
 	defer r.ruleModelLock.RUnlock()
 
@@ -136,13 +135,13 @@ func (r *rule) FindLimits(logger *zap.Logger, keyValues datatypes.KeyValues) (v1
 	// match all the override KeyValue permutations
 	if err := r.overrides.MatchPermutations(btreeassociated.ConverDatatypesKeyValues(keyValues), onPagination); err != nil {
 		logger.Error("error finding limits", zap.Error(err))
-		return limits, servererrors.InternalServerError
+		return limits, errors.InternalServerError
 	}
 
 	return limits, nil
 }
 
-func (r *rule) Update(logger *zap.Logger, update *v1limiter.RuleUpdate) {
+func (r *rule) Update(logger *zap.Logger, update *v1limiter.RuleUpdateRquest) {
 	r.ruleModelLock.Lock()
 	defer r.ruleModelLock.Unlock()
 
@@ -154,18 +153,18 @@ func (r *rule) Update(logger *zap.Logger, update *v1limiter.RuleUpdate) {
 //
 // NOTE: we don't need to ensure on the Override's KeyValues that they have all the Rule's GroupBy tags. Thise are already
 // finding the inital rule to lookup
-func (r *rule) QueryOverrides(logger *zap.Logger, query *v1common.AssociatedQuery) (*v1limiter.Overrides, *servererrors.ApiError) {
+func (r *rule) QueryOverrides(logger *zap.Logger, query *v1common.AssociatedQuery) (v1limiter.Overrides, *errors.ServerError) {
 	logger = logger.Named("QueryOverrides")
 
-	overrides := &v1limiter.Overrides{}
-	var overrideErr *servererrors.ApiError
+	overrides := v1limiter.Overrides{}
+	var overrideErr *errors.ServerError
 
 	onfindPagination := func(associatedKeyValues *btreeassociated.AssociatedKeyValues) bool {
 		ruleOverride := associatedKeyValues.Value().(*ruleOverride)
 		ruleOverride.lock.RLock()
 		defer ruleOverride.lock.RUnlock()
 
-		overrides.Overrides = append(overrides.Overrides, &v1limiter.Override{
+		overrides = append(overrides, &v1limiter.Override{
 			Name:      associatedKeyValues.AssociatedID(),
 			KeyValues: associatedKeyValues.KeyValues().StripAssociatedID().RetrieveStringDataType(),
 			Limit:     ruleOverride.limit,
@@ -175,7 +174,7 @@ func (r *rule) QueryOverrides(logger *zap.Logger, query *v1common.AssociatedQuer
 
 	if err := r.overrides.Query(query.AssociatedKeyValues, onfindPagination); err != nil {
 		logger.Error("Failed to query overrides", zap.Error(err))
-		return overrides, &servererrors.ApiError{Message: "Failed to query overrides", StatusCode: http.StatusInternalServerError}
+		return overrides, &errors.ServerError{Message: "Failed to query overrides", StatusCode: http.StatusInternalServerError}
 	}
 
 	return overrides, overrideErr
@@ -185,13 +184,13 @@ func (r *rule) QueryOverrides(logger *zap.Logger, query *v1common.AssociatedQuer
 //
 // NOTE: we don't need to ensure on the Override's KeyValues that they have all the Rule's GroupBy tags. Thise are already
 // finding the inital rule to lookup
-func (r *rule) SetOverride(logger *zap.Logger, override *v1limiter.Override) *servererrors.ApiError {
+func (r *rule) SetOverride(logger *zap.Logger, override *v1limiter.Override) *errors.ServerError {
 	logger = logger.Named("SetOverride")
 
 	// ensure that the override has all the group by keys
 	for _, key := range r.groupBy {
 		if _, ok := override.KeyValues[key]; !ok {
-			return &servererrors.ApiError{Message: fmt.Sprintf("Missing Rule's GroubBy keys in the override: %s", key), StatusCode: http.StatusBadRequest}
+			return &errors.ServerError{Message: fmt.Sprintf("Missing Rule's GroubBy keys in the override: %s", key), StatusCode: http.StatusBadRequest}
 		}
 	}
 
@@ -210,18 +209,18 @@ func (r *rule) SetOverride(logger *zap.Logger, override *v1limiter.Override) *se
 
 		switch err {
 		case btreeassociated.ErrorCreateFailureKeyValuesExist:
-			return (&servererrors.ApiError{Message: "failed to create rule override", StatusCode: http.StatusUnprocessableEntity}).With("key values to not have an override already", "key values aready in use")
+			return &errors.ServerError{Message: "failed to create rule override. KeyValues already in use for another override", StatusCode: http.StatusUnprocessableEntity}
 		case btreeassociated.ErrorAssociatedIDAlreadyExists:
-			return (&servererrors.ApiError{Message: "failed to create rule override", StatusCode: http.StatusUnprocessableEntity}).With("name to not be in use", "name is already in use by another override")
+			return &errors.ServerError{Message: "failed to create rule override. Name already in use for another override", StatusCode: http.StatusUnprocessableEntity}
 		default:
-			return (&servererrors.ApiError{Message: "failed to create, unexpected error", StatusCode: http.StatusInternalServerError}).With("", err.Error())
+			return &errors.ServerError{Message: "failed to create, unexpected error", StatusCode: http.StatusInternalServerError}
 		}
 	}
 
 	return nil
 }
 
-func (r *rule) DeleteOverride(logger *zap.Logger, overrideName string) *servererrors.ApiError {
+func (r *rule) DeleteOverride(logger *zap.Logger, overrideName string) *errors.ServerError {
 	logger = logger.Named("DeleteOverride").With(zap.String("override name", overrideName))
 
 	deleted := false
@@ -239,12 +238,12 @@ func (r *rule) DeleteOverride(logger *zap.Logger, overrideName string) *serverer
 
 	if err := r.overrides.DeleteByAssociatedID(overrideName, canDelete); err != nil {
 		logger.Error("Failed to delete override. Unexpected error from BtreeAssociated", zap.Error(err))
-		return (&servererrors.ApiError{Message: "failed to delete override. Internal server error", StatusCode: http.StatusInternalServerError}).With("", err.Error())
+		return &errors.ServerError{Message: "failed to delete override. Internal server error", StatusCode: http.StatusInternalServerError}
 	}
 
 	if !deleted {
 		logger.Debug("Failed to delete the override. Could not find by the requested name")
-		return &servererrors.ApiError{Message: fmt.Sprintf("Override %s not found", overrideName), StatusCode: http.StatusNotFound}
+		return &errors.ServerError{Message: fmt.Sprintf("Override %s not found", overrideName), StatusCode: http.StatusNotFound}
 	}
 
 	return nil
@@ -254,7 +253,7 @@ func (r *rule) DeleteOverride(logger *zap.Logger, overrideName string) *serverer
 
 // CascadeDeletion is called when the Rule itself is being deleted. On the memory implementation
 // we don't need to do anything as the object will be garbage collected
-func (r *rule) CascadeDeletion(logger *zap.Logger) *servererrors.ApiError {
+func (r *rule) CascadeDeletion(logger *zap.Logger) *errors.ServerError {
 	return nil
 }
 
