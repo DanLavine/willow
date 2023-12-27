@@ -339,7 +339,7 @@ func (rm *rulesManger) IncrementCounters(logger *zap.Logger, requestContext cont
 		// get group of all the limits for all the rules
 		allLimits = append(allLimits, limits...)
 
-		// last index is 0, so just break early
+		// last index is 0, so just break early since it is guranteed to not allow the increment
 		return limits[len(limits)-1].Limit != 0
 	}
 
@@ -358,90 +358,106 @@ func (rm *rulesManger) IncrementCounters(logger *zap.Logger, requestContext cont
 	// there are no limits, so just accept
 	if len(allLimits) != 0 {
 		// the last limit has a limit of 0 so bail early
-		if len(allLimits) != 0 && allLimits[len(allLimits)-1].Limit == 0 {
+		if allLimits[len(allLimits)-1].Limit == 0 {
 			return LimitReached
 		}
 
-		// 2. grab a lock for all key values
-		lockerLocks := []lockerclient.Lock{}
-		defer func() {
-			for _, lock := range lockerLocks {
-				if err := lock.Release(); err != nil {
-					logger.Error("Failed to release lock", zap.Error(err))
-				}
-			}
-		}()
-
-		channelOps, chanReceiver := channelops.NewMergeRead[struct{}](true, requestContext)
-		for _, key := range increment.KeyValues.SoretedKeys() {
-			// setup the group to lock
-			lockKeyValues := &v1locker.LockCreateRequest{
-				KeyValues: datatypes.KeyValues{key: increment.KeyValues[key]},
-				Timeout:   time.Second,
-			}
-
-			// obtain the required lock
-			lockerLock, err := lockerClient.ObtainLock(requestContext, lockKeyValues)
-			if err != nil {
-				logger.Error("failed to obtain a lock from the locker service", zap.Any("key values", lockKeyValues), zap.Error(err))
-				return errors.InternalServerError
-			}
-
-			// setup monitor for when a lock is released
-			lockerLocks = append(lockerLocks, lockerLock)
-			if err := channelOps.MergeOrToOne(lockerLock.Done()); err != nil {
-				// in this case, something has already been lost
+		// if all limits are unlimited, we can also continue without needing to check limits
+		unlimited := true
+		for _, limit := range allLimits {
+			if limit.Limit != -1 {
+				unlimited = false
 				break
 			}
 		}
 
-		// add a channel to manually kick. This give a chance for any lost locks to process properly
-		successChan := make(chan struct{}, 1)
-		successChan <- struct{}{}
-		defer close(successChan)
+		if !unlimited {
+			// 2. grab a lock for all key values
+			lockerLocks := []lockerclient.Lock{}
+			defer func() {
+				for _, lock := range lockerLocks {
+					if err := lock.Release(); err != nil {
+						logger.Error("Failed to release lock", zap.Error(err))
+					}
+				}
+			}()
 
-		if err := channelOps.MergeOrToOne(successChan); err != nil {
-			// lock is already lost so bail early
-			logger.Error("a lock was released unexpedily")
-			return errors.InternalServerError
-		}
+			channelOps, chanReceiver := channelops.NewMergeRead[struct{}](true, requestContext)
+			for _, key := range increment.KeyValues.SoretedKeys() {
+				// setup the group to lock
+				lockKeyValues := &v1locker.LockCreateRequest{
+					KeyValues: datatypes.KeyValues{key: increment.KeyValues[key]},
+					Timeout:   time.Second,
+				}
 
-		// ensure that we didn't cancel obtaining any locks by triggering a select. there is small chance that a lock was lost,
-		// but that is such a rare race condition I don't see it happening for real.
-		_, ok := <-chanReceiver
-		if !ok {
-			// lost a lock or canceled obtaining the locks
-			logger.Error("a lock was released unexpedily")
-			return errors.InternalServerError
-		}
+				// obtain the required lock
+				lockerLock, err := lockerClient.ObtainLock(requestContext, lockKeyValues)
+				if err != nil {
+					logger.Error("failed to obtain a lock from the locker service", zap.Any("key values", lockKeyValues), zap.Error(err))
+					return errors.InternalServerError
+				}
 
-		// 3. for each limit, count the possible rules that match and ensure that they are under the current limites
-		for _, singleLimit := range allLimits {
-			query := datatypes.AssociatedKeyValuesQuery{
-				KeyValueSelection: &datatypes.KeyValueSelection{KeyValues: map[string]datatypes.Value{}},
+				// setup monitor for when a lock is released
+				lockerLocks = append(lockerLocks, lockerLock)
+				if err := channelOps.MergeOrToOne(lockerLock.Done()); err != nil {
+					// in this case, something has already been lost
+					break
+				}
 			}
 
-			for key, value := range singleLimit.KeyValues {
-				// This is spuer important to use, otherwise the address of value is used. so everything will point to the same value which is wrong!
-				tmp := value
-				query.KeyValueSelection.KeyValues[key] = datatypes.Value{Value: &tmp, ValueComparison: datatypes.EqualsPtr()}
+			// add a channel to manually kick. This give a chance for any lost locks to process properly
+			successChan := make(chan struct{}, 1)
+			successChan <- struct{}{}
+			defer close(successChan)
+
+			if err := channelOps.MergeOrToOne(successChan); err != nil {
+				// lock is already lost so bail early
+				logger.Error("a lock was released unexpedily")
+				return errors.InternalServerError
 			}
 
-			counter := int64(0)
-			onQuery := func(associatedKeyValues *btreeassociated.AssociatedKeyValues) bool {
-				counter += associatedKeyValues.Value().(*counters.Counter).Load()
-				return counter < int64(singleLimit.Limit) // check to exit query early if this fails
+			// ensure that we didn't cancel obtaining any locks by triggering a select. there is small chance that a lock was lost,
+			// but that is such a rare race condition I don't see it happening for real.
+			_, ok := <-chanReceiver
+			if !ok {
+				// lost a lock or canceled obtaining the locks
+				logger.Error("a lock was released unexpedily")
+				return errors.InternalServerError
 			}
 
-			if err := rm.counters.Query(query, onQuery); err != nil {
-				//if err := rm.counters.Query(datatypes.AssociatedKeyValuesQuery{}, onQuery); err != nil {
-				logger.Error("Failed to query the current counters", zap.Error(err))
-				return &errors.ServerError{Message: "Failed to query the current counters", StatusCode: http.StatusInternalServerError}
-			}
+			// 3. for each limit, count the possible rules that match and ensure that they are under the current limites
+			for _, singleLimit := range allLimits {
+				// the limit is for unlimited, don't need to check this limit
+				if singleLimit.Limit == -1 {
+					continue
+				}
 
-			if counter >= int64(singleLimit.Limit) {
-				logger.Info("Limit already reached", zap.String("rule name", singleLimit.Name))
-				return &errors.ServerError{Message: fmt.Sprintf("Limit has already been reached for rule '%s'", singleLimit.Name), StatusCode: http.StatusConflict}
+				query := datatypes.AssociatedKeyValuesQuery{
+					KeyValueSelection: &datatypes.KeyValueSelection{KeyValues: map[string]datatypes.Value{}},
+				}
+
+				for key, value := range singleLimit.KeyValues {
+					// This is spuer important to use, otherwise the address of value is used. so everything will point to the same value which is wrong!
+					tmp := value
+					query.KeyValueSelection.KeyValues[key] = datatypes.Value{Value: &tmp, ValueComparison: datatypes.EqualsPtr()}
+				}
+
+				counter := int64(0)
+				onQuery := func(associatedKeyValues *btreeassociated.AssociatedKeyValues) bool {
+					counter += associatedKeyValues.Value().(*counters.Counter).Load()
+					return counter < singleLimit.Limit // check to exit query early if this fails
+				}
+
+				if err := rm.counters.Query(query, onQuery); err != nil {
+					//if err := rm.counters.Query(datatypes.AssociatedKeyValuesQuery{}, onQuery); err != nil {
+					logger.Error("Failed to query the current counters", zap.Error(err))
+					return &errors.ServerError{Message: "Failed to query the current counters", StatusCode: http.StatusInternalServerError}
+				}
+
+				if counter >= int64(singleLimit.Limit) {
+					logger.Info("Limit already reached", zap.String("rule name", singleLimit.Name))
+					return &errors.ServerError{Message: fmt.Sprintf("Limit has already been reached for rule '%s'", singleLimit.Name), StatusCode: http.StatusConflict}
+				}
 			}
 		}
 	}
@@ -473,7 +489,7 @@ func (rm *rulesManger) DecrementCounters(logger *zap.Logger, decrement *v1limite
 
 	decrementCounter := func(item any) bool {
 		count := item.(*btreeassociated.AssociatedKeyValues).Value().(*counters.Counter).Update(decrement.Counters)
-		return count == 0
+		return count <= 0
 	}
 
 	if err := rm.counters.Delete(btreeassociated.ConverDatatypesKeyValues(decrement.KeyValues), decrementCounter); err != nil {
@@ -488,7 +504,6 @@ func (rm *rulesManger) SetCounters(logger *zap.Logger, counter *v1limiter.Counte
 	logger = logger.Named("SetCounters")
 
 	if counter.Counters <= 0 {
-
 		// need to remove the key values
 		decrementCounter := func(item any) bool {
 			return true

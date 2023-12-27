@@ -379,7 +379,7 @@ func TestRulesManager_Update(t *testing.T) {
 
 		// ensure the rule was updated
 		rule := rulesManager.Get(zap.NewNop(), "test", &v1limiter.RuleQuery{OverridesToInclude: v1limiter.All})
-		g.Expect(rule.Limit).To(Equal(uint64(12)))
+		g.Expect(rule.Limit).To(Equal(int64(12)))
 	})
 }
 
@@ -519,7 +519,7 @@ func TestRulesManager_ListOverrides(t *testing.T) {
 		createRule := &v1limiter.RuleCreateRequest{
 			Name:    "test1",
 			GroupBy: []string{"key1"},
-			Limit:   uint64(12),
+			Limit:   int64(12),
 		}
 		g.Expect(createRule.Validate()).ToNot(HaveOccurred())
 		g.Expect(rulesManager.Create(zap.NewNop(), createRule)).ToNot(HaveOccurred())
@@ -578,7 +578,7 @@ func TestRulesManager_CreateOverride(t *testing.T) {
 		createRule := &v1limiter.RuleCreateRequest{
 			Name:    "test1",
 			GroupBy: []string{"key1"},
-			Limit:   uint64(12),
+			Limit:   int64(12),
 		}
 		g.Expect(createRule.Validate()).ToNot(HaveOccurred())
 		g.Expect(rulesManager.Create(zap.NewNop(), createRule)).ToNot(HaveOccurred())
@@ -628,7 +628,7 @@ func TestRulesManager_DeleteOverride(t *testing.T) {
 		createRule := &v1limiter.RuleCreateRequest{
 			Name:    "test1",
 			GroupBy: []string{"key1"},
-			Limit:   uint64(12),
+			Limit:   int64(12),
 		}
 		g.Expect(createRule.Validate()).ToNot(HaveOccurred())
 		g.Expect(rulesManager.Create(zap.NewNop(), createRule)).ToNot(HaveOccurred())
@@ -646,7 +646,7 @@ func TestRulesManager_DeleteOverride(t *testing.T) {
 		createRule := &v1limiter.RuleCreateRequest{
 			Name:    "test1",
 			GroupBy: []string{"key1"},
-			Limit:   uint64(12),
+			Limit:   int64(12),
 		}
 		g.Expect(createRule.Validate()).ToNot(HaveOccurred())
 		g.Expect(rulesManager.Create(zap.NewNop(), createRule)).ToNot(HaveOccurred())
@@ -702,7 +702,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 			createRequest := &v1limiter.RuleCreateRequest{
 				Name:    fmt.Sprintf("test%d", i),
 				GroupBy: []string{fmt.Sprintf("key%d", i)},
-				Limit:   uint64(i),
+				Limit:   int64(i),
 			}
 			g.Expect(createRequest.Validate()).ToNot(HaveOccurred())
 			g.Expect(rulesManager.Create(zap.NewNop(), createRequest)).ToNot(HaveOccurred())
@@ -745,7 +745,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 					"key1":                  datatypes.Int(1),
 					fmt.Sprintf("key%d", k): datatypes.Int(k),
 				},
-				Limit: uint64(k - 2),
+				Limit: int64(k - 2),
 			}
 			g.Expect(overrideRequest.Validate()).ToNot(HaveOccurred())
 			g.Expect(rulesManager.CreateOverride(zap.NewNop(), "test1", &overrideRequest)).ToNot(HaveOccurred())
@@ -778,7 +778,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 				createRequest := &v1limiter.RuleCreateRequest{
 					Name:    fmt.Sprintf("test%d", i),
 					GroupBy: []string{fmt.Sprintf("key%d", i)},
-					Limit:   uint64(i),
+					Limit:   int64(i),
 				}
 				g.Expect(createRequest.Validate()).ToNot(HaveOccurred())
 				g.Expect(rulesManager.Create(zap.NewNop(), createRequest)).ToNot(HaveOccurred())
@@ -819,7 +819,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 					createRequest := &v1limiter.RuleCreateRequest{
 						Name:    fmt.Sprintf("test%d", i),
 						GroupBy: []string{fmt.Sprintf("key%d", i)},
-						Limit:   uint64(i),
+						Limit:   int64(i),
 					}
 					g.Expect(createRequest.Validate()).ToNot(HaveOccurred())
 					g.Expect(rulesManager.Create(zap.NewNop(), createRequest)).ToNot(HaveOccurred())
@@ -874,7 +874,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 					createRequest := &v1limiter.RuleCreateRequest{
 						Name:    fmt.Sprintf("test%d", i),
 						GroupBy: []string{fmt.Sprintf("key%d", i)},
-						Limit:   uint64(i),
+						Limit:   int64(i),
 					}
 					g.Expect(createRequest.Validate()).ToNot(HaveOccurred())
 					g.Expect(rulesManager.Create(zap.NewNop(), createRequest)).ToNot(HaveOccurred())
@@ -958,6 +958,45 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 					"key3": datatypes.String("3"),
 				},
 				Counters: 1,
+			}
+
+			// counter shuold be added
+			err := rulesManager.IncrementCounters(zap.NewNop(), ctx, fakeLocker, counter)
+			g.Expect(err).ToNot(HaveOccurred())
+
+			// ensure the counter was added
+			found := false
+			onFind := func(item any) {
+				found = true
+			}
+
+			id, counterErr := rulesManager.counters.Find(btreeassociated.ConverDatatypesKeyValues(counter.KeyValues), onFind)
+			g.Expect(id).ToNot(Equal(""))
+			g.Expect(counterErr).ToNot(HaveOccurred())
+			g.Expect(found).To(BeTrue())
+		})
+
+		t.Run("It respects the unlimited rules", func(t *testing.T) {
+			rulesManager := NewRulesManger(constructor)
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+
+			// single instance rule group by
+			createRequest := &v1limiter.RuleCreateRequest{
+				Name:    "test0",
+				GroupBy: []string{"key0", "key1"},
+				Limit:   -1,
+			}
+			g.Expect(createRequest.Validate()).ToNot(HaveOccurred())
+			g.Expect(rulesManager.Create(zap.NewNop(), createRequest)).ToNot(HaveOccurred())
+
+			counter := &v1limiter.Counter{
+				KeyValues: datatypes.KeyValues{
+					"key0": datatypes.String("1"),
+					"key1": datatypes.String("2"),
+					"key3": datatypes.String("3"),
+				},
+				Counters: 341,
 			}
 
 			// counter shuold be added
@@ -1137,7 +1176,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 				createRequest := &v1limiter.RuleCreateRequest{
 					Name:    fmt.Sprintf("test%d", i),
 					GroupBy: []string{fmt.Sprintf("key%d", i), fmt.Sprintf("key%d", i+1)},
-					Limit:   uint64(i + 10),
+					Limit:   int64(i + 10),
 				}
 				g.Expect(createRequest.Validate()).ToNot(HaveOccurred())
 				g.Expect(rulesManager.Create(zap.NewNop(), createRequest)).ToNot(HaveOccurred())
@@ -1228,7 +1267,6 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 			g.Expect(counterErr).ToNot(HaveOccurred())
 			g.Expect(count).To(Equal(int64(2)))
 		})
-
 	})
 }
 

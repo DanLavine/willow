@@ -7,7 +7,8 @@ import (
 // RuleUpdateRquest defines the fields of a Rule that can be updated
 type RuleUpdateRquest struct {
 	// Limit for a particual Rule
-	Limit uint64
+	// set this to -1 for unlimited
+	Limit int64
 }
 
 //	RETURNS:

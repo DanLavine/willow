@@ -334,7 +334,7 @@ paths:
         content:
           appplication/json:
             schema:
-              $ref: "#/components/schemas/Counters"
+              $ref: "#/components/schemas/Counter"
       responses:
         200:
           description: Incremented the counter for the group of `KeyValues`
@@ -377,7 +377,14 @@ paths:
               $ref: "../common/components.yaml#/components/schemas/AssociatedKeyValuesQuery"
       responses:
         200:
-          description: Incremented the group of KeyValues
+          description: List of all counters that match the query
+          content:
+            appplication/json:
+              schema:
+                type: object
+                properties:
+                  ApiError:
+                    $ref: "#/components/schemas/Counters"
         400:
           description: Error parsing or validating the request body
           content:
@@ -481,9 +488,10 @@ components:
           items:
             type: string
         Limit:
-          description: "Max limit for any Key Value Group"
+          description: |
+            Max limit for any Key Value Group. If this is set to -1, then the value is treated a 'unlimited'
           type: integer
-          format: uint64
+          format: int64
 
     # Uppdate rule request
     UpdateRuleRequest:
@@ -493,8 +501,9 @@ components:
       properties:
         Limit:
           type: integer
-          format: uint64
-          description: default limit that all `Rules` match `Counters.KeyValues` against
+          format: int64
+          description: |
+            default limit that all `Rules` match `Counters.KeyValues` against. If this is set to -1, then the value is treated a 'unlimited'
 
     # Find rule response
     RuleResponse:
@@ -508,7 +517,7 @@ components:
             type: string
         Limit:
           type: integer
-          format: uint64
+          format: int64
         RuleOverrides:
           type: array
           items:
@@ -541,8 +550,10 @@ components:
             The `KeyValues` must at a minimum include the `Rule's` GroupBy Keys with a Value.
           $ref: "../common/components.yaml#/components/schemas/KeyValues"
         Limit:
+          description: |
+            Limit to match `Overrides.KeyValues` against. If this is set to -1, then the value is treated a 'unlimited'
           type: integer
-          format: uint64
+          format: int64
     RuleOverrides:
       type: array
       items:
@@ -562,10 +573,10 @@ components:
               $ref: "../common/components.yaml#/components/schemas/KeyValues"
             Limit:
               type: integer
-              format: uint64
+              format: int64
 
     # increment or decrement counters request
-    Counters:
+    Counter:
       type: object
       required:
         - KeyValues
@@ -582,3 +593,8 @@ components:
             When ever updating the counters, if the count is less than or equal to 0, the counters
             is removed service side
           type: integer
+
+    Counters:
+      type: array
+      items:
+        $ref: "#/components/schemas/Counter"

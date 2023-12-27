@@ -81,7 +81,7 @@ func TestRule_Get(t *testing.T) {
 					"three": datatypes.Float64(52.123),
 				},
 			))
-			g.Expect(foundRule.Overrides[0].Limit).To(Equal(uint64(87)))
+			g.Expect(foundRule.Overrides[0].Limit).To(Equal(int64(87)))
 		})
 	})
 
@@ -121,7 +121,7 @@ func TestRule_Get(t *testing.T) {
 					"one":  datatypes.String("1"),
 				},
 			))
-			g.Expect(foundRule.Overrides[0].Limit).To(Equal(uint64(3)))
+			g.Expect(foundRule.Overrides[0].Limit).To(Equal(int64(3)))
 		})
 
 		t.Run("It does not include the override if the limits are reched on the override", func(t *testing.T) {
@@ -187,7 +187,7 @@ func TestRule_FindLimits(t *testing.T) {
 			"key1": datatypes.Float64(52.123),
 			"key2": datatypes.String("2"),
 		}))
-		g.Expect(limits[0].Limit).To(Equal(uint64(5)))
+		g.Expect(limits[0].Limit).To(Equal(int64(5)))
 	})
 
 	t.Run("It reurns any override limit if just 1 was found", func(t *testing.T) {
@@ -205,7 +205,7 @@ func TestRule_FindLimits(t *testing.T) {
 			"key2":  datatypes.String("2"),
 			"three": datatypes.Float64(52.123),
 		}))
-		g.Expect(limits[0].Limit).To(Equal(uint64(87)))
+		g.Expect(limits[0].Limit).To(Equal(int64(87)))
 	})
 
 	t.Run("It returns all overrides that match the key values", func(t *testing.T) {
@@ -224,14 +224,14 @@ func TestRule_FindLimits(t *testing.T) {
 			"key2":  datatypes.String("2"),
 			"three": datatypes.Float64(52.123),
 		}))
-		g.Expect(limits[0].Limit).To(Equal(uint64(87)))
+		g.Expect(limits[0].Limit).To(Equal(int64(87)))
 		g.Expect(limits[1].KeyValues).To(Equal(datatypes.KeyValues{
 			"key1":  datatypes.String("1"),
 			"key2":  datatypes.String("2"),
 			"three": datatypes.Float64(52.123),
 			"four":  datatypes.String("4"),
 		}))
-		g.Expect(limits[1].Limit).To(Equal(uint64(1)))
+		g.Expect(limits[1].Limit).To(Equal(int64(1)))
 	})
 }
 
@@ -243,13 +243,13 @@ func TestRule_Update(t *testing.T) {
 		rule := NewRule(ruleRequest)
 
 		// ensure defaults
-		g.Expect(rule.limit).To(Equal(uint64(5)))
+		g.Expect(rule.limit).To(Equal(int64(5)))
 
 		// update the limit to 1
 		rule.Update(zap.NewNop(), &v1limiter.RuleUpdateRquest{Limit: 1})
 
 		// check new limits
-		g.Expect(rule.limit).To(Equal(uint64(1)))
+		g.Expect(rule.limit).To(Equal(int64(1)))
 	})
 }
 

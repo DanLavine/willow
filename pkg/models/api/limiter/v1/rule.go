@@ -2,6 +2,7 @@ package v1
 
 import (
 	"encoding/json"
+	"fmt"
 )
 
 // Single Rule that is returned from a "Match" or "Query"
@@ -12,8 +13,9 @@ type Rule struct {
 	// GroupBy contains the logical "key" grouping of any KeyValues for the counters.
 	GroupBy []string
 
-	// Limit dictates what value of grouped counter KeyValues to allow untill a limit is reached
-	Limit uint64
+	// Limit dictates what value of grouped counter KeyValues to allow untill a limit is reached.
+	// Setting this value to -1 means unlimited
+	Limit int64
 
 	// Overrides for the Rule that matched the lookup parameters
 	Overrides []Override
@@ -30,6 +32,10 @@ func (rule *Rule) Validate() error {
 
 	if len(rule.GroupBy) == 0 {
 		return errorGroupByInvalidKeys
+	}
+
+	if rule.Limit < -1 {
+		return fmt.Errorf("'Limit' is set below the minimum value of -1. Value must be [-1 (ulimited) | 0+ (zero or more specific limit) ]")
 	}
 
 	return nil

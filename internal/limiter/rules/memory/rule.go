@@ -20,7 +20,7 @@ type rule struct {
 	ruleModelLock *sync.RWMutex
 	name          string
 	groupBy       []string
-	limit         uint64
+	limit         int64
 
 	// all values in the overrides are of type 'ruleOverride'
 	overrides btreeassociated.BTreeAssociated
@@ -29,7 +29,7 @@ type rule struct {
 type ruleOverride struct {
 	lock *sync.RWMutex
 
-	limit uint64
+	limit int64
 }
 
 func NewRule(ruleModel *v1limiter.RuleCreateRequest) *rule {
@@ -145,7 +145,7 @@ func (r *rule) Update(logger *zap.Logger, update *v1limiter.RuleUpdateRquest) {
 	r.ruleModelLock.Lock()
 	defer r.ruleModelLock.Unlock()
 
-	r.limit = uint64(update.Limit)
+	r.limit = update.Limit
 	logger.Debug("updated rule")
 }
 

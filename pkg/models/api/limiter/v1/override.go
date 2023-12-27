@@ -21,7 +21,8 @@ type Override struct {
 	KeyValues datatypes.KeyValues
 
 	// The new limit to use for the paricular KeyValues
-	Limit uint64
+	// Setting this value to -1 means unlimited
+	Limit int64
 }
 
 //	RETURNS:

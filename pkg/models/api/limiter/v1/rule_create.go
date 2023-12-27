@@ -14,7 +14,8 @@ type RuleCreateRequest struct {
 	GroupBy []string
 
 	// Limit dictates what value of grouped counter KeyValues to allow untill a limit is reached
-	Limit uint64
+	// Setting this value to -1 means unlimited
+	Limit int64
 }
 
 //	RETURNS:
@@ -30,7 +31,7 @@ func (req *RuleCreateRequest) Validate() error {
 		return errorGroupByInvalidLength
 	}
 
-	// ensure no keys are duplicated
+	// ensure each key is unique
 	seenKeys := map[string]struct{}{}
 	for _, key := range req.GroupBy {
 		if _, ok := seenKeys[key]; ok {
@@ -38,6 +39,11 @@ func (req *RuleCreateRequest) Validate() error {
 		}
 
 		seenKeys[key] = struct{}{}
+	}
+
+	// ensure the limit is set properly
+	if req.Limit < -1 {
+		return fmt.Errorf("'Limit' is set below the minimum value of -1. Value must be [-1 (ulimited) | 0+ (zero or more specific limit) ]")
 	}
 
 	return nil

@@ -7,5 +7,5 @@ type Limits []Limit
 type Limit struct {
 	Name      string
 	KeyValues datatypes.KeyValues
-	Limit     uint64
+	Limit     int64
 }
