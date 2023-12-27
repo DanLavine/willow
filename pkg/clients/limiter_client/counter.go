@@ -12,6 +12,16 @@ import (
 	v1limiter "github.com/DanLavine/willow/pkg/models/api/limiter/v1"
 )
 
+//	PARAMETERS:
+//	- counter - Counter object to increment or decrement counters from. This value is checked against all Rules
+//
+//	RETURNS:
+//	- error - Error if there was a limit reached, or encoding issue
+//
+// UpdateCounter can be used to increment or decrement a particual counter.
+// 1. If the `Counter.Counters` is positive, then the counter will either be created or incremented server side.
+// 2. If the `Counter.Counters` is negative, then the counter will be decremented server side. If this value reaches 0, then the counter is automatically deleted
+// An error will be returned if there is a Rule that limits the total number of Counters associatted with the KeyValues
 func (lc *limiterClient) UpdateCounter(counter *v1limiter.Counter) error {
 	// setup and make the request
 	resp, err := lc.client.Do(&clients.RequestData{
@@ -41,35 +51,13 @@ func (lc *limiterClient) UpdateCounter(counter *v1limiter.Counter) error {
 	}
 }
 
-// func (lc *limiterClient) DecrementCounter(counter *v1limiter.Counter) error {
-// 	// setup and make the request
-// 	resp, err := lc.client.Do(&clients.RequestData{
-// 		Method: "DELETE",
-// 		Path:   fmt.Sprintf("%s/v1/limiter/counters", lc.url),
-// 		Model:  counter,
-// 	})
-
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	// parse the response
-// 	switch resp.StatusCode {
-// 	case http.StatusNoContent:
-// 		// success case and nothing to return
-// 		return nil
-// 	case http.StatusBadRequest, http.StatusInternalServerError:
-// 		apiError := &errors.Error{}
-// 		if err := api.DecodeAndValidateHttpResponse(resp, apiError); err != nil {
-// 			return err
-// 		}
-
-// 		return apiError
-// 	default:
-// 		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
-// 	}
-// }
-
+//	PARAMETERS:
+//	- query - Common query operation to find any number of saved counters
+//
+//	RETURNS:
+//	- error - Error if there was an unexpcted or encoding issue
+//
+// LisCounters can be used to query any Counters
 func (lc *limiterClient) ListCounters(query *v1common.AssociatedQuery) (v1limiter.Counters, error) {
 	// setup and make the request
 	resp, err := lc.client.Do(&clients.RequestData{
@@ -103,6 +91,13 @@ func (lc *limiterClient) ListCounters(query *v1common.AssociatedQuery) (v1limite
 	}
 }
 
+//	PARAMETERS:
+//	- counter - Counter object to set specific counters for
+//
+//	RETURNS:
+//	- error - Error if there was a limit reached, or encoding issue
+//
+// SetCounters is used to forcefully set the number of counters for a particual KeyValues without enforcing any rules
 func (lc *limiterClient) SetCounters(counters *v1limiter.Counter) error {
 	// setup and make the request
 	resp, err := lc.client.Do(&clients.RequestData{

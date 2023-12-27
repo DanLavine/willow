@@ -169,7 +169,7 @@ func Test_Limiter_Overrides_List(t *testing.T) {
 			},
 		}
 
-		overrides, err := limiterClient.ListOverrides("rule1", query)
+		overrides, err := limiterClient.QueryOverrides("rule1", query)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(len(overrides)).To(Equal(1))
 	})

@@ -95,7 +95,7 @@ func Test_Limiter_Rules_Get(t *testing.T) {
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(ruleResp.Name).To(Equal("rule1"))
 		g.Expect(ruleResp.GroupBy).To(Equal([]string{"key1", "key2"}))
-		g.Expect(ruleResp.Limit).To(Equal(uint64(5)))
+		g.Expect(ruleResp.Limit).To(Equal(int64(5)))
 		g.Expect(ruleResp.Overrides).To(BeNil())
 	})
 
@@ -137,7 +137,7 @@ func Test_Limiter_Rules_Get(t *testing.T) {
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(ruleResp.Name).To(Equal("rule1"))
 		g.Expect(ruleResp.GroupBy).To(Equal([]string{"key1", "key2"}))
-		g.Expect(ruleResp.Limit).To(Equal(uint64(5)))
+		g.Expect(ruleResp.Limit).To(Equal(int64(5)))
 		g.Expect(len(ruleResp.Overrides)).To(Equal(100))
 	})
 
@@ -188,7 +188,7 @@ func Test_Limiter_Rules_Get(t *testing.T) {
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(ruleResp.Name).To(Equal("rule1"))
 		g.Expect(ruleResp.GroupBy).To(Equal([]string{"key1", "key2"}))
-		g.Expect(ruleResp.Limit).To(Equal(uint64(5)))
+		g.Expect(ruleResp.Limit).To(Equal(int64(5)))
 		g.Expect(len(ruleResp.Overrides)).To(Equal(2))
 	})
 }
@@ -222,12 +222,12 @@ func Test_Limiter_Rules_List(t *testing.T) {
 		g.Expect(err).ToNot(HaveOccurred())
 
 		// get the rule
-		ruleResp, err := limiterClient.ListRules(&v1.RuleQuery{OverridesToInclude: v1.None})
+		ruleResp, err := limiterClient.MatchRules(&v1.RuleQuery{OverridesToInclude: v1.None})
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(len(ruleResp)).To(Equal(1))
 		g.Expect(ruleResp[0].Name).To(Equal("rule1"))
 		g.Expect(ruleResp[0].GroupBy).To(Equal([]string{"key1", "key2"}))
-		g.Expect(ruleResp[0].Limit).To(Equal(uint64(5)))
+		g.Expect(ruleResp[0].Limit).To(Equal(int64(5)))
 		g.Expect(ruleResp[0].Overrides).To(BeNil())
 	})
 
@@ -263,7 +263,7 @@ func Test_Limiter_Rules_List(t *testing.T) {
 		}
 
 		// get the rules
-		ruleResp, err := limiterClient.ListRules(&v1.RuleQuery{})
+		ruleResp, err := limiterClient.MatchRules(&v1.RuleQuery{})
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(len(ruleResp)).To(Equal(5))
 		g.Expect(ruleResp).To(ContainElements(respRules))
@@ -308,7 +308,7 @@ func Test_Limiter_Rules_List(t *testing.T) {
 			"key2": datatypes.Int(2),
 			"key3": datatypes.Int(3),
 		}
-		ruleResp, err := limiterClient.ListRules(&v1.RuleQuery{KeyValues: &keyValues})
+		ruleResp, err := limiterClient.MatchRules(&v1.RuleQuery{KeyValues: &keyValues})
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(len(ruleResp)).To(Equal(2))
 		g.Expect(ruleResp).To(ContainElements(respRules))
@@ -390,12 +390,12 @@ func Test_Limiter_Rules_List(t *testing.T) {
 			"key5": datatypes.Int(5), // override 1
 			"key6": datatypes.Int(6), // this + 'key6' are override 2
 		}
-		ruleResp, err := limiterClient.ListRules(&v1.RuleQuery{KeyValues: &keyValues, OverridesToInclude: v1.Match})
+		ruleResp, err := limiterClient.MatchRules(&v1.RuleQuery{KeyValues: &keyValues, OverridesToInclude: v1.Match})
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(len(ruleResp)).To(Equal(1))
 		g.Expect(ruleResp[0].Name).To(Equal("1"))
 		g.Expect(ruleResp[0].GroupBy).To(ContainElements([]string{"key1", "key2"}))
-		g.Expect(ruleResp[0].Limit).To(Equal(uint64(5)))
+		g.Expect(ruleResp[0].Limit).To(Equal(int64(5)))
 		g.Expect(len(respRules[0].Overrides)).To(Equal(2))
 		g.Expect(ruleResp[0].Overrides[0]).To(Equal(respRules[0].Overrides[0]))
 		g.Expect(ruleResp[0].Overrides[1]).To(Equal(respRules[0].Overrides[1]))
@@ -435,7 +435,7 @@ func Test_Limiter_Rules_Update(t *testing.T) {
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(ruleResp.Name).To(Equal("rule1"))
 		g.Expect(ruleResp.GroupBy).To(Equal([]string{"key1", "key2"}))
-		g.Expect(ruleResp.Limit).To(Equal(uint64(5)))
+		g.Expect(ruleResp.Limit).To(Equal(int64(5)))
 		g.Expect(ruleResp.Overrides).To(BeNil())
 
 		// update the rule
@@ -450,7 +450,7 @@ func Test_Limiter_Rules_Update(t *testing.T) {
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(ruleResp.Name).To(Equal("rule1"))
 		g.Expect(ruleResp.GroupBy).To(Equal([]string{"key1", "key2"}))
-		g.Expect(ruleResp.Limit).To(Equal(uint64(231)))
+		g.Expect(ruleResp.Limit).To(Equal(int64(231)))
 		g.Expect(ruleResp.Overrides).To(BeNil())
 	})
 }
