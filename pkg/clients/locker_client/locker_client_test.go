@@ -331,10 +331,10 @@ func TestLockerClient_ObtainLock(t *testing.T) {
 			g.Expect(lockerClient).ToNot(BeNil())
 
 			// for using a custom async manager to similate this specific race condiition
-			lockerClient.(*LockClient).asyncManager = goasync.NewTaskManager(goasync.RelaxedConfig())
+			lockerClient.asyncManager = goasync.NewTaskManager(goasync.RelaxedConfig())
 			stoppedContext, cancelNow := context.WithCancel(context.Background())
 			cancelNow()
-			lockerClient.(*LockClient).asyncManager.Run(stoppedContext)
+			lockerClient.asyncManager.Run(stoppedContext)
 
 			// try to obtain the lock
 			lockContext, lockCancel := context.WithCancel(context.Background())

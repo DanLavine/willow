@@ -22,7 +22,7 @@ import (
 // 1. If the `Counter.Counters` is positive, then the counter will either be created or incremented server side.
 // 2. If the `Counter.Counters` is negative, then the counter will be decremented server side. If this value reaches 0, then the counter is automatically deleted
 // An error will be returned if there is a Rule that limits the total number of Counters associatted with the KeyValues
-func (lc *limiterClient) UpdateCounter(counter *v1limiter.Counter) error {
+func (lc *LimitClient) UpdateCounter(counter *v1limiter.Counter) error {
 	// setup and make the request
 	resp, err := lc.client.Do(&clients.RequestData{
 		Method: "PUT",
@@ -58,7 +58,7 @@ func (lc *limiterClient) UpdateCounter(counter *v1limiter.Counter) error {
 //	- error - Error if there was an unexpcted or encoding issue
 //
 // LisCounters can be used to query any Counters
-func (lc *limiterClient) ListCounters(query *v1common.AssociatedQuery) (v1limiter.Counters, error) {
+func (lc *LimitClient) ListCounters(query *v1common.AssociatedQuery) (v1limiter.Counters, error) {
 	// setup and make the request
 	resp, err := lc.client.Do(&clients.RequestData{
 		Method: "GET",
@@ -98,7 +98,7 @@ func (lc *limiterClient) ListCounters(query *v1common.AssociatedQuery) (v1limite
 //	- error - Error if there was a limit reached, or encoding issue
 //
 // SetCounters is used to forcefully set the number of counters for a particual KeyValues without enforcing any rules
-func (lc *limiterClient) SetCounters(counters *v1limiter.Counter) error {
+func (lc *LimitClient) SetCounters(counters *v1limiter.Counter) error {
 	// setup and make the request
 	resp, err := lc.client.Do(&clients.RequestData{
 		Method: "POST",

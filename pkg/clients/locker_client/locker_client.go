@@ -69,7 +69,7 @@ type LockClient struct {
 //
 // Setup a new client to the remote locker service. This client automatically manages heartbeats for any obtained locks and
 // will notify the user if a lock is lost at some point.
-func NewLockClient(ctx context.Context, cfg *clients.Config, heartbeatErrorCallback func(keyValue datatypes.KeyValues, err error)) (LockerClient, error) {
+func NewLockClient(ctx context.Context, cfg *clients.Config, heartbeatErrorCallback func(keyValue datatypes.KeyValues, err error)) (*LockClient, error) {
 	if ctx == nil || ctx == context.TODO() || ctx == context.Background() {
 		return nil, fmt.Errorf("cannot use provided context. The context must be canceled by the caller to ensure any locks are released when the client is no longer needed")
 	}

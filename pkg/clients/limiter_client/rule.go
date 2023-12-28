@@ -17,7 +17,7 @@ import (
 //	- error - error creating the rule
 //
 // CreateRule creates a new Rule to enforce Counters against
-func (lc *limiterClient) CreateRule(rule *v1limiter.RuleCreateRequest) error {
+func (lc *LimitClient) CreateRule(rule *v1limiter.RuleCreateRequest) error {
 	// setup and make the request
 	resp, err := lc.client.Do(&clients.RequestData{
 		Method: "POST",
@@ -52,7 +52,7 @@ func (lc *limiterClient) CreateRule(rule *v1limiter.RuleCreateRequest) error {
 //	- error - unexpected errors when querying Rule or Overrides
 //
 // MatchRules is used to find any Rules and optional Overrides for the matchQuery
-func (lc *limiterClient) MatchRules(matchQuery *v1limiter.RuleQuery) (v1limiter.Rules, error) {
+func (lc *LimitClient) MatchRules(matchQuery *v1limiter.RuleQuery) (v1limiter.Rules, error) {
 	// setup and make the request
 	resp, err := lc.client.Do(&clients.RequestData{
 		Method: "GET",
@@ -93,7 +93,7 @@ func (lc *limiterClient) MatchRules(matchQuery *v1limiter.RuleQuery) (v1limiter.
 //	- error - error findinig the Rule or Overrides
 //
 // GetRule is used to find a specific Rule and any optional Overrides that match the query
-func (lc *limiterClient) GetRule(ruleName string, query *v1limiter.RuleQuery) (*v1limiter.Rule, error) {
+func (lc *LimitClient) GetRule(ruleName string, query *v1limiter.RuleQuery) (*v1limiter.Rule, error) {
 	// setup and make the request
 	resp, err := lc.client.Do(&clients.RequestData{
 		Method: "GET",
@@ -134,7 +134,7 @@ func (lc *limiterClient) GetRule(ruleName string, query *v1limiter.RuleQuery) (*
 //	- error - unexpected errors when updating the Rule
 //
 // UpdateRule can update the default limits for a particular Rule
-func (lc *limiterClient) UpdateRule(ruleName string, ruleUpdate *v1limiter.RuleUpdateRquest) error {
+func (lc *LimitClient) UpdateRule(ruleName string, ruleUpdate *v1limiter.RuleUpdateRquest) error {
 	// setup and make the request
 	resp, err := lc.client.Do(&clients.RequestData{
 		Method: "PUT",
@@ -169,7 +169,7 @@ func (lc *limiterClient) UpdateRule(ruleName string, ruleUpdate *v1limiter.RuleU
 //	- error - unexpected errors when deleting the Rule
 //
 // DeleteRule deletes a Rule and all Overrides for the associated Rule
-func (lc *limiterClient) DeleteRule(ruleName string) error {
+func (lc *LimitClient) DeleteRule(ruleName string) error {
 	// setup and make the request
 	resp, err := lc.client.Do(&clients.RequestData{
 		Method: "DELETE",

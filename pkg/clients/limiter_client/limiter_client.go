@@ -39,8 +39,8 @@ type LimiterClient interface {
 	SetCounters(counters *v1limiter.Counter) error
 }
 
-// client to connect with remote limiter service
-type limiterClient struct {
+// LimiteClient to connect with remote limiter service
+type LimitClient struct {
 	// url of the service to reach
 	url string
 
@@ -59,13 +59,13 @@ type limiterClient struct {
 //	- error - error validating the configuration or setting up the client
 //
 // NewLimiterClient creates a new client to interact with the Limiter service
-func NewLimiterClient(cfg *clients.Config) (LimiterClient, error) {
+func NewLimiterClient(cfg *clients.Config) (*LimitClient, error) {
 	httpClient, err := clients.NewHTTPClient(cfg)
 	if err != nil {
 		return nil, err
 	}
 
-	return &limiterClient{
+	return &LimitClient{
 		url:         cfg.URL,
 		client:      httpClient,
 		contentType: cfg.ContentEncoding,

@@ -21,7 +21,7 @@ import (
 // CreateOverride creates a new Override for a particular rule. It is important to Note that the `Override.KeyValues` must
 // include the `Rule.GroubBy` Keys. At least for now, I like this enforcement to make the Overrides easier to reason about
 // that they should be for a specific grouping of KeyValue items.
-func (lc *limiterClient) CreateOverride(ruleName string, override *v1limiter.Override) error {
+func (lc *LimitClient) CreateOverride(ruleName string, override *v1limiter.Override) error {
 	// setup and make the request
 	resp, err := lc.client.Do(&clients.RequestData{
 		Method: "POST",
@@ -57,7 +57,7 @@ func (lc *limiterClient) CreateOverride(ruleName string, override *v1limiter.Ove
 //	- error - error deleting the override
 //
 // DeleteOverride removes a particual override for a Rule
-func (lc *limiterClient) DeleteOverride(ruleName, overrideName string) error {
+func (lc *LimitClient) DeleteOverride(ruleName, overrideName string) error {
 	// setup and make the request
 	resp, err := lc.client.Do(&clients.RequestData{
 		Method: "DELETE",
@@ -93,7 +93,7 @@ func (lc *limiterClient) DeleteOverride(ruleName, overrideName string) error {
 //	- error - unexpected errors when querying overrides
 //
 // QueryOverrides is used to find any Overrides that match the general Associateduery
-func (lc *limiterClient) QueryOverrides(ruleName string, query *v1common.AssociatedQuery) (v1limiter.Overrides, error) {
+func (lc *LimitClient) QueryOverrides(ruleName string, query *v1common.AssociatedQuery) (v1limiter.Overrides, error) {
 	// setup and make the request
 	resp, err := lc.client.Do(&clients.RequestData{
 		Method: "GET",
