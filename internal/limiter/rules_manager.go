@@ -373,7 +373,7 @@ func (rm *rulesManger) IncrementCounters(logger *zap.Logger, requestContext cont
 
 		if !unlimited {
 			// 2. grab a lock for all key values
-			lockerLocks := []lockerclient.Lock{}
+			lockerLocks := []lockerclient.Locker{}
 			defer func() {
 				for _, lock := range lockerLocks {
 					if err := lock.Release(); err != nil {

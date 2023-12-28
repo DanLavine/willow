@@ -23,17 +23,17 @@ func TestLockerClient_New(t *testing.T) {
 	}
 
 	t.Run("It returns an error if the context is nil, Background, TODO", func(t *testing.T) {
-		lockerClient, err := NewLockerClient(nil, cfg, nil)
+		lockerClient, err := NewLockClient(nil, cfg, nil)
 		g.Expect(err).To(HaveOccurred())
 		g.Expect(err.Error()).To(Equal("cannot use provided context. The context must be canceled by the caller to ensure any locks are released when the client is no longer needed"))
 		g.Expect(lockerClient).To(BeNil())
 
-		lockerClient, err = NewLockerClient(context.Background(), cfg, nil)
+		lockerClient, err = NewLockClient(context.Background(), cfg, nil)
 		g.Expect(err).To(HaveOccurred())
 		g.Expect(err.Error()).To(Equal("cannot use provided context. The context must be canceled by the caller to ensure any locks are released when the client is no longer needed"))
 		g.Expect(lockerClient).To(BeNil())
 
-		lockerClient, err = NewLockerClient(context.TODO(), cfg, nil)
+		lockerClient, err = NewLockClient(context.TODO(), cfg, nil)
 		g.Expect(err).To(HaveOccurred())
 		g.Expect(err.Error()).To(Equal("cannot use provided context. The context must be canceled by the caller to ensure any locks are released when the client is no longer needed"))
 		g.Expect(lockerClient).To(BeNil())
@@ -43,7 +43,7 @@ func TestLockerClient_New(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
-		lockerClient, err := NewLockerClient(ctx, &clients.Config{}, nil)
+		lockerClient, err := NewLockClient(ctx, &clients.Config{}, nil)
 		g.Expect(err).To(HaveOccurred())
 		g.Expect(err.Error()).To(Equal("client's Config.URL cannot be empty"))
 		g.Expect(lockerClient).To(BeNil())
@@ -53,7 +53,7 @@ func TestLockerClient_New(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
-		lockerClient, err := NewLockerClient(ctx, cfg, nil)
+		lockerClient, err := NewLockClient(ctx, cfg, nil)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(lockerClient).ToNot(BeNil())
 		g.Consistently(lockerClient.Done()).ShouldNot(BeClosed())
@@ -63,7 +63,7 @@ func TestLockerClient_New(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel()
 
-		lockerClient, err := NewLockerClient(ctx, cfg, nil)
+		lockerClient, err := NewLockClient(ctx, cfg, nil)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(lockerClient).ToNot(BeNil())
 		g.Eventually(lockerClient.Done()).Should(BeClosed())
@@ -80,7 +80,7 @@ func TestLockerClient_ObtainLock(t *testing.T) {
 
 		cfg := &clients.Config{URL: "http://127.0.0.1:8080"}
 
-		lockerClient, err := NewLockerClient(ctx, cfg, nil)
+		lockerClient, err := NewLockClient(ctx, cfg, nil)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(lockerClient).ToNot(BeNil())
 		g.Eventually(lockerClient.Done()).Should(BeClosed())
@@ -99,7 +99,7 @@ func TestLockerClient_ObtainLock(t *testing.T) {
 
 		cfg := &clients.Config{URL: "http://127.0.0.1:8080"}
 
-		lockerClient, err := NewLockerClient(clientCtx, cfg, nil)
+		lockerClient, err := NewLockClient(clientCtx, cfg, nil)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(lockerClient).ToNot(BeNil())
 
@@ -119,7 +119,7 @@ func TestLockerClient_ObtainLock(t *testing.T) {
 
 		cfg := &clients.Config{URL: "bad url"}
 
-		lockerClient, err := NewLockerClient(ctx, cfg, nil)
+		lockerClient, err := NewLockClient(ctx, cfg, nil)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(lockerClient).ToNot(BeNil())
 
@@ -152,7 +152,7 @@ func TestLockerClient_ObtainLock(t *testing.T) {
 		clientCtx, clientCancel := context.WithCancel(context.Background())
 		cfg := &clients.Config{URL: server.URL}
 
-		lockerClient, err := NewLockerClient(clientCtx, cfg, nil)
+		lockerClient, err := NewLockClient(clientCtx, cfg, nil)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(lockerClient).ToNot(BeNil())
 
@@ -160,7 +160,7 @@ func TestLockerClient_ObtainLock(t *testing.T) {
 		lockContext, lockCancel := context.WithCancel(context.Background())
 		defer lockCancel()
 
-		var lock Lock
+		var lock Locker
 		doneObtaineLock := make(chan struct{})
 		go func() {
 			defer close(doneObtaineLock)
@@ -198,7 +198,7 @@ func TestLockerClient_ObtainLock(t *testing.T) {
 
 			cfg := &clients.Config{URL: server.URL}
 
-			lockerClient, err := NewLockerClient(ctx, cfg, nil)
+			lockerClient, err := NewLockClient(ctx, cfg, nil)
 			g.Expect(err).ToNot(HaveOccurred())
 			g.Expect(lockerClient).ToNot(BeNil())
 
@@ -230,7 +230,7 @@ func TestLockerClient_ObtainLock(t *testing.T) {
 
 			cfg := &clients.Config{URL: server.URL}
 
-			lockerClient, err := NewLockerClient(ctx, cfg, nil)
+			lockerClient, err := NewLockClient(ctx, cfg, nil)
 			g.Expect(err).ToNot(HaveOccurred())
 			g.Expect(lockerClient).ToNot(BeNil())
 
@@ -266,7 +266,7 @@ func TestLockerClient_ObtainLock(t *testing.T) {
 			defer cancel()
 			cfg := &clients.Config{URL: server.URL}
 
-			lockerClient, err := NewLockerClient(ctx, cfg, nil)
+			lockerClient, err := NewLockClient(ctx, cfg, nil)
 			g.Expect(err).ToNot(HaveOccurred())
 			g.Expect(lockerClient).ToNot(BeNil())
 
@@ -293,7 +293,7 @@ func TestLockerClient_ObtainLock(t *testing.T) {
 			defer cancel()
 			cfg := &clients.Config{URL: server.URL}
 
-			lockerClient, err := NewLockerClient(ctx, cfg, nil)
+			lockerClient, err := NewLockClient(ctx, cfg, nil)
 			g.Expect(err).ToNot(HaveOccurred())
 			g.Expect(lockerClient).ToNot(BeNil())
 
@@ -326,21 +326,21 @@ func TestLockerClient_ObtainLock(t *testing.T) {
 			clientCtx, clientCancel := context.WithCancel(context.Background())
 			defer clientCancel()
 
-			lockerClient, err := NewLockerClient(clientCtx, cfg, nil)
+			lockerClient, err := NewLockClient(clientCtx, cfg, nil)
 			g.Expect(err).ToNot(HaveOccurred())
 			g.Expect(lockerClient).ToNot(BeNil())
 
 			// for using a custom async manager to similate this specific race condiition
-			lockerClient.(*lockerclient).asyncManager = goasync.NewTaskManager(goasync.RelaxedConfig())
+			lockerClient.(*LockClient).asyncManager = goasync.NewTaskManager(goasync.RelaxedConfig())
 			stoppedContext, cancelNow := context.WithCancel(context.Background())
 			cancelNow()
-			lockerClient.(*lockerclient).asyncManager.Run(stoppedContext)
+			lockerClient.(*LockClient).asyncManager.Run(stoppedContext)
 
 			// try to obtain the lock
 			lockContext, lockCancel := context.WithCancel(context.Background())
 			defer lockCancel()
 
-			var lock Lock
+			var lock Locker
 			doneObtaineLock := make(chan struct{})
 			go func() {
 				defer close(doneObtaineLock)

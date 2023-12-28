@@ -19,7 +19,7 @@ func setupServerHttp(serverMux *http.ServeMux) *httptest.Server {
 	return httptest.NewServer(serverMux)
 }
 
-func setupLock(server *httptest.Server) (*lock, *atomic.Int64, *atomic.Int64, *[]error) {
+func setupLock(server *httptest.Server) (*Lock, *atomic.Int64, *atomic.Int64, *[]error) {
 	var heartbeatErrorCallbackError []error
 	heartbeatErrorCallbackCounter := new(atomic.Int64)
 	heartbeatErrorCallback := func(err error) {

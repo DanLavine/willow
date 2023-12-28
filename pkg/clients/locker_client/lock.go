@@ -12,16 +12,21 @@ import (
 	"github.com/DanLavine/willow/pkg/models/api/common/errors"
 )
 
-//go:generate mockgen -imports v1locker="github.com/DanLavine/willow/pkg/models/api/locker/v1" -destination=lockerclientfakes/lock_mock.go -package=lockerclientfakes github.com/DanLavine/willow/pkg/clients/locker_client Lock
-type Lock interface {
-	// Done can be used to monitor if a lock is released
+// Locker interface defines a the methods for a *Lock
+//
+// The MockLocker can be used in tests to satisfy the Locker interface
+//
+//go:generate mockgen -imports v1locker="github.com/DanLavine/willow/pkg/models/api/locker/v1" -destination=lockerclientfakes/lock_mock.go -package=lockerclientfakes github.com/DanLavine/willow/pkg/clients/locker_client Locker
+type Locker interface {
+	// Done can be used to monitor if a lock is released because of heartbeat failures from the client.
 	Done() <-chan struct{}
 
 	// Release can be used to release the currently held lock
 	Release() error
 }
 
-type lock struct {
+// Lock is a handler to a obtained exclusive Lock from the Locker service.
+type Lock struct {
 	// used to ensure only 1 delete operation proccesses
 	lock     *sync.Mutex
 	released bool
@@ -49,8 +54,8 @@ type lock struct {
 	timeout time.Duration
 }
 
-func newLock(sessionID string, timeout time.Duration, url string, client clients.HttpClient, contentType string, heartbeatErrorCallback func(err error), releaseLockCallback func()) *lock {
-	return &lock{
+func newLock(sessionID string, timeout time.Duration, url string, client clients.HttpClient, contentType string, heartbeatErrorCallback func(err error), releaseLockCallback func()) *Lock {
+	return &Lock{
 		lock:     new(sync.Mutex),
 		released: false,
 
@@ -70,7 +75,8 @@ func newLock(sessionID string, timeout time.Duration, url string, client clients
 	}
 }
 
-func (l *lock) Execute(ctx context.Context) error {
+// Execute is a handler for the internal model to manage heartbeats and shouldn't be used by the caller
+func (l *Lock) Execute(ctx context.Context) error {
 	ticker := time.NewTicker(l.timeout / 3)
 	lastTick := time.Now()
 
@@ -117,7 +123,7 @@ func (l *lock) Execute(ctx context.Context) error {
 //
 //	RETURNS:
 //	- int - 0 indicattes success, 1 indicates that the heartbeat failed, 2 indicates that the Lock was lost and we can stop the async loop
-func (l *lock) heartbeat() int {
+func (l *Lock) heartbeat() int {
 	// setup and make the request to heartbeat
 	resp, err := l.client.Do(&clients.RequestData{
 		Method: "POST",
@@ -175,8 +181,12 @@ func (l *lock) heartbeat() int {
 	}
 }
 
+//	RETURNS:
+//	- error - from the service when realeasing the lock. If this happens the lock should be treated
+//	          as realesed from the client and will eventually time out service side.
+//
 // Release the currently held lock
-func (l *lock) Release() error {
+func (l *Lock) Release() error {
 	// release the releases chan
 	l.closeRelease()
 
@@ -191,12 +201,12 @@ func (l *lock) Release() error {
 }
 
 // Done can be used by the client to know when a lock has been released successfully
-func (l *lock) Done() <-chan struct{} {
+func (l *Lock) Done() <-chan struct{} {
 	return l.done
 }
 
 // make a call to delete the lock from the remote service
-func (l *lock) release() error {
+func (l *Lock) release() error {
 	l.lock.Lock()
 	defer func() {
 		l.released = true
@@ -238,7 +248,7 @@ func (l *lock) release() error {
 }
 
 // close the release chan only once
-func (l *lock) closeRelease() {
+func (l *Lock) closeRelease() {
 	l.realeasOnce.Do(func() {
 		close(l.releaseChan)
 	})

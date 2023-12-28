@@ -37,7 +37,7 @@ func setupClient(g *GomegaWithT, ctx context.Context, url string) lockerclient.L
 	}
 	g.Expect(cfg.Validate()).ToNot(HaveOccurred())
 
-	lockerClient, err := lockerclient.NewLockerClient(ctx, cfg, nil)
+	lockerClient, err := lockerclient.NewLockClient(ctx, cfg, nil)
 	g.Expect(err).ToNot(HaveOccurred())
 
 	return lockerClient
@@ -170,7 +170,7 @@ func Test_Lock(t *testing.T) {
 
 		// 2nd lock blocks until the first lock is released
 		done := make(chan struct{})
-		var lock2 lockerclient.Lock
+		var lock2 lockerclient.Locker
 		var err2 error
 		go func() {
 			defer close(done)

@@ -15,30 +15,31 @@ import (
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 )
 
+// LockerClient interface defines a the methods for a *LockClient
+//
 //go:generate mockgen -destination=lockerclientfakes/locker_client_mock.go -package=lockerclientfakes github.com/DanLavine/willow/pkg/clients/locker_client LockerClient
 type LockerClient interface {
 	// Healthy is used to ensure that the locker service is up and running
 	Healthy() error
 
-	//	PARAMS:
-	//	- ctx - Context that can be used to cancel the blocking requst trying to obtain the lock. NOTE: once a lock is obtained, release must be called
-	//	- lockRequest - request for the lock to obtain with a configured timeout
-	//
-	//	RETURNS
-	//	- Lock - lock object that can be used to release a lock, and monitor if a lock is lost for some reason
-	//	- error - any errors encountered when obtaining the lock
-	//	NOTE: is both Lock and error are nil, the context must have been canceled obtaining the lock
-	//
 	// Obtain a lock for a particular set of KeyValues. This blocks until the desired lock is obtained, or the context is canceled.
 	// The returned lock will automatically heartbeat to ensure that the lock remains valid. If the heartbeat fails for some reason,
 	// the channel returned from the `lock.Done()` call will be closed. It is up to the clients to monitor for a lock being lost
-	ObtainLock(ctx context.Context, lockRequest *v1locker.LockCreateRequest) (Lock, error)
+	ObtainLock(ctx context.Context, lockRequest *v1locker.LockCreateRequest) (Locker, error)
 
 	// Done is closed if the LockerClient's contex is closed and no longer heartbeating
 	Done() <-chan struct{}
 }
 
-type lockerclient struct {
+// LockClient interacts with the Locker service.
+//
+// One useful strategy for claiming multiple locks is to always sort the KeyValues for the obtained locks by.
+// As long as these rules are followed by each of the services, then there will be no deadlocks
+//  1. Sort lenght of KeyValues, with min first
+//  2. Sort each of the KeyValues by their Keys to know which locks to obtaini first
+//
+// The MockLockerClient can be used in tests to satisfy the LockerClient interface
+type LockClient struct {
 	// used to know if the async manager is done
 	done chan struct{}
 
@@ -68,7 +69,7 @@ type lockerclient struct {
 //
 // Setup a new client to the remote locker service. This client automatically manages heartbeats for any obtained locks and
 // will notify the user if a lock is lost at some point.
-func NewLockerClient(ctx context.Context, cfg *clients.Config, heartbeatErrorCallback func(keyValue datatypes.KeyValues, err error)) (LockerClient, error) {
+func NewLockClient(ctx context.Context, cfg *clients.Config, heartbeatErrorCallback func(keyValue datatypes.KeyValues, err error)) (LockerClient, error) {
 	if ctx == nil || ctx == context.TODO() || ctx == context.Background() {
 		return nil, fmt.Errorf("cannot use provided context. The context must be canceled by the caller to ensure any locks are released when the client is no longer needed")
 	}
@@ -81,7 +82,7 @@ func NewLockerClient(ctx context.Context, cfg *clients.Config, heartbeatErrorCal
 	done := make(chan struct{})
 	asyncManager := goasync.NewTaskManager(goasync.RelaxedConfig())
 
-	lockerClient := &lockerclient{
+	lockerClient := &LockClient{
 		done:                   done,
 		url:                    cfg.URL,
 		client:                 httpClient,
@@ -99,11 +100,11 @@ func NewLockerClient(ctx context.Context, cfg *clients.Config, heartbeatErrorCal
 	return lockerClient, nil
 }
 
-// Healthy is used to ensure that the /health endpoint on the Locker service can be reached
-//
 //	RETURNS:
 //	- error - error if the Locker service cannot be reached
-func (lc *lockerclient) Healthy() error {
+//
+// Healthy is used to ensure that the /health endpoint on the Locker service can be reached
+func (lc *LockClient) Healthy() error {
 	// setup and make the request
 	resp, err := lc.client.Do(&clients.RequestData{
 		Method: "GET",
@@ -136,7 +137,7 @@ func (lc *lockerclient) Healthy() error {
 // Obtain a lock for a particular set of KeyValues. This blocks until the desired lock is obtained, or the context is canceled.
 // The returned lock will automatically heartbeat to ensure that the lock remains valid. If the heartbeat fails for some reason,
 // the channel returned from the `lock.Done()` call will be closed. It is up to the clients to monitor for a lock being lost
-func (lc *lockerclient) ObtainLock(ctx context.Context, lockRequest *v1locker.LockCreateRequest) (Lock, error) {
+func (lc *LockClient) ObtainLock(ctx context.Context, lockRequest *v1locker.LockCreateRequest) (Locker, error) {
 	select {
 	case <-lc.done:
 		return nil, fmt.Errorf("locker client has already been canceled and won't process heartbeats. Refusing to obtain the lock")
@@ -147,7 +148,7 @@ func (lc *lockerclient) ObtainLock(ctx context.Context, lockRequest *v1locker.Lo
 	obtainedLock := make(chan struct{})
 	defer close(obtainedLock)
 
-	var returnLock *lock
+	var returnLock *Lock
 	var lockErr error
 
 	// should check to make sure we don't already have the lock
@@ -252,7 +253,7 @@ func (lc *lockerclient) ObtainLock(ctx context.Context, lockRequest *v1locker.Lo
 
 	onFind := func(item any) {
 		// nothing to do here
-		returnLock = item.(*btreeassociated.AssociatedKeyValues).Value().(*lock)
+		returnLock = item.(*btreeassociated.AssociatedKeyValues).Value().(*Lock)
 	}
 
 	// create or find the lock if we already have it
@@ -262,9 +263,9 @@ func (lc *lockerclient) ObtainLock(ctx context.Context, lockRequest *v1locker.Lo
 }
 
 //	RETURNS:
-//	- <-chan struct{} - struc that can be used to monitor when a client has been closed
+//	- <-chan struct{} - struct that can be used to monitor when a client has been closed
 //
 // Done is closed when the LockerClient's context is closed and all held locks have successfully been released
-func (lc *lockerclient) Done() <-chan struct{} {
+func (lc *LockClient) Done() <-chan struct{} {
 	return lc.done
 }

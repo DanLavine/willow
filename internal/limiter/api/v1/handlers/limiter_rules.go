@@ -278,7 +278,7 @@ func (grh *groupRuleHandler) UpdateCounters(w http.ResponseWriter, r *http.Reque
 		logLockErr := func(kvs datatypes.KeyValues, err error) {
 			logger.Error("failed to obtain lock", zap.Error(err), zap.Any("key_values", kvs))
 		}
-		lockerClient, lockerErr := lockerclient.NewLockerClient(grh.shutdownContext, grh.lockerClientConfig, logLockErr)
+		lockerClient, lockerErr := lockerclient.NewLockClient(grh.shutdownContext, grh.lockerClientConfig, logLockErr)
 		if lockerErr != nil {
 			logger.Error("failed to create locker client on increment counter request", zap.Error(lockerErr))
 			err := errors.InternalServerError

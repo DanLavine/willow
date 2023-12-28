@@ -45,7 +45,7 @@ func main() {
 		ClientKeyFile:   *cfg.LockerClientKey,
 		ClientCRTFile:   *cfg.LockerClientCRT,
 	}
-	lockerClient, err := lockerclient.NewLockerClient(shutdown, clientConfig, nil)
+	lockerClient, err := lockerclient.NewLockClient(shutdown, clientConfig, nil)
 	if err != nil {
 		log.Fatal(err)
 	}
