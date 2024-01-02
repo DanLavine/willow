@@ -1,28 +1,71 @@
 package btreeassociated
 
 import (
-	"sort"
+	"fmt"
 
-	"github.com/DanLavine/willow/internal/datastructures"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 )
 
-// KeyValues are the types that are accepted by the actual try operations. Most APIs that I am currently working with have type
-// of map[string]datatypes.EnccapsulatedData to ensure that the values of the data over the wire have unique keys and are easier
-// to work with for clients. But having this option allows users to define custom data types as well to insert as "reserved" keys
-// so we can still make queries against them
-type KeyValues map[datatypes.EncapsulatedData]datatypes.EncapsulatedData
+var (
+	// on create callback errors
+	ErrorOnCreateNil = fmt.Errorf("onCreate callback cannot be nil")
 
-// Callback for calling a function when a value is found in a tree during query operations
-//
-//	PARAMS:
-//	- value - the item saved in the key value store
+	// on find callback errors
+	ErrorOnFindNil = fmt.Errorf("onFind callback cannot be nil")
+
+	// general iteration errors
+	ErrorsOnIterateNil = fmt.Errorf("onIterate callback cannot be nil")
+
+	// errors with the assoicated id
+	ErrorAssociatedIDEmpty = fmt.Errorf("associatedID cannot be the empty string")
+
+	// errors when creating an item
+	ErrorAssociatedIDAlreadyExists = fmt.Errorf("associatedID already exist")
+	ErrorKeyValuesAlreadyExists    = fmt.Errorf("keyValues already exist with an item")
+	ErrorKeyValuesHasAssociatedID  = fmt.Errorf("keyValues cannot contain a Key with the _associated_id reserved key word")
+
+	// error when destroying a key that is already in the process of being destroyed
+	ErrorTreeItemDestroying = fmt.Errorf("tree item is already being destroyed")
+
+	// error when a tree is already destroying
+	ErrorTreeDestroying = fmt.Errorf("tree is being destroyed")
+)
+
+// Callback that is used to actaully create the item in the tree
 //
 //	RETURNS:
-//	- bool - iff true, the pagination will stop processing.
+//	- any - the item to save in the tree. If this is nil, the item will not be saved in the tree
+type BTreeAssociatedOnCreate func() any
+
+// Callback that is used when an item is found in the tree
 //
-// If I do this, then I can get rid of the wrapper around the value to know all the key values which would be nice.
-type OnQueryPagination func(value *AssociatedKeyValues) bool
+//	PARAMETERS:
+//	- associatedKeyValues - detailed information about the item saved in the tree, including a referance to the item itself
+//
+//	RETURNS:
+//	- any - the item to save in the tree. If this is nil, the item will not be saved in the tree
+type BTreeAssociatedOnFind func(associatedKeyValues AssociatedKeyValues)
+
+// Callback to check that an item can actually be removed from a tree
+//
+//	PARAMS:
+//	- key - key for the item saved
+//	- item - the original item saved to the bTree
+//
+//	RETURNS:
+//	- bool - if true, will remove the item item from the tree. If this ever returns false when doing bulk deletions then
+//	         the deletion operations will be halted. Any objects previously destroyed before the error will not be restored
+type BTreeAssociatedRemove func(associatedKeyValues AssociatedKeyValues) bool
+
+// Callback when iterating over tree values
+//
+//	PARAMS:
+//	- key - key for the item saved
+//	- item - the original item saved to the bTree
+//
+//	RETURNS:
+//	- bool - if true, will continue iterating thrrough the tree. If this ever returns false then the pagination is halted
+type BTreeAssociatedIterate func(associatedKeyValues AssociatedKeyValues) bool
 
 // bTreeAssociated is used to grouping arbitrary key values into a unique searchable data set.
 //
@@ -67,32 +110,39 @@ type OnQueryPagination func(value *AssociatedKeyValues) bool
 // With this flexibility, we can find any type of unique groupings, and query a generalized key value data set
 type BTreeAssociated interface {
 	// Find an item in the assoociation tree
-	// TOOD: Remove this
-	Find(keyValues KeyValues, onFind datastructures.OnFind) (string, error)
+	Find(keyValues datatypes.KeyValues, onFind BTreeAssociatedOnFind) error
 
 	// Find an item in the assoociation tree by the assocaited id
-	// TOOD: Remove this
-	FindByAssociatedID(associatedID string, onFind datastructures.OnFind) error
+	FindByAssociatedID(associatedID string, onFind BTreeAssociatedOnFind) error
 
 	// Create an item in the associated tree.
 	// Returns an error if
 	// 1. if the KeyValues already exists when creating the associated item in the tree
-	Create(keyValues KeyValues, onCreate datastructures.OnCreate) (string, error)
+	Create(keyValues datatypes.KeyValues, onCreate BTreeAssociatedOnCreate) (string, error)
 
 	// CreateWithID an item in the associated tree.
 	// Returns an error if
 	// 1. the associatedID already exists
 	// 2. if the KeyValues already exists when creating the associated item in the tree
-	CreateWithID(associatedID string, keyValues KeyValues, onCreate datastructures.OnCreate) error
+	CreateWithID(associatedID string, keyValues datatypes.KeyValues, onCreate BTreeAssociatedOnCreate) error
 
 	// Create or Find an item in the association tree
-	CreateOrFind(keyValues KeyValues, onCreate datastructures.OnCreate, onFind datastructures.OnFind) (string, error)
+	CreateOrFind(keyValues datatypes.KeyValues, onCreate BTreeAssociatedOnCreate, onFind BTreeAssociatedOnFind) (string, error)
 
 	// Delete an item in the association tree
-	Delete(keyValues KeyValues, canDelete datastructures.CanDelete) error
+	Delete(keyValues datatypes.KeyValues, canDelete BTreeAssociatedRemove) error
 
 	// Delete an item in the association tree by the AssociatedID
-	DeleteByAssociatedID(associatedID string, canDelete datastructures.CanDelete) error
+	DeleteByAssociatedID(associatedID string, canDelete BTreeAssociatedRemove) error
+
+	// Destroy an item in the association tree by the AssociatedID. When destroying the item, any other calls for
+	// the AssociatedID will return an error. On Queries, the item is ignored
+	DestroyByAssociatedID(associatedID string, canDelete BTreeAssociatedRemove) error
+
+	// DestroyTeee can be used to delete all entries in the tree. This makes it so any other call to the tree reeturns an error
+	// that the tree is being destroy. This is to be used when a tree is no longer relevant, and any callers are going
+	// to remove their referance to the object
+	DestroyTree(canDelete BTreeAssociatedRemove) error
 
 	// delete an number of items that match a particular query
 	//DeleteByQuery(query datatypes.AssociatedKeyValuesQuery, canDelete datastructures.CanDelete) error
@@ -100,68 +150,14 @@ type BTreeAssociated interface {
 	// MatchKeys can be used to find any  any permutation of the KeyValues with items saved in the tree. This can be done via a query, but the
 	// query can be huge and slow. This is an optimization of finding any entries that mach all possible tag combinations
 	// of key values provided.
-	MatchPermutations(keyValues KeyValues, onQueryPagination OnQueryPagination) error
+	MatchPermutations(keyValues datatypes.KeyValues, onIterate BTreeAssociatedIterate) error
 
 	// Serch for any number of items in the assoociation tree
-	// todo: should be able to ad _associated_id to the queries as well
-	Query(query datatypes.AssociatedKeyValuesQuery, onQueryPagination OnQueryPagination) error
-}
-
-func ConverDatatypesKeyValues(keyValuePairs datatypes.KeyValues) KeyValues {
-	keyValues := KeyValues{}
-
-	for key, value := range keyValuePairs {
-		keyValues[datatypes.String(key)] = value
-	}
-
-	return keyValues
+	Query(query datatypes.AssociatedKeyValuesQuery, onIterate BTreeAssociatedIterate) error
 }
 
 // Check to see that the reserved keyword is for the associatedID
-func (kv KeyValues) HasAssociatedID() bool {
-	_, ok := kv[datatypes.String(ReservedID)]
+func hasAssociatedID(keyValues datatypes.KeyValues) bool {
+	_, ok := keyValues[ReservedID]
 	return ok
-}
-
-// Sort all the Keys of the KeyValues into a sorted order
-func (kv KeyValues) SortedKeys() []datatypes.EncapsulatedData {
-	keys := []datatypes.EncapsulatedData{}
-	for key, _ := range kv {
-		keys = append(keys, key)
-	}
-
-	sort.Slice(keys, func(i, j int) bool {
-		return keys[i].Less(keys[j])
-	})
-
-	return keys
-}
-
-// The inverse of ConverDatatypesKeyValues. Can be used to obtain the original values before conversion
-func (kv KeyValues) StripAssociatedID() KeyValues {
-	keyValuePairs := KeyValues{}
-
-	for key, value := range kv {
-		if key.DataType() == datatypes.T_string {
-			if key.Value().(string) != ReservedID {
-				keyValuePairs[key] = value
-			}
-		} else {
-			keyValuePairs[key] = value
-		}
-	}
-
-	return keyValuePairs
-}
-
-func (kv KeyValues) RetrieveStringDataType() datatypes.KeyValues {
-	keyValuePairs := datatypes.KeyValues{}
-
-	for key, value := range kv {
-		if key.DataType() == datatypes.T_string {
-			keyValuePairs[key.Value().(string)] = value.(datatypes.EncapsulatedValue)
-		}
-	}
-
-	return keyValuePairs
 }

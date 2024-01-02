@@ -3,25 +3,33 @@ package btree
 import (
 	"fmt"
 
-	"github.com/DanLavine/willow/internal/datastructures"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 )
 
 // PARAMS:
 // - key - key to use when comparing to other possible items
-// - onFind - method to call if the key is found
+// - onIterate - method to call if the key is found
 //
 // RETURNS:
 // - error - any errors encontered. I.E. key is not valid
 //
 // Find the item in the Tree and run the `OnFind(...)` function for the saved value. Will not be called if the
 // key cannot be found
-func (btree *threadSafeBTree) Find(key datatypes.EncapsulatedData, onFind datastructures.OnFind) error {
+func (btree *threadSafeBTree) Find(key datatypes.EncapsulatedValue, onIterate BTreeOnFind) error {
+	// parameeter checks
 	if err := key.Validate(); err != nil {
 		return fmt.Errorf("key is invalid: %w", err)
 	}
-	if onFind == nil {
-		return fmt.Errorf("onFind is nil, but a value is required")
+	if onIterate == nil {
+		return ErrorOnFindNil
+	}
+
+	// destroy checks
+	btree.readWriteWG.Add(1)
+	defer btree.readWriteWG.Add(-1)
+
+	if err := btree.checkDestroyingWithKey(key); err != nil {
+		return err
 	}
 
 	btree.lock.RLock()
@@ -29,7 +37,7 @@ func (btree *threadSafeBTree) Find(key datatypes.EncapsulatedData, onFind datast
 		btree.root.lock.RLock()
 		btree.lock.RUnlock()
 
-		btree.root.find(key, onFind)
+		btree.root.find(key, onIterate)
 	} else {
 		btree.lock.RUnlock()
 	}
@@ -37,7 +45,7 @@ func (btree *threadSafeBTree) Find(key datatypes.EncapsulatedData, onFind datast
 	return nil
 }
 
-func (bn *threadSafeBNode) find(key datatypes.EncapsulatedData, onFind datastructures.OnFind) {
+func (bn *threadSafeBNode) find(key datatypes.EncapsulatedValue, onIterate BTreeOnFind) {
 	var index int
 	for index = 0; index < bn.numberOfValues; index++ {
 		keyValue := bn.keyValues[index]
@@ -45,7 +53,7 @@ func (bn *threadSafeBNode) find(key datatypes.EncapsulatedData, onFind datastruc
 		if !keyValue.key.Less(key) {
 			// this is an exact match for the key
 			if !key.Less(keyValue.key) {
-				onFind(keyValue.value)
+				onIterate(keyValue.value)
 				bn.lock.RUnlock()
 				return
 			}
@@ -65,7 +73,7 @@ func (bn *threadSafeBNode) find(key datatypes.EncapsulatedData, onFind datastruc
 		bn.lock.RUnlock()
 
 		// recurse down to child where the value exists
-		child.find(key, onFind)
+		child.find(key, onIterate)
 	} else {
 		// no more children, so unlock this node
 		bn.lock.RUnlock()
@@ -73,19 +81,28 @@ func (bn *threadSafeBNode) find(key datatypes.EncapsulatedData, onFind datastruc
 }
 
 // Find any values in the BTree whos values are not equal to the provided key
-func (btree *threadSafeBTree) FindNotEqual(key datatypes.EncapsulatedData, callback datastructures.OnFindPagination) error {
+func (btree *threadSafeBTree) FindNotEqual(key datatypes.EncapsulatedValue, onIterate BTreeIterate) error {
+	// parameter checks
 	if err := key.Validate(); err != nil {
 		return fmt.Errorf("key is invalid: %w", err)
 	}
-	if callback == nil {
-		return fmt.Errorf("callback cannot be nil")
+	if onIterate == nil {
+		return ErrorsOnIterateNil
+	}
+
+	// destroy checks
+	btree.readWriteWG.Add(1)
+	defer btree.readWriteWG.Add(-1)
+
+	if err := btree.checkDestroying(); err != nil {
+		return err
 	}
 
 	btree.lock.RLock()
 	if btree.root != nil {
 		btree.root.lock.RLock()
 		btree.lock.RUnlock()
-		_ = btree.root.findNotEqual(key, callback)
+		_ = btree.root.findNotEqual(key, onIterate)
 	} else {
 		btree.lock.RUnlock()
 	}
@@ -95,7 +112,7 @@ func (btree *threadSafeBTree) FindNotEqual(key datatypes.EncapsulatedData, callb
 
 // RETURNS
 // - bool - will return true if the pagination should continue
-func (bn *threadSafeBNode) findNotEqual(key datatypes.EncapsulatedData, onFind datastructures.OnFindPagination) bool {
+func (bn *threadSafeBNode) findNotEqual(key datatypes.EncapsulatedValue, onIterate BTreeIterate) bool {
 	// iterate through all the current values
 	var index int
 	var children []*threadSafeBNode
@@ -111,7 +128,7 @@ func (bn *threadSafeBNode) findNotEqual(key datatypes.EncapsulatedData, onFind d
 		if !keyValue.key.Less(key) && !key.Less(keyValue.key) {
 			// nothing to do here, this is the value we don't want
 		} else {
-			if !onFind(keyValue.key, keyValue.value) {
+			if !onIterate(keyValue.key, keyValue.value) {
 				// caller wants to stop paginating, need to unlock everything
 				if bn.numberOfChildren != 0 {
 					for rev := 0; rev < len(children); rev++ {
@@ -139,7 +156,7 @@ func (bn *threadSafeBNode) findNotEqual(key datatypes.EncapsulatedData, onFind d
 	// miss a brand new creation which I think is fine since that seems like such a tight race condition, the new value
 	// is fine in either case, being reported or not
 	for i := 0; i < len(children); i++ {
-		if !children[i].findNotEqual(key, onFind) {
+		if !children[i].findNotEqual(key, onIterate) {
 			// need to unlock the rest of the children and return
 			for unlockIndex := i + 1; unlockIndex < len(children); unlockIndex++ {
 				children[unlockIndex].lock.RUnlock()
@@ -153,19 +170,28 @@ func (bn *threadSafeBNode) findNotEqual(key datatypes.EncapsulatedData, onFind d
 }
 
 // Find any values in the BTree whos values are not equal to the provided key
-func (btree *threadSafeBTree) FindNotEqualMatchType(key datatypes.EncapsulatedData, callback datastructures.OnFindPagination) error {
+func (btree *threadSafeBTree) FindNotEqualMatchType(key datatypes.EncapsulatedValue, onIterate BTreeIterate) error {
+	// parameter checks
 	if err := key.Validate(); err != nil {
 		return fmt.Errorf("key is invalid: %w", err)
 	}
-	if callback == nil {
-		return fmt.Errorf("callback cannot be nil")
+	if onIterate == nil {
+		return ErrorsOnIterateNil
+	}
+
+	// destroy checks
+	btree.readWriteWG.Add(1)
+	defer btree.readWriteWG.Add(-1)
+
+	if err := btree.checkDestroying(); err != nil {
+		return err
 	}
 
 	btree.lock.RLock()
 	if btree.root != nil {
 		btree.root.lock.RLock()
 		btree.lock.RUnlock()
-		_ = btree.root.findNotEqualMatchType(key, callback)
+		_ = btree.root.findNotEqualMatchType(key, onIterate)
 	} else {
 		btree.lock.RUnlock()
 	}
@@ -175,7 +201,7 @@ func (btree *threadSafeBTree) FindNotEqualMatchType(key datatypes.EncapsulatedDa
 
 // RETURNS
 // - bool - will return true if the pagination should continue
-func (bn *threadSafeBNode) findNotEqualMatchType(key datatypes.EncapsulatedData, onFind datastructures.OnFindPagination) bool {
+func (bn *threadSafeBNode) findNotEqualMatchType(key datatypes.EncapsulatedValue, onIterate BTreeIterate) bool {
 	startIndex := -1
 	var index int
 	var children []*threadSafeBNode
@@ -210,7 +236,7 @@ func (bn *threadSafeBNode) findNotEqualMatchType(key datatypes.EncapsulatedData,
 		if !keyValue.key.LessValue(key) && !key.LessValue(keyValue.key) {
 			// nothing to do here, this is the value we don't want
 		} else {
-			if !onFind(keyValue.key, keyValue.value) {
+			if !onIterate(keyValue.key, keyValue.value) {
 				// caller wants to stop paginating, need to unlock everything
 				if bn.numberOfChildren != 0 {
 					for rev := 0; rev < len(children); rev++ {
@@ -236,11 +262,11 @@ func (bn *threadSafeBNode) findNotEqualMatchType(key datatypes.EncapsulatedData,
 	if len(children) != 0 {
 		if startIndex == -1 {
 			// recurse through the greater than side
-			return children[0].findNotEqualMatchType(key, onFind)
+			return children[0].findNotEqualMatchType(key, onIterate)
 		} else {
 			// need to recurse to all potential children from the start index
 			for i := 0; i < len(children); i++ {
-				if !children[i].findNotEqualMatchType(key, onFind) {
+				if !children[i].findNotEqualMatchType(key, onIterate) {
 					// need to unlock the rest of the children and return
 					for unlockIndex := i + 1; unlockIndex < len(children); unlockIndex++ {
 						children[unlockIndex].lock.RUnlock()
@@ -256,19 +282,28 @@ func (bn *threadSafeBNode) findNotEqualMatchType(key datatypes.EncapsulatedData,
 }
 
 // Find any values in the BTree whos values are less than the provided key
-func (btree *threadSafeBTree) FindLessThan(key datatypes.EncapsulatedData, callback datastructures.OnFindPagination) error {
+func (btree *threadSafeBTree) FindLessThan(key datatypes.EncapsulatedValue, onIterate BTreeIterate) error {
+	// parameter checks
 	if err := key.Validate(); err != nil {
 		return fmt.Errorf("key is invalid: %w", err)
 	}
-	if callback == nil {
-		return fmt.Errorf("callback cannot be nil")
+	if onIterate == nil {
+		return ErrorsOnIterateNil
+	}
+
+	// destroy checks
+	btree.readWriteWG.Add(1)
+	defer btree.readWriteWG.Add(-1)
+
+	if err := btree.checkDestroying(); err != nil {
+		return err
 	}
 
 	btree.lock.RLock()
 	if btree.root != nil {
 		btree.root.lock.RLock()
 		btree.lock.RUnlock()
-		_ = btree.root.findLessThan(key, callback)
+		_ = btree.root.findLessThan(key, onIterate)
 	} else {
 		btree.lock.RUnlock()
 	}
@@ -276,7 +311,7 @@ func (btree *threadSafeBTree) FindLessThan(key datatypes.EncapsulatedData, callb
 	return nil
 }
 
-func (bn *threadSafeBNode) findLessThan(key datatypes.EncapsulatedData, onFind datastructures.OnFindPagination) bool {
+func (bn *threadSafeBNode) findLessThan(key datatypes.EncapsulatedValue, onIterate BTreeIterate) bool {
 	var index int
 	var children []*threadSafeBNode
 	for index = 0; index < bn.numberOfValues; index++ {
@@ -289,7 +324,7 @@ func (bn *threadSafeBNode) findLessThan(key datatypes.EncapsulatedData, onFind d
 				children = append(children, bn.children[index])
 			}
 
-			if !onFind(keyValue.key, keyValue.value) {
+			if !onIterate(keyValue.key, keyValue.value) {
 				// caller wants to stop paginating, need to unlock everything
 				if bn.numberOfChildren != 0 {
 					for rev := 0; rev < len(children); rev++ {
@@ -316,7 +351,7 @@ func (bn *threadSafeBNode) findLessThan(key datatypes.EncapsulatedData, onFind d
 
 	// one last attempt to look at the last less than values
 	for i := 0; i < len(children); i++ {
-		if !children[i].findLessThan(key, onFind) {
+		if !children[i].findLessThan(key, onIterate) {
 			// need to unlock the rest of the children and return
 			for unlockIndex := i + 1; unlockIndex < len(children); unlockIndex++ {
 				children[unlockIndex].lock.RUnlock()
@@ -330,19 +365,28 @@ func (bn *threadSafeBNode) findLessThan(key datatypes.EncapsulatedData, onFind d
 }
 
 // Find any values in the BTree whos values are less than the provided key and respect the type of key
-func (btree *threadSafeBTree) FindLessThanMatchType(key datatypes.EncapsulatedData, callback datastructures.OnFindPagination) error {
+func (btree *threadSafeBTree) FindLessThanMatchType(key datatypes.EncapsulatedValue, onIterate BTreeIterate) error {
+	// parameter checks
 	if err := key.Validate(); err != nil {
 		return fmt.Errorf("key is invalid: %w", err)
 	}
-	if callback == nil {
-		return fmt.Errorf("callback cannot be nil")
+	if onIterate == nil {
+		return ErrorsOnIterateNil
+	}
+
+	// destroy checks
+	btree.readWriteWG.Add(1)
+	defer btree.readWriteWG.Add(-1)
+
+	if err := btree.checkDestroying(); err != nil {
+		return err
 	}
 
 	btree.lock.RLock()
 	if btree.root != nil {
 		btree.root.lock.RLock()
 		btree.lock.RUnlock()
-		_ = btree.root.findLessThanMatchType(key, callback)
+		_ = btree.root.findLessThanMatchType(key, onIterate)
 	} else {
 		btree.lock.RUnlock()
 	}
@@ -350,7 +394,7 @@ func (btree *threadSafeBTree) FindLessThanMatchType(key datatypes.EncapsulatedDa
 	return nil
 }
 
-func (bn *threadSafeBNode) findLessThanMatchType(key datatypes.EncapsulatedData, onFind datastructures.OnFindPagination) bool {
+func (bn *threadSafeBNode) findLessThanMatchType(key datatypes.EncapsulatedValue, onIterate BTreeIterate) bool {
 	startIndex := -1
 	var index int
 	var children []*threadSafeBNode
@@ -383,7 +427,7 @@ func (bn *threadSafeBNode) findLessThanMatchType(key datatypes.EncapsulatedData,
 				children = append(children, bn.children[index])
 			}
 
-			if !onFind(keyValue.key, keyValue.value) {
+			if !onIterate(keyValue.key, keyValue.value) {
 				// caller wants to stop paginating, need to unlock everything
 				if bn.numberOfChildren != 0 {
 					for rev := 0; rev < len(children); rev++ {
@@ -411,11 +455,11 @@ func (bn *threadSafeBNode) findLessThanMatchType(key datatypes.EncapsulatedData,
 	if len(children) != 0 {
 		if startIndex == -1 {
 			// key must be grater than all values we checked, must be on the greater than side
-			return bn.children[index].findLessThanMatchType(key, onFind)
+			return bn.children[index].findLessThanMatchType(key, onIterate)
 		} else {
 			// need to recurse to all potential children from the start index
 			for i := 0; i < len(children); i++ {
-				if !children[i].findLessThanMatchType(key, onFind) {
+				if !children[i].findLessThanMatchType(key, onIterate) {
 					// need to unlock the rest of the children and return
 					for unlockIndex := i + 1; unlockIndex < len(children); unlockIndex++ {
 						children[unlockIndex].lock.RUnlock()
@@ -431,19 +475,28 @@ func (bn *threadSafeBNode) findLessThanMatchType(key datatypes.EncapsulatedData,
 }
 
 // Find any values in the BTree whos values are less than or Equal to the provided key
-func (btree *threadSafeBTree) FindLessThanOrEqual(key datatypes.EncapsulatedData, callback datastructures.OnFindPagination) error {
+func (btree *threadSafeBTree) FindLessThanOrEqual(key datatypes.EncapsulatedValue, onIterate BTreeIterate) error {
+	// parameter checks
 	if err := key.Validate(); err != nil {
 		return fmt.Errorf("key is invalid: %w", err)
 	}
-	if callback == nil {
-		return fmt.Errorf("callback cannot be nil")
+	if onIterate == nil {
+		return ErrorsOnIterateNil
+	}
+
+	// destroy checks
+	btree.readWriteWG.Add(1)
+	defer btree.readWriteWG.Add(-1)
+
+	if err := btree.checkDestroying(); err != nil {
+		return err
 	}
 
 	btree.lock.RLock()
 	if btree.root != nil {
 		btree.root.lock.RLock()
 		btree.lock.RUnlock()
-		_ = btree.root.findLessThanOrEqual(key, callback)
+		_ = btree.root.findLessThanOrEqual(key, onIterate)
 	} else {
 		btree.lock.RUnlock()
 	}
@@ -451,7 +504,7 @@ func (btree *threadSafeBTree) FindLessThanOrEqual(key datatypes.EncapsulatedData
 	return nil
 }
 
-func (bn *threadSafeBNode) findLessThanOrEqual(key datatypes.EncapsulatedData, onFind datastructures.OnFindPagination) bool {
+func (bn *threadSafeBNode) findLessThanOrEqual(key datatypes.EncapsulatedValue, onIterate BTreeIterate) bool {
 	var index int
 	var children []*threadSafeBNode
 	for index = 0; index < bn.numberOfValues; index++ {
@@ -465,7 +518,7 @@ func (bn *threadSafeBNode) findLessThanOrEqual(key datatypes.EncapsulatedData, o
 				children = append(children, bn.children[index])
 			}
 
-			if !onFind(keyValue.key, keyValue.value) {
+			if !onIterate(keyValue.key, keyValue.value) {
 				// caller wants to stop paginating, need to unlock everything
 				if bn.numberOfChildren != 0 {
 					for rev := 0; rev < len(children); rev++ {
@@ -479,7 +532,7 @@ func (bn *threadSafeBNode) findLessThanOrEqual(key datatypes.EncapsulatedData, o
 		} else {
 			// call the equals value for the key
 			if !key.Less(keyValue.key) {
-				if !onFind(keyValue.key, keyValue.value) {
+				if !onIterate(keyValue.key, keyValue.value) {
 					// caller wants to stop paginating, need to unlock everything
 					if bn.numberOfChildren != 0 {
 						for rev := 0; rev < len(children); rev++ {
@@ -507,7 +560,7 @@ func (bn *threadSafeBNode) findLessThanOrEqual(key datatypes.EncapsulatedData, o
 
 	// one last attempt to look at the last less than or greater than values
 	for i := 0; i < len(children); i++ {
-		if !children[i].findLessThanOrEqual(key, onFind) {
+		if !children[i].findLessThanOrEqual(key, onIterate) {
 			// need to unlock the rest of the children and return
 			for unlockIndex := i + 1; unlockIndex < len(children); unlockIndex++ {
 				children[unlockIndex].lock.RUnlock()
@@ -521,19 +574,28 @@ func (bn *threadSafeBNode) findLessThanOrEqual(key datatypes.EncapsulatedData, o
 }
 
 // Find any values in the BTree whos values are less than or Equal to the provided key and respects the type of key
-func (btree *threadSafeBTree) FindLessThanOrEqualMatchType(key datatypes.EncapsulatedData, callback datastructures.OnFindPagination) error {
+func (btree *threadSafeBTree) FindLessThanOrEqualMatchType(key datatypes.EncapsulatedValue, onIterate BTreeIterate) error {
+	// parameter checks
 	if err := key.Validate(); err != nil {
 		return fmt.Errorf("key is invalid: %w", err)
 	}
-	if callback == nil {
-		return fmt.Errorf("callback cannot be nil")
+	if onIterate == nil {
+		return ErrorsOnIterateNil
+	}
+
+	// destroy checks
+	btree.readWriteWG.Add(1)
+	defer btree.readWriteWG.Add(-1)
+
+	if err := btree.checkDestroying(); err != nil {
+		return err
 	}
 
 	btree.lock.RLock()
 	if btree.root != nil {
 		btree.root.lock.RLock()
 		btree.lock.RUnlock()
-		_ = btree.root.findLessThanOrEqualMatchType(key, callback)
+		_ = btree.root.findLessThanOrEqualMatchType(key, onIterate)
 	} else {
 		btree.lock.RUnlock()
 	}
@@ -541,7 +603,7 @@ func (btree *threadSafeBTree) FindLessThanOrEqualMatchType(key datatypes.Encapsu
 	return nil
 }
 
-func (bn *threadSafeBNode) findLessThanOrEqualMatchType(key datatypes.EncapsulatedData, onFind datastructures.OnFindPagination) bool {
+func (bn *threadSafeBNode) findLessThanOrEqualMatchType(key datatypes.EncapsulatedValue, onIterate BTreeIterate) bool {
 	startIndex := -1
 	var index int
 	var children []*threadSafeBNode
@@ -574,7 +636,7 @@ func (bn *threadSafeBNode) findLessThanOrEqualMatchType(key datatypes.Encapsulat
 				children = append(children, bn.children[index])
 			}
 
-			if !onFind(keyValue.key, keyValue.value) {
+			if !onIterate(keyValue.key, keyValue.value) {
 				// caller wants to stop paginating, need to unlock everything
 				if bn.numberOfChildren != 0 {
 					for rev := 0; rev < len(children); rev++ {
@@ -588,7 +650,7 @@ func (bn *threadSafeBNode) findLessThanOrEqualMatchType(key datatypes.Encapsulat
 		} else {
 			// add the equals value for the key
 			if !key.LessValue(keyValue.key) {
-				if !onFind(keyValue.key, keyValue.value) {
+				if !onIterate(keyValue.key, keyValue.value) {
 					// caller wants to stop paginating, need to unlock everything
 					if bn.numberOfChildren != 0 {
 						for rev := 0; rev < len(children); rev++ {
@@ -618,11 +680,11 @@ func (bn *threadSafeBNode) findLessThanOrEqualMatchType(key datatypes.Encapsulat
 	if len(children) != 0 {
 		if startIndex == -1 {
 			// key must be grater than all values we checked, must be on the greater than side
-			return children[0].findLessThanOrEqualMatchType(key, onFind)
+			return children[0].findLessThanOrEqualMatchType(key, onIterate)
 		} else {
 			// need to recurse to all potential children from the start index
 			for i := 0; i < len(children); i++ {
-				if !children[i].findLessThanOrEqualMatchType(key, onFind) {
+				if !children[i].findLessThanOrEqualMatchType(key, onIterate) {
 					// need to unlock the rest of the children and return
 					for unlockIndex := i + 1; unlockIndex < len(children); unlockIndex++ {
 						children[unlockIndex].lock.RUnlock()
@@ -638,19 +700,28 @@ func (bn *threadSafeBNode) findLessThanOrEqualMatchType(key datatypes.Encapsulat
 }
 
 // Find any values in the BTree whos values are greater than the provided key
-func (btree *threadSafeBTree) FindGreaterThan(key datatypes.EncapsulatedData, callback datastructures.OnFindPagination) error {
+func (btree *threadSafeBTree) FindGreaterThan(key datatypes.EncapsulatedValue, onIterate BTreeIterate) error {
+	// parameter checks
 	if err := key.Validate(); err != nil {
 		return fmt.Errorf("key is invalid: %w", err)
 	}
-	if callback == nil {
-		return fmt.Errorf("callback cannot be nil")
+	if onIterate == nil {
+		return ErrorsOnIterateNil
+	}
+
+	// destroy checks
+	btree.readWriteWG.Add(1)
+	defer btree.readWriteWG.Add(-1)
+
+	if err := btree.checkDestroying(); err != nil {
+		return err
 	}
 
 	btree.lock.RLock()
 	if btree.root != nil {
 		btree.root.lock.RLock()
 		btree.lock.RUnlock()
-		_ = btree.root.findGreaterThan(key, callback)
+		_ = btree.root.findGreaterThan(key, onIterate)
 	} else {
 		btree.lock.RUnlock()
 	}
@@ -658,7 +729,7 @@ func (btree *threadSafeBTree) FindGreaterThan(key datatypes.EncapsulatedData, ca
 	return nil
 }
 
-func (bn *threadSafeBNode) findGreaterThan(key datatypes.EncapsulatedData, onFind datastructures.OnFindPagination) bool {
+func (bn *threadSafeBNode) findGreaterThan(key datatypes.EncapsulatedValue, onIterate BTreeIterate) bool {
 	// NOTE; we need to travers from less than to greater than so we don't hit any deadlocks going the reverse way.
 	// all traversal needs to be less than to greater than
 	startIndex := -1
@@ -679,7 +750,7 @@ func (bn *threadSafeBNode) findGreaterThan(key datatypes.EncapsulatedData, onFin
 				children = append(children, bn.children[index])
 			}
 
-			if !onFind(keyValue.key, keyValue.value) {
+			if !onIterate(keyValue.key, keyValue.value) {
 				// caller wants to stop paginating, need to unlock everything
 				if bn.numberOfChildren != 0 {
 					for rev := 0; rev < len(children); rev++ {
@@ -705,11 +776,11 @@ func (bn *threadSafeBNode) findGreaterThan(key datatypes.EncapsulatedData, onFin
 	if len(children) != 0 {
 		if startIndex == -1 {
 			// check the greater than side
-			return children[0].findGreaterThan(key, onFind)
+			return children[0].findGreaterThan(key, onIterate)
 		} else {
 			// recurse down to additional keys
 			for i := 0; i < len(children); i++ {
-				if !children[i].findGreaterThan(key, onFind) {
+				if !children[i].findGreaterThan(key, onIterate) {
 					// need to unlock the rest of the children and return
 					for unlockIndex := i + 1; unlockIndex < len(children); unlockIndex++ {
 						children[unlockIndex].lock.RUnlock()
@@ -725,19 +796,28 @@ func (bn *threadSafeBNode) findGreaterThan(key datatypes.EncapsulatedData, onFin
 }
 
 // Find any values in the BTree whos values are greater than the provided key and respects the type of key
-func (btree *threadSafeBTree) FindGreaterThanMatchType(key datatypes.EncapsulatedData, callback datastructures.OnFindPagination) error {
+func (btree *threadSafeBTree) FindGreaterThanMatchType(key datatypes.EncapsulatedValue, onIterate BTreeIterate) error {
+	// parameter checks
 	if err := key.Validate(); err != nil {
 		return fmt.Errorf("key is invalid: %w", err)
 	}
-	if callback == nil {
-		return fmt.Errorf("callback cannot be nil")
+	if onIterate == nil {
+		return ErrorsOnIterateNil
+	}
+
+	// destroy checks
+	btree.readWriteWG.Add(1)
+	defer btree.readWriteWG.Add(-1)
+
+	if err := btree.checkDestroying(); err != nil {
+		return err
 	}
 
 	btree.lock.RLock()
 	if btree.root != nil {
 		btree.root.lock.RLock()
 		btree.lock.RUnlock()
-		_ = btree.root.findGreaterThanMatchType(key, callback)
+		_ = btree.root.findGreaterThanMatchType(key, onIterate)
 	} else {
 		btree.lock.RUnlock()
 	}
@@ -745,7 +825,7 @@ func (btree *threadSafeBTree) FindGreaterThanMatchType(key datatypes.Encapsulate
 	return nil
 }
 
-func (bn *threadSafeBNode) findGreaterThanMatchType(key datatypes.EncapsulatedData, onFind datastructures.OnFindPagination) bool {
+func (bn *threadSafeBNode) findGreaterThanMatchType(key datatypes.EncapsulatedValue, onIterate BTreeIterate) bool {
 	// NOTE; we need to travers from less than to greater than so we don't hit any deadlocks going the reverse way.
 	// all traversal needs to be less than to greater than
 	startIndex := -1
@@ -782,7 +862,7 @@ func (bn *threadSafeBNode) findGreaterThanMatchType(key datatypes.EncapsulatedDa
 				children = append(children, bn.children[index])
 			}
 
-			if !onFind(keyValue.key, keyValue.value) {
+			if !onIterate(keyValue.key, keyValue.value) {
 				// caller wants to stop paginating, need to unlock everything
 				if bn.numberOfChildren != 0 {
 					for rev := 0; rev < len(children); rev++ {
@@ -809,11 +889,11 @@ func (bn *threadSafeBNode) findGreaterThanMatchType(key datatypes.EncapsulatedDa
 	if len(children) != 0 {
 		if startIndex == -1 {
 			// check the greater than side
-			return children[0].findGreaterThanMatchType(key, onFind)
+			return children[0].findGreaterThanMatchType(key, onIterate)
 		} else {
 			// recurse down to additional keys
 			for i := 0; i < len(children); i++ {
-				if !children[i].findGreaterThanMatchType(key, onFind) {
+				if !children[i].findGreaterThanMatchType(key, onIterate) {
 					// need to unlock the rest of the children and return
 					for unlockIndex := i + 1; unlockIndex < len(children); unlockIndex++ {
 						children[unlockIndex].lock.RUnlock()
@@ -829,19 +909,28 @@ func (bn *threadSafeBNode) findGreaterThanMatchType(key datatypes.EncapsulatedDa
 }
 
 // Find any values in the BTree whos values are greater or equal than the provided key
-func (btree *threadSafeBTree) FindGreaterThanOrEqual(key datatypes.EncapsulatedData, callback datastructures.OnFindPagination) error {
+func (btree *threadSafeBTree) FindGreaterThanOrEqual(key datatypes.EncapsulatedValue, onIterate BTreeIterate) error {
+	// parameter checks
 	if err := key.Validate(); err != nil {
 		return fmt.Errorf("key is invalid: %w", err)
 	}
-	if callback == nil {
-		return fmt.Errorf("callback cannot be nil")
+	if onIterate == nil {
+		return ErrorsOnIterateNil
+	}
+
+	// destroy checks
+	btree.readWriteWG.Add(1)
+	defer btree.readWriteWG.Add(-1)
+
+	if err := btree.checkDestroying(); err != nil {
+		return err
 	}
 
 	btree.lock.RLock()
 	if btree.root != nil {
 		btree.root.lock.RLock()
 		btree.lock.RUnlock()
-		_ = btree.root.findGreaterThanOrEqual(key, callback)
+		_ = btree.root.findGreaterThanOrEqual(key, onIterate)
 	} else {
 		btree.lock.RUnlock()
 	}
@@ -849,7 +938,7 @@ func (btree *threadSafeBTree) FindGreaterThanOrEqual(key datatypes.EncapsulatedD
 	return nil
 }
 
-func (bn *threadSafeBNode) findGreaterThanOrEqual(key datatypes.EncapsulatedData, onFind datastructures.OnFindPagination) bool {
+func (bn *threadSafeBNode) findGreaterThanOrEqual(key datatypes.EncapsulatedValue, onIterate BTreeIterate) bool {
 	// NOTE; we need to travers from less than to greater than so we don't hit any deadlocks going the reverse way.
 	// all traversal needs to be less than to greater than
 	startIndex := -1
@@ -870,7 +959,7 @@ func (bn *threadSafeBNode) findGreaterThanOrEqual(key datatypes.EncapsulatedData
 				children = append(children, bn.children[index])
 			}
 
-			if !onFind(keyValue.key, keyValue.value) {
+			if !onIterate(keyValue.key, keyValue.value) {
 				// caller wants to stop paginating, need to unlock everything
 				if bn.numberOfChildren != 0 {
 					for rev := 0; rev < len(children); rev++ {
@@ -884,7 +973,7 @@ func (bn *threadSafeBNode) findGreaterThanOrEqual(key datatypes.EncapsulatedData
 		} else {
 			// this is the equal key
 			if !keyValue.key.Less(key) {
-				if !onFind(keyValue.key, keyValue.value) {
+				if !onIterate(keyValue.key, keyValue.value) {
 					// caller wants to stop paginating, need to unlock everything
 					if bn.numberOfChildren != 0 && startIndex != -1 {
 						for rev := 0; rev < len(children); rev++ {
@@ -911,11 +1000,11 @@ func (bn *threadSafeBNode) findGreaterThanOrEqual(key datatypes.EncapsulatedData
 	if len(children) != 0 {
 		if startIndex == -1 {
 			// check the greater than side
-			return children[0].findGreaterThanOrEqual(key, onFind)
+			return children[0].findGreaterThanOrEqual(key, onIterate)
 		} else {
 			// recurse down to additional keys
 			for i := 0; i < len(children); i++ {
-				if !children[i].findGreaterThanOrEqual(key, onFind) {
+				if !children[i].findGreaterThanOrEqual(key, onIterate) {
 					// need to unlock the rest of the children and return
 					for unlockIndex := i + 1; unlockIndex < len(children); unlockIndex++ {
 						children[unlockIndex].lock.RUnlock()
@@ -931,19 +1020,28 @@ func (bn *threadSafeBNode) findGreaterThanOrEqual(key datatypes.EncapsulatedData
 }
 
 // Find any values in the BTree whos values are greater or equal than the provided key and respects the type of key
-func (btree *threadSafeBTree) FindGreaterThanOrEqualMatchType(key datatypes.EncapsulatedData, callback datastructures.OnFindPagination) error {
+func (btree *threadSafeBTree) FindGreaterThanOrEqualMatchType(key datatypes.EncapsulatedValue, onIterate BTreeIterate) error {
+	// parameter checks
 	if err := key.Validate(); err != nil {
 		return fmt.Errorf("key is invalid: %w", err)
 	}
-	if callback == nil {
-		return fmt.Errorf("callback cannot be nil")
+	if onIterate == nil {
+		return ErrorsOnIterateNil
+	}
+
+	// destroy checks
+	btree.readWriteWG.Add(1)
+	defer btree.readWriteWG.Add(-1)
+
+	if err := btree.checkDestroying(); err != nil {
+		return err
 	}
 
 	btree.lock.RLock()
 	if btree.root != nil {
 		btree.root.lock.RLock()
 		btree.lock.RUnlock()
-		_ = btree.root.findGreaterThanOrEqualMatchType(key, callback)
+		_ = btree.root.findGreaterThanOrEqualMatchType(key, onIterate)
 	} else {
 		btree.lock.RUnlock()
 	}
@@ -951,7 +1049,7 @@ func (btree *threadSafeBTree) FindGreaterThanOrEqualMatchType(key datatypes.Enca
 	return nil
 }
 
-func (bn *threadSafeBNode) findGreaterThanOrEqualMatchType(key datatypes.EncapsulatedData, onFind datastructures.OnFindPagination) bool {
+func (bn *threadSafeBNode) findGreaterThanOrEqualMatchType(key datatypes.EncapsulatedValue, onIterate BTreeIterate) bool {
 	// NOTE; we need to travers from less than to greater than so we don't hit any deadlocks going the reverse way.
 	// all traversal needs to be less than to greater than
 	startIndex := -1
@@ -987,7 +1085,7 @@ func (bn *threadSafeBNode) findGreaterThanOrEqualMatchType(key datatypes.Encapsu
 				children = append(children, bn.children[index])
 			}
 
-			if !onFind(keyValue.key, keyValue.value) {
+			if !onIterate(keyValue.key, keyValue.value) {
 				// caller wants to stop paginating, need to unlock everything
 				if bn.numberOfChildren != 0 {
 					for rev := 0; rev < len(children); rev++ {
@@ -1001,7 +1099,7 @@ func (bn *threadSafeBNode) findGreaterThanOrEqualMatchType(key datatypes.Encapsu
 		} else {
 			// this is the equal key
 			if !keyValue.key.LessValue(key) {
-				if !onFind(keyValue.key, keyValue.value) {
+				if !onIterate(keyValue.key, keyValue.value) {
 					// caller wants to stop paginating, need to unlock everything
 					if bn.numberOfChildren != 0 && startIndex != -1 {
 						for rev := 0; rev < len(children); rev++ {
@@ -1028,11 +1126,11 @@ func (bn *threadSafeBNode) findGreaterThanOrEqualMatchType(key datatypes.Encapsu
 	if len(children) != 0 {
 		if startIndex == -1 {
 			// check the greater than side
-			return children[0].findGreaterThanOrEqualMatchType(key, onFind)
+			return children[0].findGreaterThanOrEqualMatchType(key, onIterate)
 		} else {
 			// recurse down to additional keys
 			for i := 0; i < len(children); i++ {
-				if !children[i].findGreaterThanOrEqualMatchType(key, onFind) {
+				if !children[i].findGreaterThanOrEqualMatchType(key, onIterate) {
 					// need to unlock the rest of the children and return
 					for unlockIndex := i + 1; unlockIndex < len(children); unlockIndex++ {
 						children[unlockIndex].lock.RUnlock()

@@ -3,13 +3,10 @@ package btreeassociated
 import (
 	"fmt"
 
-	"github.com/DanLavine/willow/internal/datastructures"
+	"github.com/DanLavine/willow/internal/datastructures/btree"
 	"github.com/DanLavine/willow/internal/datastructures/set"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 )
-
-var ErrorAssociatedIDAlreadyExists = fmt.Errorf("associated id already exists")
-var ErrorCreateFailureKeyValuesExist = fmt.Errorf("keyValues already exist with an associated item")
 
 // callback for when a "value" is found
 func findValue(idNodes *[]*threadsafeIDNode) func(item any) {
@@ -34,7 +31,7 @@ func createValue(idNodes *[]*threadsafeIDNode) func() any {
 }
 
 // callback for when a "key" is found
-func findKey(idNodes *[]*threadsafeIDNode, value datatypes.EncapsulatedData) func(item any) {
+func findKey(idNodes *[]*threadsafeIDNode, value datatypes.EncapsulatedValue) func(item any) {
 	return func(item any) {
 		valuesNode := item.(*threadsafeValuesNode)
 
@@ -45,7 +42,7 @@ func findKey(idNodes *[]*threadsafeIDNode, value datatypes.EncapsulatedData) fun
 }
 
 // callback when creating a new value node when searching for a "key"
-func createKey(onFind datastructures.OnFind) func() any {
+func createKey(onFind btree.BTreeOnFind) func() any {
 	return func() any {
 		newValueNode := newValuesNode()
 		onFind(newValueNode)
@@ -64,24 +61,42 @@ func createKey(onFind datastructures.OnFind) func() any {
 //
 //	RETURNS:
 //	- string - the _associatted_id when an object is created or found. Will be the empty string if an error returns
-//	- error - any errors encountered with the parameters
-func (tsat *threadsafeAssociatedTree) Create(keyValues KeyValues, onCreate datastructures.OnCreate) (string, error) {
-	keyValuesLen := len(keyValues)
-	if keyValuesLen == 0 {
-		return "", fmt.Errorf("keyValues cannot be empty")
-	}
-	if keyValues.HasAssociatedID() {
-		return "", fmt.Errorf("keValues cannot contain a Key with the _associated_id reserved key word")
-	}
-	if onCreate == nil {
-		return "", fmt.Errorf("onCreate cannot be nil")
+//	- error - any errors encountered with paraeters or destroy in progress
+//	          1. datatypes.KeyValuesErr // error with the keyValues
+//	          2. ErrorKeyValuesHasAssociatedID
+//	          3. ErrorOnCreateNil
+//	          4. ErrorAssociatedIDAlreadyExists
+//	          5. ErrorKeyValuesAlreadyExists
+//	          6. ErrorTreeDestroying
+func (tsat *threadsafeAssociatedTree) Create(keyValues datatypes.KeyValues, onCreate BTreeAssociatedOnCreate) (string, error) {
+	// check parameters
+	if err := keyValues.Validate(); err != nil {
+		return "", err
 	}
 
+	if hasAssociatedID(keyValues) {
+		return "", ErrorKeyValuesHasAssociatedID
+	}
+	if onCreate == nil {
+		return "", ErrorOnCreateNil
+	}
+
+	// check tree destroying
+	tsat.readWriteWG.Add(1)
+	defer tsat.readWriteWG.Add(-1)
+
+	if tsat.destroying.Load() {
+		return "", ErrorTreeDestroying
+	}
+
+	keyValuesLen := len(keyValues)
 	var idNodes []*threadsafeIDNode
 
 	// sort the keys so their won't be any deadlocks if everything goes smoothly
 	for _, key := range keyValues.SortedKeys() {
-		tsat.keys.CreateOrFind(key, createKey(findKey(&idNodes, keyValues[key])), findKey(&idNodes, keyValues[key]))
+		if err := tsat.keys.CreateOrFind(datatypes.String(key), createKey(findKey(&idNodes, keyValues[key])), findKey(&idNodes, keyValues[key])); err != nil {
+			panic(err)
+		}
 	}
 
 	var idSet set.Set[string]
@@ -118,7 +133,7 @@ func (tsat *threadsafeAssociatedTree) Create(keyValues KeyValues, onCreate datas
 			idNode.lock.Unlock()
 		}
 
-		return "", ErrorCreateFailureKeyValuesExist
+		return "", ErrorKeyValuesAlreadyExists
 	}
 
 	// always save the new IDs so we can unlock the IDNodes
@@ -129,13 +144,13 @@ func (tsat *threadsafeAssociatedTree) Create(keyValues KeyValues, onCreate datas
 
 	if newValue := onCreate(); newValue != nil {
 		onCreate := func() any {
-			newKeyValuesPair := KeyValues{}
+			newKeyValuesPair := datatypes.KeyValues{}
 			for key, value := range keyValues {
 				newKeyValuesPair[key] = value
 			}
 
-			newKeyValuesPair[datatypes.String(ReservedID)] = datatypes.String(newID)
-			return &AssociatedKeyValues{
+			newKeyValuesPair[ReservedID] = datatypes.String(newID)
+			return &associatedKeyValues{
 				keyValues: newKeyValuesPair,
 				value:     newValue,
 			}
@@ -160,7 +175,9 @@ func (tsat *threadsafeAssociatedTree) Create(keyValues KeyValues, onCreate datas
 		}
 
 		// call delete for the item to clean any newly created items
-		tsat.Delete(keyValues, nil)
+		if err := tsat.Delete(keyValues, nil); err != nil {
+			panic(err)
+		}
 
 		// on create failed, so return empty and nil. Caller should know?
 		return "", nil
@@ -177,27 +194,45 @@ func (tsat *threadsafeAssociatedTree) Create(keyValues KeyValues, onCreate datas
 //	- onCreate - is the callback used to create the value if it doesn't already exist in the tree. This must return nil, if creatiing the object failed.
 //
 //	RETURNS:
-//	- error - any errors encountered with
-//	          1. the parameters
-//	          2. the associatedID already exists
-//	          3. the keyValues already exist
-func (tsat *threadsafeAssociatedTree) CreateWithID(associatedID string, keyValues KeyValues, onCreate datastructures.OnCreate) error {
-	keyValuesLen := len(keyValues)
-	if keyValuesLen == 0 {
-		return fmt.Errorf("keyValues cannot be empty")
+//	- error - any errors encountered with paraeters or destroy in progress
+//	          1. datatypes.KeyValuesErr // error with the keyValues
+//	          2. ErrorAssociatedIDEmpty
+//	          3. ErrorKeyValuesHasAssociatedID
+//	          4. ErrorOnCreateNil
+//	          5. ErrorAssociatedIDAlreadyExists
+//	          6. ErrorKeyValuesAlreadyExists
+//	          7. ErrorTreeDestroying
+func (tsat *threadsafeAssociatedTree) CreateWithID(associatedID string, keyValues datatypes.KeyValues, onCreate BTreeAssociatedOnCreate) error {
+	// parameters checks
+	if err := keyValues.Validate(); err != nil {
+		return err
 	}
-	if keyValues.HasAssociatedID() {
-		return fmt.Errorf("keValues cannot contain a Key with the _associated_id reserved key word")
+	if associatedID == "" {
+		return ErrorAssociatedIDEmpty
+	}
+	if hasAssociatedID(keyValues) {
+		return ErrorKeyValuesHasAssociatedID
 	}
 	if onCreate == nil {
-		return fmt.Errorf("onCreate cannot be nil")
+		return ErrorOnCreateNil
 	}
 
+	// tree destroying check
+	tsat.readWriteWG.Add(1)
+	defer tsat.readWriteWG.Add(-1)
+
+	if tsat.destroying.Load() {
+		return ErrorTreeDestroying
+	}
+
+	keyValuesLen := len(keyValues)
 	var idNodes []*threadsafeIDNode
 
 	// sort the keys so their won't be any deadlocks if everything goes smoothly
 	for _, key := range keyValues.SortedKeys() {
-		tsat.keys.CreateOrFind(key, createKey(findKey(&idNodes, keyValues[key])), findKey(&idNodes, keyValues[key]))
+		if err := tsat.keys.CreateOrFind(datatypes.String(key), createKey(findKey(&idNodes, keyValues[key])), findKey(&idNodes, keyValues[key])); err != nil {
+			panic(err)
+		}
 	}
 
 	var idSet set.Set[string]
@@ -234,7 +269,7 @@ func (tsat *threadsafeAssociatedTree) CreateWithID(associatedID string, keyValue
 			idNode.lock.Unlock()
 		}
 
-		return ErrorCreateFailureKeyValuesExist
+		return ErrorKeyValuesAlreadyExists
 	}
 
 	// always save the new IDs so we can unlock the IDNodes
@@ -244,13 +279,13 @@ func (tsat *threadsafeAssociatedTree) CreateWithID(associatedID string, keyValue
 
 	if newValue := onCreate(); newValue != nil {
 		onCreate := func() any {
-			newKeyValuesPair := KeyValues{}
+			newKeyValuesPair := datatypes.KeyValues{}
 			for key, value := range keyValues {
 				newKeyValuesPair[key] = value
 			}
 
-			newKeyValuesPair[datatypes.String(ReservedID)] = datatypes.String(associatedID)
-			return &AssociatedKeyValues{
+			newKeyValuesPair[ReservedID] = datatypes.String(associatedID)
+			return &associatedKeyValues{
 				keyValues: newKeyValuesPair,
 				value:     newValue,
 			}
@@ -263,12 +298,17 @@ func (tsat *threadsafeAssociatedTree) CreateWithID(associatedID string, keyValue
 				idNode.lock.Unlock()
 			}
 
-			// call delete for the item to clean any newly created items
-			if err = tsat.deleteKeyValues(associatedID, keyValues); err != nil {
+			switch err {
+			case btree.ErrorKeyAlreadyExists:
+				// call delete for the item to clean any newly created items
+				if err = tsat.deleteKeyValues(associatedID, keyValues); err != nil {
+					panic(err)
+				}
+
+				return ErrorAssociatedIDAlreadyExists
+			default:
 				panic(err)
 			}
-
-			return ErrorAssociatedIDAlreadyExists
 		}
 
 		// unlock the IDs
@@ -298,51 +338,65 @@ func (tsat *threadsafeAssociatedTree) CreateWithID(associatedID string, keyValue
 // CreateOrFind inserts or finds the value in the assoociation tree. This is thread safe to call with
 // any other functions on the same object.
 //
-// NOTE: The keyValuePairs cannot contain the reserve key '_associated_id'
+// NOTE: The keyValues cannot contain the reserve key '_associated_id'
 //
 //	PARAMS:
-//	- keyValuePairs - is a map of key value pairs that compose an object's identity
+//	- keyValues - is a map of key value pairs that compose an object's identity
 //	- onCreate - is the callback used to create the value if it doesn't already exist in the tree. This must return nil, if creatiing the object failed.
 //	- onFind - is the callback used when an item is found in the tree. It will recive the object's value saved in the tree (what was originally provided)
 //
 //	RETURNS:
 //	- string - the _associatted_id when an object is created or found. Will be the empty string if an error returns
-//	- error - any errors encountered with the parameters
-func (tsat *threadsafeAssociatedTree) CreateOrFind(keyValues KeyValues, onCreate datastructures.OnCreate, onFind datastructures.OnFind) (string, error) {
-	keyValuesLen := len(keyValues)
-	if keyValuesLen == 0 {
-		return "", fmt.Errorf("keyValuePairs cannot be empty")
+//	- error - any errors encountered with paraeters or destroy in progress
+//	          1. datatypes.KeyValuesErr // error with the keyValues
+//	          2. ErrorKeyValuesHasAssociatedID
+//	          3. ErrorOnCreateNil
+//	          4. ErrorAssociatedIDAlreadyExists
+//	          5. ErrorKeyValuesAlreadyExists
+//	          6. ErrorTreeDestroying
+//	          7. ErrorTreeItemDestroying
+func (tsat *threadsafeAssociatedTree) CreateOrFind(keyValues datatypes.KeyValues, onCreate BTreeAssociatedOnCreate, onFind BTreeAssociatedOnFind) (string, error) {
+	if err := keyValues.Validate(); err != nil {
+		return "", err
 	}
-	if keyValues.HasAssociatedID() {
-		return "", fmt.Errorf("keValues cannot contain a Key with the _associated_id reserved key word")
+	if hasAssociatedID(keyValues) {
+		return "", ErrorKeyValuesHasAssociatedID
 	}
 	if onCreate == nil {
-		return "", fmt.Errorf("onCreate cannot be nil")
+		return "", ErrorOnCreateNil
 	}
 	if onFind == nil {
-		return "", fmt.Errorf("onFind cannot be nil")
+		return "", ErrorOnFindNil
+	}
+
+	// deleting check
+	tsat.readWriteWG.Add(1)
+	defer tsat.readWriteWG.Add(-1)
+
+	if tsat.destroying.Load() {
+		return "", ErrorTreeDestroying
 	}
 
 	// always attempt a find first so we only need read locks
-	found := false
-	wrappedOnFind := func(item any) {
-		found = true
+	associatedID := ""
+	wrappedOnFind := func(item AssociatedKeyValues) {
+		associatedID = item.AssociatedID()
 		onFind(item)
 	}
-	associatedID, err := tsat.Find(keyValues, wrappedOnFind)
-	if err != nil {
+	if err := tsat.Find(keyValues, wrappedOnFind); err != nil {
 		return "", err
 	}
-	if found {
+	if associatedID != "" {
 		return associatedID, nil
 	}
 
-	// At this point we are 99%+ going to create the values, so our IDNodes need to use a write lock\
+	// At this point we are 99%+ going to create the values, so our IDNodes need to use a write lock
+	keyValuesLen := len(keyValues)
 	var idNodes []*threadsafeIDNode
 
 	// sort the keys so their won't be any deadlocks if everything goes smoothly
 	for _, key := range keyValues.SortedKeys() {
-		tsat.keys.CreateOrFind(key, createKey(findKey(&idNodes, keyValues[key])), findKey(&idNodes, keyValues[key]))
+		tsat.keys.CreateOrFind(datatypes.String(key), createKey(findKey(&idNodes, keyValues[key])), findKey(&idNodes, keyValues[key]))
 	}
 
 	var idSet set.Set[string]
@@ -372,8 +426,25 @@ func (tsat *threadsafeAssociatedTree) CreateOrFind(keyValues KeyValues, onCreate
 	}
 
 	// must have been a race where 2 requests tried to create the same object
+	bTreeFind := func(item any) {
+		onFind(item.(AssociatedKeyValues))
+	}
 	if idSet != nil && idSet.Size() == 1 {
-		tsat.associatedIDs.Find(datatypes.String(idSet.Values()[0]), onFind)
+		if err := tsat.associatedIDs.Find(datatypes.String(idSet.Values()[0]), bTreeFind); err != nil {
+			// unlock the IDs
+			for _, idNode := range idNodes {
+				idNode.creating.Add(-1)
+				idNode.lock.Unlock()
+			}
+
+			switch err {
+			case btree.ErrorKeyDestroying:
+				// this is fine, just need to report that the value is being destroyed
+				return "", ErrorTreeItemDestroying
+			default:
+				panic(err)
+			}
+		}
 
 		// unlock the IDs
 		for _, idNode := range idNodes {
@@ -392,13 +463,13 @@ func (tsat *threadsafeAssociatedTree) CreateOrFind(keyValues KeyValues, onCreate
 
 	if newValue := onCreate(); newValue != nil {
 		onCreate := func() any {
-			newKeyValuesPair := KeyValues{}
+			newKeyValuesPair := datatypes.KeyValues{}
 			for key, value := range keyValues {
 				newKeyValuesPair[key] = value
 			}
 
-			newKeyValuesPair[datatypes.String(ReservedID)] = datatypes.String(newID)
-			return &AssociatedKeyValues{
+			newKeyValuesPair[ReservedID] = datatypes.String(newID)
+			return &associatedKeyValues{
 				keyValues: newKeyValuesPair,
 				value:     newValue,
 			}

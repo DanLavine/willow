@@ -25,26 +25,28 @@ func AddV1LimiterRoutes(mux *urlrouter.Router, v1Handler handlers.V1LimiterRuleH
 			//RedocURL: "https://cdn.jsdelivr.net/npm/redoc@2.0.0/bundles/redoc.standalone.js",
 			BasePath: "/",
 			Path:     "v1/docs",
-			SpecURL:  "/docs/openapi/limiter/openapi.yaml",
+			SpecURL:  "/v1/docs/openapi/limiter/openapi.yaml",
 			Title:    "Limiter API Documentation",
 		}, nil).ServeHTTP(w, r)
 	})
 
 	// crud operations for group rules
-	mux.HandleFunc("GET", "/v1/limiter/rules", v1Handler.ListRules)
 	mux.HandleFunc("POST", "/v1/limiter/rules", v1Handler.CreateRule)
-	mux.HandleFunc("GET", "/v1/limiter/rules/:rule_name", v1Handler.GetRule)
+	mux.HandleFunc("GET", "/v1/limiter/rules", v1Handler.MatchRules)
 	mux.HandleFunc("PUT", "/v1/limiter/rules/:rule_name", v1Handler.UpdateRule)
+	mux.HandleFunc("GET", "/v1/limiter/rules/:rule_name", v1Handler.GetRule)
 	mux.HandleFunc("DELETE", "/v1/limiter/rules/:rule_name", v1Handler.DeleteRule)
 
-	// create an override for a specific rule
-	mux.HandleFunc("GET", "/v1/limiter/rules/:rule_name/overrides", v1Handler.ListOverrides)
-	mux.HandleFunc("POST", "/v1/limiter/rules/:rule_name/overrides", v1Handler.SetOverride)
+	// crud operations for overrides
+	mux.HandleFunc("POST", "/v1/limiter/rules/:rule_name/overrides", v1Handler.CreateOverride)
+	mux.HandleFunc("GET", "/v1/limiter/rules/:rule_name/overrides", v1Handler.MatchOverrides)
+	mux.HandleFunc("PUT", "/v1/limiter/rules/:rule_name/overrides/:override_name", v1Handler.UpdateOverride)
+	mux.HandleFunc("GET", "/v1/limiter/rules/:rule_name/overrides/:override_name", v1Handler.GetOverride)
 	mux.HandleFunc("DELETE", "/v1/limiter/rules/:rule_name/overrides/:override_name", v1Handler.DeleteOverride)
 
 	// operations to check items against arbitrary rules
-	mux.HandleFunc("PUT", "/v1/limiter/counters", v1Handler.UpdateCounters)
-	mux.HandleFunc("GET", "/v1/limiter/counters", v1Handler.ListCounters)
+	mux.HandleFunc("PUT", "/v1/limiter/counters", v1Handler.UpsertCounters)
+	mux.HandleFunc("GET", "/v1/limiter/counters", v1Handler.QueryCounters)
 
 	// operations to setup or clean counters without checking rules
 	mux.HandleFunc("POST", "/v1/limiter/counters/set", v1Handler.SetCounters)

@@ -3,7 +3,6 @@ package btree
 import (
 	"fmt"
 
-	"github.com/DanLavine/willow/internal/datastructures"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 )
 
@@ -11,7 +10,7 @@ import (
 //
 // PARAMS:
 // - callback - function is called when a Tree's Node value != nil. The Iterate callback is passed the Node's value
-func (btree *threadSafeBTree) Iterate(callback datastructures.OnFindPagination) error {
+func (btree *threadSafeBTree) Iterate(callback BTreeIterate) error {
 	if callback == nil {
 		return fmt.Errorf("callback cannot be nil")
 	}
@@ -28,7 +27,7 @@ func (btree *threadSafeBTree) Iterate(callback datastructures.OnFindPagination) 
 	return nil
 }
 
-func (bn *threadSafeBNode) iterate(callback datastructures.OnFindPagination) bool {
+func (bn *threadSafeBNode) iterate(callback BTreeIterate) bool {
 	for i := 0; i < bn.numberOfValues; i++ {
 		if !callback(bn.keyValues[i].key, bn.keyValues[i].value) {
 			bn.lock.RUnlock()
@@ -58,7 +57,7 @@ func (bn *threadSafeBNode) iterate(callback datastructures.OnFindPagination) boo
 }
 
 // Iterate over all the values for a given type
-func (btree *threadSafeBTree) IterateMatchType(dataType datatypes.DataType, callback datastructures.OnFindPagination) error {
+func (btree *threadSafeBTree) IterateMatchType(dataType datatypes.DataType, callback BTreeIterate) error {
 	if callback == nil {
 		return fmt.Errorf("callback cannot be nil")
 	}
@@ -75,7 +74,7 @@ func (btree *threadSafeBTree) IterateMatchType(dataType datatypes.DataType, call
 	return nil
 }
 
-func (bn *threadSafeBNode) iterateMatchType(dataType datatypes.DataType, callback datastructures.OnFindPagination) bool {
+func (bn *threadSafeBNode) iterateMatchType(dataType datatypes.DataType, callback BTreeIterate) bool {
 	startIndex := -1
 	var i int
 	for i = 0; i < bn.numberOfValues; i++ {

@@ -1,6 +1,7 @@
 package datatypes
 
 import (
+	"errors"
 	"testing"
 
 	. "github.com/onsi/gomega"
@@ -26,9 +27,6 @@ func (at customTest) Decode(b []byte) (any, error) {
 func TestEncapsulatedValue_Less(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	// custom
-	//tCustom := Custom(customTest{value: "custom"})
-
 	// ints
 	tInt := Int(1)
 	tInt8 := Int8(1)
@@ -51,10 +49,6 @@ func TestEncapsulatedValue_Less(t *testing.T) {
 	tString := String("a")
 
 	t.Run("keys of the same values are always equal", func(t *testing.T) {
-		// custom
-		//g.Expect(tCustom.Less(Custom(customTest{value: "custom"}))).To(BeFalse())
-		//g.Expect(Custom(customTest{value: "custom"}).Less(tCustom)).To(BeFalse())
-
 		// ints
 		//// int
 		g.Expect(tInt.Less(Int(1))).To(BeFalse())
@@ -103,9 +97,6 @@ func TestEncapsulatedValue_Less(t *testing.T) {
 	})
 
 	t.Run("keys of the same type have proper Less than values", func(t *testing.T) {
-		// custom
-		//g.Expect(tCustom.Less(Custom(customTest{value: "customMore"}))).To(BeTrue())
-
 		// ints
 		//// int
 		g.Expect(tInt.Less(Int(2))).To(BeTrue())
@@ -141,9 +132,6 @@ func TestEncapsulatedValue_Less(t *testing.T) {
 	})
 
 	t.Run("keys of the same type respect greater than values", func(t *testing.T) {
-		// custom
-		//g.Expect(tCustom.Less(Custom(customTest{value: "custo"}))).To(BeFalse())
-
 		// ints
 		//// int
 		g.Expect(tInt.Less(Int(0))).To(BeFalse())
@@ -207,10 +195,6 @@ func TestEncapsulatedValue_LessType(t *testing.T) {
 	tString := String("a")
 
 	t.Run("type of the same values are always equal", func(t *testing.T) {
-		// custom
-		//g.Expect(tCustom.LessType(Custom(customTest{value: "custom"}))).To(BeFalse())
-		//g.Expect(Custom(customTest{value: "custom"}).LessType(tCustom)).To(BeFalse())
-
 		// ints
 		//// int
 		g.Expect(tInt.LessType(Int(1))).To(BeFalse())
@@ -287,9 +271,6 @@ func TestEncapsulatedValue_LessValue(t *testing.T) {
 	tString := String("a")
 
 	t.Run("panics if they types are not the same", func(t *testing.T) {
-		// custom
-		//g.Expect(func() { tInt.LessValue(Custom(customTest{value: "custom"})) }).To(Panic())
-
 		// ints
 		g.Expect(func() { tInt.LessValue(Int64(1)) }).To(Panic())
 		//// int16
@@ -325,10 +306,6 @@ func TestEncapsulatedValue_LessValue(t *testing.T) {
 	})
 
 	t.Run("compares values properly when they are the same type", func(t *testing.T) {
-		// custom
-		//g.Expect(tCustom.LessValue(Custom(customTest{value: "custom"}))).To(BeFalse())
-		//g.Expect(Custom(customTest{value: "custom"}).LessValue(tCustom)).To(BeFalse())
-
 		// ints
 		//// int
 		g.Expect(tInt.LessValue(Int(1))).To(BeFalse())
@@ -394,6 +371,14 @@ func TestEncapsulatedValue_Validate(t *testing.T) {
 		err := encapsulatedData.Validate()
 		g.Expect(err).To(HaveOccurred())
 		g.Expect(err.Error()).To(Equal("EncapsulatedValue has an unkown data type: 1000000"))
+	})
+
+	t.Run("It returns the proper error type", func(t *testing.T) {
+		encapsulatedData := EncapsulatedValue{Type: DataType(1_000_000), Data: "something"}
+
+		validateErr := encapsulatedData.Validate()
+		var err *EncapsulatedValueErr
+		g.Expect(errors.As(validateErr, &err)).To(BeTrue())
 	})
 
 	t.Run("it returns an error if the DataType and value don't match", func(t *testing.T) {

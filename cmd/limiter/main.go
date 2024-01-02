@@ -11,8 +11,9 @@ import (
 	"github.com/DanLavine/goasync"
 	"github.com/DanLavine/urlrouter"
 	"github.com/DanLavine/willow/internal/config"
-	"github.com/DanLavine/willow/internal/limiter"
 	"github.com/DanLavine/willow/internal/limiter/api"
+	"github.com/DanLavine/willow/internal/limiter/counters"
+	"github.com/DanLavine/willow/internal/limiter/overrides"
 	"github.com/DanLavine/willow/internal/limiter/rules"
 	"github.com/DanLavine/willow/internal/logger"
 	"github.com/DanLavine/willow/pkg/clients"
@@ -20,7 +21,7 @@ import (
 	"go.uber.org/zap"
 
 	v1handlers "github.com/DanLavine/willow/internal/limiter/api/v1/handlers"
-	v1router "github.com/DanLavine/willow/internal/limiter/api/v1/router"
+	"github.com/DanLavine/willow/internal/limiter/api/v1/router"
 	commonapi "github.com/DanLavine/willow/pkg/models/api"
 )
 
@@ -37,7 +38,7 @@ func main() {
 	shutdown, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT)
 	defer cancel()
 
-	// setup locker client
+	// setup locker client config and validate it
 	clientConfig := &clients.Config{
 		URL:             *cfg.LockerURL,
 		ContentEncoding: commonapi.ContentTypeJSON,
@@ -66,15 +67,33 @@ func main() {
 		break
 	}
 
+	// overrides client
+	overridesConstructor, err := overrides.NewOverrideConstructor("memory")
+	if err != nil {
+		logger.Fatal("failed to setup override constructor", zap.Error(err))
+	}
+	overridesClient := overrides.NewDefaultOverridesClientLocal(overridesConstructor)
+
+	// rules client
+	rulesConstructor, err := rules.NewRuleConstructor("memory")
+	if err != nil {
+		logger.Fatal("failed to setup rule constructor", zap.Error(err))
+	}
+	rulesClient := rules.NewLocalRulesClient(rulesConstructor, overridesClient)
+
+	// counters client
+	countersConstructor, err := counters.NewCountersConstructor("memory")
+	if err != nil {
+		logger.Fatal("failed to setup counters constructor", zap.Error(err))
+	}
+	countersClient := counters.NewCountersClientLocal(countersConstructor, rulesClient)
+
 	// setup server mux that is passed to all handlers
 	mux := urlrouter.New()
-	//// add the versioned apis to the server mux
-	constructor, err := rules.NewRuleConstructor("memory")
-	if err != nil {
-		log.Fatal(err)
-	}
-	generalLocker := limiter.NewRulesManger(constructor)
-	v1router.AddV1LimiterRoutes(mux, v1handlers.NewGroupRuleHandler(logger, shutdown, clientConfig, generalLocker))
+	v1handler := v1handlers.NewGroupRuleHandler(logger, shutdown, clientConfig, rulesClient, countersClient)
+
+	// add v1 routes
+	router.AddV1LimiterRoutes(mux, v1handler)
 
 	// setup async handlers
 	//// using strict config ensures that if any process fails, the server will ty and shutdown gracefully

@@ -25,7 +25,7 @@ func TestBTree_Iterate(t *testing.T) {
 		bTree, err := NewThreadSafe(2)
 		g.Expect(err).ToNot(HaveOccurred())
 
-		iterate := func(_ datatypes.EncapsulatedData, _ any) bool {
+		iterate := func(_ datatypes.EncapsulatedValue, _ any) bool {
 			panic("should not call")
 		}
 
@@ -40,10 +40,10 @@ func TestBTree_Iterate(t *testing.T) {
 			g.Expect(bTree.CreateOrFind(datatypes.Int(i), NewBTreeTester(fmt.Sprintf("%d", i)), OnFindTest)).ToNot(HaveOccurred())
 		}
 
-		keys := map[datatypes.EncapsulatedData]struct{}{}
+		keys := map[datatypes.EncapsulatedValue]struct{}{}
 		seenValues := map[string]struct{}{}
 		count := 0
-		iterate := func(key datatypes.EncapsulatedData, val any) bool {
+		iterate := func(key datatypes.EncapsulatedValue, val any) bool {
 			BTreeTester := val.(*BTreeTester)
 
 			// check that each value is unique
@@ -68,9 +68,9 @@ func TestBTree_Iterate(t *testing.T) {
 			g.Expect(bTree.CreateOrFind(datatypes.Int(i), NewBTreeTester(fmt.Sprintf("%d", i)), OnFindTest)).ToNot(HaveOccurred())
 		}
 
-		keys := map[datatypes.EncapsulatedData]struct{}{}
+		keys := map[datatypes.EncapsulatedValue]struct{}{}
 		seenValues := map[string]struct{}{}
-		iterate := func(key datatypes.EncapsulatedData, val any) bool {
+		iterate := func(key datatypes.EncapsulatedValue, val any) bool {
 			BTreeTester := val.(*BTreeTester)
 
 			// check that each value is unique
@@ -103,7 +103,7 @@ func TestBTree_IterateMatchType(t *testing.T) {
 		bTree, err := NewThreadSafe(2)
 		g.Expect(err).ToNot(HaveOccurred())
 
-		iterate := func(_ datatypes.EncapsulatedData, _ any) bool {
+		iterate := func(_ datatypes.EncapsulatedValue, _ any) bool {
 			panic("should not call")
 		}
 
@@ -122,7 +122,7 @@ func TestBTree_IterateMatchType(t *testing.T) {
 
 		count := 0
 
-		bTree.IterateMatchType(datatypes.T_int, func(key datatypes.EncapsulatedData, item any) bool {
+		bTree.IterateMatchType(datatypes.T_int, func(key datatypes.EncapsulatedValue, item any) bool {
 			bTreeTester := item.(*BTreeTester)
 
 			g.Expect(key).To(Equal(datatypes.Int(1)))
@@ -130,7 +130,7 @@ func TestBTree_IterateMatchType(t *testing.T) {
 			count++
 			return true
 		})
-		bTree.IterateMatchType(datatypes.T_int8, func(key datatypes.EncapsulatedData, item any) bool {
+		bTree.IterateMatchType(datatypes.T_int8, func(key datatypes.EncapsulatedValue, item any) bool {
 			bTreeTester := item.(*BTreeTester)
 
 			g.Expect(key).To(Equal(datatypes.Int8(1)))
@@ -138,7 +138,7 @@ func TestBTree_IterateMatchType(t *testing.T) {
 			count++
 			return true
 		})
-		bTree.IterateMatchType(datatypes.T_int16, func(key datatypes.EncapsulatedData, item any) bool {
+		bTree.IterateMatchType(datatypes.T_int16, func(key datatypes.EncapsulatedValue, item any) bool {
 			bTreeTester := item.(*BTreeTester)
 
 			g.Expect(key).To(Equal(datatypes.Int16(1)))
@@ -146,7 +146,7 @@ func TestBTree_IterateMatchType(t *testing.T) {
 			count++
 			return true
 		})
-		bTree.IterateMatchType(datatypes.T_int32, func(key datatypes.EncapsulatedData, item any) bool {
+		bTree.IterateMatchType(datatypes.T_int32, func(key datatypes.EncapsulatedValue, item any) bool {
 			bTreeTester := item.(*BTreeTester)
 
 			g.Expect(key).To(Equal(datatypes.Int32(1)))
@@ -154,7 +154,7 @@ func TestBTree_IterateMatchType(t *testing.T) {
 			count++
 			return true
 		})
-		bTree.IterateMatchType(datatypes.T_int64, func(key datatypes.EncapsulatedData, item any) bool {
+		bTree.IterateMatchType(datatypes.T_int64, func(key datatypes.EncapsulatedValue, item any) bool {
 			bTreeTester := item.(*BTreeTester)
 
 			g.Expect(key).To(Equal(datatypes.Int64(1)))
@@ -174,9 +174,9 @@ func TestBTree_IterateMatchType(t *testing.T) {
 			g.Expect(bTree.CreateOrFind(datatypes.Int(i), NewBTreeTester(fmt.Sprintf("%d", i)), OnFindTest)).ToNot(HaveOccurred())
 		}
 
-		keys := map[datatypes.EncapsulatedData]struct{}{}
+		keys := map[datatypes.EncapsulatedValue]struct{}{}
 		seenValues := map[string]struct{}{}
-		iterate := func(key datatypes.EncapsulatedData, val any) bool {
+		iterate := func(key datatypes.EncapsulatedValue, val any) bool {
 			BTreeTester := val.(*BTreeTester)
 
 			// check that each value is unique

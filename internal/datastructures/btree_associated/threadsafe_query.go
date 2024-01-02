@@ -1,34 +1,45 @@
 package btreeassociated
 
 import (
-	"fmt"
-
+	"github.com/DanLavine/willow/internal/datastructures/btree"
 	"github.com/DanLavine/willow/internal/datastructures/set"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 )
 
 // Query can be used to find a single or collection of items that match specific criteria. This
-// is thread safe to call with any of the other functions ono this object
+// is thread safe to call with any of the other functions on this object
 //
-// PARAMS:
-// - selection - the selection for the specified items to find. See the Select docs for this param specifically
-// - onQueryPagination - is the callback used for an items found in the tree. It will recive the objects' value saved in the tree (what were originally provided)
+//	PARAMETERS:
+//	- selection - the selection for the specified items to find. See the Select docs for this param specifically
+//	- onQueryPagination - is the callback used for an items found in the tree. It will recive the objects' value saved in the tree (what were originally provided)
 //
-// RETURNS:
-// - error - any errors encountered with the parameters
-func (tsat *threadsafeAssociatedTree) Query(query datatypes.AssociatedKeyValuesQuery, onQueryPagination OnQueryPagination) error {
+//	RETURNS:
+//	- error - any errors encountered with the parameters or destroying errors
+//	        - 1. fmt.Errorf(...) // if query is not valid
+//	        - 2. datastructures.ErrorsOnQueryPaginateNil
+//	        - 3. datastructures.ErrorTreeDestroying
+func (tsat *threadsafeAssociatedTree) Query(query datatypes.AssociatedKeyValuesQuery, onQueryPagination BTreeAssociatedIterate) error {
+	// param validation
 	if err := query.Validate(); err != nil {
 		return err
 	}
 	if onQueryPagination == nil {
-		return fmt.Errorf("onQueryPagination cannot be nil")
+		return ErrorsOnIterateNil
+	}
+
+	// check destroying the tree
+	tsat.readWriteWG.Add(1)
+	defer tsat.readWriteWG.Add(-1)
+
+	if tsat.destroying.Load() {
+		return ErrorTreeDestroying
 	}
 
 	if query.KeyValueSelection == nil && query.And == nil && query.Or == nil {
 		// select all
-		wrappedPagination := func(associatedId datatypes.EncapsulatedData, item any) bool {
+		wrappedPagination := func(associatedId datatypes.EncapsulatedValue, item any) bool {
 			// drop the associated id. its on the AssociatedKeyValues
-			return onQueryPagination(item.(*AssociatedKeyValues))
+			return onQueryPagination(item.(AssociatedKeyValues))
 		}
 
 		tsat.associatedIDs.Iterate(wrappedPagination)
@@ -38,9 +49,19 @@ func (tsat *threadsafeAssociatedTree) Query(query datatypes.AssociatedKeyValuesQ
 
 		shouldContinue := true
 		for _, id := range validIDs.Values() {
-			tsat.associatedIDs.Find(datatypes.String(id), func(item any) {
-				shouldContinue = onQueryPagination(item.(*AssociatedKeyValues))
+			err := tsat.associatedIDs.Find(datatypes.String(id), func(item any) {
+				shouldContinue = onQueryPagination(item.(AssociatedKeyValues))
 			})
+
+			if err != nil {
+				switch err {
+				case btree.ErrorKeyDestroying:
+					// this is fine, just skip this associated id
+				default:
+					// if we get here, ther was an error with the tree. need to fix the tree
+					panic(err)
+				}
+			}
 
 			// break querying more items
 			if !shouldContinue {
@@ -116,8 +137,8 @@ func (tsat *threadsafeAssociatedTree) findIDs(dbQuery datatypes.AssociatedKeyVal
 	if dbQuery.KeyValueSelection != nil {
 		keyValuesSelection := dbQuery.KeyValueSelection
 
-		getAllIDs := func(allIDs *[]string) func(_ datatypes.EncapsulatedData, item any) bool {
-			return func(key datatypes.EncapsulatedData, item any) bool {
+		getAllIDs := func(allIDs *[]string) func(_ datatypes.EncapsulatedValue, item any) bool {
+			return func(key datatypes.EncapsulatedValue, item any) bool {
 				// always casting to an ID node when finding possible indexes
 				idNode := item.(*threadsafeIDNode)
 				idNode.lock.RLock()
@@ -227,7 +248,7 @@ func (tsat *threadsafeAssociatedTree) findIDs(dbQuery datatypes.AssociatedKeyVal
 					switch validCounter {
 					case 0:
 						if keyValuesSelection.Limits != nil {
-							if len(item.(*AssociatedKeyValues).keyValues) <= *keyValuesSelection.Limits.NumberOfKeys+1 {
+							if len(item.(AssociatedKeyValues).KeyValues()) <= *keyValuesSelection.Limits.NumberOfKeys {
 								validIDs.Add(strValue)
 							}
 						} else {
@@ -235,7 +256,7 @@ func (tsat *threadsafeAssociatedTree) findIDs(dbQuery datatypes.AssociatedKeyVal
 						}
 					default:
 						if keyValuesSelection.Limits != nil {
-							if len(item.(*AssociatedKeyValues).keyValues) <= *keyValuesSelection.Limits.NumberOfKeys+1 {
+							if len(item.(AssociatedKeyValues).KeyValues()) <= *keyValuesSelection.Limits.NumberOfKeys {
 								validIDs.Intersection([]string{strValue})
 							} else {
 								validIDs.Remove(strValue)
@@ -249,7 +270,15 @@ func (tsat *threadsafeAssociatedTree) findIDs(dbQuery datatypes.AssociatedKeyVal
 					validCounter++
 				}
 
-				_ = tsat.associatedIDs.Find(datatypes.String(queryValue.Value.Value().(string)), onFind)
+				if err := tsat.associatedIDs.Find(datatypes.String(queryValue.Value.Value().(string)), onFind); err != nil {
+					switch err {
+					case btree.ErrorKeyDestroying:
+						// this is fine, just skip this value
+						break
+					default:
+						panic(err)
+					}
+				}
 
 				continue
 			}
@@ -498,12 +527,12 @@ func (tsat *threadsafeAssociatedTree) findIDs(dbQuery datatypes.AssociatedKeyVal
 		// NOTE: also important to not update the IDNodes query here as this will be a lot of items to store additionally. So not worth the extra memory usage
 		if !inclusive {
 			allIDs := []string{}
-			tsat.keys.Iterate(func(_ datatypes.EncapsulatedData, item any) bool {
+			tsat.keys.Iterate(func(_ datatypes.EncapsulatedValue, item any) bool {
 				valuesNode := item.(*threadsafeValuesNode)
 
-				valuesNode.values.Iterate(func(_ datatypes.EncapsulatedData, item any) bool {
+				valuesNode.values.Iterate(func(key datatypes.EncapsulatedValue, item any) bool {
 					// always return true here. the false is only for reaching limits, but we need to iterate over all values
-					_ = getAllIDs(&allIDs)(nil, item)
+					_ = getAllIDs(&allIDs)(key, item)
 					return true
 				})
 

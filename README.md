@@ -277,3 +277,10 @@ Full api documentation can be found [here](https://danlavine.github.io/willow/do
 ## Building and Running
 
 See the `docker` directory
+
+
+# Current work
+1. Update the Tree types so errors returned and parameters are easier to use for clients
+2. Finsh the Overrides Client /w tests
+3. Update the Rule client /w tests
+4. Implement/Test the counters client

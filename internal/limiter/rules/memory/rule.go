@@ -1,31 +1,44 @@
 package memory
 
 import (
-	"fmt"
-	"net/http"
 	"sync"
+	"sync/atomic"
 
-	btreeassociated "github.com/DanLavine/willow/internal/datastructures/btree_associated"
-
-	v1limitermodels "github.com/DanLavine/willow/internal/limiter/v1_limiter_models"
 	"github.com/DanLavine/willow/pkg/models/api/common/errors"
-	v1common "github.com/DanLavine/willow/pkg/models/api/common/v1"
 	v1limiter "github.com/DanLavine/willow/pkg/models/api/limiter/v1"
-
-	"github.com/DanLavine/willow/pkg/models/datatypes"
 	"go.uber.org/zap"
 )
 
 type rule struct {
-	ruleModelLock *sync.RWMutex
-	name          string
-	groupBy       []string
-	limit         int64
-
-	// all values in the overrides are of type 'ruleOverride'
-	overrides btreeassociated.BTreeAssociated
+	lock  *sync.RWMutex
+	limit *atomic.Int64
 }
 
+func New(createRequest *v1limiter.RuleCreateRequest) *rule {
+	limit := new(atomic.Int64)
+	limit.Add(createRequest.Limit)
+
+	return &rule{
+		lock:  new(sync.RWMutex),
+		limit: limit,
+	}
+}
+
+func (r *rule) Limit() int64 {
+	return r.limit.Load()
+}
+
+func (r *rule) Update(logger *zap.Logger, updateRequest *v1limiter.RuleUpdateRquest) *errors.ServerError {
+	r.limit.Store(updateRequest.Limit)
+	return nil
+}
+
+func (r *rule) Delete() *errors.ServerError {
+	// nothing to do for local deletion
+	return nil
+}
+
+/*
 type ruleOverride struct {
 	lock *sync.RWMutex
 
@@ -264,3 +277,4 @@ func (r *rule) Name() string {
 func (r *rule) GetGroupByKeys() []string {
 	return r.groupBy
 }
+*/

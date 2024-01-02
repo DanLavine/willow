@@ -9,8 +9,10 @@ import (
 	"github.com/DanLavine/willow/pkg/clients"
 	limiterclient "github.com/DanLavine/willow/pkg/clients/limiter_client"
 	"github.com/DanLavine/willow/pkg/models/api"
-	v1 "github.com/DanLavine/willow/pkg/models/api/limiter/v1"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
+
+	v1common "github.com/DanLavine/willow/pkg/models/api/common/v1"
+	v1 "github.com/DanLavine/willow/pkg/models/api/limiter/v1"
 
 	. "github.com/DanLavine/willow/integration-tests/integrationhelpers"
 	. "github.com/onsi/gomega"
@@ -91,12 +93,12 @@ func Test_Limiter_Rules_Get(t *testing.T) {
 		g.Expect(err).ToNot(HaveOccurred())
 
 		// get the rule
-		ruleResp, err := limiterClient.GetRule("rule1", &v1.RuleQuery{})
+		ruleResp, err := limiterClient.GetRule("rule1", &v1.RuleGet{OverridesToMatch: &v1common.MatchQuery{}})
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(ruleResp.Name).To(Equal("rule1"))
-		g.Expect(ruleResp.GroupBy).To(Equal([]string{"key1", "key2"}))
+		g.Expect(ruleResp.GroupBy).To(ContainElements([]string{"key1", "key2"}))
 		g.Expect(ruleResp.Limit).To(Equal(int64(5)))
-		g.Expect(ruleResp.Overrides).To(BeNil())
+		g.Expect(len(ruleResp.Overrides)).To(Equal(0))
 	})
 
 	t.Run("It can retrieve a rule that exists with all overrides", func(t *testing.T) {
@@ -133,15 +135,15 @@ func Test_Limiter_Rules_Get(t *testing.T) {
 		}
 
 		// get the rule
-		ruleResp, err := limiterClient.GetRule("rule1", &v1.RuleQuery{OverridesToInclude: v1.All})
+		ruleResp, err := limiterClient.GetRule("rule1", &v1.RuleGet{OverridesToMatch: &v1common.MatchQuery{}})
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(ruleResp.Name).To(Equal("rule1"))
-		g.Expect(ruleResp.GroupBy).To(Equal([]string{"key1", "key2"}))
+		g.Expect(ruleResp.GroupBy).To(ContainElements([]string{"key1", "key2"}))
 		g.Expect(ruleResp.Limit).To(Equal(int64(5)))
 		g.Expect(len(ruleResp.Overrides)).To(Equal(100))
 	})
 
-	t.Run("It can retrieve a rule's specific overrides that match the query", func(t *testing.T) {
+	t.Run("It can retrieve a rule's specific overrides that match the request", func(t *testing.T) {
 		lockerTestConstruct.StartLocker(g)
 		defer lockerTestConstruct.Shutdown(g)
 
@@ -175,25 +177,26 @@ func Test_Limiter_Rules_Get(t *testing.T) {
 		}
 
 		// get the rule
-		ruleResp, err := limiterClient.GetRule("rule1", &v1.RuleQuery{
-			KeyValues: &datatypes.KeyValues{
-				"key1":    datatypes.Int(1),
-				"key2":    datatypes.Int(2),
-				"other1":  datatypes.Float32(32),
-				"other32": datatypes.Float32(32),
+		ruleResp, err := limiterClient.GetRule("rule1", &v1.RuleGet{
+			OverridesToMatch: &v1common.MatchQuery{
+				KeyValues: &datatypes.KeyValues{
+					"key1":    datatypes.Int(1),
+					"key2":    datatypes.Int(2),
+					"other1":  datatypes.Float32(32),
+					"other32": datatypes.Float32(32),
+				},
 			},
-			OverridesToInclude: v1.Match,
 		})
 
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(ruleResp.Name).To(Equal("rule1"))
-		g.Expect(ruleResp.GroupBy).To(Equal([]string{"key1", "key2"}))
+		g.Expect(ruleResp.GroupBy).To(ContainElements([]string{"key1", "key2"}))
 		g.Expect(ruleResp.Limit).To(Equal(int64(5)))
 		g.Expect(len(ruleResp.Overrides)).To(Equal(2))
 	})
 }
 
-func Test_Limiter_Rules_List(t *testing.T) {
+func Test_Limiter_Rules_Match(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	lockerTestConstruct := NewIntrgrationLockerTestConstruct(g)
@@ -222,13 +225,13 @@ func Test_Limiter_Rules_List(t *testing.T) {
 		g.Expect(err).ToNot(HaveOccurred())
 
 		// get the rule
-		ruleResp, err := limiterClient.MatchRules(&v1.RuleQuery{OverridesToInclude: v1.None})
+		ruleResp, err := limiterClient.MatchRules(&v1.RuleMatch{RulesToMatch: &v1common.MatchQuery{}, OverridesToMatch: &v1common.MatchQuery{}})
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(len(ruleResp)).To(Equal(1))
 		g.Expect(ruleResp[0].Name).To(Equal("rule1"))
-		g.Expect(ruleResp[0].GroupBy).To(Equal([]string{"key1", "key2"}))
+		g.Expect(ruleResp[0].GroupBy).To(ContainElements([]string{"key1", "key2"}))
 		g.Expect(ruleResp[0].Limit).To(Equal(int64(5)))
-		g.Expect(ruleResp[0].Overrides).To(BeNil())
+		g.Expect(len(ruleResp[0].Overrides)).To(Equal(0))
 	})
 
 	t.Run("It can retrieve multiple rules", func(t *testing.T) {
@@ -243,7 +246,6 @@ func Test_Limiter_Rules_List(t *testing.T) {
 
 		// create a number of rules
 		rules := []v1.RuleCreateRequest{}
-		respRules := v1.Rules{}
 		for i := 0; i < 5; i++ {
 			rules = append(rules, v1.RuleCreateRequest{
 				Name:    fmt.Sprintf("%d", i),
@@ -253,20 +255,33 @@ func Test_Limiter_Rules_List(t *testing.T) {
 
 			err := limiterClient.CreateRule(&rules[i])
 			g.Expect(err).ToNot(HaveOccurred())
-
-			respRules = append(respRules, &v1.Rule{
-				Name:      fmt.Sprintf("%d", i),
-				GroupBy:   []string{fmt.Sprintf("key%d", i), fmt.Sprintf("key%d", i+1)},
-				Limit:     5,
-				Overrides: nil,
-			})
 		}
 
 		// get the rules
-		ruleResp, err := limiterClient.MatchRules(&v1.RuleQuery{})
+		ruleResp, err := limiterClient.MatchRules(&v1.RuleMatch{RulesToMatch: &v1common.MatchQuery{}, OverridesToMatch: &v1common.MatchQuery{}})
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(len(ruleResp)).To(Equal(5))
-		g.Expect(ruleResp).To(ContainElements(respRules))
+
+		for i := 0; i < 5; i++ {
+			checkRule := ruleResp[i]
+			switch ruleResp[i].Name {
+			case "0":
+				g.Expect(checkRule.GroupBy).To(ContainElements([]string{"key0", "key1"}))
+			case "1":
+				g.Expect(checkRule.GroupBy).To(ContainElements([]string{"key1", "key2"}))
+			case "2":
+				g.Expect(checkRule.GroupBy).To(ContainElements([]string{"key2", "key3"}))
+			case "3":
+				g.Expect(checkRule.GroupBy).To(ContainElements([]string{"key3", "key4"}))
+			case "4":
+				g.Expect(checkRule.GroupBy).To(ContainElements([]string{"key4", "key5"}))
+			default:
+				g.Fail("unkown rule resp")
+			}
+
+			g.Expect(checkRule.Limit).To(Equal(int64(5)))
+			g.Expect(len(checkRule.Overrides)).To(Equal(0))
+		}
 	})
 
 	t.Run("It can retrieve any rules that match the key values", func(t *testing.T) {
@@ -281,7 +296,6 @@ func Test_Limiter_Rules_List(t *testing.T) {
 
 		// create a number of rules
 		rules := []v1.RuleCreateRequest{}
-		respRules := v1.Rules{}
 		for i := 0; i < 5; i++ {
 			rules = append(rules, v1.RuleCreateRequest{
 				Name:    fmt.Sprintf("%d", i),
@@ -291,15 +305,6 @@ func Test_Limiter_Rules_List(t *testing.T) {
 
 			err := limiterClient.CreateRule(&rules[i])
 			g.Expect(err).ToNot(HaveOccurred())
-
-			if i == 1 || i == 2 {
-				respRules = append(respRules, &v1.Rule{
-					Name:      fmt.Sprintf("%d", i),
-					GroupBy:   []string{fmt.Sprintf("key%d", i), fmt.Sprintf("key%d", i+1)},
-					Limit:     5,
-					Overrides: nil,
-				})
-			}
 		}
 
 		// get the rules
@@ -308,10 +313,24 @@ func Test_Limiter_Rules_List(t *testing.T) {
 			"key2": datatypes.Int(2),
 			"key3": datatypes.Int(3),
 		}
-		ruleResp, err := limiterClient.MatchRules(&v1.RuleQuery{KeyValues: &keyValues})
+		ruleResp, err := limiterClient.MatchRules(&v1.RuleMatch{RulesToMatch: &v1common.MatchQuery{KeyValues: &keyValues}})
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(len(ruleResp)).To(Equal(2))
-		g.Expect(ruleResp).To(ContainElements(respRules))
+
+		for i := 0; i < 2; i++ {
+			checkRule := ruleResp[i]
+			switch ruleResp[i].Name {
+			case "1":
+				g.Expect(checkRule.GroupBy).To(ContainElements([]string{"key1", "key2"}))
+			case "2":
+				g.Expect(checkRule.GroupBy).To(ContainElements([]string{"key2", "key3"}))
+			default:
+				g.Fail("unkown rule resp")
+			}
+
+			g.Expect(checkRule.Limit).To(Equal(int64(5)))
+			g.Expect(len(checkRule.Overrides)).To(Equal(0))
+		}
 	})
 
 	t.Run("It can retrieve any rules that match the key values and the overrides that match the key values", func(t *testing.T) {
@@ -359,8 +378,8 @@ func Test_Limiter_Rules_List(t *testing.T) {
 				Name:    "1",
 				GroupBy: []string{"key1", "key2"},
 				Limit:   5,
-				Overrides: []v1.Override{
-					v1.Override{
+				Overrides: v1.Overrides{
+					{
 						Name: "override5",
 						KeyValues: datatypes.KeyValues{
 							"key1": datatypes.Int(1),
@@ -369,7 +388,7 @@ func Test_Limiter_Rules_List(t *testing.T) {
 						},
 						Limit: 32,
 					},
-					v1.Override{
+					{
 						Name: "override6",
 						KeyValues: datatypes.KeyValues{
 							"key1": datatypes.Int(1),
@@ -390,7 +409,7 @@ func Test_Limiter_Rules_List(t *testing.T) {
 			"key5": datatypes.Int(5), // override 1
 			"key6": datatypes.Int(6), // this + 'key6' are override 2
 		}
-		ruleResp, err := limiterClient.MatchRules(&v1.RuleQuery{KeyValues: &keyValues, OverridesToInclude: v1.Match})
+		ruleResp, err := limiterClient.MatchRules(&v1.RuleMatch{RulesToMatch: &v1common.MatchQuery{KeyValues: &keyValues}, OverridesToMatch: &v1common.MatchQuery{KeyValues: &keyValues}})
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(len(ruleResp)).To(Equal(1))
 		g.Expect(ruleResp[0].Name).To(Equal("1"))
@@ -431,12 +450,12 @@ func Test_Limiter_Rules_Update(t *testing.T) {
 		g.Expect(err).ToNot(HaveOccurred())
 
 		// get the rule and ensure the basic defaults
-		ruleResp, err := limiterClient.GetRule("rule1", &v1.RuleQuery{OverridesToInclude: v1.All})
+		ruleResp, err := limiterClient.GetRule("rule1", &v1.RuleGet{OverridesToMatch: &v1common.MatchQuery{}})
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(ruleResp.Name).To(Equal("rule1"))
-		g.Expect(ruleResp.GroupBy).To(Equal([]string{"key1", "key2"}))
+		g.Expect(ruleResp.GroupBy).To(ContainElements([]string{"key1", "key2"}))
 		g.Expect(ruleResp.Limit).To(Equal(int64(5)))
-		g.Expect(ruleResp.Overrides).To(BeNil())
+		g.Expect(len(ruleResp.Overrides)).To(Equal(0))
 
 		// update the rule
 		updateRule := &v1.RuleUpdateRquest{
@@ -446,12 +465,12 @@ func Test_Limiter_Rules_Update(t *testing.T) {
 		g.Expect(err).ToNot(HaveOccurred())
 
 		// get the rule and ensure the update took
-		ruleResp, err = limiterClient.GetRule("rule1", &v1.RuleQuery{OverridesToInclude: v1.All})
+		ruleResp, err = limiterClient.GetRule("rule1", &v1.RuleGet{OverridesToMatch: &v1common.MatchQuery{}})
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(ruleResp.Name).To(Equal("rule1"))
-		g.Expect(ruleResp.GroupBy).To(Equal([]string{"key1", "key2"}))
+		g.Expect(ruleResp.GroupBy).To(ContainElements([]string{"key1", "key2"}))
 		g.Expect(ruleResp.Limit).To(Equal(int64(231)))
-		g.Expect(ruleResp.Overrides).To(BeNil())
+		g.Expect(len(ruleResp.Overrides)).To(Equal(0))
 	})
 }
 
@@ -484,7 +503,7 @@ func Test_Limiter_Rules_Delete(t *testing.T) {
 		g.Expect(err).ToNot(HaveOccurred())
 
 		// ensure that the rule exists
-		ruleResp, err := limiterClient.GetRule("rule1", &v1.RuleQuery{OverridesToInclude: v1.All})
+		ruleResp, err := limiterClient.GetRule("rule1", &v1.RuleGet{OverridesToMatch: &v1common.MatchQuery{}})
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(ruleResp.Name).To(Equal("rule1"))
 
@@ -493,9 +512,9 @@ func Test_Limiter_Rules_Delete(t *testing.T) {
 		g.Expect(err).ToNot(HaveOccurred())
 
 		// ensure the rule no longer exists
-		deleteRule, err := limiterClient.GetRule("rule1", &v1.RuleQuery{OverridesToInclude: v1.All})
+		deleteRule, err := limiterClient.GetRule("rule1", &v1.RuleGet{OverridesToMatch: &v1common.MatchQuery{}})
 		g.Expect(err).To(HaveOccurred())
-		g.Expect(err.Error()).To(ContainSubstring("rule with name 'rule1' could not be found"))
+		g.Expect(err.Error()).To(ContainSubstring("failed to find rule 'rule1' by name"))
 		g.Expect(deleteRule).To(BeNil())
 	})
 }

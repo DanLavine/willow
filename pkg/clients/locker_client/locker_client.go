@@ -206,10 +206,10 @@ func (lc *LockClient) ObtainLock(ctx context.Context, lockRequest *v1locker.Lock
 
 				// wrapper is needed so we ensure that the lock is removed from the tree on removal
 				lostLockWrapper := func() {
-					canDelete := func(_ any) bool {
+					canDelete := func(_ btreeassociated.AssociatedKeyValues) bool {
 						return true
 					}
-					lc.locks.Delete(btreeassociated.ConverDatatypesKeyValues(lockRequest.KeyValues), canDelete)
+					_ = lc.locks.Delete(lockRequest.KeyValues, canDelete)
 				}
 
 				if lc.heartbeatErrorCallback != nil {
@@ -251,13 +251,13 @@ func (lc *LockClient) ObtainLock(ctx context.Context, lockRequest *v1locker.Lock
 		}
 	}
 
-	onFind := func(item any) {
+	onFind := func(item btreeassociated.AssociatedKeyValues) {
 		// nothing to do here
-		returnLock = item.(*btreeassociated.AssociatedKeyValues).Value().(*Lock)
+		returnLock = item.Value().(*Lock)
 	}
 
 	// create or find the lock if we already have it
-	_, _ = lc.locks.CreateOrFind(btreeassociated.ConverDatatypesKeyValues(lockRequest.KeyValues), onCreate, onFind)
+	_, _ = lc.locks.CreateOrFind(lockRequest.KeyValues, onCreate, onFind)
 
 	return returnLock, lockErr
 }

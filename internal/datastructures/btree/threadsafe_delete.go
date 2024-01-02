@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/DanLavine/willow/internal/datastructures"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 )
 
@@ -31,26 +30,50 @@ import (
 //
 // 2. Internal Node (at index i):
 //	a. Swap - ALWAYS swap with a child node and delete from the child.
-//		When swapping, we need to find the next greates or smallest value closest to the key being removed.
-//		To do this, we use chose from the 2 sub trees such that:
-//		1.	Iff the child[i+1] has more keyValues > child[i] keyValues use child[i+1]
-//    2. use child[i]
-//    Then swap the least value from child[i+1] or greates value from child[i]. Then delete from the leaf node
-//		and follow Leaf deletion rules
+//		 When swapping, we need to find the next greates or smallest value closest to the key being removed.
+//		 To do this, we use chose from the 2 sub trees such that:
+//		   1. Iff the child[i+1] has more keyValues > child[i] keyValues use child[i+1]
+//       2. use child[i]
+//     Then swap the least value from child[i+1] or greates value from child[i]. Then delete from the leaf node
+//		 and follow Leaf deletion rules
+//
+// Lock notes:
+//   1. Always need to lock the root node
+//   2. When needing to recurse down, grab the lock for the child node we need to recures
+//   3. If the child node is guranteed to not rebalance the nodes above, then we can release all the parent locks
+//      This allows for parallel requests to process for any values that walk the same tree up to the current node
 
 // Delete a keyValue from the BTree for the given Key. If the key does not exist
 // in the tree then this performs a no-op. If the key is nil, then Delete will panic
 //
-// PARAMS:
-// - key - the key for the item to delete from the tree
-// - canDelete - optional function to check if an item can be deleted. If this is nil, the item will be deleted from the tree
-// RETURNS:
-// - error - errors encountered when validating params
-func (btree *threadSafeBTree) Delete(key datatypes.EncapsulatedData, canDelete datastructures.CanDelete) error {
+//	PARAMS:
+//	- key - the key for the item to delete from the tree
+//	- canDelete - optional function to check if an item can be deleted. If this is nil, the item will be deleted from the tree
+//
+//	RETURNS:
+//	- error - errors encountered when validating params or destroy in progress
+//	        1. datatypes.EncapsulatedValueErr // error with the key
+//	        2. ErrorKeyDestroying
+//	        3. ErrorTreeDestroying
+func (btree *threadSafeBTree) Delete(key datatypes.EncapsulatedValue, canDelete BTreeRemove) error {
+	// parameter checks
 	if err := key.Validate(); err != nil {
 		return fmt.Errorf("key is invalid: %w", err)
 	}
 
+	// destroy checks
+	btree.readWriteWG.Add(1)
+	defer btree.readWriteWG.Add(-1)
+
+	if err := btree.checkDestroyingWithKey(key); err != nil {
+		return err
+	}
+
+	return btree.delete(key, canDelete)
+}
+
+// shared top level delete logic
+func (btree *threadSafeBTree) delete(key datatypes.EncapsulatedValue, canDelete BTreeRemove) error {
 	btree.lock.Lock()
 	once := new(sync.Once)
 	unlock := func() { once.Do(func() { btree.lock.Unlock() }) }
@@ -59,7 +82,6 @@ func (btree *threadSafeBTree) Delete(key datatypes.EncapsulatedData, canDelete d
 	if btree.root != nil {
 		btree.root.lock.Lock()
 		if btree.root.remove(unlock, btree.nodeSize, key, canDelete) {
-
 			// if we were told to reblance, need to ensure we have the lock for all nodes we are touching
 			// this is required when the node size is set to 4+
 			if btree.root.numberOfValues == 0 {
@@ -72,7 +94,7 @@ func (btree *threadSafeBTree) Delete(key datatypes.EncapsulatedData, canDelete d
 }
 
 // remove an item from the tree.
-func (bn *threadSafeBNode) remove(releaseParentLock func(), nodeSize int, keyToDelete datatypes.EncapsulatedData, canDelete datastructures.CanDelete) bool {
+func (bn *threadSafeBNode) remove(releaseParentLock func(), nodeSize int, keyToDelete datatypes.EncapsulatedValue, canDelete BTreeRemove) bool {
 	// setup unlock operation
 	once := new(sync.Once)
 	unlock := func() { once.Do(func() { bn.lock.Unlock() }) }
@@ -105,7 +127,7 @@ func (bn *threadSafeBNode) remove(releaseParentLock func(), nodeSize int, keyToD
 				}
 
 				// try and delete the value if we can
-				if canDelete == nil || canDelete(bn.keyValues[index].value) {
+				if canDelete == nil || canDelete(bn.keyValues[index].key, bn.keyValues[index].value) {
 					if bn.removeNodeItem(recurseUnlock, keyToDelete.DataType(), index) {
 						return bn.rebalance(releaseParentLock, keyToDelete.DataType(), index)
 					}
@@ -142,10 +164,10 @@ func (bn *threadSafeBNode) remove(releaseParentLock func(), nodeSize int, keyToD
 
 // called when removing an item from a leaf node. this is
 // the only time any item will be removed from the actual tree
-func (bn *threadSafeBNode) removeLeafItem(index int, canDelete datastructures.CanDelete) bool {
+func (bn *threadSafeBNode) removeLeafItem(index int, canDelete BTreeRemove) bool {
 	// check the optional argument for deletion
 	if canDelete != nil {
-		if !canDelete(bn.keyValues[index].value) {
+		if !canDelete(bn.keyValues[index].key, bn.keyValues[index].value) {
 			return false
 		}
 	}

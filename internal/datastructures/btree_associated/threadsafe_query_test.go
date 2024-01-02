@@ -14,7 +14,7 @@ func TestAssociatedTree_Query_ParamCheck(t *testing.T) {
 
 	validSelection := datatypes.AssociatedKeyValuesQuery{}
 	invalidSelection := datatypes.AssociatedKeyValuesQuery{KeyValueSelection: &datatypes.KeyValueSelection{}}
-	onFindPagination := func(value *AssociatedKeyValues) bool { return true }
+	onFindPagination := func(value AssociatedKeyValues) bool { return true }
 
 	t.Run("it returns an error if the select query is invalid", func(t *testing.T) {
 		associatedTree := NewThreadSafe()
@@ -28,8 +28,7 @@ func TestAssociatedTree_Query_ParamCheck(t *testing.T) {
 		associatedTree := NewThreadSafe()
 
 		err := associatedTree.Query(validSelection, nil)
-		g.Expect(err).To(HaveOccurred())
-		g.Expect(err.Error()).To(ContainSubstring("onQueryPagination cannot be nil"))
+		g.Expect(err).To(Equal(ErrorsOnIterateNil))
 	})
 }
 
@@ -39,18 +38,18 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 	ids := make([]string, 6)
 	existsTrue := true
 	existsFalse := false
-	noOpOnFind := func(item any) {}
+	noOpOnFind := func(item AssociatedKeyValues) {}
 
 	setupQuery := func(g *GomegaWithT) *threadsafeAssociatedTree {
 		associatedTree := NewThreadSafe()
 
 		// create a number of entries in the associated tree
-		keyValues1 := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.Int(1)})
-		keyValues2 := ConverDatatypesKeyValues(datatypes.KeyValues{"2": datatypes.String("2")})
-		keyValues3 := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.Int8(1), "2": datatypes.Float32(3.4)})
-		keyValues4 := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.String("1"), "2": datatypes.String("2"), "3": datatypes.Float64(3.4)})
-		keyValues5 := ConverDatatypesKeyValues(datatypes.KeyValues{"3": datatypes.Int32(1), "4": datatypes.Float64(3.4)})
-		keyValues6 := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.Int8(4), "2": datatypes.Float32(3.4)})
+		keyValues1 := datatypes.KeyValues{"1": datatypes.Int(1)}
+		keyValues2 := datatypes.KeyValues{"2": datatypes.String("2")}
+		keyValues3 := datatypes.KeyValues{"1": datatypes.Int8(1), "2": datatypes.Float32(3.4)}
+		keyValues4 := datatypes.KeyValues{"1": datatypes.String("1"), "2": datatypes.String("2"), "3": datatypes.Float64(3.4)}
+		keyValues5 := datatypes.KeyValues{"3": datatypes.Int32(1), "4": datatypes.Float64(3.4)}
+		keyValues6 := datatypes.KeyValues{"1": datatypes.Int8(4), "2": datatypes.Float32(3.4)}
 		id, err := associatedTree.CreateOrFind(keyValues1, func() any { return "1" }, noOpOnFind)
 		g.Expect(err).ToNot(HaveOccurred())
 		ids[0] = id
@@ -72,8 +71,8 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 		t.Run("It returns any value saved in the associated tree", func(t *testing.T) {
 			associatedTree := setupQuery(g)
 
-			var foundItem *AssociatedKeyValues
-			onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+			var foundItem AssociatedKeyValues
+			onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
 				foundItem = associatedKeyValues
 				return true
 			}
@@ -91,15 +90,15 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 			err := associatedTree.Query(query, onFindPagination)
 			g.Expect(err).ToNot(HaveOccurred())
 			g.Expect(foundItem).ToNot(BeNil())
-			g.Expect(foundItem.KeyValues().RetrieveStringDataType()["1"]).To(Equal(datatypes.Int(1)))
+			g.Expect(foundItem.KeyValues()["1"]).To(Equal(datatypes.Int(1)))
 			g.Expect(foundItem.AssociatedID()).To(Equal(ids[0]))
 		})
 
 		t.Run("It adds the id if the Limits are below the selected values", func(t *testing.T) {
 			associatedTree := setupQuery(g)
 
-			var foundItem *AssociatedKeyValues
-			onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+			var foundItem AssociatedKeyValues
+			onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
 				foundItem = associatedKeyValues
 				return true
 			}
@@ -127,8 +126,8 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 		t.Run("It does not add the id if the Limits have to many values", func(t *testing.T) {
 			associatedTree := setupQuery(g)
 
-			var foundItem *AssociatedKeyValues
-			onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+			var foundItem AssociatedKeyValues
+			onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
 				foundItem = associatedKeyValues
 				return true
 			}
@@ -156,8 +155,8 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 			t.Run("It an add the _associated_id first", func(t *testing.T) {
 				associatedTree := setupQuery(g)
 
-				var foundItem *AssociatedKeyValues
-				onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+				var foundItem AssociatedKeyValues
+				onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
 					foundItem = associatedKeyValues
 					return true
 				}
@@ -177,9 +176,9 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 				err := associatedTree.Query(query, onFindPagination)
 				g.Expect(err).ToNot(HaveOccurred())
 				g.Expect(foundItem).ToNot(BeNil())
-				g.Expect(foundItem.KeyValues().RetrieveStringDataType()["1"]).To(Equal(datatypes.String("1")))
-				g.Expect(foundItem.KeyValues().RetrieveStringDataType()["2"]).To(Equal(datatypes.String("2")))
-				g.Expect(foundItem.KeyValues().RetrieveStringDataType()["3"]).To(Equal(datatypes.Float64(3.4)))
+				g.Expect(foundItem.KeyValues()["1"]).To(Equal(datatypes.String("1")))
+				g.Expect(foundItem.KeyValues()["2"]).To(Equal(datatypes.String("2")))
+				g.Expect(foundItem.KeyValues()["3"]).To(Equal(datatypes.Float64(3.4)))
 				g.Expect(foundItem.AssociatedID()).To(Equal(ids[3]))
 			})
 
@@ -187,12 +186,12 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 				associatedTree := setupQuery(g)
 
 				int8_4 := datatypes.Int8(4)
-				newKeyValues := ConverDatatypesKeyValues(datatypes.KeyValues{"a": int8_4})
+				newKeyValues := datatypes.KeyValues{"a": int8_4}
 				newID, err := associatedTree.CreateOrFind(newKeyValues, func() any { return "1" }, noOpOnFind)
 				g.Expect(err).ToNot(HaveOccurred())
 
-				var foundItem *AssociatedKeyValues
-				onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+				var foundItem AssociatedKeyValues
+				onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
 					foundItem = associatedKeyValues
 					return true
 				}
@@ -211,7 +210,7 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 				err = associatedTree.Query(query, onFindPagination)
 				g.Expect(err).ToNot(HaveOccurred())
 				g.Expect(foundItem).ToNot(BeNil())
-				g.Expect(foundItem.KeyValues().RetrieveStringDataType()["a"]).To(Equal(datatypes.Int8(4)))
+				g.Expect(foundItem.KeyValues()["a"]).To(Equal(datatypes.Int8(4)))
 				g.Expect(foundItem.AssociatedID()).To(Equal(newID))
 			})
 
@@ -219,12 +218,12 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 				associatedTree := setupQuery(g)
 
 				int8_4 := datatypes.Int8(4)
-				newKeyValues := ConverDatatypesKeyValues(datatypes.KeyValues{"a": int8_4})
+				newKeyValues := datatypes.KeyValues{"a": int8_4}
 				newID, err := associatedTree.CreateOrFind(newKeyValues, func() any { return "1" }, noOpOnFind)
 				g.Expect(err).ToNot(HaveOccurred())
 
-				var foundItem *AssociatedKeyValues
-				onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+				var foundItem AssociatedKeyValues
+				onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
 					foundItem = associatedKeyValues
 					return true
 				}
@@ -247,7 +246,7 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 				err = associatedTree.Query(query, onFindPagination)
 				g.Expect(err).ToNot(HaveOccurred())
 				g.Expect(foundItem).ToNot(BeNil())
-				g.Expect(foundItem.KeyValues().RetrieveStringDataType()["a"]).To(Equal(datatypes.Int8(4)))
+				g.Expect(foundItem.KeyValues()["a"]).To(Equal(datatypes.Int8(4)))
 				g.Expect(foundItem.AssociatedID()).To(Equal(newID))
 			})
 
@@ -255,12 +254,12 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 				associatedTree := setupQuery(g)
 
 				int8_4 := datatypes.Int8(4)
-				newKeyValues := ConverDatatypesKeyValues(datatypes.KeyValues{"a": int8_4, "b": int8_4})
+				newKeyValues := datatypes.KeyValues{"a": int8_4, "b": int8_4}
 				newID, err := associatedTree.CreateOrFind(newKeyValues, func() any { return "1" }, noOpOnFind)
 				g.Expect(err).ToNot(HaveOccurred())
 
-				var foundItem *AssociatedKeyValues
-				onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+				var foundItem AssociatedKeyValues
+				onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
 					foundItem = associatedKeyValues
 					return true
 				}
@@ -288,8 +287,8 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 			t.Run("It filters out the item if the key values pairs do not match", func(t *testing.T) {
 				associatedTree := setupQuery(g)
 
-				var foundItem *AssociatedKeyValues
-				onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+				var foundItem AssociatedKeyValues
+				onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
 					foundItem = associatedKeyValues
 					return true
 				}
@@ -318,7 +317,7 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 			associatedTree := setupQuery(g)
 
 			var foundItems []any
-			onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+			onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
 				foundItems = append(foundItems, associatedKeyValues.Value())
 				return true
 			}
@@ -335,7 +334,7 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 			associatedTree := setupQuery(g)
 
 			var foundItems []any
-			onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+			onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
 				foundItems = append(foundItems, associatedKeyValues.Value())
 				return false
 			}
@@ -356,7 +355,7 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 					associatedTree := setupQuery(g)
 
 					var foundItems []any
-					onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+					onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
 						foundItems = append(foundItems, associatedKeyValues.Value())
 						return true
 					}
@@ -380,7 +379,7 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 					associatedTree := setupQuery(g)
 
 					var foundItems []any
-					onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+					onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
 						foundItems = append(foundItems, associatedKeyValues.Value())
 						return false
 					}
@@ -405,7 +404,7 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 
 						one := 1
 						var foundItems []any
-						onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+						onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
 							foundItems = append(foundItems, associatedKeyValues.Value())
 							return true
 						}
@@ -434,7 +433,7 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 						associatedTree := setupQuery(g)
 
 						var foundItems []any
-						onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+						onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
 							foundItems = append(foundItems, associatedKeyValues.Value())
 							return true
 						}
@@ -459,7 +458,7 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 						associatedTree := setupQuery(g)
 
 						var foundItems []any
-						onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+						onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
 							foundItems = append(foundItems, associatedKeyValues.Value())
 							return true
 						}
@@ -486,7 +485,7 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 					associatedTree := setupQuery(g)
 
 					var foundItems []any
-					onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+					onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
 						foundItems = append(foundItems, associatedKeyValues.Value())
 						return true
 					}
@@ -512,7 +511,7 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 
 						one := 1
 						var foundItems []any
-						onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+						onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
 							foundItems = append(foundItems, associatedKeyValues.Value())
 							return true
 						}
@@ -541,7 +540,7 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 						associatedTree := setupQuery(g)
 
 						var foundItems []any
-						onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+						onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
 							foundItems = append(foundItems, associatedKeyValues.Value())
 							return true
 						}
@@ -566,15 +565,15 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 						associatedTree := NewThreadSafe()
 
 						// create a number of entries in the associated tree
-						keyValues1 := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.Int(1)})
-						keyValues2 := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.Int8(1), "2": datatypes.Float32(3.4)})
-						keyValues3 := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.String("1"), "2": datatypes.Int16(1), "3": datatypes.Float64(3.4)})
+						keyValues1 := datatypes.KeyValues{"1": datatypes.Int(1)}
+						keyValues2 := datatypes.KeyValues{"1": datatypes.Int8(1), "2": datatypes.Float32(3.4)}
+						keyValues3 := datatypes.KeyValues{"1": datatypes.String("1"), "2": datatypes.Int16(1), "3": datatypes.Float64(3.4)}
 						associatedTree.CreateOrFind(keyValues1, func() any { return "1" }, noOpOnFind)
 						associatedTree.CreateOrFind(keyValues2, func() any { return "2" }, noOpOnFind)
 						associatedTree.CreateOrFind(keyValues3, func() any { return "2" }, noOpOnFind)
 
 						var foundItems []any
-						onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+						onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
 							foundItems = append(foundItems, associatedKeyValues.Value())
 							return true
 						}
@@ -602,7 +601,7 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 					associatedTree := setupQuery(g)
 
 					var foundItems []any
-					onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+					onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
 						foundItems = append(foundItems, associatedKeyValues.Value())
 						return true
 					}
@@ -628,7 +627,7 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 
 						one := 1
 						var foundItems []any
-						onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+						onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
 							foundItems = append(foundItems, associatedKeyValues.Value())
 							return true
 						}
@@ -657,7 +656,7 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 						associatedTree := setupQuery(g)
 
 						var foundItems []any
-						onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+						onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
 							foundItems = append(foundItems, associatedKeyValues.Value())
 							return true
 						}
@@ -682,7 +681,7 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 						associatedTree := setupQuery(g)
 
 						var foundItems []any
-						onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+						onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
 							foundItems = append(foundItems, associatedKeyValues.Value())
 							return true
 						}
@@ -709,7 +708,7 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 					associatedTree := setupQuery(g)
 
 					var foundItems []any
-					onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+					onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
 						foundItems = append(foundItems, associatedKeyValues.Value())
 						return true
 					}
@@ -735,7 +734,7 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 
 						one := 1
 						var foundItems []any
-						onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+						onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
 							foundItems = append(foundItems, associatedKeyValues.Value())
 							return true
 						}
@@ -764,7 +763,7 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 						associatedTree := setupQuery(g)
 
 						var foundItems []any
-						onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+						onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
 							foundItems = append(foundItems, associatedKeyValues.Value())
 							return true
 						}
@@ -789,15 +788,15 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 						associatedTree := NewThreadSafe()
 
 						// create a number of entries in the associated tree
-						keyValues1 := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.Int8(1), "2": datatypes.String("1")})
-						keyValues2 := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.Int8(1), "2": datatypes.String("2"), "3": datatypes.Float32(3.2)})
-						keyValues3 := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.Int8(1), "2": datatypes.String("3")})
+						keyValues1 := datatypes.KeyValues{"1": datatypes.Int8(1), "2": datatypes.String("1")}
+						keyValues2 := datatypes.KeyValues{"1": datatypes.Int8(1), "2": datatypes.String("2"), "3": datatypes.Float32(3.2)}
+						keyValues3 := datatypes.KeyValues{"1": datatypes.Int8(1), "2": datatypes.String("3")}
 						associatedTree.CreateOrFind(keyValues1, func() any { return "1" }, noOpOnFind)
 						associatedTree.CreateOrFind(keyValues2, func() any { return "2" }, noOpOnFind)
 						associatedTree.CreateOrFind(keyValues3, func() any { return "3" }, noOpOnFind)
 
 						var foundItems []any
-						onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+						onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
 							foundItems = append(foundItems, associatedKeyValues.Value())
 							return true
 						}
@@ -825,7 +824,7 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 				associatedTree := setupQuery(g)
 
 				var foundItems []any
-				onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+				onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
 					foundItems = append(foundItems, associatedKeyValues.Value())
 					return true
 				}
@@ -856,7 +855,7 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 					associatedTree := setupQuery(g)
 
 					var foundItems []any
-					onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+					onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
 						foundItems = append(foundItems, associatedKeyValues.Value())
 						return true
 					}
@@ -882,7 +881,7 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 						associatedTree := setupQuery(g)
 
 						var foundItems []any
-						onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+						onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
 							foundItems = append(foundItems, associatedKeyValues.Value())
 							return true
 						}
@@ -909,7 +908,7 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 						associatedTree := setupQuery(g)
 
 						var foundItems []any
-						onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+						onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
 							foundItems = append(foundItems, associatedKeyValues.Value())
 							return true
 						}
@@ -934,7 +933,7 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 						associatedTree := setupQuery(g)
 
 						var foundItems []any
-						onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+						onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
 							foundItems = append(foundItems, associatedKeyValues.Value())
 							return true
 						}
@@ -962,7 +961,7 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 					associatedTree := setupQuery(g)
 
 					var foundItems []any
-					onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+					onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
 						foundItems = append(foundItems, associatedKeyValues.Value())
 						return true
 					}
@@ -987,7 +986,7 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 					associatedTree := setupQuery(g)
 
 					var foundItems []any
-					onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+					onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
 						foundItems = append(foundItems, associatedKeyValues.Value())
 						return true
 					}
@@ -1013,7 +1012,7 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 						associatedTree := setupQuery(g)
 
 						var foundItems []any
-						onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+						onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
 							foundItems = append(foundItems, associatedKeyValues.Value())
 							return true
 						}
@@ -1059,7 +1058,7 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 						associatedTree := setupQuery(g)
 
 						var foundItems []any
-						onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+						onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
 							foundItems = append(foundItems, associatedKeyValues.Value())
 							return true
 						}
@@ -1088,7 +1087,7 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 					associatedTree := setupQuery(g)
 
 					var foundItems []any
-					onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+					onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
 						foundItems = append(foundItems, associatedKeyValues.Value())
 						return true
 					}
@@ -1115,7 +1114,7 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 					associatedTree := setupQuery(g)
 
 					var foundItems []any
-					onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+					onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
 						foundItems = append(foundItems, associatedKeyValues.Value())
 						return true
 					}
@@ -1142,7 +1141,7 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 					associatedTree := setupQuery(g)
 
 					var foundItems []any
-					onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+					onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
 						foundItems = append(foundItems, associatedKeyValues.Value())
 						return true
 					}
@@ -1169,7 +1168,7 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 					associatedTree := setupQuery(g)
 
 					var foundItems []any
-					onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+					onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
 						foundItems = append(foundItems, associatedKeyValues.Value())
 						return true
 					}
@@ -1196,7 +1195,7 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 					associatedTree := setupQuery(g)
 
 					var foundItems []any
-					onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+					onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
 						foundItems = append(foundItems, associatedKeyValues.Value())
 						return true
 					}
@@ -1223,7 +1222,7 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 					associatedTree := setupQuery(g)
 
 					var foundItems []any
-					onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+					onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
 						foundItems = append(foundItems, associatedKeyValues.Value())
 						return true
 					}
@@ -1250,7 +1249,7 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 					associatedTree := setupQuery(g)
 
 					var foundItems []any
-					onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+					onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
 						foundItems = append(foundItems, associatedKeyValues.Value())
 						return true
 					}
@@ -1277,7 +1276,7 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 					associatedTree := setupQuery(g)
 
 					var foundItems []any
-					onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+					onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
 						foundItems = append(foundItems, associatedKeyValues.Value())
 						return true
 					}
@@ -1303,7 +1302,7 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 				associatedTree := setupQuery(g)
 
 				var foundItems []any
-				onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+				onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
 					foundItems = append(foundItems, associatedKeyValues.Value())
 					return true
 				}
@@ -1332,26 +1331,26 @@ func TestAssociatedTree_Query_Basic(t *testing.T) {
 func TestAssociatedTree_Query_JoinAND(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	noOpOnFind := func(item any) {}
+	noOpOnFind := func(item AssociatedKeyValues) {}
 
 	setupQuery := func(g *GomegaWithT) *threadsafeAssociatedTree {
 		associatedTree := NewThreadSafe()
 
 		// create a number of entries in the associated tree
-		keyValues1 := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.Int(1)})
-		keyValues2 := ConverDatatypesKeyValues(datatypes.KeyValues{"2": datatypes.Int(2)})
-		keyValues3 := ConverDatatypesKeyValues(datatypes.KeyValues{"3": datatypes.Int(3)})
-		keyValues4 := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.String("1")})
-		keyValues5 := ConverDatatypesKeyValues(datatypes.KeyValues{"2": datatypes.String("2")})
-		keyValues6 := ConverDatatypesKeyValues(datatypes.KeyValues{"3": datatypes.String("3")})
-		keyValues7 := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.Int(1), "2": datatypes.Int(2)})
-		keyValues8 := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.Int(1), "2": datatypes.String("2")})
-		keyValues9 := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.Int(1), "3": datatypes.Int(3)})
-		keyValues10 := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.Int(1), "3": datatypes.String("3")})
-		keyValues11 := ConverDatatypesKeyValues(datatypes.KeyValues{"2": datatypes.Int(2), "3": datatypes.Int(3)})
-		keyValues12 := ConverDatatypesKeyValues(datatypes.KeyValues{"2": datatypes.Int(2), "3": datatypes.String("3")})
-		keyValues13 := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.Int(1), "2": datatypes.Int(2), "3": datatypes.Int(3)})
-		keyValues14 := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.Int(1), "2": datatypes.String("2"), "3": datatypes.String("3")})
+		keyValues1 := datatypes.KeyValues{"1": datatypes.Int(1)}
+		keyValues2 := datatypes.KeyValues{"2": datatypes.Int(2)}
+		keyValues3 := datatypes.KeyValues{"3": datatypes.Int(3)}
+		keyValues4 := datatypes.KeyValues{"1": datatypes.String("1")}
+		keyValues5 := datatypes.KeyValues{"2": datatypes.String("2")}
+		keyValues6 := datatypes.KeyValues{"3": datatypes.String("3")}
+		keyValues7 := datatypes.KeyValues{"1": datatypes.Int(1), "2": datatypes.Int(2)}
+		keyValues8 := datatypes.KeyValues{"1": datatypes.Int(1), "2": datatypes.String("2")}
+		keyValues9 := datatypes.KeyValues{"1": datatypes.Int(1), "3": datatypes.Int(3)}
+		keyValues10 := datatypes.KeyValues{"1": datatypes.Int(1), "3": datatypes.String("3")}
+		keyValues11 := datatypes.KeyValues{"2": datatypes.Int(2), "3": datatypes.Int(3)}
+		keyValues12 := datatypes.KeyValues{"2": datatypes.Int(2), "3": datatypes.String("3")}
+		keyValues13 := datatypes.KeyValues{"1": datatypes.Int(1), "2": datatypes.Int(2), "3": datatypes.Int(3)}
+		keyValues14 := datatypes.KeyValues{"1": datatypes.Int(1), "2": datatypes.String("2"), "3": datatypes.String("3")}
 
 		associatedTree.CreateOrFind(keyValues1, func() any { return "1" }, noOpOnFind)
 		associatedTree.CreateOrFind(keyValues2, func() any { return "2" }, noOpOnFind)
@@ -1375,7 +1374,7 @@ func TestAssociatedTree_Query_JoinAND(t *testing.T) {
 		associatedTree := setupQuery(g)
 
 		var foundItems []any
-		onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+		onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
 			foundItems = append(foundItems, associatedKeyValues.Value())
 			return true
 		}
@@ -1400,7 +1399,7 @@ func TestAssociatedTree_Query_JoinAND(t *testing.T) {
 		associatedTree := setupQuery(g)
 
 		var foundItems []any
-		onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+		onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
 			foundItems = append(foundItems, associatedKeyValues.Value())
 			return true
 		}
@@ -1425,7 +1424,7 @@ func TestAssociatedTree_Query_JoinAND(t *testing.T) {
 		associatedTree := setupQuery(g)
 
 		var foundItems []any
-		onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+		onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
 			foundItems = append(foundItems, associatedKeyValues.Value())
 			return true
 		}
@@ -1471,7 +1470,7 @@ func TestAssociatedTree_Query_JoinAND(t *testing.T) {
 		associatedTree := setupQuery(g)
 
 		var foundItems []any
-		onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+		onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
 			foundItems = append(foundItems, associatedKeyValues.Value())
 			return true
 		}
@@ -1517,26 +1516,26 @@ func TestAssociatedTree_Query_JoinAND(t *testing.T) {
 func TestAssociatedTree_Query_JoinOR(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	noOpOnFind := func(item any) {}
+	noOpOnFind := func(item AssociatedKeyValues) {}
 
 	setupQuery := func(g *GomegaWithT) *threadsafeAssociatedTree {
 		associatedTree := NewThreadSafe()
 
 		// create a number of entries in the associated tree
-		keyValues1 := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.Int(1)})
-		keyValues2 := ConverDatatypesKeyValues(datatypes.KeyValues{"2": datatypes.Int(2)})
-		keyValues3 := ConverDatatypesKeyValues(datatypes.KeyValues{"3": datatypes.Int(3)})
-		keyValues4 := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.String("1")})
-		keyValues5 := ConverDatatypesKeyValues(datatypes.KeyValues{"2": datatypes.String("2")})
-		keyValues6 := ConverDatatypesKeyValues(datatypes.KeyValues{"3": datatypes.String("3")})
-		keyValues7 := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.Int(1), "2": datatypes.Int(2)})
-		keyValues8 := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.Int(1), "2": datatypes.String("2")})
-		keyValues9 := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.Int(1), "3": datatypes.Int(3)})
-		keyValues10 := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.Int(1), "3": datatypes.String("3")})
-		keyValues11 := ConverDatatypesKeyValues(datatypes.KeyValues{"2": datatypes.Int(2), "3": datatypes.Int(3)})
-		keyValues12 := ConverDatatypesKeyValues(datatypes.KeyValues{"2": datatypes.Int(2), "3": datatypes.String("3")})
-		keyValues13 := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.Int(1), "2": datatypes.Int(2), "3": datatypes.Int(3)})
-		keyValues14 := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.Int(1), "2": datatypes.String("2"), "3": datatypes.String("3")})
+		keyValues1 := datatypes.KeyValues{"1": datatypes.Int(1)}
+		keyValues2 := datatypes.KeyValues{"2": datatypes.Int(2)}
+		keyValues3 := datatypes.KeyValues{"3": datatypes.Int(3)}
+		keyValues4 := datatypes.KeyValues{"1": datatypes.String("1")}
+		keyValues5 := datatypes.KeyValues{"2": datatypes.String("2")}
+		keyValues6 := datatypes.KeyValues{"3": datatypes.String("3")}
+		keyValues7 := datatypes.KeyValues{"1": datatypes.Int(1), "2": datatypes.Int(2)}
+		keyValues8 := datatypes.KeyValues{"1": datatypes.Int(1), "2": datatypes.String("2")}
+		keyValues9 := datatypes.KeyValues{"1": datatypes.Int(1), "3": datatypes.Int(3)}
+		keyValues10 := datatypes.KeyValues{"1": datatypes.Int(1), "3": datatypes.String("3")}
+		keyValues11 := datatypes.KeyValues{"2": datatypes.Int(2), "3": datatypes.Int(3)}
+		keyValues12 := datatypes.KeyValues{"2": datatypes.Int(2), "3": datatypes.String("3")}
+		keyValues13 := datatypes.KeyValues{"1": datatypes.Int(1), "2": datatypes.Int(2), "3": datatypes.Int(3)}
+		keyValues14 := datatypes.KeyValues{"1": datatypes.Int(1), "2": datatypes.String("2"), "3": datatypes.String("3")}
 
 		associatedTree.CreateOrFind(keyValues1, func() any { return "1" }, noOpOnFind)
 		associatedTree.CreateOrFind(keyValues2, func() any { return "2" }, noOpOnFind)
@@ -1560,7 +1559,7 @@ func TestAssociatedTree_Query_JoinOR(t *testing.T) {
 		associatedTree := setupQuery(g)
 
 		var foundItems []any
-		onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+		onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
 			foundItems = append(foundItems, associatedKeyValues.Value())
 			return true
 		}
@@ -1585,7 +1584,7 @@ func TestAssociatedTree_Query_JoinOR(t *testing.T) {
 		associatedTree := setupQuery(g)
 
 		var foundItems []any
-		onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+		onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
 			foundItems = append(foundItems, associatedKeyValues.Value())
 			return true
 		}
@@ -1610,7 +1609,7 @@ func TestAssociatedTree_Query_JoinOR(t *testing.T) {
 		associatedTree := setupQuery(g)
 
 		var foundItems []any
-		onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+		onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
 			foundItems = append(foundItems, associatedKeyValues.Value())
 			return true
 		}
@@ -1635,26 +1634,26 @@ func TestAssociatedTree_Query_JoinOR(t *testing.T) {
 func TestAssociatedTree_Query_AND_OR_joins(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	noOpOnFind := func(item any) {}
+	noOpOnFind := func(item AssociatedKeyValues) {}
 
 	setupQuery := func(g *GomegaWithT) *threadsafeAssociatedTree {
 		associatedTree := NewThreadSafe()
 
 		// create a number of entries in the associated tree
-		keyValues1 := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.Int(1)})
-		keyValues2 := ConverDatatypesKeyValues(datatypes.KeyValues{"2": datatypes.Int(2)})
-		keyValues3 := ConverDatatypesKeyValues(datatypes.KeyValues{"3": datatypes.Int(3)})
-		keyValues4 := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.String("1")})
-		keyValues5 := ConverDatatypesKeyValues(datatypes.KeyValues{"2": datatypes.String("2")})
-		keyValues6 := ConverDatatypesKeyValues(datatypes.KeyValues{"3": datatypes.String("3")})
-		keyValues7 := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.Int(1), "2": datatypes.Int(2)})
-		keyValues8 := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.Int(1), "2": datatypes.String("2")})
-		keyValues9 := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.Int(1), "3": datatypes.Int(3)})
-		keyValues10 := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.Int(1), "3": datatypes.String("3")})
-		keyValues11 := ConverDatatypesKeyValues(datatypes.KeyValues{"2": datatypes.Int(2), "3": datatypes.Int(3)})
-		keyValues12 := ConverDatatypesKeyValues(datatypes.KeyValues{"2": datatypes.Int(2), "3": datatypes.String("3")})
-		keyValues13 := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.Int(1), "2": datatypes.Int(2), "3": datatypes.Int(3)})
-		keyValues14 := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.Int(1), "2": datatypes.String("2"), "3": datatypes.String("3")})
+		keyValues1 := datatypes.KeyValues{"1": datatypes.Int(1)}
+		keyValues2 := datatypes.KeyValues{"2": datatypes.Int(2)}
+		keyValues3 := datatypes.KeyValues{"3": datatypes.Int(3)}
+		keyValues4 := datatypes.KeyValues{"1": datatypes.String("1")}
+		keyValues5 := datatypes.KeyValues{"2": datatypes.String("2")}
+		keyValues6 := datatypes.KeyValues{"3": datatypes.String("3")}
+		keyValues7 := datatypes.KeyValues{"1": datatypes.Int(1), "2": datatypes.Int(2)}
+		keyValues8 := datatypes.KeyValues{"1": datatypes.Int(1), "2": datatypes.String("2")}
+		keyValues9 := datatypes.KeyValues{"1": datatypes.Int(1), "3": datatypes.Int(3)}
+		keyValues10 := datatypes.KeyValues{"1": datatypes.Int(1), "3": datatypes.String("3")}
+		keyValues11 := datatypes.KeyValues{"2": datatypes.Int(2), "3": datatypes.Int(3)}
+		keyValues12 := datatypes.KeyValues{"2": datatypes.Int(2), "3": datatypes.String("3")}
+		keyValues13 := datatypes.KeyValues{"1": datatypes.Int(1), "2": datatypes.Int(2), "3": datatypes.Int(3)}
+		keyValues14 := datatypes.KeyValues{"1": datatypes.Int(1), "2": datatypes.String("2"), "3": datatypes.String("3")}
 
 		associatedTree.CreateOrFind(keyValues1, func() any { return "1" }, noOpOnFind)
 		associatedTree.CreateOrFind(keyValues2, func() any { return "2" }, noOpOnFind)
@@ -1678,7 +1677,7 @@ func TestAssociatedTree_Query_AND_OR_joins(t *testing.T) {
 		associatedTree := setupQuery(g)
 
 		var foundItems []any
-		onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+		onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
 			foundItems = append(foundItems, associatedKeyValues.Value())
 			return true
 		}
@@ -1707,7 +1706,7 @@ func TestAssociatedTree_Query_AND_OR_joins(t *testing.T) {
 		associatedTree := setupQuery(g)
 
 		var foundItems []any
-		onFindPagination := func(associatedKeyValues *AssociatedKeyValues) bool {
+		onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
 			foundItems = append(foundItems, associatedKeyValues.Value())
 			return true
 		}
@@ -1769,10 +1768,10 @@ func TestAssociated_Query_LargeJoinsAreFast(t *testing.T) {
 			wg.Add(1)
 			go func(numberOfKeys, tNum int) {
 				defer wg.Done()
-				keys := KeyValues{}
+				keys := datatypes.KeyValues{}
 
 				for i := 0; i <= numberOfKeys; i++ {
-					keys[datatypes.String(fmt.Sprintf("%d", tNum))] = datatypes.String(fmt.Sprintf("%d", tNum))
+					keys[fmt.Sprintf("%d", tNum+i)] = datatypes.String(fmt.Sprintf("%d", tNum+i))
 				}
 
 				err := associatedTree.CreateWithID(fmt.Sprintf("%d", tNum), keys, baicCreate)
@@ -1802,12 +1801,12 @@ func TestAssociated_Query_LargeJoinsAreFast(t *testing.T) {
 		}
 
 		// 4. run the query
-		//counter := 0
-		//g.Expect(associatedTree.Query(query, func(item *AssociatedKeyValues) bool {
-		//	counter++
-		//	return true
-		//})).ToNot(HaveOccurred())
-		//
-		//g.Expect(counter).To(Equal(1000))
+		counter := 0
+		g.Expect(associatedTree.Query(query, func(item AssociatedKeyValues) bool {
+			counter++
+			return true
+		})).ToNot(HaveOccurred())
+
+		g.Expect(counter).To(Equal(6))
 	})
 }

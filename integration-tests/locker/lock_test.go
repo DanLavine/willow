@@ -277,10 +277,10 @@ func TestLocker_List_API(t *testing.T) {
 		g.Expect(json.Unmarshal(data, &locks)).ToNot(HaveOccurred())
 		g.Expect(len(locks)).To(Equal(2))
 
-		if reflect.DeepEqual(locks[0].KeyValues.SoretedKeys(), []string{"key1", "key2"}) {
-			g.Expect(locks[1].KeyValues.SoretedKeys()).To(Equal([]string{"key1", "key3"}))
+		if reflect.DeepEqual(locks[0].KeyValues.SortedKeys(), []string{"key1", "key2"}) {
+			g.Expect(locks[1].KeyValues.SortedKeys()).To(Equal([]string{"key1", "key3"}))
 		} else {
-			g.Expect(locks[1].KeyValues.SoretedKeys()).To(Equal([]string{"key1", "key2"}))
+			g.Expect(locks[1].KeyValues.SortedKeys()).To(Equal([]string{"key1", "key2"}))
 		}
 	})
 }

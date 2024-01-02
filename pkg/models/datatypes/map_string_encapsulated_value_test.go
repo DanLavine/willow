@@ -51,7 +51,7 @@ func TestKeyValues_SortedKeys(t *testing.T) {
 			"e": String("5"),
 		}
 
-		keys := KeyValues.SoretedKeys()
+		keys := KeyValues.SortedKeys()
 		g.Expect(keys).To(Equal([]string{"a", "b", "c", "d", "e"}))
 	})
 }
@@ -232,5 +232,17 @@ func TestKeyValues_DataEncoding(t *testing.T) {
 
 		// ensure bothe values match
 		g.Expect(keyValues).To(Equal(decodedKeyValues))
+	})
+}
+
+func TestKeyValues_Validate(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	t.Run("It can validate a nil map", func(t *testing.T) {
+		var kvs KeyValues
+
+		err := kvs.Validate()
+		g.Expect(err).To(HaveOccurred())
+		g.Expect(err.Error()).To(Equal("KeyValues cannot be empty"))
 	})
 }

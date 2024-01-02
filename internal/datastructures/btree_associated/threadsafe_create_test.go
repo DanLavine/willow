@@ -11,8 +11,8 @@ import (
 func TestAssociatedTree_Create_ParamCheck(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	keys := KeyValues{datatypes.String("1"): datatypes.Int(1)}
-	idKeys := KeyValues{datatypes.String("_associated_id"): datatypes.Int(1)}
+	keys := datatypes.KeyValues{"1": datatypes.Int(1)}
+	idKeys := datatypes.KeyValues{"_associated_id": datatypes.Int(1)}
 	onCreate := func() any { return true }
 
 	t.Run("it returns an error with nil keyValues", func(t *testing.T) {
@@ -28,8 +28,7 @@ func TestAssociatedTree_Create_ParamCheck(t *testing.T) {
 		associatedTree := NewThreadSafe()
 
 		id, err := associatedTree.Create(idKeys, onCreate)
-		g.Expect(err).To(HaveOccurred())
-		g.Expect(err.Error()).To(ContainSubstring("keValues cannot contain a Key with the _associated_id reserved key word"))
+		g.Expect(err).To(Equal(ErrorKeyValuesHasAssociatedID))
 		g.Expect(id).To(Equal(""))
 	})
 
@@ -37,8 +36,7 @@ func TestAssociatedTree_Create_ParamCheck(t *testing.T) {
 		associatedTree := NewThreadSafe()
 
 		id, err := associatedTree.Create(keys, nil)
-		g.Expect(err).To(HaveOccurred())
-		g.Expect(err.Error()).To(ContainSubstring("onCreate cannot be nil"))
+		g.Expect(err).To(Equal(ErrorOnCreateNil))
 		g.Expect(id).To(Equal(""))
 	})
 }
@@ -46,13 +44,13 @@ func TestAssociatedTree_Create_ParamCheck(t *testing.T) {
 func TestAssociatedTree_Create_FailedToCreate(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	keyValues := KeyValues{datatypes.String("1"): datatypes.String("one"), datatypes.String("2"): datatypes.Int(5)}
+	keyValues := datatypes.KeyValues{"1": datatypes.String("one"), "2": datatypes.Int(5)}
 	noOpOnCreate := func() any { return "find me" }
 
 	t.Run("It returns an error if the KeyValues already exist", func(t *testing.T) {
 		associatedTree := NewThreadSafe()
 
-		keyValues := KeyValues{datatypes.String("1"): datatypes.String("one"), datatypes.String("4"): datatypes.Int(4)}
+		keyValues := datatypes.KeyValues{"1": datatypes.String("one"), "4": datatypes.Int(4)}
 
 		id, err := associatedTree.Create(keyValues, noOpOnCreate)
 		g.Expect(id).ToNot(Equal(""))
@@ -60,7 +58,7 @@ func TestAssociatedTree_Create_FailedToCreate(t *testing.T) {
 
 		id, err = associatedTree.Create(keyValues, noOpOnCreate)
 		g.Expect(id).To(Equal(""))
-		g.Expect(err).To(Equal(ErrorCreateFailureKeyValuesExist))
+		g.Expect(err).To(Equal(ErrorKeyValuesAlreadyExists))
 
 		g.Expect(associatedTree.keys.Empty()).To(BeFalse())
 	})
@@ -84,9 +82,9 @@ func TestAssociatedTree_Create_FailedToCreate(t *testing.T) {
 	t.Run("it does not remove any IDs that might already exist", func(t *testing.T) {
 		associatedTree := NewThreadSafe()
 
-		goodKeyValues1 := KeyValues{datatypes.String("1"): datatypes.String("one"), datatypes.String("4"): datatypes.Int(4)}
-		goodKeyValues2 := KeyValues{datatypes.String("1"): datatypes.String("one"), datatypes.String("2"): datatypes.Int(5), datatypes.String("3"): datatypes.String("three")}
-		badKeyValues := KeyValues{datatypes.String("1"): datatypes.String("one"), datatypes.String("2"): datatypes.Int(4)} // This tests the break on processing shrinks
+		goodKeyValues1 := datatypes.KeyValues{"1": datatypes.String("one"), "4": datatypes.Int(4)}
+		goodKeyValues2 := datatypes.KeyValues{"1": datatypes.String("one"), "2": datatypes.Int(5), "3": datatypes.String("three")}
+		badKeyValues := datatypes.KeyValues{"1": datatypes.String("one"), "2": datatypes.Int(4)} // This tests the break on processing shrinks
 
 		badCreate := func() any {
 			return nil
@@ -171,7 +169,7 @@ func TestAssociatedTree_Create_FailedToCreate(t *testing.T) {
 func TestAssociatedTree_Create_SingleKeyValue(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	keyValues := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.String("one")})
+	keyValues := datatypes.KeyValues{"1": datatypes.String("one")}
 	noOpOnCreate := func() any { return "found me" }
 
 	t.Run("it creates a value if it doesn't already exist", func(t *testing.T) {
@@ -192,9 +190,9 @@ func TestAssociatedTree_Create_SingleKeyValue(t *testing.T) {
 	t.Run("it properly saves multiple key values", func(t *testing.T) {
 		associatedTree := NewThreadSafe()
 
-		keyValues1 := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.String("one")})
-		keyValues2 := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.Int(5)})
-		keyValues3 := ConverDatatypesKeyValues(datatypes.KeyValues{"3": datatypes.String("three")})
+		keyValues1 := datatypes.KeyValues{"1": datatypes.String("one")}
+		keyValues2 := datatypes.KeyValues{"1": datatypes.Int(5)}
+		keyValues3 := datatypes.KeyValues{"3": datatypes.String("three")}
 
 		createCount := 0
 		onCreate := func() any {
@@ -236,7 +234,7 @@ func TestAssociatedTree_Create_SingleKeyValue(t *testing.T) {
 func TestAssociatedTree_Create_MultiKeyValue(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	keyValues := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.String("one"), "2": datatypes.Float32(3.0)})
+	keyValues := datatypes.KeyValues{"1": datatypes.String("one"), "2": datatypes.Float32(3.0)}
 
 	t.Run("it creates a value if it doesn't already exist", func(t *testing.T) {
 		associatedTree := NewThreadSafe()
@@ -256,10 +254,10 @@ func TestAssociatedTree_Create_MultiKeyValue(t *testing.T) {
 	t.Run("it properly saves multiple key values", func(t *testing.T) {
 		associatedTree := NewThreadSafe()
 
-		keyValues1 := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.String("one"), "2": datatypes.Float64(3.0)})
-		keyValues2 := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.String("one"), "2": datatypes.Float32(3.0)})
-		keyValues3 := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.String("one"), "2": datatypes.Float32(5.0)})
-		keyValues4 := ConverDatatypesKeyValues(datatypes.KeyValues{"2": datatypes.String("two"), "3": datatypes.Float32(3.0)})
+		keyValues1 := datatypes.KeyValues{"1": datatypes.String("one"), "2": datatypes.Float64(3.0)}
+		keyValues2 := datatypes.KeyValues{"1": datatypes.String("one"), "2": datatypes.Float32(3.0)}
+		keyValues3 := datatypes.KeyValues{"1": datatypes.String("one"), "2": datatypes.Float32(5.0)}
+		keyValues4 := datatypes.KeyValues{"2": datatypes.String("two"), "3": datatypes.Float32(3.0)}
 
 		createCount := 0
 		onCreate := func() any {
@@ -274,9 +272,9 @@ func TestAssociatedTree_Create_MultiKeyValue(t *testing.T) {
 		g.Expect(createCount).To(Equal(4))
 
 		found := false
-		onFind := func(item any) {
+		onFind := func(item AssociatedKeyValues) {
 			found = true
-			g.Expect(item.(*AssociatedKeyValues).Value()).To(Equal(2))
+			g.Expect(item.Value()).To(Equal(2))
 		}
 
 		associatedTree.CreateOrFind(keyValues2, onCreate, onFind)
@@ -287,9 +285,17 @@ func TestAssociatedTree_Create_MultiKeyValue(t *testing.T) {
 func TestAssociatedTree_CreateWithID_ParamCheck(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	keys := KeyValues{datatypes.String("1"): datatypes.Int(1)}
-	idKeys := KeyValues{datatypes.String("_associated_id"): datatypes.Int(1)}
+	keys := datatypes.KeyValues{"1": datatypes.Int(1)}
+	idKeys := datatypes.KeyValues{"_associated_id": datatypes.Int(1)}
 	onCreate := func() any { return true }
+
+	t.Run("it returns an error if associatedID is empty", func(t *testing.T) {
+		associatedTree := NewThreadSafe()
+
+		err := associatedTree.CreateWithID("", keys, nil)
+		g.Expect(err).To(HaveOccurred())
+		g.Expect(err).To(Equal(ErrorAssociatedIDEmpty))
+	})
 
 	t.Run("it returns an error with nil keyValues", func(t *testing.T) {
 		associatedTree := NewThreadSafe()
@@ -302,17 +308,17 @@ func TestAssociatedTree_CreateWithID_ParamCheck(t *testing.T) {
 	t.Run("it returns an error with if keyValues has _associated_id key", func(t *testing.T) {
 		associatedTree := NewThreadSafe()
 
-		err := associatedTree.CreateWithID("", idKeys, onCreate)
+		err := associatedTree.CreateWithID("something", idKeys, onCreate)
 		g.Expect(err).To(HaveOccurred())
-		g.Expect(err.Error()).To(ContainSubstring("keValues cannot contain a Key with the _associated_id reserved key word"))
+		g.Expect(err).To(Equal(ErrorKeyValuesHasAssociatedID))
 	})
 
 	t.Run("it returns an error with nil onCreate", func(t *testing.T) {
 		associatedTree := NewThreadSafe()
 
-		err := associatedTree.CreateWithID("", keys, nil)
+		err := associatedTree.CreateWithID("something", keys, nil)
 		g.Expect(err).To(HaveOccurred())
-		g.Expect(err.Error()).To(ContainSubstring("onCreate cannot be nil"))
+		g.Expect(err).To(Equal(ErrorOnCreateNil))
 	})
 }
 
@@ -324,20 +330,19 @@ func TestAssociatedTree_CreateWithID_FailedToCreate(t *testing.T) {
 	t.Run("It returns an error if the KeyValues already exist", func(t *testing.T) {
 		associatedTree := NewThreadSafe()
 
-		keyValues := KeyValues{datatypes.String("1"): datatypes.String("one"), datatypes.String("4"): datatypes.Int(4)}
+		keyValues := datatypes.KeyValues{"1": datatypes.String("one"), "4": datatypes.Int(4)}
 
 		err := associatedTree.CreateWithID("key1", keyValues, func() any { return "value1" })
 		g.Expect(err).To(BeNil())
 
 		err = associatedTree.CreateWithID("key2", keyValues, func() any { return "value2" })
-		g.Expect(err).To(Equal(ErrorCreateFailureKeyValuesExist))
+		g.Expect(err).To(Equal(ErrorKeyValuesAlreadyExists))
 
 		// ensure the first value still exists
 		foundValue := ""
-		id, err := associatedTree.Find(keyValues, func(item any) {
-			foundValue = item.(*AssociatedKeyValues).value.(string)
+		err = associatedTree.Find(keyValues, func(item AssociatedKeyValues) {
+			foundValue = item.Value().(string)
 		})
-		g.Expect(id).To(Equal("key1"))
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(foundValue).To(Equal("value1"))
 		g.Expect(associatedTree.keys.Empty()).To(BeFalse())
@@ -346,18 +351,17 @@ func TestAssociatedTree_CreateWithID_FailedToCreate(t *testing.T) {
 	t.Run("It returns an error if the associatedID already exist", func(t *testing.T) {
 		associatedTree := NewThreadSafe()
 
-		err := associatedTree.CreateWithID("key", KeyValues{datatypes.String("1"): datatypes.String("one")}, noOpOnCreate)
+		err := associatedTree.CreateWithID("key", datatypes.KeyValues{"1": datatypes.String("one")}, noOpOnCreate)
 		g.Expect(err).To(BeNil())
 
-		err = associatedTree.CreateWithID("key", KeyValues{datatypes.String("4"): datatypes.Int(4)}, noOpOnCreate)
+		err = associatedTree.CreateWithID("key", datatypes.KeyValues{"4": datatypes.Int(4)}, noOpOnCreate)
 		g.Expect(err).To(Equal(ErrorAssociatedIDAlreadyExists))
 
 		// ensure the proper value still exists
 		found := false
-		id, err := associatedTree.Find(KeyValues{datatypes.String("1"): datatypes.String("one")}, func(item any) {
+		err = associatedTree.Find(datatypes.KeyValues{"1": datatypes.String("one")}, func(item AssociatedKeyValues) {
 			found = true
 		})
-		g.Expect(id).To(Equal("key"))
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(found).To(BeTrue())
 		g.Expect(associatedTree.keys.Empty()).To(BeFalse())
@@ -366,9 +370,9 @@ func TestAssociatedTree_CreateWithID_FailedToCreate(t *testing.T) {
 	t.Run("it does not remove any IDs that might already exist", func(t *testing.T) {
 		associatedTree := NewThreadSafe()
 
-		goodKeyValues1 := KeyValues{datatypes.String("1"): datatypes.String("one"), datatypes.String("4"): datatypes.Int(4)}
-		goodKeyValues2 := KeyValues{datatypes.String("1"): datatypes.String("one"), datatypes.String("2"): datatypes.Int(5), datatypes.String("3"): datatypes.String("three")}
-		badKeyValues := KeyValues{datatypes.String("1"): datatypes.String("one"), datatypes.String("2"): datatypes.Int(4)} // This tests the break on processing shrinks
+		goodKeyValues1 := datatypes.KeyValues{"1": datatypes.String("one"), "4": datatypes.Int(4)}
+		goodKeyValues2 := datatypes.KeyValues{"1": datatypes.String("one"), "2": datatypes.Int(5), "3": datatypes.String("three")}
+		badKeyValues := datatypes.KeyValues{"1": datatypes.String("one"), "2": datatypes.Int(4)} // This tests the break on processing shrinks
 
 		badCreate := func() any {
 			return nil
@@ -453,7 +457,7 @@ func TestAssociatedTree_CreateWithID_FailedToCreate(t *testing.T) {
 func TestAssociatedTree_CreateWithID_SingleKeyValue(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	keyValues := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.String("one")})
+	keyValues := datatypes.KeyValues{"1": datatypes.String("one")}
 	noOpOnCreate := func() any { return "found me" }
 
 	t.Run("it creates a value if it doesn't already exist", func(t *testing.T) {
@@ -465,7 +469,7 @@ func TestAssociatedTree_CreateWithID_SingleKeyValue(t *testing.T) {
 			return true
 		}
 
-		err := associatedTree.CreateWithID("", keyValues, onCreate)
+		err := associatedTree.CreateWithID("something", keyValues, onCreate)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(called).To(BeTrue())
 	})
@@ -473,9 +477,9 @@ func TestAssociatedTree_CreateWithID_SingleKeyValue(t *testing.T) {
 	t.Run("it properly saves multiple key values", func(t *testing.T) {
 		associatedTree := NewThreadSafe()
 
-		keyValues1 := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.String("one")})
-		keyValues2 := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.Int(5)})
-		keyValues3 := ConverDatatypesKeyValues(datatypes.KeyValues{"3": datatypes.String("three")})
+		keyValues1 := datatypes.KeyValues{"1": datatypes.String("one")}
+		keyValues2 := datatypes.KeyValues{"1": datatypes.Int(5)}
+		keyValues3 := datatypes.KeyValues{"3": datatypes.String("three")}
 
 		createCount := 0
 		onCreate := func() any {
@@ -514,7 +518,7 @@ func TestAssociatedTree_CreateWithID_SingleKeyValue(t *testing.T) {
 func TestAssociatedTree_CreateWithID_MultiKeyValue(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	keyValues := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.String("one"), "2": datatypes.Float32(3.0)})
+	keyValues := datatypes.KeyValues{"1": datatypes.String("one"), "2": datatypes.Float32(3.0)}
 
 	t.Run("it creates a value if it doesn't already exist", func(t *testing.T) {
 		associatedTree := NewThreadSafe()
@@ -525,7 +529,7 @@ func TestAssociatedTree_CreateWithID_MultiKeyValue(t *testing.T) {
 			return true
 		}
 
-		err := associatedTree.CreateWithID("", keyValues, onCreate)
+		err := associatedTree.CreateWithID("something", keyValues, onCreate)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(called).To(BeTrue())
 	})
@@ -533,10 +537,10 @@ func TestAssociatedTree_CreateWithID_MultiKeyValue(t *testing.T) {
 	t.Run("it properly saves multiple key values", func(t *testing.T) {
 		associatedTree := NewThreadSafe()
 
-		keyValues1 := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.String("one"), "2": datatypes.Float64(3.0)})
-		keyValues2 := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.String("one"), "2": datatypes.Float32(3.0)})
-		keyValues3 := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.String("one"), "2": datatypes.Float32(5.0)})
-		keyValues4 := ConverDatatypesKeyValues(datatypes.KeyValues{"2": datatypes.String("two"), "3": datatypes.Float32(3.0)})
+		keyValues1 := datatypes.KeyValues{"1": datatypes.String("one"), "2": datatypes.Float64(3.0)}
+		keyValues2 := datatypes.KeyValues{"1": datatypes.String("one"), "2": datatypes.Float32(3.0)}
+		keyValues3 := datatypes.KeyValues{"1": datatypes.String("one"), "2": datatypes.Float32(5.0)}
+		keyValues4 := datatypes.KeyValues{"2": datatypes.String("two"), "3": datatypes.Float32(3.0)}
 
 		createCount := 0
 		onCreate := func() any {
@@ -551,9 +555,9 @@ func TestAssociatedTree_CreateWithID_MultiKeyValue(t *testing.T) {
 		g.Expect(createCount).To(Equal(4))
 
 		found := false
-		onFind := func(item any) {
+		onFind := func(item AssociatedKeyValues) {
 			found = true
-			g.Expect(item.(*AssociatedKeyValues).Value()).To(Equal(2))
+			g.Expect(item.Value()).To(Equal(2))
 		}
 
 		associatedTree.CreateOrFind(keyValues2, onCreate, onFind)
@@ -564,17 +568,17 @@ func TestAssociatedTree_CreateWithID_MultiKeyValue(t *testing.T) {
 func TestAssociatedTree_CreateOrFind_ParamCheck(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	keys := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.Int(1)})
-	idKeys := KeyValues{datatypes.String("_associated_id"): datatypes.Int(1)}
+	keys := datatypes.KeyValues{"1": datatypes.Int(1)}
+	idKeys := datatypes.KeyValues{"_associated_id": datatypes.Int(1)}
 	onCreate := func() any { return true }
-	onFind := func(item any) {}
+	onFind := func(item AssociatedKeyValues) {}
 
 	t.Run("it returns an error with nil keyValues", func(t *testing.T) {
 		associatedTree := NewThreadSafe()
 
 		id, err := associatedTree.CreateOrFind(nil, onCreate, onFind)
 		g.Expect(err).To(HaveOccurred())
-		g.Expect(err.Error()).To(ContainSubstring("keyValuePairs cannot be empty"))
+		g.Expect(err.Error()).To(ContainSubstring("keyValues cannot be empty"))
 		g.Expect(id).To(Equal(""))
 	})
 
@@ -582,8 +586,7 @@ func TestAssociatedTree_CreateOrFind_ParamCheck(t *testing.T) {
 		associatedTree := NewThreadSafe()
 
 		id, err := associatedTree.Create(idKeys, onCreate)
-		g.Expect(err).To(HaveOccurred())
-		g.Expect(err.Error()).To(ContainSubstring("keValues cannot contain a Key with the _associated_id reserved key word"))
+		g.Expect(err).To(Equal(ErrorKeyValuesHasAssociatedID))
 		g.Expect(id).To(Equal(""))
 	})
 
@@ -591,8 +594,7 @@ func TestAssociatedTree_CreateOrFind_ParamCheck(t *testing.T) {
 		associatedTree := NewThreadSafe()
 
 		id, err := associatedTree.CreateOrFind(keys, nil, onFind)
-		g.Expect(err).To(HaveOccurred())
-		g.Expect(err.Error()).To(ContainSubstring("onCreate cannot be nil"))
+		g.Expect(err).To(Equal(ErrorOnCreateNil))
 		g.Expect(id).To(Equal(""))
 	})
 
@@ -600,8 +602,7 @@ func TestAssociatedTree_CreateOrFind_ParamCheck(t *testing.T) {
 		associatedTree := NewThreadSafe()
 
 		id, err := associatedTree.CreateOrFind(keys, onCreate, nil)
-		g.Expect(err).To(HaveOccurred())
-		g.Expect(err.Error()).To(ContainSubstring("onFind cannot be nil"))
+		g.Expect(err).To(Equal(ErrorOnFindNil))
 		g.Expect(id).To(Equal(""))
 	})
 }
@@ -609,9 +610,9 @@ func TestAssociatedTree_CreateOrFind_ParamCheck(t *testing.T) {
 func TestAssociatedTree_CreateOrFind_FailedToCreate(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	keyValues := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.String("one"), "2": datatypes.Int(5)})
+	keyValues := datatypes.KeyValues{"1": datatypes.String("one"), "2": datatypes.Int(5)}
 	noOpOnCreate := func() any { return "find me" }
-	noOpOnFind := func(item any) {}
+	noOpOnFind := func(item AssociatedKeyValues) {}
 
 	t.Run("it cleans up any possible values that were created to store a new ID", func(t *testing.T) {
 		associatedTree := NewThreadSafe()
@@ -632,9 +633,9 @@ func TestAssociatedTree_CreateOrFind_FailedToCreate(t *testing.T) {
 	t.Run("it does not remove any IDs that might already exist", func(t *testing.T) {
 		associatedTree := NewThreadSafe()
 
-		goodKeyValues1 := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.String("one"), "4": datatypes.Int(4)})
-		goodKeyValues2 := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.String("one"), "2": datatypes.Int(5), "3": datatypes.String("three")})
-		badKeyValues := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.String("one"), "2": datatypes.Int(4)}) // This tests the break on processing shrinks
+		goodKeyValues1 := datatypes.KeyValues{"1": datatypes.String("one"), "4": datatypes.Int(4)}
+		goodKeyValues2 := datatypes.KeyValues{"1": datatypes.String("one"), "2": datatypes.Int(5), "3": datatypes.String("three")}
+		badKeyValues := datatypes.KeyValues{"1": datatypes.String("one"), "2": datatypes.Int(4)} // This tests the break on processing shrinks
 
 		badCreate := func() any {
 			return nil
@@ -719,9 +720,9 @@ func TestAssociatedTree_CreateOrFind_FailedToCreate(t *testing.T) {
 func TestAssociatedTree_CreateOrFind_SingleKeyValue(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	keyValues := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.String("one")})
+	keyValues := datatypes.KeyValues{"1": datatypes.String("one")}
 	noOpOnCreate := func() any { return "found me" }
-	noOpOnFind := func(item any) {}
+	noOpOnFind := func(item AssociatedKeyValues) {}
 
 	t.Run("it creates a value if it doesn't already exist", func(t *testing.T) {
 		associatedTree := NewThreadSafe()
@@ -742,9 +743,9 @@ func TestAssociatedTree_CreateOrFind_SingleKeyValue(t *testing.T) {
 		associatedTree := NewThreadSafe()
 
 		called := false
-		onFind := func(item any) {
+		onFind := func(item AssociatedKeyValues) {
 			called = true
-			g.Expect(item.(*AssociatedKeyValues).Value()).To(Equal("found me"))
+			g.Expect(item.Value()).To(Equal("found me"))
 		}
 
 		id1, err := associatedTree.CreateOrFind(keyValues, noOpOnCreate, noOpOnFind)
@@ -759,9 +760,9 @@ func TestAssociatedTree_CreateOrFind_SingleKeyValue(t *testing.T) {
 	t.Run("it properly saves multiple key values", func(t *testing.T) {
 		associatedTree := NewThreadSafe()
 
-		keyValues1 := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.String("one")})
-		keyValues2 := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.Int(5)})
-		keyValues3 := ConverDatatypesKeyValues(datatypes.KeyValues{"3": datatypes.String("three")})
+		keyValues1 := datatypes.KeyValues{"1": datatypes.String("one")}
+		keyValues2 := datatypes.KeyValues{"1": datatypes.Int(5)}
+		keyValues3 := datatypes.KeyValues{"3": datatypes.String("three")}
 
 		createCount := 0
 		onCreate := func() any {
@@ -803,9 +804,9 @@ func TestAssociatedTree_CreateOrFind_SingleKeyValue(t *testing.T) {
 func TestAssociatedTree_CreateOrFind_MultiKeyValue(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	keyValues := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.String("one"), "2": datatypes.Float32(3.0)})
+	keyValues := datatypes.KeyValues{"1": datatypes.String("one"), "2": datatypes.Float32(3.0)}
 	noOpOnCreate := func() any { return "find me" }
-	noOpOnFind := func(item any) {}
+	noOpOnFind := func(item AssociatedKeyValues) {}
 
 	t.Run("it creates a value if it doesn't already exist", func(t *testing.T) {
 		associatedTree := NewThreadSafe()
@@ -826,9 +827,9 @@ func TestAssociatedTree_CreateOrFind_MultiKeyValue(t *testing.T) {
 		associatedTree := NewThreadSafe()
 
 		called := false
-		onFind := func(item any) {
+		onFind := func(item AssociatedKeyValues) {
 			called = true
-			g.Expect(item.(*AssociatedKeyValues).Value()).To(Equal("find me"))
+			g.Expect(item.Value()).To(Equal("find me"))
 		}
 
 		associatedTree.CreateOrFind(keyValues, noOpOnCreate, noOpOnFind)
@@ -839,10 +840,10 @@ func TestAssociatedTree_CreateOrFind_MultiKeyValue(t *testing.T) {
 	t.Run("it properly saves multiple key values", func(t *testing.T) {
 		associatedTree := NewThreadSafe()
 
-		keyValues1 := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.String("one"), "2": datatypes.Float64(3.0)})
-		keyValues2 := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.String("one"), "2": datatypes.Float32(3.0)})
-		keyValues3 := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.String("one"), "2": datatypes.Float32(5.0)})
-		keyValues4 := ConverDatatypesKeyValues(datatypes.KeyValues{"2": datatypes.String("two"), "3": datatypes.Float32(3.0)})
+		keyValues1 := datatypes.KeyValues{"1": datatypes.String("one"), "2": datatypes.Float64(3.0)}
+		keyValues2 := datatypes.KeyValues{"1": datatypes.String("one"), "2": datatypes.Float32(3.0)}
+		keyValues3 := datatypes.KeyValues{"1": datatypes.String("one"), "2": datatypes.Float32(5.0)}
+		keyValues4 := datatypes.KeyValues{"2": datatypes.String("two"), "3": datatypes.Float32(3.0)}
 
 		createCount := 0
 		onCreate := func() any {
@@ -857,9 +858,9 @@ func TestAssociatedTree_CreateOrFind_MultiKeyValue(t *testing.T) {
 		g.Expect(createCount).To(Equal(4))
 
 		found := false
-		onFind := func(item any) {
+		onFind := func(item AssociatedKeyValues) {
 			found = true
-			g.Expect(item.(*AssociatedKeyValues).Value()).To(Equal(2))
+			g.Expect(item.Value()).To(Equal(2))
 		}
 
 		associatedTree.CreateOrFind(keyValues2, onCreate, onFind)

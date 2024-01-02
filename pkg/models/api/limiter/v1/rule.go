@@ -18,7 +18,7 @@ type Rule struct {
 	Limit int64
 
 	// Overrides for the Rule that matched the lookup parameters
-	Overrides []Override
+	Overrides Overrides
 }
 
 //	RETURNS:

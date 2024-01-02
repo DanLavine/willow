@@ -7,13 +7,13 @@ import (
 
 var (
 	// Server state errors
-	ServerShutdown = &ServerError{Message: "Server is shutting down.", StatusCode: http.StatusServiceUnavailable}
+	ServerShutdown = &ServerError{Message: "Server is shutting down", StatusCode: http.StatusServiceUnavailable}
 
 	// Storage errors
-	UnknownStorageType = &ServerError{Message: "Unkown storage type.", StatusCode: http.StatusInternalServerError}
+	UnknownStorageType = &ServerError{Message: "Unkown storage type", StatusCode: http.StatusInternalServerError}
 
 	// unexpectd errors
-	InternalServerError = &ServerError{Message: "Internal Server Error.", StatusCode: http.StatusInternalServerError}
+	InternalServerError = &ServerError{Message: "Internal Server Error", StatusCode: http.StatusInternalServerError}
 )
 
 func ServerErrorNoAPIModel() *ServerError {

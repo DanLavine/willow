@@ -28,7 +28,7 @@ func TestBTree_Create_ParameterChecks(t *testing.T) {
 
 		err = bTree.Create(Key1, nil)
 		g.Expect(err).To(HaveOccurred())
-		g.Expect(err.Error()).To(ContainSubstring("onCreate callback is nil"))
+		g.Expect(err.Error()).To(ContainSubstring("onCreate callback cannot be nil"))
 	})
 }
 
@@ -59,7 +59,7 @@ func TestBTree_Create_SingleNode(t *testing.T) {
 
 		err = bTree.Create(Key1, NewBTreeTester("2"))
 		g.Expect(err).To(HaveOccurred())
-		g.Expect(err).To(Equal(ErrorKeyExists))
+		g.Expect(err).To(Equal(ErrorKeyAlreadyExists))
 
 		g.Expect(bTree.root.numberOfValues).To(Equal(1))
 		g.Expect(bTree.root.keyValues[0].value.(*BTreeTester).Value).To(Equal("1"))
@@ -182,7 +182,7 @@ func TestBTree_Create_Tree_SimpleOperations(t *testing.T) {
 
 		err := bTree.Create(Key10, NewBTreeTester("5"))
 		g.Expect(err).To(HaveOccurred())
-		g.Expect(err).To(Equal(ErrorKeyExists))
+		g.Expect(err).To(Equal(ErrorKeyAlreadyExists))
 	})
 
 	t.Run("it returns an error if the right child tree already exists", func(t *testing.T) {
@@ -190,7 +190,7 @@ func TestBTree_Create_Tree_SimpleOperations(t *testing.T) {
 
 		err := bTree.Create(Key30, NewBTreeTester("5"))
 		g.Expect(err).To(HaveOccurred())
-		g.Expect(err).To(Equal(ErrorKeyExists))
+		g.Expect(err).To(Equal(ErrorKeyAlreadyExists))
 	})
 
 	// generate a tree of
@@ -957,7 +957,7 @@ func TestBTree_CreateOrFind_ParameterChecks(t *testing.T) {
 
 		err = bTree.CreateOrFind(Key1, nil, onFind)
 		g.Expect(err).To(HaveOccurred())
-		g.Expect(err.Error()).To(ContainSubstring("onCreate callback is nil"))
+		g.Expect(err.Error()).To(ContainSubstring("onCreate callback cannot be nil"))
 	})
 
 	t.Run("it returns an error if oniFind is nil", func(t *testing.T) {
@@ -966,7 +966,7 @@ func TestBTree_CreateOrFind_ParameterChecks(t *testing.T) {
 
 		err = bTree.CreateOrFind(Key1, onCreate, nil)
 		g.Expect(err).To(HaveOccurred())
-		g.Expect(err.Error()).To(ContainSubstring("onFind callback is nil"))
+		g.Expect(err.Error()).To(ContainSubstring("onFind callback cannot be nil"))
 	})
 }
 

@@ -74,14 +74,14 @@ func NewGeneralLocker(tree btreeassociated.BTreeAssociated) *generalLocker {
 func (generalLocker *generalLocker) LocksQuery(query *v1common.AssociatedQuery) v1locker.Locks {
 	locks := v1locker.Locks{}
 
-	onPaginate := func(associatedKeyValues *btreeassociated.AssociatedKeyValues) bool {
+	onPaginate := func(associatedKeyValues btreeassociated.AssociatedKeyValues) bool {
 		generalLock := associatedKeyValues.Value().(*generalLock)
 		generalLock.counterLock.RLock()
 		defer generalLock.counterLock.RUnlock()
 
 		locks = append(locks, &v1locker.Lock{
 			SessionID:          associatedKeyValues.AssociatedID(),
-			KeyValues:          associatedKeyValues.KeyValues().RetrieveStringDataType().StripKey(btreeassociated.ReservedID),
+			KeyValues:          associatedKeyValues.KeyValues(),
 			Timeout:            generalLock.timeout,
 			TimeTillExipre:     time.Since(generalLock.getLastHeartbeat()),
 			LocksHeldOrWaiting: generalLock.counter,
@@ -113,8 +113,8 @@ func (generalLocker *generalLocker) ObtainLock(clientCtx context.Context, create
 	}
 
 	// NOTE: it is very important that the all procces in the order that they were found
-	onFind := func(item any) {
-		generalLock := item.(*btreeassociated.AssociatedKeyValues).Value().(*generalLock)
+	onFind := func(item btreeassociated.AssociatedKeyValues) {
+		generalLock := item.Value().(*generalLock)
 		generalLock.counterLock.Lock()
 		defer generalLock.counterLock.Unlock()
 
@@ -126,7 +126,7 @@ func (generalLocker *generalLocker) ObtainLock(clientCtx context.Context, create
 	}
 
 	// lock every single possible tag combination we might be using
-	sessionID, _ = generalLocker.locks.CreateOrFind(btreeassociated.ConverDatatypesKeyValues(createLockRequest.KeyValues), onCreate, onFind)
+	sessionID, _ = generalLocker.locks.CreateOrFind(createLockRequest.KeyValues, onCreate, onFind)
 
 	switch lockChan {
 	case nil:
@@ -157,8 +157,8 @@ func (generalLocker *generalLocker) ObtainLock(clientCtx context.Context, create
 // heartbeat a particualr session key values
 func (generalLocker *generalLocker) Heartbeat(sessionID string) *errors.ServerError {
 	found := false
-	onFind := func(item any) {
-		generalLock := item.(*btreeassociated.AssociatedKeyValues).Value().(*generalLock)
+	onFind := func(item btreeassociated.AssociatedKeyValues) {
+		generalLock := item.Value().(*generalLock)
 
 		select {
 		case generalLock.hertbeat <- struct{}{}:
@@ -184,8 +184,8 @@ func (generalLocker *generalLocker) ReleaseLock(lockID string) {
 	var keyValues datatypes.KeyValues
 
 	// only need to find the 1 item
-	onQuery := func(associatedKeyValues *btreeassociated.AssociatedKeyValues) bool {
-		keyValues = associatedKeyValues.KeyValues().RetrieveStringDataType().StripKey(btreeassociated.ReservedID)
+	onQuery := func(associatedKeyValues btreeassociated.AssociatedKeyValues) bool {
+		keyValues = associatedKeyValues.KeyValues()
 		return false
 	}
 
@@ -206,8 +206,8 @@ func (generalLocker *generalLocker) ReleaseLock(lockID string) {
 func (generalLocker *generalLocker) freeLock(keyValues datatypes.KeyValues) bool {
 	removed := false
 
-	canDelete := func(item any) bool {
-		generalLock := item.(*btreeassociated.AssociatedKeyValues).Value().(*generalLock)
+	canDelete := func(item btreeassociated.AssociatedKeyValues) bool {
+		generalLock := item.Value().(*generalLock)
 
 		// don't need to grab the lock here since this is already write protected on the tree
 		generalLock.counter--
@@ -229,7 +229,7 @@ func (generalLocker *generalLocker) freeLock(keyValues datatypes.KeyValues) bool
 	}
 
 	// delete or at least signal to other waiting locks that we are freeing the currently held lock
-	_ = generalLocker.locks.Delete(btreeassociated.ConverDatatypesKeyValues(keyValues), canDelete)
+	_ = generalLocker.locks.Delete(keyValues, canDelete)
 
 	return removed
 }

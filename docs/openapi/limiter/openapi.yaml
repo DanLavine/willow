@@ -5,6 +5,16 @@ info:
   title: Limiter
   version: poc 0.0.1
 
+# Get rid of the 'query' api and have everything just be a 'match' api to browse like how the counters would use the service?
+# But then how do I list things as a user. To 'Query' the Rules, I need to check the 'GroupBy', but even then it is special
+# as I am only looking to see if a key exists. In the GroupBy case, we don't care about the values at all... I think as a
+# poc that is fine. Can kick the can down the road for what it means to actualy 'Query' the limiter service Rules/Overrides
+# in the same way one would query the Counters.
+#
+# Currently I'm thinking a 'Query' for the rules needs another use case where I am grouping arbitrary KeyValues together.
+# As it stands, its a special workflow for the Limiter service and being a 1 off. I'm going to strip all the special features
+# for this POC
+
 paths:
   /v1/limiter/rules:
     post:
@@ -54,7 +64,7 @@ paths:
         content:
           appplication/json:
             schema:
-              $ref: "#/components/schemas/RuleQuery"
+              $ref: "#/components/schemas/RuleMatch"
       responses:
         200:
           description: Successfully searched for any rules that matched the query
@@ -84,13 +94,24 @@ paths:
     get:
       operationId: get Rule
       description: |
-        Get the `Rule` by name and any `Overrides`
+        Get the `Rule` by name and possible `Overrides`
+      parameters:
+        - in: header
+          name: Content-Type
+          schema:
+            type: string
+            enum: ["application/json"]
       requestBody:
         required: true
         content:
           appplication/json:
             schema:
-              $ref: "#/components/schemas/RuleQuery"
+              type: object
+              properties:
+                MatchOverrides:
+                  $ref: "../common/components.yaml#/components/schemas/MatchKeyValues"
+                QueryOverrides:
+                  $ref: "../common/components.yaml#/components/schemas/AssociatedKeyValuesQuery"
       responses:
         200:
           description: |
@@ -228,28 +249,31 @@ paths:
                   ApiError:
                     $ref: "../common/components.yaml#/components/schemas/ApiError"
     get:
-      operationId: list Rule Overrides
       description: |
-        List any `Overrides` that match the provided `KeyValues`
+        List any Override that match the particular `KeyValues`
+      operationId: match Overrides
       requestBody:
         required: true
         content:
           appplication/json:
             schema:
-              $ref: "../common/components.yaml#/components/schemas/AssociatedKeyValuesQuery"
+              $ref: "../common/components.yaml#/components/schemas/MatchKeyValues"
       responses:
         200:
-          description: A collection of `Overrides`
+          description: Successfully searched for any rules that matched the query
           content:
             appplication/json:
               schema:
-                $ref: "#/components/schemas/RuleOverrides"
+                $ref: "#/components/schemas/ListRulesResponse"
         400:
-          description: Error parsing or validating the request body
+          description: Error parsing or validating the request
           content:
             appplication/json:
               schema:
-                $ref: "../common/components.yaml#/components/schemas/ApiError"
+                type: object
+                properties:
+                  ApiError:
+                    $ref: "../common/components.yaml#/components/schemas/ApiError"
         500:
           description: Internal error that should be addressed by the service maintainer
           content:
@@ -261,7 +285,7 @@ paths:
                     $ref: "../common/components.yaml#/components/schemas/ApiError"
   /v1/limiter/rules/:rule_name/overrides/:override_name:
     get:
-      operationId: get Rule Override
+      operationId: get Override
       responses:
         200:
           description: Successfully found the desired `Override` for a `Rule`
@@ -278,6 +302,56 @@ paths:
                 properties:
                   ApiError:
                     $ref: "../common/components.yaml#/components/schemas/ApiError"
+        422:
+          description: The `Rule` or `Override` could not be found
+          content:
+            appplication/json:
+              schema:
+                type: object
+                properties:
+                  ApiError:
+                    $ref: "../common/components.yaml#/components/schemas/ApiError"
+        500:
+          description: Internal error that should be addressed by the service maintainer
+          content:
+            appplication/json:
+              schema:
+                type: object
+                properties:
+                  ApiError:
+                    $ref: "../common/components.yaml#/components/schemas/ApiError"
+    put:
+      operationId: update Override
+      description: |
+        update a specific `Override`.
+      requestBody:
+        required: true
+        content:
+          appplication/json:
+            schema:
+              $ref: "#/components/schemas/UpdateOverrideRequest"
+      responses:
+        200:
+          description: Successfully updated the `Override`
+        400:
+          description: Error parsing or validating the request body
+          content:
+            appplication/json:
+              schema:
+                type: object
+                properties:
+                  ApiError:
+                    $ref: "../common/components.yaml#/components/schemas/ApiError"
+        409:
+          description: "`Override` Name or KeyValues are already taken"
+          content:
+            appplication/json:
+              schema:
+                type: object
+                properties:
+                  ApiError:
+                    $ref: "../common/components.yaml#/components/schemas/ApiError"
+
         422:
           description: The `Rule` or `Override` could not be found
           content:
@@ -451,24 +525,26 @@ paths:
 components:
   schemas:
     # List rules that match the provided key values
-    RuleQuery:
+    RuleMatch:
       type: object
       properties:
-        KeyValues:
-          description: "KeyValues to match rules against"
-          $ref: "../common/components.yaml#/components/schemas/KeyValues"
-        OverridesToInclude:
+        allOf:
+          $ref: "../common/components.yaml#/components/schemas/MatchKeyValues"
+        OverridesToMatch:
           description: |
-            "Include overrides for the found rule.
+            Include overrides for the found rule.
             - "" - don't include any overrides
             - "all" - includes all overrides for the `Rule``
             - "match" - includes all overrides that also match the provided `KeyValues`
           type: string
-          default: ""
           enum:
             - ""
             - "all"
             - "match"
+        OverridesToQuery:
+          description: |
+            Overrides to query for on any Rules
+          $ref: "../common/components.yaml#/components/schemas/AssociatedKeyValuesQuery"
 
     # create a new rule request
     RuleRequest:
@@ -493,7 +569,7 @@ components:
           type: integer
           format: int64
 
-    # Uppdate rule request
+    # Uppdate requests
     UpdateRuleRequest:
       type: object
       required:
@@ -504,6 +580,17 @@ components:
           format: int64
           description: |
             default limit that all `Rules` match `Counters.KeyValues` against. If this is set to -1, then the value is treated a 'unlimited'
+
+    UpdateOverrideRequest:
+      type: object
+      required:
+        - Limit
+      properties:
+        Limit:
+          type: integer
+          format: int64
+          description: |
+            default limit that all `Oveerrides` match `Counters.KeyValues` against. If this is set to -1, then the value is treated a 'unlimited'
 
     # Find rule response
     RuleResponse:

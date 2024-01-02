@@ -12,6 +12,9 @@ var (
 	// 1 for the comparions (i.e. <)
 	// 1 for the type assertion (I.E string)
 	// But that seems like unecessary work and slower
+	exists    Comparison = "exists"     // special case for T_any
+	notExists Comparison = "NOT exists" // special case for T_any
+
 	equals                      Comparison = "="
 	notEquals                   Comparison = "!="
 	lessThan                    Comparison = "<"
@@ -48,7 +51,7 @@ func GreaterThanMatchTypePtr() *Comparison        { return &greaterThanMatchType
 func GreaterThanOrEqualPtr() *Comparison          { return &greaterThanOrEqual }
 func GreaterThanOrEqualMatchTypePtr() *Comparison { return &greaterThanOrEqualMatchType }
 
-// DSL TODO: Do these have to be pointers? Doing the convertion between api request -> query can be confusing at times.
+// Value to check for with the data types
 type Value struct {
 	// check to see if a key exists
 	Exists *bool
@@ -56,6 +59,7 @@ type Value struct {
 	ExistsType *DataType
 
 	// specific value for a particular key
+	// If this is the 'T_any' data type, the only thing that makes sense is exists, or not exists
 	Value *EncapsulatedValue
 	// what type of comparison to run on a particualr value [=, !=, <, < MATCH, <=, <= MATCH, >, > MATCH, >=, >= MATCH]
 	ValueComparison *Comparison
@@ -78,10 +82,10 @@ func (v *Value) validate() error {
 
 		if v.ExistsType != nil {
 			switch *v.ExistsType {
-			case 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14:
+			case 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12:
 				// these are all valid
 			default:
-				return fmt.Errorf(": Unexpected ExistsType. Must be an int from 1-14 inclusive")
+				return fmt.Errorf(": Unexpected ExistsType. Must be an int from 1-12 inclusive")
 			}
 		}
 	}

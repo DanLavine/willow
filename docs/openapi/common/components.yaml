@@ -51,6 +51,24 @@ components:
         x-additionalPropertiesName: KeyValues
         $ref: "#/components/schemas/EncapsulatedValue"
 
+    # Match KeyValues
+    MatchKeyValues:
+      type: object
+      description: |
+        General match that is used for many list apis that need to match against
+        possible permutations of the KeyValues
+      required:
+        - MatchOptions
+      properties:
+        MatchOptions:
+          description: |
+            - "" - none no items
+            - "all" - include all items
+            - "match" - includes any items that match the `KeyValues`
+          type: string
+          enum: ["", "all", "match"]
+        KeyValues:
+          $ref: "#/components/schemas/KeyValues"
     # General query thats used all over the place
     AssociatedKeyValuesQuery:
       type: object
@@ -67,12 +85,10 @@ components:
             OR:
               type: array
               items:
-                type: object
                 $ref: "#/components/schemas/AssociatedKeyValuesQuery"
             AND:
               type: array
               items:
-                type: object
                 $ref: "#/components/schemas/AssociatedKeyValuesQuery"
 
     # Map of KeyValues

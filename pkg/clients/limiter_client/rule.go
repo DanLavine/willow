@@ -46,46 +46,6 @@ func (lc *LimitClient) CreateRule(rule *v1limiter.RuleCreateRequest) error {
 }
 
 //	PARAMETERS:
-//	- matchQuery - query that can be used to match KeyValues to Rules
-//
-//	RETURNS:
-//	- error - unexpected errors when querying Rule or Overrides
-//
-// MatchRules is used to find any Rules and optional Overrides for the matchQuery
-func (lc *LimitClient) MatchRules(matchQuery *v1limiter.RuleQuery) (v1limiter.Rules, error) {
-	// setup and make the request
-	resp, err := lc.client.Do(&clients.RequestData{
-		Method: "GET",
-		Path:   fmt.Sprintf("%s/v1/limiter/rules", lc.url),
-		Model:  matchQuery,
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	// parse the response
-	switch resp.StatusCode {
-	case http.StatusOK:
-		rules := v1limiter.Rules{}
-		if err := api.DecodeAndValidateHttpResponse(resp, &rules); err != nil {
-			return nil, err
-		}
-
-		return rules, nil
-	case http.StatusBadRequest, http.StatusUnprocessableEntity:
-		apiError := &errors.Error{}
-		if err := api.DecodeAndValidateHttpResponse(resp, apiError); err != nil {
-			return nil, err
-		}
-
-		return nil, apiError
-	default:
-		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
-	}
-}
-
-//	PARAMETERS:
 //	- ruleName - name of the Rule to get
 //	- query - overrides to include for the found rule
 //
@@ -93,7 +53,7 @@ func (lc *LimitClient) MatchRules(matchQuery *v1limiter.RuleQuery) (v1limiter.Ru
 //	- error - error findinig the Rule or Overrides
 //
 // GetRule is used to find a specific Rule and any optional Overrides that match the query
-func (lc *LimitClient) GetRule(ruleName string, query *v1limiter.RuleQuery) (*v1limiter.Rule, error) {
+func (lc *LimitClient) GetRule(ruleName string, query *v1limiter.RuleGet) (*v1limiter.Rule, error) {
 	// setup and make the request
 	resp, err := lc.client.Do(&clients.RequestData{
 		Method: "GET",
@@ -114,6 +74,46 @@ func (lc *LimitClient) GetRule(ruleName string, query *v1limiter.RuleQuery) (*v1
 		}
 
 		return rule, nil
+	case http.StatusBadRequest, http.StatusUnprocessableEntity:
+		apiError := &errors.Error{}
+		if err := api.DecodeAndValidateHttpResponse(resp, apiError); err != nil {
+			return nil, err
+		}
+
+		return nil, apiError
+	default:
+		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+}
+
+//	PARAMETERS:
+//	- matchQuery - query that can be used to match KeyValues to Rules
+//
+//	RETURNS:
+//	- error - unexpected errors when querying Rule or Overrides
+//
+// MatchRules is used to find any Rules and optional Overrides for the matchQuery
+func (lc *LimitClient) MatchRules(matchQuery *v1limiter.RuleMatch) (v1limiter.Rules, error) {
+	// setup and make the request
+	resp, err := lc.client.Do(&clients.RequestData{
+		Method: "GET",
+		Path:   fmt.Sprintf("%s/v1/limiter/rules", lc.url),
+		Model:  matchQuery,
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	// parse the response
+	switch resp.StatusCode {
+	case http.StatusOK:
+		rules := v1limiter.Rules{}
+		if err := api.DecodeAndValidateHttpResponse(resp, &rules); err != nil {
+			return nil, err
+		}
+
+		return rules, nil
 	case http.StatusBadRequest, http.StatusUnprocessableEntity:
 		apiError := &errors.Error{}
 		if err := api.DecodeAndValidateHttpResponse(resp, apiError); err != nil {

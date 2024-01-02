@@ -34,7 +34,7 @@ func validateThreadSafeTree(g *GomegaWithT, bNode *threadSafeBNode) {
 	}
 }
 
-func validateThreadSafeNode(g *GomegaWithT, bNode *threadSafeBNode, parentKey datatypes.EncapsulatedData, less bool) {
+func validateThreadSafeNode(g *GomegaWithT, bNode *threadSafeBNode, parentKey datatypes.EncapsulatedValue, less bool) {
 	if bNode == nil {
 		return
 	}

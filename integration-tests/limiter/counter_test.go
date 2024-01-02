@@ -4,17 +4,17 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/DanLavine/willow/pkg/models/datatypes"
+
 	limiterclient "github.com/DanLavine/willow/pkg/clients/limiter_client"
 	v1common "github.com/DanLavine/willow/pkg/models/api/common/v1"
 	v1 "github.com/DanLavine/willow/pkg/models/api/limiter/v1"
-
-	"github.com/DanLavine/willow/pkg/models/datatypes"
 
 	. "github.com/DanLavine/willow/integration-tests/integrationhelpers"
 	. "github.com/onsi/gomega"
 )
 
-func Test_Limiter_Update(t *testing.T) {
+func Test_Limiter_Counters_Update(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	lockerTestConstruct := NewIntrgrationLockerTestConstruct(g)
@@ -36,7 +36,6 @@ func Test_Limiter_Update(t *testing.T) {
 	}
 
 	t.Run("Incrementing counters", func(t *testing.T) {
-
 		t.Run("It can increment a counter untill a rule limit is reached", func(t *testing.T) {
 			lockerTestConstruct.StartLocker(g)
 			defer lockerTestConstruct.Shutdown(g)
@@ -158,7 +157,7 @@ func Test_Limiter_Update(t *testing.T) {
 	})
 }
 
-func Test_Limiter_CountersList(t *testing.T) {
+func Test_Limiter_Counters_Query(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	lockerTestConstruct := NewIntrgrationLockerTestConstruct(g)
@@ -238,14 +237,14 @@ func Test_Limiter_CountersList(t *testing.T) {
 			Counters:  2,
 		}
 
-		counters, err := limiterClient.ListCounters(query)
+		counters, err := limiterClient.QueryCounters(query)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(len(counters)).To(Equal(2))
 		g.Expect(counters).To(ContainElements(counterResp1, countersResp2))
 	})
 }
 
-func Test_Limiter_SetCounters(t *testing.T) {
+func Test_Limiter_Counters_Set(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	lockerTestConstruct := NewIntrgrationLockerTestConstruct(g)
@@ -301,7 +300,7 @@ func Test_Limiter_SetCounters(t *testing.T) {
 			Counters:  32,
 		}
 
-		counters, err := limiterClient.ListCounters(query)
+		counters, err := limiterClient.QueryCounters(query)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(len(counters)).To(Equal(1))
 		g.Expect(counters).To(ContainElements(countersResp1))

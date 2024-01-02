@@ -138,13 +138,21 @@ func TestBTree_Delete_CanDeleteChecks(t *testing.T) {
 	})
 
 	t.Run("always deletes the item if canDelete returns true", func(t *testing.T) {
-		canDelete := func(item any) bool {
-			return true
-		}
 
 		t.Run("on leaf keys", func(t *testing.T) {
 			bTree := setupTree(g)
+
+			var foundKey datatypes.EncapsulatedValue
+			var foundItem *BTreeTester
+			canDelete := func(key datatypes.EncapsulatedValue, item any) bool {
+				foundKey = key
+				foundItem = item.(*BTreeTester)
+				return true
+			}
+
 			bTree.Delete(Key0, canDelete)
+			g.Expect(foundKey).To(Equal(datatypes.Int(0)))
+			g.Expect(foundItem.Value).To(Equal("0"))
 
 			found := false
 			onFind := func(item any) {
@@ -157,21 +165,33 @@ func TestBTree_Delete_CanDeleteChecks(t *testing.T) {
 
 		t.Run("on internal node keys", func(t *testing.T) {
 			bTree := setupTree(g)
-			key := bTree.root.keyValues[0].key
-			bTree.Delete(key, canDelete)
+			keyToDelete := bTree.root.keyValues[0].key
+			valueToDelete := bTree.root.keyValues[0].value
+
+			var foundKey datatypes.EncapsulatedValue
+			var foundItem any
+			canDelete := func(key datatypes.EncapsulatedValue, item any) bool {
+				foundKey = key
+				foundItem = item
+				return true
+			}
+
+			bTree.Delete(keyToDelete, canDelete)
+			g.Expect(foundKey).To(Equal(keyToDelete))
+			g.Expect(foundItem).To(Equal(valueToDelete))
 
 			found := false
 			onFind := func(item any) {
 				found = true
 			}
 
-			bTree.Find(key, onFind)
+			bTree.Find(keyToDelete, onFind)
 			g.Expect(found).To(BeFalse())
 		})
 	})
 
 	t.Run("does not deletes the item if canDelete returns false", func(t *testing.T) {
-		canDelete := func(item any) bool {
+		canDelete := func(_ datatypes.EncapsulatedValue, item any) bool {
 			return false
 		}
 

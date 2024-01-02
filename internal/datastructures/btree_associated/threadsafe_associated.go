@@ -9,6 +9,12 @@ import (
 )
 
 type threadsafeAssociatedTree struct {
+	// these keep track to know if a tree is being deleted entierly.
+	// the DeleteAll(...) operation waits until no other requests are running
+	// before processing a delete
+	readWriteWG *sync.WaitGroup
+	destroying  *atomic.Bool
+
 	// associated ids
 	// each value here is an *AssociatedKeyValues
 	associatedIDs btree.BTree
@@ -50,6 +56,8 @@ func NewThreadSafe() *threadsafeAssociatedTree {
 	}
 
 	return &threadsafeAssociatedTree{
+		readWriteWG:   new(sync.WaitGroup),
+		destroying:    new(atomic.Bool),
 		associatedIDs: associatedIDs,
 		idGenerator:   idgenerator.UUID(),
 		keys:          keys,

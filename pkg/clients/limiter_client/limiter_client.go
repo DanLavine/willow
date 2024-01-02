@@ -9,32 +9,34 @@ import (
 // All Client operations for interacting with the Limiter Service
 type LimiterClient interface {
 	// Rule operations
-
-	// Get a spcific rule by name and query the possible overrides
-	GetRule(ruleName string, query *v1limiter.RuleQuery) (*v1limiter.Rule, error)
-	// MAtch Rules and possible Overrides for a specific KeyValues group
-	MatchRules(query *v1limiter.RuleQuery) (v1limiter.Rules, error)
 	// Create a new Rule
 	CreateRule(rule *v1limiter.RuleCreateRequest) error
+	// Get a spcific rule by name and query the possible overrides
+	GetRule(ruleName string, query *v1limiter.RuleGet) (*v1limiter.Rule, error)
+	// MAtch Rules and possible Overrides for a specific KeyValues group
+	MatchRules(query *v1limiter.RuleMatch) (v1limiter.Rules, error)
 	// Update a Rule by name
 	UpdateRule(ruleName string, ruleUpdate *v1limiter.RuleUpdateRquest) error
 	// Delete a Rule by name
 	DeleteRule(ruleName string) error
 
 	// Override operations
-	// Query Overrides
-	QueryOverrides(ruleName string, query *v1common.AssociatedQuery) (v1limiter.Overrides, error)
-	// Create an Override for a particualr Rule
+	// Create an Override for a particular Rule
 	CreateOverride(ruleName string, override *v1limiter.Override) error
+	// Get an Override for a particular Rule
+	GetOverride(ruleName string, overrideName string) (*v1limiter.Override, error)
+	// Match Overrides
+	MatchOverrides(ruleName string, query *v1common.MatchQuery) (v1limiter.Overrides, error)
+	// Update a particular Override
+	UpdateOverride(ruleName string, overrideName string, overrideUpdate *v1limiter.OverrideUpdate) error
 	// Delete an Override for a particual Rule
 	DeleteOverride(ruleName string, overrideName string) error
 
 	// Counter operations
-
-	// Query Counters
-	ListCounters(query *v1common.AssociatedQuery) (v1limiter.Counters, error)
 	// Increment Or Decrement a particual Counter
 	UpdateCounter(counter *v1limiter.Counter) error
+	// Query Counters
+	QueryCounters(query *v1common.AssociatedQuery) (v1limiter.Counters, error)
 	// Forcefully set the Counter without enforcing any rules
 	SetCounters(counters *v1limiter.Counter) error
 }

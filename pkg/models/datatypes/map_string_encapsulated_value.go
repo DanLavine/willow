@@ -7,6 +7,14 @@ import (
 	"strconv"
 )
 
+type KeyValuesErr struct {
+	err error
+}
+
+func (kve *KeyValuesErr) Error() string {
+	return kve.err.Error()
+}
+
 type KeyValues map[string]EncapsulatedValue
 
 func (kv KeyValues) Keys() []string {
@@ -19,7 +27,7 @@ func (kv KeyValues) Keys() []string {
 	return keys
 }
 
-func (kv KeyValues) SoretedKeys() []string {
+func (kv KeyValues) SortedKeys() []string {
 	keys := []string{}
 
 	for key := range kv {
@@ -115,16 +123,6 @@ func (kv KeyValues) MarshalJSON() ([]byte, error) {
 			}
 		case T_string:
 			mapKeyValues[key] = value
-		// still no good way to decode this. the caller would need to pass a "decode" function for custom types
-		//case T_custom:
-		//	customEncoding := value.Value().(CustomType).Encode()
-		//	dst := make([]byte, base64.StdEncoding.EncodedLen(len(customEncoding)))
-		//
-		//	base64.StdEncoding.Encode(dst, customEncoding)
-		//	mapKeyValues[key] = EncapsulatedValue{
-		//		Type: T_custom,
-		//		Data: string(dst),
-		//	}
 		default:
 			return nil, fmt.Errorf("unknown data type: %d", value.DataType())
 		}
@@ -233,9 +231,13 @@ func (kv *KeyValues) UnmarshalJSON(b []byte) error {
 }
 
 func (kv KeyValues) Validate() error {
+	if len(kv) == 0 {
+		return &KeyValuesErr{err: fmt.Errorf("keyValues cannot be empty")}
+	}
+
 	for key, value := range kv {
 		if err := value.Validate(); err != nil {
-			return fmt.Errorf("key %s error: %w", key, err)
+			return &KeyValuesErr{err: fmt.Errorf("key '%s' error: %w", key, err)}
 		}
 	}
 
@@ -256,8 +258,8 @@ func (kv KeyValues) GenerateTagPairs() []KeyValues {
 		}
 
 		if len(groupPairs[i]) == len(groupPairs[j]) {
-			sortedKeysI := groupPairs[i].SoretedKeys()
-			sortedKeysJ := groupPairs[j].SoretedKeys()
+			sortedKeysI := groupPairs[i].SortedKeys()
+			sortedKeysJ := groupPairs[j].SortedKeys()
 
 			for index, value := range sortedKeysI {
 				if value < sortedKeysJ[index] {

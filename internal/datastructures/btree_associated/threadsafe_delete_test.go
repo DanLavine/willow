@@ -11,24 +11,31 @@ import (
 func TestAssociatedTree_Delete_ParamCheck(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	t.Run("it returns an error if the keyValuePairs is empty", func(t *testing.T) {
+	t.Run("it returns an error if the keyValues is empty", func(t *testing.T) {
 		associatedTree := NewThreadSafe()
 
 		err := associatedTree.Delete(nil, nil)
 		g.Expect(err).To(HaveOccurred())
-		g.Expect(err.Error()).To(ContainSubstring("keyValuePairs cannot be empty"))
+		g.Expect(err.Error()).To(ContainSubstring("keyValues cannot be empty"))
+	})
+
+	t.Run("it returns an error if the keyValues has _associated_id", func(t *testing.T) {
+		associatedTree := NewThreadSafe()
+
+		err := associatedTree.Delete(datatypes.KeyValues{ReservedID: datatypes.Int(1)}, nil)
+		g.Expect(err).To(Equal(ErrorKeyValuesHasAssociatedID))
 	})
 }
 
 func TestAssociatedTree_Delete(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	keys := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.Int(1)})
+	keys := datatypes.KeyValues{"1": datatypes.Int(1)}
 	noOpOnCreate := func() any { return "find me" }
-	noOpOnFind := func(item any) {}
+	noOpOnFind := func(item AssociatedKeyValues) {}
 
-	onDeleteTrue := func(item any) bool { return true }
-	onDeleteFalse := func(item any) bool { return false }
+	onDeleteTrue := func(item AssociatedKeyValues) bool { return true }
+	onDeleteFalse := func(item AssociatedKeyValues) bool { return false }
 
 	t.Run("It deletes the key value pair if the onDelete callback is nil", func(t *testing.T) {
 		associatedTree := NewThreadSafe()
@@ -58,8 +65,8 @@ func TestAssociatedTree_Delete(t *testing.T) {
 		t.Run("It truncates the ID Node to the smallest size", func(t *testing.T) {
 			associatedTree := NewThreadSafe()
 
-			keys1 := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.Int(1)})
-			keys2 := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.Int(1), "2": datatypes.String("2")})
+			keys1 := datatypes.KeyValues{"1": datatypes.Int(1)}
+			keys2 := datatypes.KeyValues{"1": datatypes.Int(1), "2": datatypes.String("2")}
 
 			_, _ = associatedTree.CreateOrFind(keys1, noOpOnCreate, noOpOnFind)
 			_, _ = associatedTree.CreateOrFind(keys2, noOpOnCreate, noOpOnFind)
@@ -105,12 +112,12 @@ func TestAssociatedTree_Delete(t *testing.T) {
 func TestAssociatedTree_DeleteByAssociatedID(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	keys := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.Int(1)})
+	keys := datatypes.KeyValues{"1": datatypes.Int(1)}
 	noOpOnCreate := func() any { return "find me" }
-	noOpOnFind := func(item any) {}
+	noOpOnFind := func(item AssociatedKeyValues) {}
 
-	onDeleteTrue := func(item any) bool { return true }
-	onDeleteFalse := func(item any) bool { return false }
+	onDeleteTrue := func(item AssociatedKeyValues) bool { return true }
+	onDeleteFalse := func(item AssociatedKeyValues) bool { return false }
 
 	t.Run("It deletes the key value pair if the onDelete callback is nil", func(t *testing.T) {
 		associatedTree := NewThreadSafe()
@@ -137,7 +144,7 @@ func TestAssociatedTree_DeleteByAssociatedID(t *testing.T) {
 
 		// ensure find stille works
 		found := false
-		onFind := func(item any) {
+		onFind := func(item AssociatedKeyValues) {
 			found = true
 		}
 		g.Expect(associatedTree.FindByAssociatedID(id, onFind)).ToNot(HaveOccurred())
@@ -148,8 +155,8 @@ func TestAssociatedTree_DeleteByAssociatedID(t *testing.T) {
 		t.Run("It truncates the ID Node to the smallest size", func(t *testing.T) {
 			associatedTree := NewThreadSafe()
 
-			keys1 := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.Int(1)})
-			keys2 := ConverDatatypesKeyValues(datatypes.KeyValues{"1": datatypes.Int(1), "2": datatypes.String("2")})
+			keys1 := datatypes.KeyValues{"1": datatypes.Int(1)}
+			keys2 := datatypes.KeyValues{"1": datatypes.Int(1), "2": datatypes.String("2")}
 
 			_, _ = associatedTree.CreateOrFind(keys1, noOpOnCreate, noOpOnFind)
 			id2, _ := associatedTree.CreateOrFind(keys2, noOpOnCreate, noOpOnFind)

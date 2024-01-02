@@ -4,17 +4,28 @@ import (
 	"fmt"
 	"math"
 	"sync"
+	"sync/atomic"
 
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 )
 
 // threadSafeBTree is a shareable thread safe BTree object.
 type threadSafeBTree struct {
-	// lock for managing the root of the btree
-	lock *sync.RWMutex
-
 	// number of items that can be in a node at any given time
 	nodeSize int
+
+	// destroying specific key operations
+	// TODO: These need to be checked for the Create/Find/Delete operations and reeturn an error
+	destroyingKeysLock *sync.RWMutex
+	destroyingKeys     []datatypes.EncapsulatedValue
+
+	// destroying whole tree operations
+	// TODO: these are next to implement and ensure
+	readWriteWG *sync.WaitGroup // operations to take place before destroy
+	destroying  *atomic.Bool    // destroying the whole tree
+
+	// lock for managing the root of the btree
+	lock *sync.RWMutex
 
 	// this can be nil (on delete) or created as part of create and points to the constantly updating root value
 	root *threadSafeBNode
@@ -34,7 +45,7 @@ type threadSafeBNode struct {
 // keyValue is the information stored in the threadSafeBTree provided by the end user
 type keyValue struct {
 	// lookup key for the provided key
-	key datatypes.EncapsulatedData
+	key datatypes.EncapsulatedValue
 
 	// value client saves and performs operations on in the tree
 	value any
@@ -58,9 +69,16 @@ func NewThreadSafe(nodeSize int) (*threadSafeBTree, error) {
 	}
 
 	return &threadSafeBTree{
-		lock:     new(sync.RWMutex),
 		nodeSize: nodeSize,
-		root:     nil, // NOTE: this is nil because it can be removed on a "delete". So that case always needs to be handled
+
+		destroyingKeysLock: new(sync.RWMutex),
+		destroyingKeys:     []datatypes.EncapsulatedValue{},
+
+		readWriteWG: new(sync.WaitGroup),
+		destroying:  new(atomic.Bool),
+
+		lock: new(sync.RWMutex),
+		root: nil, // NOTE: this is nil because it can be removed on a "delete". So that case always needs to be handled
 	}, nil
 }
 
@@ -76,6 +94,31 @@ func (bt *threadSafeBTree) Empty() bool {
 }
 
 // general helper functions
+
+func (btree *threadSafeBTree) checkDestroying() error {
+	if btree.destroying.Load() {
+		return ErrorTreeDestroying
+	}
+
+	return nil
+}
+
+func (btree *threadSafeBTree) checkDestroyingWithKey(key datatypes.EncapsulatedValue) error {
+	if err := btree.checkDestroying(); err != nil {
+		return err
+	}
+
+	btree.destroyingKeysLock.RLock()
+	defer btree.destroyingKeysLock.RUnlock()
+
+	for _, value := range btree.destroyingKeys {
+		if value == key {
+			return ErrorKeyDestroying
+		}
+	}
+
+	return nil
+}
 
 // newBTreeNode creates a new threadSfeBNode (child) object for a btree
 func newBTreeNode(nodeSize int) *threadSafeBNode {

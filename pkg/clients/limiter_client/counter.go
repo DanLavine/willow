@@ -58,7 +58,7 @@ func (lc *LimitClient) UpdateCounter(counter *v1limiter.Counter) error {
 //	- error - Error if there was an unexpcted or encoding issue
 //
 // LisCounters can be used to query any Counters
-func (lc *LimitClient) ListCounters(query *v1common.AssociatedQuery) (v1limiter.Counters, error) {
+func (lc *LimitClient) QueryCounters(query *v1common.AssociatedQuery) (v1limiter.Counters, error) {
 	// setup and make the request
 	resp, err := lc.client.Do(&clients.RequestData{
 		Method: "GET",

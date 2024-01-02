@@ -70,7 +70,7 @@ func TestGeneralLocker_ObtainLocks(t *testing.T) {
 		g.Expect(lockResp.Timeout).To(Equal(15 * time.Second)) // default values
 
 		counter := 0
-		lockCounter := func(_ *btreeassociated.AssociatedKeyValues) bool {
+		lockCounter := func(_ btreeassociated.AssociatedKeyValues) bool {
 			counter++
 			return true
 		}
@@ -101,7 +101,7 @@ func TestGeneralLocker_ObtainLocks(t *testing.T) {
 				g.Expect(lockResp).ToNot(BeNil())
 
 				counter := 0
-				lockCounter := func(_ *btreeassociated.AssociatedKeyValues) bool {
+				lockCounter := func(_ btreeassociated.AssociatedKeyValues) bool {
 					counter++
 					return true
 				}
@@ -133,7 +133,7 @@ func TestGeneralLocker_ObtainLocks(t *testing.T) {
 				g.Expect(lockResp).ToNot(BeNil())
 
 				counter := 0
-				lockCounter := func(_ *btreeassociated.AssociatedKeyValues) bool {
+				lockCounter := func(_ btreeassociated.AssociatedKeyValues) bool {
 					counter++
 					return true
 				}

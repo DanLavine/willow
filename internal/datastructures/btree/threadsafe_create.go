@@ -4,11 +4,8 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/DanLavine/willow/internal/datastructures"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 )
-
-var ErrorKeyExists = fmt.Errorf("key already exists")
 
 // Inserts the keyValue into the tree if the key does not already exist. If the Key does exist
 // then an error will be returned and 'onCreate()' will not be called
@@ -17,14 +14,28 @@ var ErrorKeyExists = fmt.Errorf("key already exists")
 // - key - key to use when comparing to other possible values
 // - onCreate - callback function to create the value if it does not exist. If the create callback was to fail, its up to the callback to perform any cleanup operations and return nil. In this case nothing will be saved to the tree
 //
-// RETURNS:
-// - error - any errors encontered. I.E. key is not valid
-func (btree *threadSafeBTree) Create(key datatypes.EncapsulatedData, onCreate datastructures.OnCreate) error {
+//	RETURNS:
+//	- error - any errors encontered. I.E. key is not valid
+//	          1. datatypes.EncapsulatedValueErr // error with the key
+//	          2. ErrorOnCreateNil
+//	          3. ErrorKeyAlreadyExists
+//	          4. ErrorKeyDestroying
+//	          5. ErrorTreeDestroying
+func (btree *threadSafeBTree) Create(key datatypes.EncapsulatedValue, onCreate BTreeOnCreate) error {
+	// parameter checks
 	if err := key.Validate(); err != nil {
 		return fmt.Errorf("key is invalid: %w", err)
 	}
 	if onCreate == nil {
-		return fmt.Errorf("onCreate callback is nil, but a keyValue is required")
+		return ErrorOnCreateNil
+	}
+
+	// destroy checks
+	btree.readWriteWG.Add(1)
+	defer btree.readWriteWG.Add(-1)
+
+	if err := btree.checkDestroyingWithKey(key); err != nil {
+		return err
 	}
 
 	// lock the current node. But as we progress down the tree, if we know that we can insert a new value at a specific level, we can unlock
@@ -70,7 +81,7 @@ func (btree *threadSafeBTree) Create(key datatypes.EncapsulatedData, onCreate da
 // RETURNS:
 // * TreeItem - the keyValue inserted or value if it already existed
 // * *threadSafeBNode - a new node if there was a split
-func (bn *threadSafeBNode) create(releaseParentLock func(), key datatypes.EncapsulatedData, onCreate datastructures.OnCreate) (*threadSafeBNode, error) {
+func (bn *threadSafeBNode) create(releaseParentLock func(), key datatypes.EncapsulatedValue, onCreate BTreeOnCreate) (*threadSafeBNode, error) {
 	// always release the current lock on return
 	once := new(sync.Once)
 	unlock := func() { once.Do(func() { bn.lock.Unlock() }) }
@@ -108,7 +119,7 @@ func (bn *threadSafeBNode) create(releaseParentLock func(), key datatypes.Encaps
 			if !keyValue.key.Less(key) {
 				// value already exists, return an error
 				if !key.Less(keyValue.key) {
-					return nil, ErrorKeyExists
+					return nil, ErrorKeyAlreadyExists
 				}
 
 				// found child index
@@ -141,22 +152,37 @@ func (bn *threadSafeBNode) create(releaseParentLock func(), key datatypes.Encaps
 // If the key already exists:
 // the key's associated keyValue will be passed to the 'onFind' callback.
 //
-// PARAMS:
-// - key - key to use when comparing to other possible values
-// - onCreate - callback function to create the value if it does not exist. If the create callback was to fail, its up to the callback to perform any cleanup operations and return nil. In this case nothing will be saved to the tree
-// - onFind - method to call if the key already exists
+//	PARAMS:
+//	- key - key to use when comparing to other possible values
+//	- onCreate - callback function to create the value if it does not exist. If the create callback was to fail, its up to the callback to perform any cleanup operations and return nil. In this case nothing will be saved to the tree
+//	- onFind - method to call if the key already exists
 //
-// RETURNS:
-// - error - any errors encontered. I.E. key is not valid
-func (btree *threadSafeBTree) CreateOrFind(key datatypes.EncapsulatedData, onCreate datastructures.OnCreate, onFind datastructures.OnFind) error {
+//	RETURNS:
+//	- error - any errors encontered. I.E. key is not valid
+//	          1. datatypes.EncapsulatedValueErr // error with the key
+//	          2. ErrorOnCreateNil
+//	          3. ErrorOnCreateNil
+//	          4. ErrorKeyAlreadyExists
+//	          5. ErrorKeyDestroying
+//	          6. ErrorTreeDestroying
+func (btree *threadSafeBTree) CreateOrFind(key datatypes.EncapsulatedValue, onCreate BTreeOnCreate, onFind BTreeOnFind) error {
+	// parameter checks
 	if err := key.Validate(); err != nil {
 		return fmt.Errorf("key is invalid: %w", err)
 	}
 	if onCreate == nil {
-		return fmt.Errorf("onCreate callback is nil, but a keyValue is required")
+		return ErrorOnCreateNil
 	}
 	if onFind == nil {
-		return fmt.Errorf("onFind callback is nil, but a keyValue is required")
+		return ErrorOnFindNil
+	}
+
+	// destroy checks
+	btree.readWriteWG.Add(1)
+	defer btree.readWriteWG.Add(-1)
+
+	if err := btree.checkDestroyingWithKey(key); err != nil {
+		return err
 	}
 
 	// always attempt a full read find for an value first. This way multiple
@@ -194,24 +220,16 @@ func (btree *threadSafeBTree) CreateOrFind(key datatypes.EncapsulatedData, onCre
 // Create a new value or Find an existing value in the BTree.
 // The threading unlock strategy follows a number of rules when determining if it can unlock a Node
 // or the parent Node(s) for parallel requests:
-// TODO: DSL make sure this is still valid after delete
-//  1. Lock the Node with an exclusive lock since Crete can add a new value
-//  2. Increment an "operation" that happening on the node
-//  3. Iff there is space to insert a new value on the node, we can consider realeasiing the locks on the parent nodes.
-//     3.1 If the number of parallel process that care about the node < number of free value slots, we can release the lock of the parent nodes.
-//     Otherwise, the node will be unlocked when a process on the child completes.
-//     3.2 Otherwise, wrap the release into a callback down to another node that eventually has free space
-//  4. At the end, decrement the operations counter and ensure the lock is released
 //
-// PARAMS:
-// * value - value to be inserted into the tree
-// * onFind - optional callbaack function that will ass the value as the param to datastructures.OnFind
-// * onCreate - required function to create the value if it does not yet exist in the tree
+//	PARAMS:
+//	- value - value to be inserted into the tree
+//	- onFind - optional callbaack function that will ass the value as the param to datastructures.OnFind
+//	- onCreate - required function to create the value if it does not yet exist in the tree
 //
-// RETURNS:
-// * TreeItem - the keyValue inserted or value if it already existed
-// * *threadSafeBNode - a new node if there was a split
-func (bn *threadSafeBNode) createOrFind(releaseParentLock func(), key datatypes.EncapsulatedData, onCreate datastructures.OnCreate, onFind datastructures.OnFind) *threadSafeBNode {
+//	RETURNS:
+//	- TreeItem - the keyValue inserted or value if it already existed
+//	- *threadSafeBNode - a new node if there was a split
+func (bn *threadSafeBNode) createOrFind(releaseParentLock func(), key datatypes.EncapsulatedValue, onCreate BTreeOnCreate, onFind BTreeOnFind) *threadSafeBNode {
 	// always release the current lock on return
 	once := new(sync.Once)
 	unlock := func() { once.Do(func() { bn.lock.Unlock() }) }
@@ -275,7 +293,7 @@ func (bn *threadSafeBNode) createOrFind(releaseParentLock func(), key datatypes.
 // PARAMS:
 // * key - tree key keyValue
 // * value - value to be saved and returned on a Find
-func (bn *threadSafeBNode) createTreeItem(key datatypes.EncapsulatedData, onCreate datastructures.OnCreate) error {
+func (bn *threadSafeBNode) createTreeItem(key datatypes.EncapsulatedValue, onCreate BTreeOnCreate) error {
 	var index int
 	for index = 0; index < bn.numberOfValues; index++ {
 		keyValue := bn.keyValues[index]
@@ -283,7 +301,7 @@ func (bn *threadSafeBNode) createTreeItem(key datatypes.EncapsulatedData, onCrea
 		if !keyValue.key.Less(key) {
 			// value already exists, return an error
 			if !key.Less(keyValue.key) {
-				return ErrorKeyExists
+				return ErrorKeyAlreadyExists
 			}
 
 			// shift current values all 1 position
@@ -308,7 +326,7 @@ func (bn *threadSafeBNode) createTreeItem(key datatypes.EncapsulatedData, onCrea
 // PARAMS:
 // * key - tree key keyValue
 // * value - value to be saved and returned on a Find
-func (bn *threadSafeBNode) createOrFindTreeItem(key datatypes.EncapsulatedData, onFind datastructures.OnFind, onCreate datastructures.OnCreate) {
+func (bn *threadSafeBNode) createOrFindTreeItem(key datatypes.EncapsulatedValue, onFind BTreeOnFind, onCreate BTreeOnCreate) {
 	var index int
 	for index = 0; index < bn.numberOfValues; index++ {
 		keyValue := bn.keyValues[index]
@@ -340,7 +358,7 @@ func (bn *threadSafeBNode) createOrFindTreeItem(key datatypes.EncapsulatedData, 
 // PARAMS:
 // * key - tree key keyValue
 // * value - value to be saved and returned on a Find
-func (bn *threadSafeBNode) appendTreeItem(key datatypes.EncapsulatedData, value any) {
+func (bn *threadSafeBNode) appendTreeItem(key datatypes.EncapsulatedValue, value any) {
 	bn.keyValues[bn.numberOfValues] = &keyValue{key: key, value: value}
 	bn.numberOfValues++
 }
