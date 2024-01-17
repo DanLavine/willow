@@ -44,8 +44,6 @@ components:
     # Map of Encapsulated data
     KeyValues:
       type: object
-      description: |
-        Map of EncapsulatedValue
       additionalProperties:
         title: KeyValues
         x-additionalPropertiesName: KeyValues
@@ -54,21 +52,13 @@ components:
     # Match KeyValues
     MatchKeyValues:
       type: object
-      description: |
-        General match that is used for many list apis that need to match against
-        possible permutations of the KeyValues
-      required:
-        - MatchOptions
       properties:
-        MatchOptions:
-          description: |
-            - "" - none no items
-            - "all" - include all items
-            - "match" - includes any items that match the `KeyValues`
-          type: string
-          enum: ["", "all", "match"]
         KeyValues:
-          $ref: "#/components/schemas/KeyValues"
+          description: |
+            Leave this empty to match all possible KeyValues
+          allOf:
+            - $ref: "#/components/schemas/KeyValues"
+
     # General query thats used all over the place
     AssociatedKeyValuesQuery:
       type: object

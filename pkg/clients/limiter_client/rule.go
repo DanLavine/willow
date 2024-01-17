@@ -33,7 +33,7 @@ func (lc *LimitClient) CreateRule(rule *v1limiter.RuleCreateRequest) error {
 	switch resp.StatusCode {
 	case http.StatusCreated:
 		return nil
-	case http.StatusBadRequest, http.StatusUnprocessableEntity:
+	case http.StatusBadRequest, http.StatusUnprocessableEntity, http.StatusInternalServerError:
 		apiError := &errors.Error{}
 		if err := api.DecodeAndValidateHttpResponse(resp, apiError); err != nil {
 			return err
@@ -74,7 +74,7 @@ func (lc *LimitClient) GetRule(ruleName string, query *v1limiter.RuleGet) (*v1li
 		}
 
 		return rule, nil
-	case http.StatusBadRequest, http.StatusUnprocessableEntity:
+	case http.StatusBadRequest, http.StatusNotFound, http.StatusInternalServerError:
 		apiError := &errors.Error{}
 		if err := api.DecodeAndValidateHttpResponse(resp, apiError); err != nil {
 			return nil, err
@@ -114,7 +114,7 @@ func (lc *LimitClient) MatchRules(matchQuery *v1limiter.RuleMatch) (v1limiter.Ru
 		}
 
 		return rules, nil
-	case http.StatusBadRequest, http.StatusUnprocessableEntity:
+	case http.StatusBadRequest, http.StatusNotFound, http.StatusInternalServerError:
 		apiError := &errors.Error{}
 		if err := api.DecodeAndValidateHttpResponse(resp, apiError); err != nil {
 			return nil, err
@@ -150,7 +150,7 @@ func (lc *LimitClient) UpdateRule(ruleName string, ruleUpdate *v1limiter.RuleUpd
 	switch resp.StatusCode {
 	case http.StatusOK:
 		return nil
-	case http.StatusBadRequest, http.StatusUnprocessableEntity:
+	case http.StatusBadRequest, http.StatusNotFound, http.StatusInternalServerError:
 		apiError := &errors.Error{}
 		if err := api.DecodeAndValidateHttpResponse(resp, apiError); err != nil {
 			return err

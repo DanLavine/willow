@@ -37,7 +37,7 @@ func (lc *LimitClient) CreateOverride(ruleName string, override *v1limiter.Overr
 	switch resp.StatusCode {
 	case http.StatusCreated:
 		return nil
-	case http.StatusBadRequest, http.StatusUnprocessableEntity, http.StatusInternalServerError:
+	case http.StatusBadRequest, http.StatusNotFound, http.StatusUnprocessableEntity, http.StatusInternalServerError:
 		apiError := &errors.Error{}
 		if err := api.DecodeAndValidateHttpResponse(resp, apiError); err != nil {
 			return err
@@ -80,7 +80,7 @@ func (lc *LimitClient) GetOverride(ruleName string, overrideName string) (*v1lim
 		}
 
 		return override, nil
-	case http.StatusNotFound, http.StatusBadRequest, http.StatusUnprocessableEntity, http.StatusInternalServerError:
+	case http.StatusNotFound, http.StatusBadRequest, http.StatusInternalServerError:
 		apiError := &errors.Error{}
 		if err := api.DecodeAndValidateHttpResponse(resp, apiError); err != nil {
 			return nil, err
@@ -121,7 +121,7 @@ func (lc *LimitClient) MatchOverrides(ruleName string, matchQuery *v1common.Matc
 		}
 
 		return overrides, nil
-	case http.StatusBadRequest, http.StatusUnprocessableEntity, http.StatusInternalServerError:
+	case http.StatusBadRequest, http.StatusInternalServerError:
 		apiError := &errors.Error{}
 		if err := api.DecodeAndValidateHttpResponse(resp, apiError); err != nil {
 			return nil, err
@@ -159,7 +159,7 @@ func (lc *LimitClient) UpdateOverride(ruleName string, overrideName string, over
 	switch resp.StatusCode {
 	case http.StatusOK:
 		return nil
-	case http.StatusBadRequest, http.StatusUnprocessableEntity, http.StatusInternalServerError:
+	case http.StatusBadRequest, http.StatusNotFound, http.StatusInternalServerError:
 		apiError := &errors.Error{}
 		if err := api.DecodeAndValidateHttpResponse(resp, apiError); err != nil {
 			return err
@@ -195,7 +195,7 @@ func (lc *LimitClient) DeleteOverride(ruleName, overrideName string) error {
 	switch resp.StatusCode {
 	case http.StatusNoContent:
 		return nil
-	case http.StatusBadRequest, http.StatusUnprocessableEntity, http.StatusInternalServerError:
+	case http.StatusNotFound, http.StatusInternalServerError:
 		apiError := &errors.Error{}
 		if err := api.DecodeAndValidateHttpResponse(resp, apiError); err != nil {
 			return err
