@@ -9,6 +9,9 @@ import (
 	"go.uber.org/zap"
 )
 
+// set the bas logger to a Nop for testing. In real code, this will be overwritten to the default logger
+var BaseLogger = zap.NewNop()
+
 func NewZapLogger(config config.Config) *zap.Logger {
 	zapCfg := zap.NewProductionConfig()
 	zapCfg.OutputPaths = []string{"stdout"}
@@ -28,6 +31,9 @@ func NewZapLogger(config config.Config) *zap.Logger {
 		log.Fatal(err)
 	}
 
+	// set the base logger for this package
+	BaseLogger = logger
+
 	return logger
 }
 
@@ -37,4 +43,8 @@ func AddRequestID(logger *zap.Logger, req *http.Request) *zap.Logger {
 	}
 
 	return logger.With(zap.String("request_id", uuid.New().String()))
+}
+
+func StripRequestID(logger *zap.Logger) *zap.Logger {
+	return logger.With(zap.String("request_id", ""))
 }

@@ -15,7 +15,7 @@ import (
 )
 
 func errorMissingRuleName(name string) *errors.ServerError {
-	return &errors.ServerError{Message: fmt.Sprintf("failed to find rule '%s' by name", name), StatusCode: http.StatusUnprocessableEntity}
+	return &errors.ServerError{Message: fmt.Sprintf("failed to find rule '%s' by name", name), StatusCode: http.StatusBadRequest}
 }
 
 type localRulesCient struct {

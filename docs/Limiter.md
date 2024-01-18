@@ -133,3 +133,10 @@ curl -X POST http://127.0.0.1:8082/v1/limiter/counters -d '{"KeyValues": {"name"
         b. Could also route to each other node in a fan out to trigger deletes for all Overrides, where they contain
            the rule's _associated_id (saved via the 'custom' data type). Would need a new "internal" api for this
 ```
+
+3. How do I distinguish between KeyValues that a user wants to enforce and the KeyValues setup by the system when there
+   are private fields that only care about the internal system. (I.E. willow creates _willow tags that can interfer with
+   the standarad KeyValues setup for the channels)
+```
+    1. Do keys begining with an `_` simply mean that they don't count towards those values as they are reserved by the system?
+```

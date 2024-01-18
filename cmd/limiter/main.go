@@ -34,7 +34,7 @@ func main() {
 	logger := logger.NewZapLogger(cfg)
 	defer logger.Sync()
 
-	// setup shutdown signa
+	// setup shutdown signal
 	shutdown, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT)
 	defer cancel()
 
@@ -42,7 +42,7 @@ func main() {
 	clientConfig := &clients.Config{
 		URL:             *cfg.LockerURL,
 		ContentEncoding: commonapi.ContentTypeJSON,
-		CAFile:          *cfg.LimiterCA,
+		CAFile:          *cfg.LockerClientCA,
 		ClientKeyFile:   *cfg.LockerClientKey,
 		ClientCRTFile:   *cfg.LockerClientCRT,
 	}

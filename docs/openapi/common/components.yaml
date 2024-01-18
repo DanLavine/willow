@@ -60,6 +60,21 @@ components:
             - $ref: "#/components/schemas/KeyValues"
 
     # General query thats used all over the place
+    AssociatedKeyValues:
+      type: object
+      properties:
+        KeyValueSelection:
+          type: object
+          $ref: "#/components/schemas/KeyValueSelection"
+        OR:
+          type: array
+          items:
+            $ref: "#/components/schemas/AssociatedKeyValuesQuery"
+        AND:
+          type: array
+          items:
+            $ref: "#/components/schemas/AssociatedKeyValuesQuery"
+
     AssociatedKeyValuesQuery:
       type: object
       description: |
@@ -67,19 +82,8 @@ components:
         'and' operations have higher precedent than 'or'
       properties:
         AssociatedKeyValues:
-          type: object
-          properties:
-            KeyValueSelection:
-              type: object
-              $ref: "#/components/schemas/KeyValueSelection"
-            OR:
-              type: array
-              items:
-                $ref: "#/components/schemas/AssociatedKeyValuesQuery"
-            AND:
-              type: array
-              items:
-                $ref: "#/components/schemas/AssociatedKeyValuesQuery"
+          allOf:
+            - $ref: "#/components/schemas/AssociatedKeyValues"
 
     # Map of KeyValues
     KeyValueSelection:

@@ -207,7 +207,6 @@ func (cm *counterClientLocal) IncrementCounters(logger *zap.Logger, requestConte
 	}
 
 	incrementCounter := func(item btreeassociated.AssociatedKeyValues) {
-		fmt.Println("updating counter")
 		item.Value().(Counter).Update(counter.Counters)
 	}
 

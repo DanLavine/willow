@@ -14,14 +14,13 @@ import (
 )
 
 type Client struct {
-	address        string
-	metricsAddress string
+	address string
 
 	httpClient    *http.Client
 	metricsClient *http.Client
 }
 
-func New(g *WithT, address, metricsAddress string) *Client {
+func New(g *WithT, address string) *Client {
 	_, currentDir, _, _ := runtime.Caller(0)
 
 	// parse root ca
@@ -37,8 +36,7 @@ func New(g *WithT, address, metricsAddress string) *Client {
 
 	// make a request to the server
 	return &Client{
-		address:        address,
-		metricsAddress: metricsAddress,
+		address: address,
 		httpClient: &http.Client{
 			Transport: &http2.Transport{
 				TLSClientConfig: &tls.Config{

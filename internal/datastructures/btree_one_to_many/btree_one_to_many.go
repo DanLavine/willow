@@ -2,7 +2,6 @@ package btreeonetomany
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 )
@@ -29,8 +28,9 @@ var (
 	ErrorManyKeyValuesContainsReservedKeys = fmt.Errorf("keyValues contain reserved keys that begin with an '_'")
 
 	// ID destroying quick failures
-	ErrorOneIDDestroying  = fmt.Errorf("oneID is in the process of being destroyed")
-	ErrorManyIDDestroying = fmt.Errorf("manyID is in the process of being destroyed")
+	ErrorOneIDDestroying         = fmt.Errorf("oneID is in the process of being destroyed")
+	ErrorManyIDDestroying        = fmt.Errorf("manyID is in the process of being destroyed")
+	ErrorManyKeyValuesDestroying = fmt.Errorf("manyKeyValues is in the process of being destroyed")
 )
 
 // Callback that is used to actaully create the item in the tree
@@ -80,7 +80,7 @@ type BTreeOneToMany interface {
 	//	- onCreate - callback to run when the item is newly created
 	//
 	//	RETURNS:
-	//	- error - error withe he parameters or the tree is already being destroyed
+	//	- error - error with the parameters or the tree is already being destroyed
 	//	        1. datatypes.KeyValuesErr // error with the keyValues
 	//	        2. ErrorOneIDEmpty
 	//	        3. ErrorManyIDEmpty
@@ -93,13 +93,33 @@ type BTreeOneToMany interface {
 	//	        10. ErrorManyIDDestroying
 	CreateWithID(oneID string, associatedID string, keyValues datatypes.KeyValues, onCreate OneToManyTreeOnCreate) error
 
+	// create or find an entry in the BTReeOneToMany
+	//
+	//	PARAMETERS:
+	//	- oneID - the realtionship all created items belong to.
+	//	- keyValues - keyValues that define the object saved in relation to the oneID
+	//	- onCreate - callback to run when the item is newly created
+	//	- onFind - callback to run when the item is already exists
+	//
+	//	RETURNS:
+	//	- string - the ID of the created or found item
+	//	- error - error with the parameters or the tree is already being destroyed
+	//	        1. datatypes.KeyValuesErr // error with the keyValues
+	//	        2. ErrorOneIDEmpty
+	//	        4. ErrorManyKeyValuesContainsReservedKeys
+	//	        5. ErrorOnCreateNil
+	//	        6. ErrorOnFindNil
+	//	        7. ErrorOneIDDestroying
+	//	        8. ErrorKeyValuesDestroying
+	CreateOrFind(oneID string, keyValues datatypes.KeyValues, onCreate OneToManyTreeOnCreate, onFind OneToManyTreeOnFind) (string, error)
+
 	//	PARAMETERS:
 	//	- oneID - relation id to query
 	//	- query - query to search for any values related to the oneID
 	//	- onIterate - callback to run on for any values that match the query
 	//
 	//	RETURNS:
-	//	- error - error encountered with the
+	//	- error - error with the parameters or the tree is already being destroyed
 	//	        1. fmt.Errorf(...) // error with the query
 	//	        2. ErrorOneIDEmpty
 	//	        3. ErrorsOnIterateNil
@@ -116,7 +136,7 @@ type BTreeOneToMany interface {
 	Query(oneID string, query datatypes.AssociatedKeyValuesQuery, onIterate OneToManyTreeIterate) error
 
 	//	RETURNS:
-	//	- error - error encountered with the
+	//	- error - error with the parameters or the tree is already being destroyed
 	//	        1. datatypes.KeyValuesErr // error with the keyValues
 	//	        2. ErrorOneIDEmpty
 	//	        3. ErrorsOnIterateNil
@@ -154,12 +174,27 @@ type BTreeOneToMany interface {
 	//
 	// destroy an item from the Many relation
 	DestroyOneOfManyByID(oneID string, associatedID string, canDelete OneToManyTreeRemove) error
+
+	//	PARAMETERS:
+	//	- oneID - id of the entire relation tree to destroy from
+	//	- associatedKeyValues - keyValues of the association to destroy
+	//	- canDelete - optional callback to run for each the value to delete
+	//
+	//	RETURNS:
+	//	- error - error for the destroy parameters, or another operation is in progress
+	//	- datatypes.KeyValuesErr // error with the keyValues
+	//	- ErrorOneIDEmpty
+	//	- ErrorOneIDDestroying // if the one realtion model is already destroying
+	//	- ErrorManyKeyValuesDestroying // if the key values item is already destroying
+	//
+	// delete an item from the Many keyValues relation
+	DeleteOneOfManyByKeyValues(oneID string, associatedKeyValues datatypes.KeyValues, canDelete OneToManyTreeRemove) error
 }
 
 // Check to see that the reserved keyword is for the associatedID
 func hasResevedKeys(keyValues datatypes.KeyValues) bool {
 	for key, _ := range keyValues {
-		if strings.HasPrefix(key, "_") {
+		if key == "_associated_id" {
 			return true
 		}
 	}

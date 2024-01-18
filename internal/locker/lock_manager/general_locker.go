@@ -14,6 +14,11 @@ import (
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 )
 
+// TODO DSL:
+//	I think there is an issue when releasing the lock. It is not acctually releasing the generalLock resource.
+//	that needs to also be stopped. The callback will eventually trigger when the timeout hits, but thats not great.
+//	should be released immediately
+
 type GeneralLocker interface {
 	// obtain all the locks that make up a collection
 	ObtainLock(clientCtx context.Context, createRequest *v1locker.LockCreateRequest) *v1locker.LockCreateResponse
@@ -98,7 +103,6 @@ func (generalLocker *generalLocker) LocksQuery(query *v1common.AssociatedQuery) 
 // Obtain a lock for the given key values.
 // This blocks until one of of the contexts is canceled, or the lock is obtained
 func (generalLocker *generalLocker) ObtainLock(clientCtx context.Context, createLockRequest *v1locker.LockCreateRequest) *v1locker.LockCreateResponse {
-	var sessionID string
 	var timeout time.Duration
 	var lockChan chan struct{}
 
@@ -126,7 +130,10 @@ func (generalLocker *generalLocker) ObtainLock(clientCtx context.Context, create
 	}
 
 	// lock every single possible tag combination we might be using
-	sessionID, _ = generalLocker.locks.CreateOrFind(createLockRequest.KeyValues, onCreate, onFind)
+	sessionID, err := generalLocker.locks.CreateOrFind(createLockRequest.KeyValues, onCreate, onFind)
+	if err != nil {
+		panic(err)
+	}
 
 	switch lockChan {
 	case nil:
@@ -179,7 +186,7 @@ func (generalLocker *generalLocker) Heartbeat(sessionID string) *errors.ServerEr
 	return nil
 }
 
-// delete a lock from the
+// delete a lock from the tree
 func (generalLocker *generalLocker) ReleaseLock(lockID string) {
 	var keyValues datatypes.KeyValues
 

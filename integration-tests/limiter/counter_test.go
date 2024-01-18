@@ -305,4 +305,51 @@ func Test_Limiter_Counters_Set(t *testing.T) {
 		g.Expect(len(counters)).To(Equal(1))
 		g.Expect(counters).To(ContainElements(countersResp1))
 	})
+
+	t.Run("It removes the counter when set to <= 0", func(t *testing.T) {
+		lockerTestConstruct.StartLocker(g)
+		defer lockerTestConstruct.Shutdown(g)
+
+		limiterTestConstruct.StartLimiter(g, lockerTestConstruct.ServerURL)
+		defer limiterTestConstruct.Shutdown(g)
+
+		// setup client
+		limiterClient := setupClient(g, limiterTestConstruct.ServerURL)
+
+		// create a restrictive rule
+		rule := &v1.RuleCreateRequest{
+			Name:    "rule1",
+			GroupBy: []string{"key1", "key2"},
+			Limit:   5,
+		}
+		g.Expect(limiterClient.CreateRule(rule)).ToNot(HaveOccurred())
+
+		// set a counter for the rule thats above the count
+		kv1 := datatypes.KeyValues{
+			"key0": datatypes.Int(0),
+			"key1": datatypes.Int(1),
+			"key2": datatypes.Int(2),
+		}
+		counter1 := &v1.Counter{
+			KeyValues: kv1,
+			Counters:  32,
+		}
+		g.Expect(limiterClient.SetCounters(counter1)).ToNot(HaveOccurred())
+
+		// reset the counters to 0 to remove the item
+		counter3 := &v1.Counter{
+			KeyValues: kv1,
+			Counters:  0,
+		}
+		g.Expect(limiterClient.SetCounters(counter3)).ToNot(HaveOccurred())
+
+		// query the counters to ensure it is removed
+		query := &v1common.AssociatedQuery{
+			AssociatedKeyValues: datatypes.AssociatedKeyValuesQuery{},
+		}
+
+		counters, err := limiterClient.QueryCounters(query)
+		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(len(counters)).To(Equal(0))
+	})
 }

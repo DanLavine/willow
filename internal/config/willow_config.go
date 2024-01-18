@@ -4,7 +4,6 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"strconv"
 )
 
 var (
@@ -23,11 +22,11 @@ type WillowConfig struct {
 	WillowServerKey *string
 	WillowServerCRT *string
 
-	// metrics server coniguration
-	MetricsPort *string
-
-	// global queue configurations
-	QueueConfig *QueueConfig
+	// certificates for limiter client
+	LimiterURL       *string
+	LimiterClientCA  *string
+	LimiterClientKey *string
+	LimiterClientCRT *string
 
 	// global storage configurations
 	StorageConfig *StorageConfig
@@ -59,22 +58,20 @@ func Willow(args []string) (*WillowConfig, error) {
 	willowFlagSet.Usage = func() {
 		fmt.Printf(`Willow usage:
 All flags will use the env vars if they are set instead of command line parameters.
-
 `)
 		willowFlagSet.PrintDefaults()
 	}
 
 	willowConfig := &WillowConfig{
-		logLevel:        willowFlagSet.String("log-level", "info", "log level [debug | info]. Can be set by env var LOG_LEVEL"),
-		WillowPort:      willowFlagSet.String("willow-port", "8080", "default port for the Willow server to run on. Can be set by env var WILLOW_PORT"),
-		MetricsPort:     willowFlagSet.String("metrics-port", "8081", "default port for the Willow server to run on. Can be set by env var WILLOW_PORT"),
-		WillowCA:        willowFlagSet.String("willow-ca", "", "CA file used to generate server certs iff one was used. Can be set by env var WILLOW_CA"),
-		WillowServerKey: willowFlagSet.String("willow-server-key", "", "Server private key location on disk. Can be set by env var WILLOW_SERVER_KEY"),
-		WillowServerCRT: willowFlagSet.String("willow-server-crt", "", "Server ssl certificate location on disk. Can be st by env var WILLOW_SERVER_CRT"),
-		QueueConfig: &QueueConfig{
-			MaxSize:           willowFlagSet.Uint64("queue-max-size", 4096, "max size of a qeueue for any nuber of items that can be enqueued at once. This includes any items that need to be retried. Can be set by env var QUEUE_MAX_SIZE"),
-			DeadLetterMaxSize: willowFlagSet.Uint64("dead-letter-queue-max-size", 100, "max size of the dead letter qeueue for any nuber of items that can be saved. Can be set by env var DEAD_LETTER_QUEUE_MAX_SIZE"),
-		},
+		logLevel:         willowFlagSet.String("log-level", "info", "log level [debug | info]. Can be set by env var LOG_LEVEL"),
+		WillowPort:       willowFlagSet.String("port", "8080", "default port for the Willow server to run on. Can be set by env var WILLOW_PORT"),
+		WillowCA:         willowFlagSet.String("server-ca", "", "CA file used to generate server certs iff one was used. Can be set by env var WILLOW_CA"),
+		WillowServerKey:  willowFlagSet.String("server-key", "", "Server private key location on disk. Can be set by env var WILLOW_SERVER_KEY"),
+		WillowServerCRT:  willowFlagSet.String("server-crt", "", "Server ssl certificate location on disk. Can be st by env var WILLOW_SERVER_CRT"),
+		LimiterURL:       willowFlagSet.String("limiter-url", "", "CA file used to generate server certs iff one was used. Can be set by env var WILLOW_LIMITER_URL"),
+		LimiterClientCA:  willowFlagSet.String("limiter-client-ca", "", "CA file used to generate server certs iff one was used. Can be set by env var WILLOW_LIMITER_CLIENT_CA"),
+		LimiterClientKey: willowFlagSet.String("limiter-client-key", "", "Client private key location on disk. Can be set by env var WILLOW_LIMITER_CLIENT_KEY"),
+		LimiterClientCRT: willowFlagSet.String("limiter-client-crt", "", "Client ssl certificate location on disk. Can be set by env var WILLOW_LIMITER_CLIENT_CRT"),
 		StorageConfig: &StorageConfig{
 			Type: willowFlagSet.String("storage-type", "memory", "storage type to use for persistence [disk| memory]. Can be set by env var STORAGE_TYPE"),
 			Disk: &StorageDisk{
@@ -83,7 +80,7 @@ All flags will use the env vars if they are set instead of command line paramete
 		},
 	}
 
-	// parse coommand line flags
+	// parse command line flags
 	if err := willowFlagSet.Parse(args); err != nil {
 		return nil, err
 	}
@@ -130,22 +127,22 @@ func (wc *WillowConfig) parseEnv() error {
 		wc.WillowServerCRT = &willowServerCRT
 	}
 
-	//// max queue size
-	if queueMaxSize := os.Getenv("QUEUE_MAX_SIZE"); queueMaxSize != "" {
-		maxSize, err := strconv.ParseUint(queueMaxSize, 10, 64)
-		if err != nil {
-			return fmt.Errorf("Failed to parse QueueMaxSize: %w", err)
-		}
-		wc.QueueConfig.MaxSize = &maxSize
+	// limiter client
+	//// url
+	if limiterURL := os.Getenv("WILLOW_LIMITER_URL"); limiterURL != "" {
+		wc.LimiterURL = &limiterURL
 	}
-
-	//// max dead letter queue size
-	if deadLetterQueueMaxSize := os.Getenv("DEAD_LETTER_QUEUE_MAX_SIZE"); deadLetterQueueMaxSize != "" {
-		maxSize, err := strconv.ParseUint(deadLetterQueueMaxSize, 10, 64)
-		if err != nil {
-			return fmt.Errorf("Failed to parse DeadLetterQueueMaxSize: %w", err)
-		}
-		wc.QueueConfig.DeadLetterMaxSize = &maxSize
+	//// ca key
+	if limiterCA := os.Getenv("WILLOW_LIMITER_CA"); limiterCA != "" {
+		wc.LimiterClientCA = &limiterCA
+	}
+	//// tls key
+	if limiterKey := os.Getenv("WILLOW_LIMITER_CLIENT_KEY"); limiterKey != "" {
+		wc.LimiterClientKey = &limiterKey
+	}
+	//// tls certificate
+	if limiterCRT := os.Getenv("WILLOW_LIMITER_CLIENT_CRT"); limiterCRT != "" {
+		wc.LimiterClientCRT = &limiterCRT
 	}
 
 	// storage config
@@ -160,19 +157,13 @@ func (wc *WillowConfig) parseEnv() error {
 		wc.StorageConfig.Disk.StorageDir = &diskStorageLocation
 	}
 
-	// metrics server
-	//// port
-	if metricsPort := os.Getenv("METRICS_PORT"); metricsPort != "" {
-		wc.MetricsPort = &metricsPort
-	}
-
 	return nil
 }
 
 func (wc *WillowConfig) validate() error {
 	// log
 	if !(*wc.logLevel == "debug" || *wc.logLevel == "info") {
-		return fmt.Errorf("Expected config 'LogLevel' to be [debug | info]. Received: '%s'", *wc.logLevel)
+		return fmt.Errorf("expected config 'LogLevel' to be [debug | info]. Received: '%s'", *wc.logLevel)
 	}
 
 	// tls key

@@ -52,7 +52,7 @@ All flags will use the env vars if they are set instead of command line paramete
 		LockerURL:       limiterFlagSet.String("limiter-locker-url", "", "CA file used to generate server certs iff one was used. Can be set by env var LIMITER_LOCKER_URL"),
 		LockerClientCA:  limiterFlagSet.String("limiter-locker-client-ca", "", "CA file used to generate server certs iff one was used. Can be set by env var LIMITER_LOCKER_CLIENT_CA"),
 		LockerClientKey: limiterFlagSet.String("limiter-locker-client-key", "", "Client private key location on disk. Can be set by env var LIMITER_LOCKER_CLIENT_KEY"),
-		LockerClientCRT: limiterFlagSet.String("limiter-locker-client-crt", "", "Client ssl certificate location on disk. Can be st by env var LIMITER_LOCKER_CIENT_CRT"),
+		LockerClientCRT: limiterFlagSet.String("limiter-locker-client-crt", "", "Client ssl certificate location on disk. Can be set by env var LIMITER_LOCKER_CLIENT_CRT"),
 
 		LimiterInsecureHTTP: limiterFlagSet.Bool("limiter-insecure-http", false, "Can be used to run the server in an unsecure http mode. Can be set be env var LIMITER_INSECURE_HTTP"),
 	}

@@ -35,6 +35,21 @@ func (m *MockBTreeOneToMany) EXPECT() *MockBTreeOneToManyMockRecorder {
 	return m.recorder
 }
 
+// CreateOrFind mocks base method.
+func (m *MockBTreeOneToMany) CreateOrFind(arg0 string, arg1 datatypes.KeyValues, arg2 btreeonetomany.OneToManyTreeOnCreate, arg3 btreeonetomany.OneToManyTreeOnFind) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateOrFind", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreateOrFind indicates an expected call of CreateOrFind.
+func (mr *MockBTreeOneToManyMockRecorder) CreateOrFind(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateOrFind", reflect.TypeOf((*MockBTreeOneToMany)(nil).CreateOrFind), arg0, arg1, arg2, arg3)
+}
+
 // CreateWithID mocks base method.
 func (m *MockBTreeOneToMany) CreateWithID(arg0, arg1 string, arg2 datatypes.KeyValues, arg3 btreeonetomany.OneToManyTreeOnCreate) error {
 	m.ctrl.T.Helper()
@@ -47,6 +62,20 @@ func (m *MockBTreeOneToMany) CreateWithID(arg0, arg1 string, arg2 datatypes.KeyV
 func (mr *MockBTreeOneToManyMockRecorder) CreateWithID(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateWithID", reflect.TypeOf((*MockBTreeOneToMany)(nil).CreateWithID), arg0, arg1, arg2, arg3)
+}
+
+// DeleteOneOfManyByKeyValues mocks base method.
+func (m *MockBTreeOneToMany) DeleteOneOfManyByKeyValues(arg0 string, arg1 datatypes.KeyValues, arg2 btreeonetomany.OneToManyTreeRemove) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteOneOfManyByKeyValues", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteOneOfManyByKeyValues indicates an expected call of DeleteOneOfManyByKeyValues.
+func (mr *MockBTreeOneToManyMockRecorder) DeleteOneOfManyByKeyValues(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteOneOfManyByKeyValues", reflect.TypeOf((*MockBTreeOneToMany)(nil).DeleteOneOfManyByKeyValues), arg0, arg1, arg2)
 }
 
 // DestroyOne mocks base method.

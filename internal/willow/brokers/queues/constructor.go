@@ -1,38 +1,56 @@
 package queues
 
 import (
-	"net/http"
+	"fmt"
 
-	"github.com/DanLavine/willow/internal/config"
 	"github.com/DanLavine/willow/internal/willow/brokers/queues/memory"
-
 	"github.com/DanLavine/willow/pkg/models/api/common/errors"
+	"go.uber.org/zap"
+
+	limiterclient "github.com/DanLavine/willow/pkg/clients/limiter_client"
 	v1willow "github.com/DanLavine/willow/pkg/models/api/willow/v1"
 )
 
-//go:generate mockgen -destination=queuesfakes/constructor_mock.go -package=queuesfakes github.com/DanLavine/willow/internal/willow/brokers/queues QueueConstructor
+type Queue interface {
+	// Get the configured limit for the queue
+	ConfiguredLimit() int64
+
+	// Update the queue parameters
+	Update(logger *zap.Logger, queueName string, updateRequest *v1willow.QueueUpdate) *errors.ServerError
+
+	//	PARAMETERS:
+	//	- logger - Logger to record any encountered errors
+	//
+	//	RETURNS:
+	//	- uint64 - Number of total items enqueued including running
+	//	- uint64 - Number of items running
+	//
+	// Get the current statics for the unmber of enqueued and running items
+	GetCurrentStats(logger *zap.Logger) (int64, int64, *errors.ServerError)
+
+	// destroy the queue and any dependent resources
+	Destroy(logger *zap.Logger, queueName string) *errors.ServerError
+}
+
 type QueueConstructor interface {
-	// create a new Queue
-	NewQueue(createParams *v1willow.Create) (ManagedQueue, *errors.ServerError)
+	New(logger *zap.Logger, queue *v1willow.QueueCreate) (Queue, *errors.ServerError)
 }
 
-type queueConstructor struct {
-	config *config.WillowConfig
-}
-
-func NewQueueConstructor(cfg *config.WillowConfig) *queueConstructor {
-	return &queueConstructor{
-		config: cfg,
-	}
-}
-
-func (qc *queueConstructor) NewQueue(create *v1willow.Create) (ManagedQueue, *errors.ServerError) {
-	switch *qc.config.StorageConfig.Type {
-	//case config.DiskStorage:
-	//	return disk.NewQueue(qc.config.StorageConfig.Disk.StorageDir, create)
-	case config.MemoryStorage:
-		return memory.NewQueue(create), nil
+func NewQueueConstructor(constructorType string, limiterClient limiterclient.LimiterClient) (QueueConstructor, error) {
+	switch constructorType {
+	case "memory":
+		return &memoryConstrutor{
+			limiterClient: limiterClient,
+		}, nil
 	default:
-		return nil, &errors.ServerError{Message: "unknown storage type", StatusCode: http.StatusInternalServerError}
+		return nil, fmt.Errorf("unknown constructor type")
 	}
+}
+
+type memoryConstrutor struct {
+	limiterClient limiterclient.LimiterClient
+}
+
+func (mc *memoryConstrutor) New(logger *zap.Logger, queue *v1willow.QueueCreate) (Queue, *errors.ServerError) {
+	return memory.New(logger, queue, mc.limiterClient)
 }

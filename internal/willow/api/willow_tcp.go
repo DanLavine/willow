@@ -27,7 +27,7 @@ type willowTCP struct {
 func NewWillowTCP(logger *zap.Logger, config *config.WillowConfig, mux *urlrouter.Router) *willowTCP {
 	return &willowTCP{
 		closed: false,
-		logger: logger.Named("willowTCP_server"),
+		logger: logger.Named("willow_tcp_server"),
 		config: config,
 		mux:    mux,
 	}
@@ -73,6 +73,11 @@ func (willow *willowTCP) Initialize() error {
 
 func (willow *willowTCP) Execute(willowCTX context.Context) error {
 	logger := willow.logger
+
+	// health api doesn't have a version associated with it
+	willow.mux.HandleFunc("GET", "/health", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
 
 	willow.server.Handler = willow.mux
 	http2.ConfigureServer(willow.server, &http2.Server{})

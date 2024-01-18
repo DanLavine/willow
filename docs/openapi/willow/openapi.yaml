@@ -6,6 +6,598 @@ info:
   version: poc 0.0.1
 
 paths:
-  /v1:
-    description: |
-      TODO once finalized
+  /v1/brokers/queues:
+    post:
+      operationId: create Queue
+      description: |
+        Create a new `Queue`.
+      parameters:
+        - in: header
+          name: Content-Type
+          schema:
+            type: string
+            enum: ["application/json"]
+      requestBody:
+        required: true
+        content:
+          appplication/json:
+            schema:
+              $ref: "#/components/schemas/QueueCreate"
+      responses:
+        201:
+          description: Created a new `Queue`
+        400:
+          description: Error parsing or validating the request body
+          content:
+            appplication/json:
+              schema:
+                $ref: "../common/components.yaml#/components/schemas/ApiError"
+        404:
+          description: Error if another queue already exists with that name
+          content:
+            appplication/json:
+              schema:
+                $ref: "../common/components.yaml#/components/schemas/ApiError"
+        409:
+          description: Conflict if another `Queue` already exists but is currenty deleting
+          content:
+            appplication/json:
+              schema:
+                $ref: "../common/components.yaml#/components/schemas/ApiError"
+        500:
+          description: Internal error that should be addressed by the service maintainer
+          content:
+            appplication/json:
+              schema:
+                type: object
+                properties:
+                  ApiError:
+                    $ref: "../common/components.yaml#/components/schemas/ApiError"
+    get:
+      operationId: list Queues
+      description: |
+        List all `Queues` without their `Channels`. ATM this is just an API to ensure the state of the system. Because
+        all the `Channels` are a collection of unkown KeyValues, it does not it makes sense to have this specific api accept
+        some sort of query. Each of the `Queues` have their own the `Channels` and the end user setup can be specific
+        as to what each queue is used for.
+      parameters:
+        - in: header
+          name: Content-Type
+          schema:
+            type: string
+            enum: ["application/json"]
+      responses:
+        200:
+          description: Successfully searched for any rules that matched the query
+          content:
+            appplication/json:
+              schema:
+                $ref: "#/components/schemas/Queues"
+        500:
+          description: Internal error that should be addressed by the service maintainer
+          content:
+            appplication/json:
+              schema:
+                type: object
+                properties:
+                  ApiError:
+                    $ref: "../common/components.yaml#/components/schemas/ApiError"
+  /v1/brokers/queues/:queue_name:
+    get:
+      operationId: get Queue
+      description: |
+        Get the `Queue` and possible `Channels`
+      parameters:
+        - in: header
+          name: Content-Type
+          schema:
+            type: string
+            enum: ["application/json"]
+      requestBody:
+        content:
+          appplication/json:
+            schema:
+              $ref: "../common/components.yaml#/components/schemas/AssociatedKeyValuesQuery"
+      responses:
+        200:
+          description: |
+            Retrieved a single `Queue` and optional `Channels`
+          content:
+            appplication/json:
+              schema:
+                $ref: "#/components/schemas/Queue"
+        400:
+          description: Error parsing or validating the request parameters
+          content:
+            appplication/json:
+              schema:
+                type: object
+                properties:
+                  ApiError:
+                    $ref: "../common/components.yaml#/components/schemas/ApiError"
+        404:
+          description: The `Queue` could not be found
+          content:
+            appplication/json:
+              schema:
+                type: object
+                properties:
+                  ApiError:
+                    $ref: "../common/components.yaml#/components/schemas/ApiError"
+        500:
+          description: Internal error that should be addressed by the service maintainer
+          content:
+            appplication/json:
+              schema:
+                type: object
+                properties:
+                  ApiError:
+                    $ref: "../common/components.yaml#/components/schemas/ApiError"
+    put:
+      operationId: update Queue
+      description: |
+        update a specific `Queue`
+      parameters:
+        - in: header
+          name: Content-Type
+          schema:
+            type: string
+            enum: ["application/json"]
+      requestBody:
+        required: true
+        content:
+          appplication/json:
+            schema:
+              $ref: "#/components/schemas/QueueUpdate"
+      responses:
+        200:
+          description: Successfully updated the `Queue`
+        400:
+          description: Error parsing or validating the request body
+          content:
+            appplication/json:
+              schema:
+                type: object
+                properties:
+                  ApiError:
+                    $ref: "../common/components.yaml#/components/schemas/ApiError"
+        404:
+          description: The original `Queue` could not be found
+          content:
+            appplication/json:
+              schema:
+                type: object
+                properties:
+                  ApiError:
+                    $ref: "../common/components.yaml#/components/schemas/ApiError"
+        409:
+          description: Conflict if the `Queue` already exists but is currenty deleting
+          content:
+            appplication/json:
+              schema:
+                $ref: "../common/components.yaml#/components/schemas/ApiError"
+        500:
+          description: Internal error that should be addressed by the service maintainer
+          content:
+            appplication/json:
+              schema:
+                type: object
+                properties:
+                  ApiError:
+                    $ref: "../common/components.yaml#/components/schemas/ApiError"
+    delete:
+      operationId: delete Queue
+      description: |
+        Delete a specific `Queue` and any associated `Channels`. Any `Items` that are already processing when a `Channel`
+        is deleted will receive an error message that the `Queue` has been destroyed during the heartbeat process. It
+        is then up to the clients to stop processing the `Item` item they are working on.
+      parameters:
+        - in: header
+          name: Content-Type
+          schema:
+            type: string
+            enum: ["application/json"]
+      requestBody:
+        required: true
+        content:
+          appplication/json:
+            schema:
+              $ref: "../common/components.yaml#/components/schemas/KeyValues"
+      responses:
+        204:
+          description: Successfully deleted the `Channel` for a `Queue`
+        500:
+          description: Unexpected error service side
+          content:
+            appplication/json:
+              schema:
+                type: object
+                properties:
+                  ApiError:
+                    $ref: "../common/components.yaml#/components/schemas/ApiError"
+  /v1/brokers/queus/:queue_name/channels:
+    post:
+      operationId: enqueu Item
+      description: |
+        Enqueue an `Item` to a `Channel`. Each `Channel` is dynamically created based off the requests `KeyValues`
+        if the channel does not yet exists.
+      parameters:
+        - in: header
+          name: Content-Type
+          schema:
+            type: string
+            enum: ["application/json"]
+      requestBody:
+        required: true
+        content:
+          appplication/json:
+            schema:
+              $ref: "#/components/schemas/EnqueueItem"
+      responses:
+        200:
+          description: Enqueued the `Item` into a `Channel`
+        400:
+          description: Error parsing or validating the request body
+          content:
+            appplication/json:
+              schema:
+                $ref: "../common/components.yaml#/components/schemas/ApiError"
+        404:
+          description: returned if the `Queue` name cannot be found
+          content:
+            appplication/json:
+              schema:
+                $ref: "../common/components.yaml#/components/schemas/ApiError"
+        422:
+          description: Conflict if the `Rule` has reached the max queue limit or some other api limitation
+          content:
+            appplication/json:
+              schema:
+                $ref: "../common/components.yaml#/components/schemas/ApiError"
+        500:
+          description: Internal error that should be addressed by the service maintainer
+          content:
+            appplication/json:
+              schema:
+                type: object
+                properties:
+                  ApiError:
+                    $ref: "../common/components.yaml#/components/schemas/ApiError"
+    get:
+      operationId: dequeue Item
+      description: |
+        Dequeue an `Item` from any `Channel` that matches the query
+      parameters:
+        - in: header
+          name: Content-Type
+          schema:
+            type: string
+            enum: ["application/json"]
+      requestBody:
+        required: true
+        description: |
+          Query all `Channels.KeyValues` for an item to dequeue
+        content:
+          appplication/json:
+            schema:
+              $ref: "../common/components.yaml#/components/schemas/AssociatedKeyValuesQuery"
+      responses:
+        200:
+          description: Successfully dequeued an item
+          content:
+            appplication/json:
+              schema:
+                $ref: "#/components/schemas/DequeueItem"
+        400:
+          description: Error parsing or validating the request
+          content:
+            appplication/json:
+              schema:
+                type: object
+                properties:
+                  ApiError:
+                    $ref: "../common/components.yaml#/components/schemas/ApiError"
+        404:
+          description: returned if the `Queue` name cannot be found or is deleted while waiting for an item to dequeue
+          content:
+            appplication/json:
+              schema:
+                $ref: "../common/components.yaml#/components/schemas/ApiError"
+        500:
+          description: Internal error that should be addressed by the service maintainer
+          content:
+            appplication/json:
+              schema:
+                type: object
+                properties:
+                  ApiError:
+                    $ref: "../common/components.yaml#/components/schemas/ApiError"
+        503:
+          description: Service has gone down for a restart and the client should retry the reuest
+    delete:
+      operationId: delete Channels
+      description: |
+        Delete any channels that match the query
+      parameters:
+        - in: header
+          name: Content-Type
+          schema:
+            type: string
+            enum: ["application/json"]
+      requestBody:
+        required: true
+        description: |
+          Query all `Channels.KeyValues` to delete.
+        content:
+          appplication/json:
+            schema:
+              $ref: "../common/components.yaml#/components/schemas/AssociatedKeyValuesQuery"
+      responses:
+        204:
+          description: Successfully deleted all the channels
+        400:
+          description: Error parsing or validating the request
+          content:
+            appplication/json:
+              schema:
+                type: object
+                properties:
+                  ApiError:
+                    $ref: "../common/components.yaml#/components/schemas/ApiError"
+        404:
+          description: returned if the `Queue` name cannot be found or is already deleted
+          content:
+            appplication/json:
+              schema:
+                $ref: "../common/components.yaml#/components/schemas/ApiError"
+        500:
+          description: Internal error that should be addressed by the service maintainer
+          content:
+            appplication/json:
+              schema:
+                type: object
+                properties:
+                  ApiError:
+                    $ref: "../common/components.yaml#/components/schemas/ApiError"
+        503:
+          description: Service has gone down for a restart and the client should retry the reuest
+  /v1/brokers/queus/:queue_name/channels/ack:
+    post:
+      operationId: ack Item
+      description: |
+        Acknowledge an `Item's` completion with either a success or failure.
+      parameters:
+        - in: header
+          name: Content-Type
+          schema:
+            type: string
+            enum: ["application/json"]
+      requestBody:
+        required: true
+        content:
+          appplication/json:
+            schema:
+              $ref: "#/components/schemas/AckItem"
+      responses:
+        200:
+          description: Item was successfully acked
+        400:
+          description: Error parsing or validating the request body
+          content:
+            appplication/json:
+              schema:
+                $ref: "../common/components.yaml#/components/schemas/ApiError"
+        404:
+          description: returned if the `Queue` name cannot be found
+          content:
+            appplication/json:
+              schema:
+                $ref: "../common/components.yaml#/components/schemas/ApiError"
+        500:
+          description: Internal error that should be addressed by the service maintainer
+          content:
+            appplication/json:
+              schema:
+                type: object
+                properties:
+                  ApiError:
+                    $ref: "../common/components.yaml#/components/schemas/ApiError"
+  /v1/brokers/queus/:queue_name/channels/heartbeat:
+    post:
+      operationId: heartbeat Item
+      description: |
+        Heartbeat an `Item` while the client is still processing the item. If the services no longer
+        receives heartbeats then the item will be considered a failure.
+      parameters:
+        - in: header
+          name: Content-Type
+          schema:
+            type: string
+            enum: ["application/json"]
+      requestBody:
+        required: true
+        content:
+          appplication/json:
+            schema:
+              $ref: "#/components/schemas/HeartbeatItem"
+      responses:
+        200:
+          description: Item was successfully heartbeat
+        400:
+          description: Error parsing or validating the request body
+          content:
+            appplication/json:
+              schema:
+                $ref: "../common/components.yaml#/components/schemas/ApiError"
+        404:
+          description: returned if the `Queue` name or `Item` ID cannot be found
+          content:
+            appplication/json:
+              schema:
+                $ref: "../common/components.yaml#/components/schemas/ApiError"
+        500:
+          description: Internal error that should be addressed by the service maintainer
+          content:
+            appplication/json:
+              schema:
+                type: object
+                properties:
+                  ApiError:
+                    $ref: "../common/components.yaml#/components/schemas/ApiError"
+
+components:
+  schemas:
+    EnqueueItem:
+      type: object
+      required:
+        - KeyValues
+      properties:
+        Item:
+          description: |
+            Item to save in the queue. The value will be returned on the Dequeue response
+          type: string
+          format: bytes
+        KeyValues:
+          $ref: "../common/components.yaml#/components/schemas/KeyValues"
+        Updateable:
+          description: |
+            If true, this item in the queue can be replced on a subsequent request as long as
+            no clients are processing this item. If set to false, this item will not be updated
+            on a subsequent request
+          type: boolean
+          default: false
+        RetryCount:
+          description: |
+            Number of times to retry an item. If the item is updateable and can be retried. There
+            is a chance that the item will be updated before a retry operation takes place.
+          type: integer
+          format: uint64
+          default: 0
+        RetryPosition:
+          description: |
+            In the case of a retry. This indicates where to position the failed item for retrying.
+            `Front` will position the item at the front of the queue to immediately be picked up again.
+            However, if the item is updateable, this operation will removed if there is another item in the queue.
+            `Back` will put the item at the back of the queue to eventually be processed again.
+          type: string
+          default: front
+          enum:
+            - front
+            - back
+        TimeoutDuration:
+          description: |
+            How long an item should last befor it is considered a 'failure' on the service side if no
+            heartbeats were received for the item. This is the time in nanoseconds for how long to wait.
+            If this set as 0, then the server's configuration will be used as the default
+          type: integer
+          format: int64
+
+    DequeueItem:
+      type: object
+      properties:
+        Item:
+          description: |
+            Original item enqueued to the service
+          type: string
+          format: bytes
+        ItemID:
+          type: string
+        HeartbeatTimeout:
+          description: |
+            How long the Item is valid for until the service counts it as failed and attempts to re-queue the `Item`
+            if configured. The client is responsible for ensuring heartbeats go back to the service if still being worked
+            on. Or an ACK message is supplied to indicate the `Item` is done processing
+          type: integer
+          format: int64
+        KeyValues:
+          $ref: "../common/components.yaml#/components/schemas/KeyValues"
+
+    AckItem:
+      type: object
+      required:
+        - ItemID
+        - Success
+        - KeyValues
+      properties:
+        ItemID:
+          type: string
+        Success:
+          type: boolean
+        KeyValues:
+          $ref: "../common/components.yaml#/components/schemas/KeyValues"
+
+    HeartbeatItem:
+      type: object
+      required:
+        - ItemID
+        - KeyValues
+      properties:
+        ItemID:
+          type: string
+        KeyValues:
+          $ref: "../common/components.yaml#/components/schemas/KeyValues"
+
+    Channels:
+      type: object
+      properties:
+        KeyValues:
+          $ref: "../common/components.yaml#/components/schemas/KeyValues"
+        EnqueuedItems:
+          description: |
+            Number of items enqued that are not processing
+          type: integer
+          format: uint64
+        RunningItems:
+          description: |
+            Number of items currently processing
+          type: integer
+          format: uint64
+
+    Queue:
+      type: object
+      properties:
+        Name:
+          description: |
+            Unique name for the queue
+          type: string
+        QueueMaxSize:
+          description: |
+            Max number of items that can be enqueued and or processing for the queue
+          type: integer
+          format: uint64
+        Channels:
+          type: array
+          items:
+            $ref: "#/components/schemas/Channels"
+
+    Queues:
+      type: array
+      items:
+        $ref: "#/components/schemas/Queue"
+
+    QueueCreate:
+      type: object
+      required:
+        - Name
+        - QueueMaxSize
+      properties:
+        Name:
+          description: |
+            Unique name for the queue
+          type: string
+        QueueMaxSize:
+          description: |
+            Max number of items that can be enqueued and or processing for the queue
+          type: integer
+          format: uint64
+
+    QueueUpdate:
+      type: object
+      required:
+        - QueueMaxSize
+      properties:
+        QueueMaxSize:
+          description: |
+            Max number of items that can be enqueued and or processing for the queue
+          type: integer
+          format: uint64

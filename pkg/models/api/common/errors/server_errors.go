@@ -7,7 +7,7 @@ import (
 
 var (
 	// Server state errors
-	ServerShutdown = &ServerError{Message: "Server is shutting down", StatusCode: http.StatusServiceUnavailable}
+	ServerShutdown = &ServerError{Message: "Server is shutting down. Retry the request", StatusCode: http.StatusServiceUnavailable}
 
 	// Storage errors
 	UnknownStorageType = &ServerError{Message: "Unkown storage type", StatusCode: http.StatusInternalServerError}

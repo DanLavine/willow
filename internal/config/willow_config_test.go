@@ -1,7 +1,6 @@
 package config
 
 import (
-	"io/ioutil"
 	"os"
 	"testing"
 
@@ -12,24 +11,24 @@ func TestWillowConfig(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	// global ca certificate
-	caCrt, err := ioutil.TempFile("", "")
+	caCrt, err := os.CreateTemp("", "")
 	g.Expect(err).ToNot(HaveOccurred())
 	g.Expect(caCrt.Close()).ToNot(HaveOccurred())
 	defer os.RemoveAll(caCrt.Name())
 
 	// global test key
-	serverKey, err := ioutil.TempFile("", "")
+	serverKey, err := os.CreateTemp("", "")
 	g.Expect(err).ToNot(HaveOccurred())
 	g.Expect(serverKey.Close()).ToNot(HaveOccurred())
 	defer os.RemoveAll(serverKey.Name())
 
 	// global test cert
-	serverCRT, err := ioutil.TempFile("", "")
+	serverCRT, err := os.CreateTemp("", "")
 	g.Expect(err).ToNot(HaveOccurred())
 	g.Expect(serverCRT.Close()).ToNot(HaveOccurred())
 	defer os.RemoveAll(serverCRT.Name())
 
-	baseArgs := []string{"-willow-server-key", serverKey.Name(), "-willow-server-crt", serverCRT.Name()}
+	baseArgs := []string{"-server-key", serverKey.Name(), "-server-crt", serverCRT.Name()}
 
 	t.Run("Describe willow server", func(t *testing.T) {
 		t.Run("It returns an error if there is no willow-server-key", func(t *testing.T) {
@@ -40,69 +39,15 @@ func TestWillowConfig(t *testing.T) {
 		})
 
 		t.Run("It returns an error if there is no willow-server-crt", func(t *testing.T) {
-			cfg, err := Willow([]string{"-willow-server-key", serverKey.Name()})
+			cfg, err := Willow([]string{"-server-key", serverKey.Name()})
 			g.Expect(cfg).To(BeNil())
 			g.Expect(err).To(HaveOccurred())
 			g.Expect(err.Error()).To(ContainSubstring("parameter 'willow-server-crt' is not set"))
 		})
 
-		t.Run("Context queue-max-size", func(t *testing.T) {
-			t.Run("It can be set via command line", func(t *testing.T) {
-				cfg, err := Willow(append(baseArgs, "-queue-max-size", "2020"))
-				g.Expect(err).ToNot(HaveOccurred())
-				g.Expect(*cfg.QueueConfig.MaxSize).To(Equal(uint64(2020)))
-			})
-
-			t.Run("It can be set via env vars", func(t *testing.T) {
-				os.Setenv("QUEUE_MAX_SIZE", "2028")
-				defer os.Unsetenv("QUEUE_MAX_SIZE")
-
-				cfg, err := Willow(baseArgs)
-				g.Expect(err).ToNot(HaveOccurred())
-				g.Expect(*cfg.QueueConfig.MaxSize).To(Equal(uint64(2028)))
-			})
-
-			t.Run("It returns an error if the queue size is not a number", func(t *testing.T) {
-				os.Setenv("QUEUE_MAX_SIZE", "hello there")
-				defer os.Unsetenv("QUEUE_MAX_SIZE")
-
-				cfg, err := Willow(baseArgs)
-				g.Expect(cfg).To(BeNil())
-				g.Expect(err).To(HaveOccurred())
-				g.Expect(err.Error()).To(ContainSubstring("Failed to parse QueueMaxSize"))
-			})
-		})
-
-		t.Run("Context dead-letter-queue-max-size", func(t *testing.T) {
-			t.Run("It can be set via command line", func(t *testing.T) {
-				cfg, err := Willow(append(baseArgs, "-dead-letter-queue-max-size", "2020"))
-				g.Expect(err).ToNot(HaveOccurred())
-				g.Expect(*cfg.QueueConfig.DeadLetterMaxSize).To(Equal(uint64(2020)))
-			})
-
-			t.Run("It can be set via env vars", func(t *testing.T) {
-				os.Setenv("DEAD_LETTER_QUEUE_MAX_SIZE", "2028")
-				defer os.Unsetenv("DEAD_LETTER_QUEUE_MAX_SIZE")
-
-				cfg, err := Willow(baseArgs)
-				g.Expect(err).ToNot(HaveOccurred())
-				g.Expect(*cfg.QueueConfig.DeadLetterMaxSize).To(Equal(uint64(2028)))
-			})
-
-			t.Run("It returns an error if the queue size is not a number", func(t *testing.T) {
-				os.Setenv("DEAD_LETTER_QUEUE_MAX_SIZE", "hello there")
-				defer os.Unsetenv("DEAD_LETTER_QUEUE_MAX_SIZE")
-
-				cfg, err := Willow(baseArgs)
-				g.Expect(cfg).To(BeNil())
-				g.Expect(err).To(HaveOccurred())
-				g.Expect(err.Error()).To(ContainSubstring("Failed to parse DeadLetterQueueMaxSize"))
-			})
-		})
-
 		t.Run("Context willow-port", func(t *testing.T) {
 			t.Run("It can be set via command line", func(t *testing.T) {
-				cfg, err := Willow(append(baseArgs, "-willow-port", "8765"))
+				cfg, err := Willow(append(baseArgs, "-port", "8765"))
 				g.Expect(err).ToNot(HaveOccurred())
 				g.Expect(*cfg.WillowPort).To(Equal("8765"))
 			})

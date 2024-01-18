@@ -21,26 +21,53 @@ func ParseAssociatedKeyValuesQuery(data []byte) (*AssociatedKeyValuesQuery, erro
 	return Queryion, nil
 }
 
-func (q *AssociatedKeyValuesQuery) Validate() error {
+//	RETURNS:
+//	- error - error describing any possible issues with the query and the steps to rectify them
+//
+// Validate ensures the CreateLockRequest has all required fields set
+func (query *AssociatedKeyValuesQuery) Validate() error {
 	// validate single query
-	if q.KeyValueSelection != nil {
-		if err := q.KeyValueSelection.Validate(); err != nil {
+	if query.KeyValueSelection != nil {
+		if err := query.KeyValueSelection.Validate(); err != nil {
 			return fmt.Errorf("KeyValueSelection%s", err.Error())
 		}
 	}
 
 	// validate all or joins
-	for index, or := range q.Or {
+	for index, or := range query.Or {
 		if err := or.Validate(); err != nil {
 			return fmt.Errorf("Or[%d].%s", index, err.Error())
 		}
 	}
 
 	// validate all and joins
-	for index, and := range q.And {
+	for index, and := range query.And {
 		if err := and.Validate(); err != nil {
 			return fmt.Errorf("And[%d].%s", index, err.Error())
 		}
+	}
+
+	return nil
+}
+
+//	RETURNS:
+//	- []byte - encoded JSON byte array for the AssociatedQuery
+//
+// EncodeJSON encodes the model to a valid JSON format
+func (query *AssociatedKeyValuesQuery) EncodeJSON() ([]byte, error) {
+	return json.Marshal(query)
+}
+
+//	PARAMETERS:
+//	- data - encoded JSON data to parse AssociatedQuery from
+//
+//	RETURNS:
+//	- error - any error encoutered when reading or parsing the data
+//
+// Decode can convertes the encoded byte array into the Object Decode was called on
+func (query *AssociatedKeyValuesQuery) DecodeJSON(data []byte) error {
+	if err := json.Unmarshal(data, query); err != nil {
+		return err
 	}
 
 	return nil

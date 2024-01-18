@@ -1,13 +1,21 @@
 package limiterclient
 
 import (
+	"fmt"
+	"net/http"
+
 	"github.com/DanLavine/willow/pkg/clients"
 	v1common "github.com/DanLavine/willow/pkg/models/api/common/v1"
 	v1limiter "github.com/DanLavine/willow/pkg/models/api/limiter/v1"
 )
 
 // All Client operations for interacting with the Limiter Service
+//
+//go:generate mockgen -destination=limiterclientfakes/limiter_client_mock.go -package=limiterclientfakes github.com/DanLavine/willow/pkg/clients/limiter_client LimiterClient
 type LimiterClient interface {
+	// Ping health to know service is up and running
+	Healthy() error
+
 	// Rule operations
 	// Create a new Rule
 	CreateRule(rule *v1limiter.RuleCreateRequest) error
@@ -72,4 +80,25 @@ func NewLimiterClient(cfg *clients.Config) (*LimitClient, error) {
 		client:      httpClient,
 		contentType: cfg.ContentEncoding,
 	}, nil
+}
+
+func (lc *LimitClient) Healthy() error {
+	// setup and make the request
+	resp, err := lc.client.Do(&clients.RequestData{
+		Method: "GET",
+		Path:   fmt.Sprintf("%s/health", lc.url),
+		Model:  nil,
+	})
+
+	if err != nil {
+		return err
+	}
+
+	// parse the response
+	switch resp.StatusCode {
+	case http.StatusOK:
+		return nil
+	default:
+		return fmt.Errorf("unexpected status code checking health: %d", resp.StatusCode)
+	}
 }
