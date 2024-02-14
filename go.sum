@@ -1,7 +1,3 @@
-github.com/DanLavine/channelops v0.0.0-20231207200732-e28b846fd188 h1:+CpbUqNpQKQ3aGV5wT9E3FlkQRIW8lLWbN/82keUmmc=
-github.com/DanLavine/channelops v0.0.0-20231207200732-e28b846fd188/go.mod h1:wgViuoEjca7ugJj/z7FfQ07D+hEoTjkLj7iFPw96rQo=
-github.com/DanLavine/channelops v0.0.0-20240204210059-0e00275c027a h1:tL1GJMLq01nk71I/90G5CnZNWq8Xb3qlbAq8rLCjFDw=
-github.com/DanLavine/channelops v0.0.0-20240204210059-0e00275c027a/go.mod h1:wgViuoEjca7ugJj/z7FfQ07D+hEoTjkLj7iFPw96rQo=
 github.com/DanLavine/channelops v0.0.0-20240204212043-e2fa5ce72e5b h1:3BZwL9cXKirTpjLYfVEri3NN2fQvR/idoVKseYGvPZ8=
 github.com/DanLavine/channelops v0.0.0-20240204212043-e2fa5ce72e5b/go.mod h1:wgViuoEjca7ugJj/z7FfQ07D+hEoTjkLj7iFPw96rQo=
 github.com/DanLavine/goasync v1.0.2 h1:GUnkNv9p7l5lhpD+Or9HrM6ZBbH9OEoqEtvTufivmGo=
