@@ -82,7 +82,6 @@ func (locker *LockerTCP) Initialize() error {
 		locker.server = server
 	}
 
-	// certs loaded successfully
 	return nil
 }
 
@@ -117,6 +116,7 @@ func (locker *LockerTCP) Execute(ctx context.Context) error {
 				// context was closed and server closed error. clean shutdown case
 			default:
 				// always return the error if the parent context was not closed
+				logger.Error("server shutdown unexpectedly", zap.Error(err))
 				return err
 			}
 		}
@@ -132,6 +132,7 @@ func (locker *LockerTCP) Execute(ctx context.Context) error {
 				// context was closed and server closed error. clean shutdown case
 			default:
 				// always return the error if the parent context was not closed
+				logger.Error("server shutdown unexpectedly", zap.Error(err))
 				return err
 			}
 		}

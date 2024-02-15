@@ -67,7 +67,9 @@ they can operate on when paired with the Limiter
 
 # Building and Running
 
-See the `docker` directory
+See the `docker` directory for the full instructions to build and run all of the Willow services. Currently I am not publishing
+any of the images to dockerhub since there are to many changes going on till I start tagging releases and they are reasonably
+stable. At that pooint I will also want to setup a CICD to build and deploy things properly than doing everything manually for now.
 
 # Limitations
 

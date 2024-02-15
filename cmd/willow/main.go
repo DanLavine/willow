@@ -14,13 +14,13 @@ import (
 	"github.com/DanLavine/willow/internal/logger"
 	"github.com/DanLavine/willow/internal/willow/api"
 	"github.com/DanLavine/willow/internal/willow/api/v1/handlers"
-	queuechannels "github.com/DanLavine/willow/internal/willow/brokers/queue_channels"
 	"github.com/DanLavine/willow/internal/willow/brokers/queue_channels/constructor"
 	"github.com/DanLavine/willow/internal/willow/brokers/queues"
 	"github.com/DanLavine/willow/pkg/clients"
 	"go.uber.org/zap"
 
 	v1router "github.com/DanLavine/willow/internal/willow/api/v1/router"
+	queuechannels "github.com/DanLavine/willow/internal/willow/brokers/queue_channels"
 	limiterclient "github.com/DanLavine/willow/pkg/clients/limiter_client"
 	commonapi "github.com/DanLavine/willow/pkg/models/api"
 	v1 "github.com/DanLavine/willow/pkg/models/api/limiter/v1"
@@ -49,7 +49,7 @@ func main() {
 	}
 	limiterClient, err := limiterclient.NewLimiterClient(clientConfig)
 	if err != nil {
-		log.Fatal(err)
+		logger.Fatal("limiter client is not configured properly", zap.Error(err))
 	}
 
 	// ensure the limiter client can connect to the locker service

@@ -11,6 +11,3 @@ COPY . .
 RUN go build -v -o /usr/local/bin/limiter cmd/limiter/main.go
 
 EXPOSE 8082
-
-# Default run command, but the locker service is still required end env vars need to be set
-CMD ["limiter", "-limiter-insecure-http"]

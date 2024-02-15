@@ -1,12 +1,12 @@
 services:
-  #willow:
-  #  image: willow:local-latest
-  #  build: 
-  #    context: ..
-  #    dockerfile: docker/Dockerfile.willow
-  #  ports:
-  #    - 8080:8080
-  #    - 8081:8081
+  willow:
+   image: willow:local-latest
+   command: ["willow", "-insecure-http", "-log-level", "debug", "-limiter-url", "http://limiter:8082"]
+   build: 
+     context: ..
+     dockerfile: docker/Dockerfile.willow
+   ports:
+     - 8080:8080
 
   limiter:
     image: limiter:local-latest

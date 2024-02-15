@@ -17,10 +17,11 @@ type WillowConfig struct {
 	logLevel *string
 
 	// willow server configuration
-	WillowPort      *string
-	WillowCA        *string
-	WillowServerKey *string
-	WillowServerCRT *string
+	InsecureHttp *bool
+	Port         *string
+	ServerCA     *string
+	ServerKey    *string
+	ServerCRT    *string
 
 	// certificates for limiter client
 	LimiterURL       *string
@@ -44,13 +45,6 @@ type QueueConfig struct {
 // Storage configuration
 type StorageConfig struct {
 	Type *string
-	Disk *StorageDisk
-}
-
-// Disk Storage Configuration
-type StorageDisk struct {
-	// root storage directory where all message busses will persist data to
-	StorageDir *string
 }
 
 func Willow(args []string) (*WillowConfig, error) {
@@ -64,19 +58,17 @@ All flags will use the env vars if they are set instead of command line paramete
 
 	willowConfig := &WillowConfig{
 		logLevel:         willowFlagSet.String("log-level", "info", "log level [debug | info]. Can be set by env var LOG_LEVEL"),
-		WillowPort:       willowFlagSet.String("port", "8080", "default port for the Willow server to run on. Can be set by env var WILLOW_PORT"),
-		WillowCA:         willowFlagSet.String("server-ca", "", "CA file used to generate server certs iff one was used. Can be set by env var WILLOW_CA"),
-		WillowServerKey:  willowFlagSet.String("server-key", "", "Server private key location on disk. Can be set by env var WILLOW_SERVER_KEY"),
-		WillowServerCRT:  willowFlagSet.String("server-crt", "", "Server ssl certificate location on disk. Can be st by env var WILLOW_SERVER_CRT"),
+		Port:             willowFlagSet.String("port", "8080", "default port for the Willow server to run on. Can be set by env var WILLOW_PORT"),
+		InsecureHttp:     willowFlagSet.Bool("insecure-http", false, "Can be used to run the server in an unsecure http mode. Can be set be env var WILLOW_INSECURE_HTTP"),
+		ServerCA:         willowFlagSet.String("server-ca", "", "CA file used to generate server certs iff one was used. Can be set by env var WILLOW_CA"),
+		ServerKey:        willowFlagSet.String("server-key", "", "Server private key location on disk. Can be set by env var WILLOW_SERVER_KEY"),
+		ServerCRT:        willowFlagSet.String("server-crt", "", "Server ssl certificate location on disk. Can be st by env var WILLOW_SERVER_CRT"),
 		LimiterURL:       willowFlagSet.String("limiter-url", "", "CA file used to generate server certs iff one was used. Can be set by env var WILLOW_LIMITER_URL"),
 		LimiterClientCA:  willowFlagSet.String("limiter-client-ca", "", "CA file used to generate server certs iff one was used. Can be set by env var WILLOW_LIMITER_CLIENT_CA"),
 		LimiterClientKey: willowFlagSet.String("limiter-client-key", "", "Client private key location on disk. Can be set by env var WILLOW_LIMITER_CLIENT_KEY"),
 		LimiterClientCRT: willowFlagSet.String("limiter-client-crt", "", "Client ssl certificate location on disk. Can be set by env var WILLOW_LIMITER_CLIENT_CRT"),
 		StorageConfig: &StorageConfig{
-			Type: willowFlagSet.String("storage-type", "memory", "storage type to use for persistence [disk| memory]. Can be set by env var STORAGE_TYPE"),
-			Disk: &StorageDisk{
-				StorageDir: willowFlagSet.String("storage-dir", "", "root location on disk where to save storage data. Can be set by env var DISK_STORAGE_DIR"),
-			},
+			Type: willowFlagSet.String("storage-type", "memory", "storage type to use for persistence [memory]. Can be set by env var STORAGE_TYPE"),
 		},
 	}
 
@@ -112,19 +104,26 @@ func (wc *WillowConfig) parseEnv() error {
 	// willow server
 	//// port
 	if willowPort := os.Getenv("WILLOW_PORT"); willowPort != "" {
-		wc.WillowPort = &willowPort
+		wc.Port = &willowPort
+	}
+	//// insecure http
+	if willowInsecureHTTP := os.Getenv("WILLOW_INSECURE_HTTP"); willowInsecureHTTP != "" {
+		if willowInsecureHTTP == "true" {
+			trueValue := true
+			wc.InsecureHttp = &trueValue
+		}
 	}
 	//// ca key
 	if willowCA := os.Getenv("WILLOW_CA"); willowCA != "" {
-		wc.WillowCA = &willowCA
+		wc.ServerCA = &willowCA
 	}
 	//// tls key
 	if willowServerKey := os.Getenv("WILLOW_SERVER_KEY"); willowServerKey != "" {
-		wc.WillowServerKey = &willowServerKey
+		wc.ServerKey = &willowServerKey
 	}
 	//// tls certificate
 	if willowServerCRT := os.Getenv("WILLOW_SERVER_CRT"); willowServerCRT != "" {
-		wc.WillowServerCRT = &willowServerCRT
+		wc.ServerCRT = &willowServerCRT
 	}
 
 	// limiter client
@@ -151,12 +150,6 @@ func (wc *WillowConfig) parseEnv() error {
 		wc.StorageConfig.Type = &storageType
 	}
 
-	// disk storage configuration
-	//// disk root dir
-	if diskStorageLocation := os.Getenv("DISK_STORAGE_DIR"); diskStorageLocation != "" {
-		wc.StorageConfig.Disk.StorageDir = &diskStorageLocation
-	}
-
 	return nil
 }
 
@@ -166,22 +159,32 @@ func (wc *WillowConfig) validate() error {
 		return fmt.Errorf("expected config 'LogLevel' to be [debug | info]. Received: '%s'", *wc.logLevel)
 	}
 
-	// tls key
-	if *wc.WillowServerKey == "" {
-		return fmt.Errorf("parameter 'willow-server-key' is not set")
-	}
+	if *wc.InsecureHttp {
+		if *wc.ServerCA != "" {
+			return fmt.Errorf("parameter 'server-ca' is set, but also configured to run in plain http")
+		}
 
-	// tls certificate
-	if *wc.WillowServerCRT == "" {
-		return fmt.Errorf("parameter 'willow-server-crt' is not set")
+		if *wc.ServerCRT != "" {
+			return fmt.Errorf("parameter 'server-crt' is set, but also configured to run in plain http")
+		}
+
+		if *wc.ServerKey != "" {
+			return fmt.Errorf("parameter 'server-key' is set, but also configured to run in plain http")
+		}
+	} else {
+		// tls key
+		if *wc.ServerKey == "" {
+			return fmt.Errorf("parameter 'server-key' is not set")
+		}
+
+		// tls certificate
+		if *wc.ServerCRT == "" {
+			return fmt.Errorf("parameter 'server-crt' is not set")
+		}
 	}
 
 	// storage
 	switch *wc.StorageConfig.Type {
-	case DiskStorage:
-		if *wc.StorageConfig.Disk.StorageDir == "" {
-			return fmt.Errorf("'disk-storage-dir' is required when storage type is 'disk'")
-		}
 	case MemoryStorage:
 		// nothing to do here
 	default:

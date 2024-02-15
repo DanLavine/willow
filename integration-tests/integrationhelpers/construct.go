@@ -136,8 +136,8 @@ func (itc *IntegrationTestConstruct) StartWillow(g *WithT, limiterURL string) {
 		// configuration to point to limiter service
 		"-limiter-url", limiterURL,
 		"-limiter-client-ca", filepath.Join(currentDir, "..", "..", "..", "testhelpers", "tls-keys", "ca.crt"),
-		"-limiter-client-key", filepath.Join(currentDir, "..", "..", "..", "testhelpers", "tls-keys", "server.key"),
-		"-limiter-client-crt", filepath.Join(currentDir, "..", "..", "..", "testhelpers", "tls-keys", "server.crt"),
+		"-limiter-client-key", filepath.Join(currentDir, "..", "..", "..", "testhelpers", "tls-keys", "client.key"),
+		"-limiter-client-crt", filepath.Join(currentDir, "..", "..", "..", "testhelpers", "tls-keys", "client.crt"),
 	}
 
 	willowExe := exec.Command(itc.ServerPath, cmdLineFlags...)

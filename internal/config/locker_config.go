@@ -89,7 +89,7 @@ func (lc *LockerConfig) parseEnv() error {
 	}
 
 	// insecure http
-	if LockerInsecureHTTP := os.Getenv("LLOCKER_INSECURE_HTTP"); LockerInsecureHTTP != "" {
+	if LockerInsecureHTTP := os.Getenv("LOCKER_INSECURE_HTTP"); LockerInsecureHTTP != "" {
 		if LockerInsecureHTTP == "true" {
 			trueValue := true
 			lc.LockerInsecureHTTP = &trueValue
