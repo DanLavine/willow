@@ -39,9 +39,9 @@ func (limiter *limiterTCP) Initialize() error {
 		Addr: fmt.Sprintf(":%s", *limiter.config.LimiterPort),
 	}
 
-	if !*limiter.config.LimiterInsecureHTTP {
+	if !*limiter.config.InsecureHttp {
 		// load the server CRT and Key
-		cert, err := tls.LoadX509KeyPair(*limiter.config.LimiterServerCRT, *limiter.config.LimiterServerKey)
+		cert, err := tls.LoadX509KeyPair(*limiter.config.ServerCRT, *limiter.config.ServerKey)
 		if err != nil {
 			return err
 		}
@@ -52,8 +52,8 @@ func (limiter *limiterTCP) Initialize() error {
 		}
 
 		// load the CA cert if it exists
-		if *limiter.config.LimiterCA != "" {
-			CaPEM, err := os.ReadFile(*limiter.config.LimiterCA)
+		if *limiter.config.ServerCA != "" {
+			CaPEM, err := os.ReadFile(*limiter.config.ServerCA)
 			if err != nil {
 				return err
 			}
@@ -97,7 +97,7 @@ func (limiter *limiterTCP) Execute(ctx context.Context) error {
 
 	// return any error other than the server closed
 	logger.Info("Limiter TCP server running", zap.String("port", *limiter.config.LimiterPort))
-	if *limiter.config.LimiterInsecureHTTP {
+	if *limiter.config.InsecureHttp {
 		if err := limiter.server.ListenAndServe(); err != nil {
 			select {
 			case <-ctx.Done():

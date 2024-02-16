@@ -45,12 +45,12 @@ func NewLockerTCP(logger *zap.Logger, config *config.LockerConfig, mux *urlroute
 func (locker *LockerTCP) Cleanup() error { return nil }
 func (locker *LockerTCP) Initialize() error {
 	server := &http.Server{
-		Addr: fmt.Sprintf(":%s", *locker.config.LockerPort),
+		Addr: fmt.Sprintf(":%s", *locker.config.Port),
 	}
 
-	if !*locker.config.LockerInsecureHTTP {
+	if !*locker.config.InsecureHttp {
 		// load the server CRT and Key
-		cert, err := tls.LoadX509KeyPair(*locker.config.LockerServerCRT, *locker.config.LockerServerKey)
+		cert, err := tls.LoadX509KeyPair(*locker.config.ServerCRT, *locker.config.ServerKey)
 		if err != nil {
 			return err
 		}
@@ -61,14 +61,14 @@ func (locker *LockerTCP) Initialize() error {
 		}
 
 		// load the CA cert if it exists
-		if *locker.config.LockerCA != "" {
-			CaPEM, err := os.ReadFile(*locker.config.LockerCA)
+		if *locker.config.ServerCA != "" {
+			CaPEM, err := os.ReadFile(*locker.config.ServerCA)
 			if err != nil {
 				return err
 			}
 			CAs := x509.NewCertPool()
 			if !CAs.AppendCertsFromPEM(CaPEM) {
-				return fmt.Errorf("failed to parse LockerCA")
+				return fmt.Errorf("failed to parse ServerCA")
 			}
 
 			server.TLSConfig.RootCAs = CAs
@@ -103,8 +103,8 @@ func (locker *LockerTCP) Execute(ctx context.Context) error {
 	}()
 
 	// return any error other than the server closed
-	logger.Info("Locker TCP server running", zap.String("port", *locker.config.LockerPort))
-	if *locker.config.LockerInsecureHTTP {
+	logger.Info("Locker TCP server running", zap.String("port", *locker.config.Port))
+	if *locker.config.InsecureHttp {
 		if err := locker.server.ListenAndServe(); err != nil {
 			select {
 			case <-ctx.Done():

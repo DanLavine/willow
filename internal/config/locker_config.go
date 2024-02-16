@@ -13,15 +13,15 @@ type LockerConfig struct {
 	logLevel *string
 
 	// server config
-	LockerPort *string
+	Port *string
 
 	// server certs
-	LockerCA        *string
-	LockerServerKey *string
-	LockerServerCRT *string
+	ServerCA  *string
+	ServerKey *string
+	ServerCRT *string
 
 	// use http instead of https
-	LockerInsecureHTTP *bool
+	InsecureHttp *bool
 
 	// lock default
 	LockDefaultTimeout *time.Duration
@@ -38,13 +38,13 @@ All flags will use the env vars if they are set instead of command line paramete
 	}
 
 	LockerConfig := &LockerConfig{
-		logLevel:           LockerFlagSet.String("log-level", "info", "log level [debug | info]. Can be set by env var LOG_LEVEL"),
-		LockerPort:         LockerFlagSet.String("locker-port", "8083", "default port for the limitter server to run on. Can be set by env var LOCKER_PORT"),
-		LockerCA:           LockerFlagSet.String("locker-ca", "", "CA file used to generate server certs iff one was used. Can be set by env var LOCKER_CA"),
-		LockerServerKey:    LockerFlagSet.String("locker-server-key", "", "Server private key location on disk. Can be set by env var LOCKER_SERVER_KEY"),
-		LockerServerCRT:    LockerFlagSet.String("locker-server-crt", "", "Server ssl certificate location on disk. Can be st by env var LOCKER_SERVER_CRT"),
-		LockerInsecureHTTP: LockerFlagSet.Bool("locker-insecure-http", false, "Can be used to run the server in an unsecure http mode. Can be set be env var LOCKER_INSECURE_HTTP"),
-		LockDefaultTimeout: LockerFlagSet.Duration("locker-default-timeout", 5*time.Second, "default timeout for locks if it is not provided by the api. Default is 5 seconds. Can be set by env var LOCKER_DEFAULT_TIMEOUT"),
+		logLevel:           LockerFlagSet.String("log-level", "info", "log level [debug | info]. Can be set by env var LOCKER_LOG_LEVEL"),
+		Port:               LockerFlagSet.String("port", "8083", "default port for the limitter server to run on. Can be set by env var LOCKER_PORT"),
+		ServerCA:           LockerFlagSet.String("server-ca", "", "CA file used to generate server certs iff one was used. Can be set by env var LOCKER_SERVER_CA"),
+		ServerKey:          LockerFlagSet.String("server-key", "", "Server private key location on disk. Can be set by env var LOCKER_SERVER_KEY"),
+		ServerCRT:          LockerFlagSet.String("server-crt", "", "Server ssl certificate location on disk. Can be st by env var LOCKER_SERVER_CRT"),
+		InsecureHttp:       LockerFlagSet.Bool("insecure-http", false, "Can be used to run the server in an unsecure http mode. Can be set be env var LOCKER_INSECURE_HTTP"),
+		LockDefaultTimeout: LockerFlagSet.Duration("lock-default-timeout", 5*time.Second, "default timeout for locks if it is not provided by the api. Default is 5 seconds. Can be set by env var LOCKER_LOCK_DEFAULT_TIMEOUT"),
 	}
 
 	if err := LockerFlagSet.Parse(args); err != nil {
@@ -65,46 +65,46 @@ All flags will use the env vars if they are set instead of command line paramete
 func (lc *LockerConfig) parseEnv() error {
 	// logs
 	//// logLevel
-	if logLevel := os.Getenv("LOG_LEVEL"); logLevel != "" {
+	if logLevel := os.Getenv("LOCKER_LOG_LEVEL"); logLevel != "" {
 		lc.logLevel = &logLevel
 	}
 
 	// server
 	//// port
-	if LockerPort := os.Getenv("Locker_PORT"); LockerPort != "" {
-		lc.LockerPort = &LockerPort
+	if lockerPort := os.Getenv("LOCKER_PORT"); lockerPort != "" {
+		lc.Port = &lockerPort
 	}
 
 	// ca key
-	if LockerCA := os.Getenv("Locker_CA"); LockerCA != "" {
-		lc.LockerCA = &LockerCA
+	if serverCA := os.Getenv("LOCKER_SERVER_CA"); serverCA != "" {
+		lc.ServerCA = &serverCA
 	}
 	// tls key
-	if LockerServerKey := os.Getenv("Locker_SERVER_KEY"); LockerServerKey != "" {
-		lc.LockerServerKey = &LockerServerKey
+	if lockerServerKey := os.Getenv("LOCKER_SERVER_KEY"); lockerServerKey != "" {
+		lc.ServerKey = &lockerServerKey
 	}
 	// tls certificate
-	if LockerServerCRT := os.Getenv("Locker_SERVER_CRT"); LockerServerCRT != "" {
-		lc.LockerServerCRT = &LockerServerCRT
+	if lockerServerCRT := os.Getenv("LOCKER_SERVER_CRT"); lockerServerCRT != "" {
+		lc.ServerCRT = &lockerServerCRT
 	}
 
 	// insecure http
-	if LockerInsecureHTTP := os.Getenv("LOCKER_INSECURE_HTTP"); LockerInsecureHTTP != "" {
-		if LockerInsecureHTTP == "true" {
+	if insecureHTTP := os.Getenv("LOCKER_INSECURE_HTTP"); insecureHTTP != "" {
+		if insecureHTTP == "true" {
 			trueValue := true
-			lc.LockerInsecureHTTP = &trueValue
+			lc.InsecureHttp = &trueValue
 		}
 	}
 
 	// defaults
 	// lock timeout
-	if LockerDefaultTimeout := os.Getenv("LOCKER_DEFAULT_TIMEOUT"); LockerDefaultTimeout != "" {
-		lockDefaultTimeout, err := time.ParseDuration(LockerDefaultTimeout)
+	if lockerLockDefaultTimeout := os.Getenv("LOCKER_LOCK_DEFAULT_TIMEOUT"); lockerLockDefaultTimeout != "" {
+		defaultTimeout, err := time.ParseDuration(lockerLockDefaultTimeout)
 		if err != nil {
-			return fmt.Errorf("error parsing 'LOCKER_DEFAULT_TIMEOUT': %v", err)
+			return fmt.Errorf("error parsing 'LOCKER_LOCK_DEFAULT_TIMEOUT': %v", err)
 		}
 
-		lc.LockDefaultTimeout = &lockDefaultTimeout
+		lc.LockDefaultTimeout = &defaultTimeout
 	}
 
 	return nil
@@ -117,47 +117,47 @@ func (lc *LockerConfig) validate() error {
 	case "debug", "info":
 		// noting to do here, these are valid
 	default:
-		return fmt.Errorf("param 'log-level' is invalid: '%s'. Must be set to [debug | info]", *lc.logLevel)
+		return fmt.Errorf("flag 'log-level' is invalid: '%s'. Must be set to [debug | info]", *lc.logLevel)
 	}
 
 	// server
 	//// server port
-	LockerPort, err := strconv.Atoi(*lc.LockerPort)
+	LockerPort, err := strconv.Atoi(*lc.Port)
 	if err != nil {
-		return fmt.Errorf("error parsing 'locker-port': %w", err)
+		return fmt.Errorf("error parsing 'port': %w", err)
 	} else if LockerPort > 65535 {
-		return fmt.Errorf("param 'locker-port' is invalid: '%d'. Must be set to a proper port below 65536", LockerPort)
+		return fmt.Errorf("flag 'port' is invalid: '%d'. Must be set to a proper port below 65536", LockerPort)
 	}
 
-	if *lc.LockerInsecureHTTP {
-		if *lc.LockerCA != "" {
-			return fmt.Errorf("pram 'locker-ca' needs to be nil if using the 'locker-insecure-http'")
+	if *lc.InsecureHttp {
+		if *lc.ServerCA != "" {
+			return fmt.Errorf("flag 'server-ca' needs to be unset if using 'insecure-http'")
 		}
 
-		if *lc.LockerServerKey != "" {
-			return fmt.Errorf("pram 'locker-server-key' needds to be nil if using the 'locker-insecure-http'")
+		if *lc.ServerKey != "" {
+			return fmt.Errorf("flag 'server-key' needs to be unset if using 'insecure-http'")
 		}
 
-		if *lc.LockerServerCRT != "" {
-			return fmt.Errorf("pram 'locker-server-crt' needds to be nil if using the 'locker-insecure-http'")
+		if *lc.ServerCRT != "" {
+			return fmt.Errorf("flag 'server-crt' needs to be unset if using 'insecure-http'")
 		}
 	} else {
 		// ca key is optional. Could be added on a system level
 
 		// tls key
-		if *lc.LockerServerKey == "" {
-			return fmt.Errorf("param 'locker-server-key' is not set")
+		if *lc.ServerKey == "" {
+			return fmt.Errorf("flag 'server-key' is not set")
 		}
 
 		// tls certificate
-		if *lc.LockerServerCRT == "" {
-			return fmt.Errorf("param 'locker-server-crt' is not set")
+		if *lc.ServerCRT == "" {
+			return fmt.Errorf("flag 'server-crt' is not set")
 		}
+	}
 
-		// default timeout
-		if *lc.LockDefaultTimeout <= 0 {
-			return fmt.Errorf("error parsing 'LOCKER_DEFAULT_TIMEOUT', time must be greater than 0")
-		}
+	// default timeout
+	if *lc.LockDefaultTimeout <= 0 {
+		return fmt.Errorf("error parsing 'LOCKER_LOCK_DEFAULT_TIMEOUT', time must be greater than 0")
 	}
 
 	return nil

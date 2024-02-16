@@ -161,25 +161,25 @@ func (wc *WillowConfig) validate() error {
 
 	if *wc.InsecureHttp {
 		if *wc.ServerCA != "" {
-			return fmt.Errorf("parameter 'server-ca' is set, but also configured to run in plain http")
+			return fmt.Errorf("flag 'server-ca' cannot be set with 'insecure-http'")
 		}
 
 		if *wc.ServerCRT != "" {
-			return fmt.Errorf("parameter 'server-crt' is set, but also configured to run in plain http")
+			return fmt.Errorf("flag 'server-crt' cannot be set with 'insecure-http'")
 		}
 
 		if *wc.ServerKey != "" {
-			return fmt.Errorf("parameter 'server-key' is set, but also configured to run in plain http")
+			return fmt.Errorf("flag 'server-key' cannot be set with 'insecure-http'")
 		}
 	} else {
 		// tls key
 		if *wc.ServerKey == "" {
-			return fmt.Errorf("parameter 'server-key' is not set")
+			return fmt.Errorf("flag 'server-key' is not set")
 		}
 
 		// tls certificate
 		if *wc.ServerCRT == "" {
-			return fmt.Errorf("parameter 'server-crt' is not set")
+			return fmt.Errorf("flag 'server-crt' is not set")
 		}
 	}
 

@@ -51,21 +51,21 @@ func TestWillowConfig(t *testing.T) {
 				cfg, err := Willow([]string{"-insecure-http", "-server-ca", caCrt.Name()})
 				g.Expect(cfg).To(BeNil())
 				g.Expect(err).To(HaveOccurred())
-				g.Expect(err.Error()).To(Equal("parameter 'server-ca' is set, but also configured to run in plain http"))
+				g.Expect(err.Error()).To(Equal("flag 'server-ca' cannot be set with 'insecure-http'"))
 			})
 
 			t.Run("It errors if the ca crt is provided", func(t *testing.T) {
 				cfg, err := Willow([]string{"-insecure-http", "-server-crt", serverCRT.Name()})
 				g.Expect(cfg).To(BeNil())
 				g.Expect(err).To(HaveOccurred())
-				g.Expect(err.Error()).To(Equal("parameter 'server-crt' is set, but also configured to run in plain http"))
+				g.Expect(err.Error()).To(Equal("flag 'server-crt' cannot be set with 'insecure-http'"))
 			})
 
 			t.Run("It errors if the ca key is provided", func(t *testing.T) {
 				cfg, err := Willow([]string{"-insecure-http", "-server-key", serverCRT.Name()})
 				g.Expect(cfg).To(BeNil())
 				g.Expect(err).To(HaveOccurred())
-				g.Expect(err.Error()).To(Equal("parameter 'server-key' is set, but also configured to run in plain http"))
+				g.Expect(err.Error()).To(Equal("flag 'server-key' cannot be set with 'insecure-http'"))
 			})
 		})
 
@@ -75,7 +75,7 @@ func TestWillowConfig(t *testing.T) {
 					cfg, err := Willow(nil)
 					g.Expect(cfg).To(BeNil())
 					g.Expect(err).To(HaveOccurred())
-					g.Expect(err.Error()).To(ContainSubstring("parameter 'server-key' is not set"))
+					g.Expect(err.Error()).To(ContainSubstring("flag 'server-key' is not set"))
 				})
 
 				t.Run("It can be set via env vars", func(t *testing.T) {
@@ -93,7 +93,7 @@ func TestWillowConfig(t *testing.T) {
 					cfg, err := Willow([]string{"-server-key", serverKey.Name()})
 					g.Expect(cfg).To(BeNil())
 					g.Expect(err).To(HaveOccurred())
-					g.Expect(err.Error()).To(ContainSubstring("parameter 'server-crt' is not set"))
+					g.Expect(err.Error()).To(ContainSubstring("flag 'server-crt' is not set"))
 				})
 
 				t.Run("It can be set via env vars", func(t *testing.T) {

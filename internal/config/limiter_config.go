@@ -16,9 +16,9 @@ type LimiterConfig struct {
 	LimiterPort *string
 
 	// server certs
-	LimiterCA        *string
-	LimiterServerKey *string
-	LimiterServerCRT *string
+	ServerCA  *string
+	ServerKey *string
+	ServerCRT *string
 
 	// certificates for locker client
 	LockerURL       *string
@@ -27,7 +27,7 @@ type LimiterConfig struct {
 	LockerClientCRT *string
 
 	// use http instead of https
-	LimiterInsecureHTTP *bool
+	InsecureHttp *bool
 }
 
 func Limiter(args []string) (*LimiterConfig, error) {
@@ -41,20 +41,20 @@ All flags will use the env vars if they are set instead of command line paramete
 	}
 
 	limiterConfig := &LimiterConfig{
-		logLevel: limiterFlagSet.String("log-level", "info", "log level [debug | info]. Can be set by env var LOG_LEVEL"),
+		logLevel: limiterFlagSet.String("log-level", "info", "log level [debug | info]. Can be set by env var LIMITER_LOG_LEVEL"),
 
-		LimiterPort: limiterFlagSet.String("limiter-port", "8082", "default port for the limitter server to run on. Can be set by env var LIMITER_PORT"),
+		LimiterPort: limiterFlagSet.String("port", "8082", "default port for the limitter server to run on. Can be set by env var LIMITER_PORT"),
 
-		LimiterCA:        limiterFlagSet.String("limiter-ca", "", "CA file used to generate server certs iff one was used. Can be set by env var LIMITER_CA"),
-		LimiterServerKey: limiterFlagSet.String("limiter-server-key", "", "Server private key location on disk. Can be set by env var LIMITER_SERVER_KEY"),
-		LimiterServerCRT: limiterFlagSet.String("limiter-server-crt", "", "Server ssl certificate location on disk. Can be st by env var LIMITER_SERVER_CRT"),
+		ServerCA:  limiterFlagSet.String("server-ca", "", "CA file used to generate server certs iff one was used. Can be set by env var LIMITER_CA"),
+		ServerKey: limiterFlagSet.String("server-key", "", "Server private key location on disk. Can be set by env var LIMITER_SERVER_KEY"),
+		ServerCRT: limiterFlagSet.String("server-crt", "", "Server ssl certificate location on disk. Can be st by env var LIMITER_SERVER_CRT"),
 
-		LockerURL:       limiterFlagSet.String("limiter-locker-url", "", "CA file used to generate server certs iff one was used. Can be set by env var LIMITER_LOCKER_URL"),
-		LockerClientCA:  limiterFlagSet.String("limiter-locker-client-ca", "", "CA file used to generate server certs iff one was used. Can be set by env var LIMITER_LOCKER_CLIENT_CA"),
-		LockerClientKey: limiterFlagSet.String("limiter-locker-client-key", "", "Client private key location on disk. Can be set by env var LIMITER_LOCKER_CLIENT_KEY"),
-		LockerClientCRT: limiterFlagSet.String("limiter-locker-client-crt", "", "Client ssl certificate location on disk. Can be set by env var LIMITER_LOCKER_CLIENT_CRT"),
+		LockerURL:       limiterFlagSet.String("locker-url", "", "CA file used to generate server certs iff one was used. Can be set by env var LIMITER_LOCKER_URL"),
+		LockerClientCA:  limiterFlagSet.String("locker-client-ca", "", "CA file used to generate server certs iff one was used. Can be set by env var LIMITER_LOCKER_CLIENT_CA"),
+		LockerClientKey: limiterFlagSet.String("locker-client-key", "", "Client private key location on disk. Can be set by env var LIMITER_LOCKER_CLIENT_KEY"),
+		LockerClientCRT: limiterFlagSet.String("locker-client-crt", "", "Client ssl certificate location on disk. Can be set by env var LIMITER_LOCKER_CLIENT_CRT"),
 
-		LimiterInsecureHTTP: limiterFlagSet.Bool("limiter-insecure-http", false, "Can be used to run the server in an unsecure http mode. Can be set be env var LIMITER_INSECURE_HTTP"),
+		InsecureHttp: limiterFlagSet.Bool("insecure-http", false, "Can be used to run the server in an unsecure http mode. Can be set be env var LIMITER_INSECURE_HTTP"),
 	}
 
 	if err := limiterFlagSet.Parse(args); err != nil {
@@ -85,16 +85,16 @@ func (lc *LimiterConfig) parseEnv() {
 
 	// server keys
 	//// ca key
-	if limiterCA := os.Getenv("LIMITER_CA"); limiterCA != "" {
-		lc.LimiterCA = &limiterCA
+	if limiterCA := os.Getenv("LIMITER_SERVER_CA"); limiterCA != "" {
+		lc.ServerCA = &limiterCA
 	}
 	//// tls key
 	if limiterServerKey := os.Getenv("LIMITER_SERVER_KEY"); limiterServerKey != "" {
-		lc.LimiterServerKey = &limiterServerKey
+		lc.ServerKey = &limiterServerKey
 	}
 	//// tls certificate
 	if limiterServerCRT := os.Getenv("LIMITER_SERVER_CRT"); limiterServerCRT != "" {
-		lc.LimiterServerCRT = &limiterServerCRT
+		lc.ServerCRT = &limiterServerCRT
 	}
 
 	// locker client
@@ -122,7 +122,7 @@ func (lc *LimiterConfig) parseEnv() {
 	if limiterInsecureHTTP := os.Getenv("LIMITER_INSECURE_HTTP"); limiterInsecureHTTP != "" {
 		if strings.ToLower(limiterInsecureHTTP) == "true" {
 			trueValue := true
-			lc.LimiterInsecureHTTP = &trueValue
+			lc.InsecureHttp = &trueValue
 		}
 	}
 }
@@ -134,7 +134,7 @@ func (lc *LimiterConfig) validate() error {
 	case "debug", "info":
 		// noting to do here, these are valid
 	default:
-		return fmt.Errorf("param 'log-level' is invalid: '%s'. Must be set to [debug | info]", *lc.logLevel)
+		return fmt.Errorf("flag 'log-level' is invalid: '%s'. Must be set to [debug | info]", *lc.logLevel)
 	}
 
 	// server
@@ -143,32 +143,32 @@ func (lc *LimiterConfig) validate() error {
 	if err != nil {
 		return fmt.Errorf("error parsing 'limiter-port': %w", err)
 	} else if LimiterPort > 65535 {
-		return fmt.Errorf("param 'limiter-port' is invalid: '%d'. Must be set to a proper port below 65536", LimiterPort)
+		return fmt.Errorf("flag 'limiter-port' is invalid: '%d'. Must be set to a proper port below 65536", LimiterPort)
 	}
 
-	if *lc.LimiterInsecureHTTP {
-		if *lc.LimiterCA != "" {
-			return fmt.Errorf("param 'limiter-ca' can not be set with 'limiter-insecure-http'")
+	if *lc.InsecureHttp {
+		if *lc.ServerCA != "" {
+			return fmt.Errorf("flag 'server-ca' cannot be set with 'insecure-http'")
 		}
 
-		if *lc.LimiterServerCRT != "" {
-			return fmt.Errorf("param 'limiter-server-crt' can not be set with 'limiter-insecure-http'")
+		if *lc.ServerCRT != "" {
+			return fmt.Errorf("flag 'server-crt' cannot be set with 'insecure-http'")
 		}
 
-		if *lc.LimiterServerKey != "" {
-			return fmt.Errorf("param 'limiter-server-key' can not be set with 'limiter-insecure-http'")
+		if *lc.ServerKey != "" {
+			return fmt.Errorf("flag 'server-key' cannot be set with 'insecure-http'")
 		}
 	} else {
 		// ca key is optional. Could be added on a system level
 
 		// tls key
-		if *lc.LimiterServerKey == "" {
-			return fmt.Errorf("param 'limiter-server-key' is not set")
+		if *lc.ServerKey == "" {
+			return fmt.Errorf("flag 'server-key' is not set")
 		}
 
 		// tls certificate
-		if *lc.LimiterServerCRT == "" {
-			return fmt.Errorf("param 'limiter-server-crt' is not set")
+		if *lc.ServerCRT == "" {
+			return fmt.Errorf("flag 'server-crt' is not set")
 		}
 	}
 

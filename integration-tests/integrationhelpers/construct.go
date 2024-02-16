@@ -70,10 +70,10 @@ func (itc *IntegrationTestConstruct) StartLocker(g *WithT) {
 
 	cmdLineFlags := []string{
 		"-log-level", "debug",
-		"-locker-ca", filepath.Join(currentDir, "..", "..", "..", "testhelpers", "tls-keys", "ca.crt"),
-		"-locker-server-key", filepath.Join(currentDir, "..", "..", "..", "testhelpers", "tls-keys", "server.key"),
-		"-locker-server-crt", filepath.Join(currentDir, "..", "..", "..", "testhelpers", "tls-keys", "server.crt"),
-		"-locker-default-timeout", "1s",
+		"-server-ca", filepath.Join(currentDir, "..", "..", "..", "testhelpers", "tls-keys", "ca.crt"),
+		"-server-key", filepath.Join(currentDir, "..", "..", "..", "testhelpers", "tls-keys", "server.key"),
+		"-server-crt", filepath.Join(currentDir, "..", "..", "..", "testhelpers", "tls-keys", "server.crt"),
+		"-lock-default-timeout", "1s",
 	}
 
 	lockerExe := exec.Command(itc.ServerPath, cmdLineFlags...)
@@ -98,14 +98,14 @@ func (itc *IntegrationTestConstruct) StartLimiter(g *WithT, lockerURL string) {
 
 	cmdLineFlags := []string{
 		"-log-level", "debug",
-		"-limiter-ca", filepath.Join(currentDir, "..", "..", "..", "testhelpers", "tls-keys", "ca.crt"),
-		"-limiter-server-key", filepath.Join(currentDir, "..", "..", "..", "testhelpers", "tls-keys", "server.key"),
-		"-limiter-server-crt", filepath.Join(currentDir, "..", "..", "..", "testhelpers", "tls-keys", "server.crt"),
+		"-server-ca", filepath.Join(currentDir, "..", "..", "..", "testhelpers", "tls-keys", "ca.crt"),
+		"-server-key", filepath.Join(currentDir, "..", "..", "..", "testhelpers", "tls-keys", "server.key"),
+		"-server-crt", filepath.Join(currentDir, "..", "..", "..", "testhelpers", "tls-keys", "server.crt"),
 		// configuration to point to the locker service
-		"-limiter-locker-url", lockerURL,
-		"-limiter-locker-client-ca", filepath.Join(currentDir, "..", "..", "..", "testhelpers", "tls-keys", "ca.crt"),
-		"-limiter-locker-client-key", filepath.Join(currentDir, "..", "..", "..", "testhelpers", "tls-keys", "client.key"),
-		"-limiter-locker-client-crt", filepath.Join(currentDir, "..", "..", "..", "testhelpers", "tls-keys", "client.crt"),
+		"-locker-url", lockerURL,
+		"-locker-client-ca", filepath.Join(currentDir, "..", "..", "..", "testhelpers", "tls-keys", "ca.crt"),
+		"-locker-client-key", filepath.Join(currentDir, "..", "..", "..", "testhelpers", "tls-keys", "client.key"),
+		"-locker-client-crt", filepath.Join(currentDir, "..", "..", "..", "testhelpers", "tls-keys", "client.crt"),
 	}
 
 	lockerExe := exec.Command(itc.ServerPath, cmdLineFlags...)
