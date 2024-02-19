@@ -93,13 +93,15 @@ I would like to take them, you can check out the docs for each service directly.
 I want to work on at a glance:
 
   1. Simplify the Locker client
-    * Having done the heartbeater for Willow, I would like to simplify the logic for the Locker client. I was trying to be
+
+     * Having done the heartbeater for Willow, I would like to simplify the logic for the Locker client. I was trying to be
       to clever for handling shutdowns to ensure locks are all released. But I don't think that will be true after I can
       load things from disk. Something like a K8S node, which runs processes through docker could update the K8S node
       and then restart and still have a "lock" for the thing running through Docker.
   
-  2. Simplify the clients and ensure the API is properly documented with failure status codes
-    * I currently have things setup to need `content-type: application/json` headers which just make hings hard to use when
+  3. Simplify the clients and ensure the API is properly documented with failure status codes
+
+     * I currently have things setup to need `content-type: application/json` headers which just make hings hard to use when
       trying out the service. I had a notion of have a "fast" api for only byte arrays, but I don't really need that to begin
       with. So just simplify things for now and document what a "fast" api would be:
         * Don't check queues against Limiter rules
@@ -107,6 +109,6 @@ I want to work on at a glance:
         * works more like other Queue services that need fast queue throughput is the main goal of a setup like this. Then
           people would only need to setup 1 service for both types of queue systems
 
-  3. Have logged `session_ids` flow through all services.
+  5. Have logged `session_ids` flow through all services.
     * Nice to see how the system works end to end
     * Want to add more `debug` logs to see the system working as a whole for new users and expanding features
