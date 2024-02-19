@@ -21,27 +21,26 @@ func (dt DataType) Less(compare DataType) bool {
 
 var (
 	// these are the types that can be added
-	T_uint8   DataType = 0
-	T_uint16  DataType = 1
-	T_uint32  DataType = 2
-	T_uint64  DataType = 3
-	T_uint    DataType = 4
-	T_int8    DataType = 5
-	T_int16   DataType = 6
-	T_int32   DataType = 7
-	T_int64   DataType = 8
-	T_int     DataType = 9
-	T_float32 DataType = 10
-	T_float64 DataType = 11
-	T_string  DataType = 12
+	T_uint8   DataType = 1
+	T_uint16  DataType = 2
+	T_uint32  DataType = 3
+	T_uint64  DataType = 4
+	T_uint    DataType = 5
+	T_int8    DataType = 6
+	T_int16   DataType = 7
+	T_int32   DataType = 8
+	T_int64   DataType = 9
+	T_int     DataType = 10
+	T_float32 DataType = 11
+	T_float64 DataType = 12
+	T_string  DataType = 13
 )
 
 // EncapsulatedValue provides validation for all datatypes from uint8 to string.
 // It cacn be used to enforce that a proper single value is provided
 type EncapsulatedValue struct {
-	Type DataType
-
-	Data any
+	Type DataType `json:"Type"`
+	Data any      `json:"Data"`
 }
 
 func (edv EncapsulatedValue) DataType() DataType {

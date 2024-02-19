@@ -20,7 +20,7 @@ func TestAssociatedTree_Create_ParamCheck(t *testing.T) {
 
 		id, err := associatedTree.Create(nil, onCreate)
 		g.Expect(err).To(HaveOccurred())
-		g.Expect(err.Error()).To(ContainSubstring("keyValues cannot be empty"))
+		g.Expect(err.Error()).To(ContainSubstring("KeyValues cannot be empty"))
 		g.Expect(id).To(Equal(""))
 	})
 
@@ -302,7 +302,7 @@ func TestAssociatedTree_CreateWithID_ParamCheck(t *testing.T) {
 
 		err := associatedTree.CreateWithID("something", nil, onCreate)
 		g.Expect(err).To(HaveOccurred())
-		g.Expect(err.Error()).To(ContainSubstring("keyValues cannot be empty"))
+		g.Expect(err.Error()).To(ContainSubstring("KeyValues cannot be empty"))
 	})
 
 	t.Run("it returns an error with if keyValues has _associated_id key", func(t *testing.T) {
@@ -578,7 +578,7 @@ func TestAssociatedTree_CreateOrFind_ParamCheck(t *testing.T) {
 
 		id, err := associatedTree.CreateOrFind(nil, onCreate, onFind)
 		g.Expect(err).To(HaveOccurred())
-		g.Expect(err.Error()).To(ContainSubstring("keyValues cannot be empty"))
+		g.Expect(err.Error()).To(ContainSubstring("KeyValues cannot be empty"))
 		g.Expect(id).To(Equal(""))
 	})
 

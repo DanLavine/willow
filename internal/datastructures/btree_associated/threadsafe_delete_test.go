@@ -16,7 +16,7 @@ func TestAssociatedTree_Delete_ParamCheck(t *testing.T) {
 
 		err := associatedTree.Delete(nil, nil)
 		g.Expect(err).To(HaveOccurred())
-		g.Expect(err.Error()).To(ContainSubstring("keyValues cannot be empty"))
+		g.Expect(err.Error()).To(ContainSubstring("KeyValues cannot be empty"))
 	})
 
 	t.Run("it returns an error if the keyValues has _associated_id", func(t *testing.T) {

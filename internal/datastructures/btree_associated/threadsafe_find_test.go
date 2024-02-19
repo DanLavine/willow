@@ -19,7 +19,7 @@ func TestAssociatedTree_Find_ParamCheck(t *testing.T) {
 
 		err := associatedTree.Find(nil, onFind)
 		g.Expect(err).To(HaveOccurred())
-		g.Expect(err.Error()).To(ContainSubstring("keyValues cannot be empty"))
+		g.Expect(err.Error()).To(ContainSubstring("KeyValues cannot be empty"))
 	})
 
 	t.Run("it returns an error with nil onFind", func(t *testing.T) {

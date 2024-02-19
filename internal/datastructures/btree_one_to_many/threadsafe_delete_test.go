@@ -27,7 +27,7 @@ func TestOneToManyTree_DeleteOneOfManyByKeyValues(t *testing.T) {
 
 			err := tree.DeleteOneOfManyByKeyValues("one id", nil, nil)
 			g.Expect(err).To(HaveOccurred())
-			g.Expect(err.Error()).To(Equal("keyValues cannot be empty"))
+			g.Expect(err.Error()).To(Equal("KeyValues cannot be empty"))
 		})
 	})
 

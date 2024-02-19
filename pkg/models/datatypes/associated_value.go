@@ -7,14 +7,6 @@ import (
 type Comparison string
 
 var (
-	// I think this makes sense for a smarter query operation where a user wants to enforce the type of a specific key
-	// With other NoSQL dbs like MongoDB, I only ever see a feature for type assertion by making 2 statements joined by 'and'.
-	// 1 for the comparions (i.e. <)
-	// 1 for the type assertion (I.E string)
-	// But that seems like unecessary work and slower
-	exists    Comparison = "exists"     // special case for T_any
-	notExists Comparison = "NOT exists" // special case for T_any
-
 	equals                      Comparison = "="
 	notEquals                   Comparison = "!="
 	lessThan                    Comparison = "<"
@@ -82,10 +74,10 @@ func (v *Value) validate() error {
 
 		if v.ExistsType != nil {
 			switch *v.ExistsType {
-			case 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12:
+			case 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13:
 				// these are all valid
 			default:
-				return fmt.Errorf(": Unexpected ExistsType. Must be an int from 1-12 inclusive")
+				return fmt.Errorf(": Unexpected ExistsType. Must be an int from 1-13 inclusive")
 			}
 		}
 	}

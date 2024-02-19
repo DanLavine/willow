@@ -233,6 +233,20 @@ func TestKeyValues_DataEncoding(t *testing.T) {
 		// ensure bothe values match
 		g.Expect(keyValues).To(Equal(decodedKeyValues))
 	})
+
+	t.Run("It returns an error when json Type is invalid", func(t *testing.T) {
+		decodedKeyValues := KeyValues{}
+		err := json.Unmarshal([]byte(`{"key1":{"other":13, "Data": "some str"}}`), &decodedKeyValues)
+		g.Expect(err).To(HaveOccurred())
+		g.Expect(err.Error()).To(ContainSubstring("key 'key1' has an unkown data type: 0"))
+	})
+
+	t.Run("It returns an error when json Data is invalid", func(t *testing.T) {
+		decodedKeyValues := KeyValues{}
+		err := json.Unmarshal([]byte(`{"key1":{"Type":12, "unnkown": "some str"}}`), &decodedKeyValues)
+		g.Expect(err).To(HaveOccurred())
+		g.Expect(err.Error()).To(ContainSubstring("received empty Data for key 'key1'"))
+	})
 }
 
 func TestKeyValues_Validate(t *testing.T) {

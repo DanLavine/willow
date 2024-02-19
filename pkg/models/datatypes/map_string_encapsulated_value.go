@@ -171,6 +171,10 @@ func (kv *KeyValues) UnmarshalJSON(b []byte) error {
 	}
 
 	for key, value := range custom {
+		if value.Value() == nil {
+			return fmt.Errorf("received empty Data for key '%s'", key)
+		}
+
 		switch value.DataType() {
 		case T_uint8:
 			parsedValue, err := strconv.ParseUint(value.Value().(string), 10, 64)
@@ -247,7 +251,7 @@ func (kv *KeyValues) UnmarshalJSON(b []byte) error {
 		case T_string:
 			(*kv)[key] = value
 		default:
-			return fmt.Errorf("unkown data type: %d", value.DataType())
+			return fmt.Errorf("key '%s' has an unkown data type: %d", key, value.DataType())
 		}
 	}
 

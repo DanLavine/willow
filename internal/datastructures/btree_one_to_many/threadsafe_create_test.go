@@ -34,7 +34,7 @@ func TestOneToManyTree_CreateWithID(t *testing.T) {
 
 			err := tree.CreateWithID("one name", "associated id", datatypes.KeyValues{}, nil)
 			g.Expect(err).To(HaveOccurred())
-			g.Expect(err.Error()).To(ContainSubstring("keyValues cannot be empty"))
+			g.Expect(err.Error()).To(ContainSubstring("KeyValues cannot be empty"))
 		})
 
 		t.Run("It returns an error if the onCreate is empty", func(t *testing.T) {
@@ -195,7 +195,7 @@ func TestOneToManyTree_CreateOrFind(t *testing.T) {
 
 			id, err := tree.CreateOrFind("one name", datatypes.KeyValues{}, nil, nil)
 			g.Expect(err).To(HaveOccurred())
-			g.Expect(err.Error()).To(ContainSubstring("keyValues cannot be empty"))
+			g.Expect(err.Error()).To(ContainSubstring("KeyValues cannot be empty"))
 			g.Expect(id).To(Equal(""))
 
 		})

@@ -52,7 +52,7 @@ func Test_Value_validate(t *testing.T) {
 
 			err := value.validate()
 			g.Expect(err).To(HaveOccurred())
-			g.Expect(err.Error()).To(Equal(": Unexpected ExistsType. Must be an int from 1-12 inclusive"))
+			g.Expect(err.Error()).To(Equal(": Unexpected ExistsType. Must be an int from 1-13 inclusive"))
 		})
 
 		t.Run("It returns an error if a Value is set", func(t *testing.T) {

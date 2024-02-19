@@ -24,7 +24,7 @@ func TestOneToManyTree_MatchPermutations(t *testing.T) {
 
 			err := tree.MatchPermutations("oneID", datatypes.KeyValues{}, nil)
 			g.Expect(err).To(HaveOccurred())
-			g.Expect(err.Error()).To(ContainSubstring("keyValues cannot be empty"))
+			g.Expect(err.Error()).To(ContainSubstring("KeyValues cannot be empty"))
 		})
 
 		t.Run("It returns an error if the KeyValues are invalid", func(t *testing.T) {
