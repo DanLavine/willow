@@ -14,6 +14,16 @@ import (
 	v1willow "github.com/DanLavine/willow/pkg/models/api/willow/v1"
 )
 
+type WillowItem interface {
+	Done() <-chan struct{}
+
+	SetHeartbeatErrorCallback(callback func(err error))
+
+	Data() []byte
+
+	Ack(passed bool) error
+}
+
 type Item struct {
 	doneOnce *sync.Once
 	done     chan struct{}
@@ -109,7 +119,6 @@ func newItem(url string, client clients.HttpClient, queueName string, dequeueIte
 							item.forwardError(apiError)
 						}
 					}
-				// what case to make this be dropped?
 				// case:
 				default:
 					item.forwardError(fmt.Errorf("unexpected status code while heartbeating: %d", resp.StatusCode))
@@ -135,7 +144,7 @@ func (item *Item) Done() <-chan struct{} {
 }
 
 func (item *Item) ACK(passed bool) error {
-	defer item.stop()
+	item.stop()
 
 	resp, err := item.client.Do(&clients.RequestData{
 		Method: "POST",

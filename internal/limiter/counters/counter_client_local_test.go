@@ -166,12 +166,12 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 			mockController := gomock.NewController(t)
 			defer mockController.Finish()
 
-			fakeLock := lockerclientfakes.NewMockLocker(mockController)
+			fakeLock := lockerclientfakes.NewMockLock(mockController)
 			fakeLock.EXPECT().Done().Times(2)
 			fakeLock.EXPECT().Release().Times(2)
 
 			fakeLocker := lockerclientfakes.NewMockLockerClient(mockController)
-			fakeLocker.EXPECT().ObtainLock(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, lockRequest *v1locker.LockCreateRequest) (lockerclient.Locker, error) {
+			fakeLocker.EXPECT().ObtainLock(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, lockRequest *v1locker.LockCreateRequest, errlog func(keyValue datatypes.KeyValues, err error)) (lockerclient.Lock, error) {
 				return fakeLock, nil
 			}).Times(2)
 
@@ -208,13 +208,13 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 				mockController := gomock.NewController(t)
 				defer mockController.Finish()
 
-				fakeLock := lockerclientfakes.NewMockLocker(mockController)
+				fakeLock := lockerclientfakes.NewMockLock(mockController)
 				fakeLock.EXPECT().Release().Times(1)
 				fakeLock.EXPECT().Done().MaxTimes(1)
 
 				obtainCount := 0
 				fakeLocker := lockerclientfakes.NewMockLockerClient(mockController)
-				fakeLocker.EXPECT().ObtainLock(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, lockRequest *v1locker.LockCreateRequest) (lockerclient.Locker, error) {
+				fakeLocker.EXPECT().ObtainLock(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, lockRequest *v1locker.LockCreateRequest, errlog func(keyValue datatypes.KeyValues, err error)) (lockerclient.Lock, error) {
 					if obtainCount == 0 {
 						obtainCount++
 						return fakeLock, nil
@@ -267,7 +267,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 				donechan := make(chan struct{})
 				close(donechan)
 
-				fakeLock := lockerclientfakes.NewMockLocker(mockController)
+				fakeLock := lockerclientfakes.NewMockLock(mockController)
 				fakeLock.EXPECT().Release().Times(2)
 				fakeLock.EXPECT().Done().DoAndReturn(func() <-chan struct{} {
 					return donechan
@@ -275,7 +275,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 
 				count := 0
 				fakeLocker := lockerclientfakes.NewMockLockerClient(mockController)
-				fakeLocker.EXPECT().ObtainLock(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, lockRequest *v1locker.LockCreateRequest) (lockerclient.Locker, error) {
+				fakeLocker.EXPECT().ObtainLock(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, lockRequest *v1locker.LockCreateRequest, errlog func(keyValue datatypes.KeyValues, err error)) (lockerclient.Lock, error) {
 					if count == 0 {
 						count++
 					} else {
@@ -301,12 +301,12 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 	t.Run("Context rule limits", func(t *testing.T) {
 		mockController := gomock.NewController(t)
 
-		fakeLock := lockerclientfakes.NewMockLocker(mockController)
+		fakeLock := lockerclientfakes.NewMockLock(mockController)
 		fakeLock.EXPECT().Release().AnyTimes()
 		fakeLock.EXPECT().Done().AnyTimes()
 
 		fakeLocker := lockerclientfakes.NewMockLockerClient(mockController)
-		fakeLocker.EXPECT().ObtainLock(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, lockRequest *v1locker.LockCreateRequest) (lockerclient.Locker, error) {
+		fakeLocker.EXPECT().ObtainLock(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, lockRequest *v1locker.LockCreateRequest, errlog func(keyValue datatypes.KeyValues, err error)) (lockerclient.Lock, error) {
 			return fakeLock, nil
 		}).AnyTimes()
 

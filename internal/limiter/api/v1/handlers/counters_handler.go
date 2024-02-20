@@ -3,10 +3,10 @@ package handlers
 import (
 	"net/http"
 
+	"github.com/DanLavine/contextops"
 	"github.com/DanLavine/willow/internal/logger"
 	"github.com/DanLavine/willow/pkg/models/api"
 	"github.com/DanLavine/willow/pkg/models/api/common/errors"
-	"github.com/DanLavine/willow/pkg/models/datatypes"
 	"go.uber.org/zap"
 
 	lockerclient "github.com/DanLavine/willow/pkg/clients/locker_client"
@@ -30,11 +30,10 @@ func (grh *groupRuleHandler) UpsertCounters(w http.ResponseWriter, r *http.Reque
 
 	if counter.Counters > 0 {
 		// this is an increment request
-		// create a locker client that will stop and close if a server shutdown is received
-		logLockErr := func(kvs datatypes.KeyValues, err error) {
-			logger.Error("failed to obtain lock", zap.Error(err), zap.Any("key_values", kvs))
-		}
-		lockerClient, lockerErr := lockerclient.NewLockClient(grh.shutdownContext, grh.lockerClientConfig, logLockErr)
+
+		// need to always setup a new lock client for each request. This is because each update to the counters
+		// are independent and multiple request to the same counter need to happen serialy
+		lockerClient, lockerErr := lockerclient.NewLockClient(grh.lockerClientConfig)
 		if lockerErr != nil {
 			logger.Error("failed to create locker client on increment counter request", zap.Error(lockerErr))
 			err := errors.InternalServerError
@@ -42,8 +41,7 @@ func (grh *groupRuleHandler) UpsertCounters(w http.ResponseWriter, r *http.Reque
 			return
 		}
 
-		// attempt to increment the counters for a particualr group of KeyValues
-		if err := grh.counterClient.IncrementCounters(logger, r.Context(), lockerClient, counter); err != nil {
+		if err := grh.counterClient.IncrementCounters(logger, contextops.MergeForDone(r.Context(), grh.shutdownContext), lockerClient, counter); err != nil {
 			_, _ = api.EncodeAndSendHttpResponse(r.Header, w, err.StatusCode, err)
 			return
 

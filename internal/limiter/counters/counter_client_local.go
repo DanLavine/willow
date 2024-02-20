@@ -111,7 +111,7 @@ func (cm *counterClientLocal) IncrementCounters(logger *zap.Logger, requestConte
 
 		if !unlimited {
 			// 5. grab a lock for each key value to ensure that we are the only operation enforcing the rules for such values
-			lockerLocks := []lockerclient.Locker{}
+			lockerLocks := []lockerclient.Lock{}
 			defer func() {
 				// release all locks when the function exits
 				for _, lock := range lockerLocks {
@@ -130,7 +130,9 @@ func (cm *counterClientLocal) IncrementCounters(logger *zap.Logger, requestConte
 				}
 
 				// obtain the required lock
-				lockerLock, err := lockerClient.ObtainLock(requestContext, lockKeyValues)
+				lockerLock, err := lockerClient.ObtainLock(requestContext, lockKeyValues, func(keyValue datatypes.KeyValues, err error) {
+					logger.Error(err.Error())
+				})
 				if err != nil {
 					logger.Error("failed to obtain a lock from the locker service", zap.Any("key values", lockKeyValues), zap.Error(err))
 					return errors.InternalServerError

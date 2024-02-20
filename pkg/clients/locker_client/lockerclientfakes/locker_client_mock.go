@@ -10,6 +10,7 @@ import (
 
 	lockerclient "github.com/DanLavine/willow/pkg/clients/locker_client"
 	v1 "github.com/DanLavine/willow/pkg/models/api/locker/v1"
+	datatypes "github.com/DanLavine/willow/pkg/models/datatypes"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -36,20 +37,6 @@ func (m *MockLockerClient) EXPECT() *MockLockerClientMockRecorder {
 	return m.recorder
 }
 
-// Done mocks base method.
-func (m *MockLockerClient) Done() <-chan struct{} {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Done")
-	ret0, _ := ret[0].(<-chan struct{})
-	return ret0
-}
-
-// Done indicates an expected call of Done.
-func (mr *MockLockerClientMockRecorder) Done() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Done", reflect.TypeOf((*MockLockerClient)(nil).Done))
-}
-
 // Healthy mocks base method.
 func (m *MockLockerClient) Healthy() error {
 	m.ctrl.T.Helper()
@@ -65,16 +52,16 @@ func (mr *MockLockerClientMockRecorder) Healthy() *gomock.Call {
 }
 
 // ObtainLock mocks base method.
-func (m *MockLockerClient) ObtainLock(arg0 context.Context, arg1 *v1.LockCreateRequest) (lockerclient.Locker, error) {
+func (m *MockLockerClient) ObtainLock(arg0 context.Context, arg1 *v1.LockCreateRequest, arg2 func(datatypes.KeyValues, error)) (lockerclient.Lock, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ObtainLock", arg0, arg1)
-	ret0, _ := ret[0].(lockerclient.Locker)
+	ret := m.ctrl.Call(m, "ObtainLock", arg0, arg1, arg2)
+	ret0, _ := ret[0].(lockerclient.Lock)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ObtainLock indicates an expected call of ObtainLock.
-func (mr *MockLockerClientMockRecorder) ObtainLock(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockLockerClientMockRecorder) ObtainLock(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ObtainLock", reflect.TypeOf((*MockLockerClient)(nil).ObtainLock), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ObtainLock", reflect.TypeOf((*MockLockerClient)(nil).ObtainLock), arg0, arg1, arg2)
 }

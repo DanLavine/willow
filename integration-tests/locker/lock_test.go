@@ -25,7 +25,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func setupClient(g *GomegaWithT, ctx context.Context, url string) lockerclient.LockerClient {
+func setupClient(g *GomegaWithT, url string) lockerclient.LockerClient {
 	_, currentDir, _, _ := runtime.Caller(0)
 
 	cfg := &clients.Config{
@@ -37,7 +37,7 @@ func setupClient(g *GomegaWithT, ctx context.Context, url string) lockerclient.L
 	}
 	g.Expect(cfg.Validate()).ToNot(HaveOccurred())
 
-	lockerClient, err := lockerclient.NewLockClient(ctx, cfg, nil)
+	lockerClient, err := lockerclient.NewLockClient(cfg)
 	g.Expect(err).ToNot(HaveOccurred())
 
 	return lockerClient
@@ -53,9 +53,7 @@ func Test_Lock(t *testing.T) {
 		testConstruct.StartLocker(g)
 		defer testConstruct.Shutdown(g)
 
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
-		lockerClient := setupClient(g, ctx, testConstruct.ServerURL)
+		lockerClient := setupClient(g, testConstruct.ServerURL)
 
 		lockRequest := &v1locker.LockCreateRequest{
 			KeyValues: datatypes.KeyValues{
@@ -64,7 +62,10 @@ func Test_Lock(t *testing.T) {
 			},
 		}
 
-		lock, err := lockerClient.ObtainLock(ctx, lockRequest)
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		lock, err := lockerClient.ObtainLock(ctx, lockRequest, nil)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(lock).ToNot(BeNil())
 
@@ -75,9 +76,7 @@ func Test_Lock(t *testing.T) {
 		testConstruct.StartLocker(g)
 		defer testConstruct.Shutdown(g)
 
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
-		lockerClient := setupClient(g, ctx, testConstruct.ServerURL)
+		lockerClient := setupClient(g, testConstruct.ServerURL)
 
 		lockRequest1 := &v1locker.LockCreateRequest{
 			KeyValues: datatypes.KeyValues{
@@ -93,11 +92,14 @@ func Test_Lock(t *testing.T) {
 			},
 		}
 
-		lock1, err := lockerClient.ObtainLock(ctx, lockRequest1)
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		lock1, err := lockerClient.ObtainLock(ctx, lockRequest1, nil)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(lock1).ToNot(BeNil())
 
-		lock2, err := lockerClient.ObtainLock(ctx, lockRequest2)
+		lock2, err := lockerClient.ObtainLock(ctx, lockRequest2, nil)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(lock2).ToNot(BeNil())
 
@@ -110,12 +112,10 @@ func Test_Lock(t *testing.T) {
 		defer testConstruct.Shutdown(g)
 
 		// client 1
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
-		lockerClient1 := setupClient(g, ctx, testConstruct.ServerURL)
+		lockerClient1 := setupClient(g, testConstruct.ServerURL)
 
 		// client 2
-		lockerClient2 := setupClient(g, ctx, testConstruct.ServerURL)
+		lockerClient2 := setupClient(g, testConstruct.ServerURL)
 
 		lockRequest := &v1locker.LockCreateRequest{
 			KeyValues: datatypes.KeyValues{
@@ -124,8 +124,11 @@ func Test_Lock(t *testing.T) {
 			},
 		}
 
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
 		// 1st lock goes fine
-		lock, err := lockerClient1.ObtainLock(ctx, lockRequest)
+		lock, err := lockerClient1.ObtainLock(ctx, lockRequest, nil)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(lock).ToNot(BeNil())
 
@@ -133,7 +136,7 @@ func Test_Lock(t *testing.T) {
 		done := make(chan struct{})
 		go func() {
 			defer close(done)
-			lock, err = lockerClient2.ObtainLock(ctx, lockRequest)
+			lock, err = lockerClient2.ObtainLock(ctx, lockRequest, nil)
 		}()
 
 		g.Consistently(done).ShouldNot(BeClosed())
@@ -151,10 +154,10 @@ func Test_Lock(t *testing.T) {
 		defer cancel()
 
 		// client 1
-		lockerClient1 := setupClient(g, ctx, testConstruct.ServerURL)
+		lockerClient1 := setupClient(g, testConstruct.ServerURL)
 
 		// client 2
-		lockerClient2 := setupClient(g, ctx, testConstruct.ServerURL)
+		lockerClient2 := setupClient(g, testConstruct.ServerURL)
 
 		lockRequest := &v1locker.LockCreateRequest{
 			KeyValues: datatypes.KeyValues{
@@ -164,17 +167,17 @@ func Test_Lock(t *testing.T) {
 		}
 
 		// 1st lock goes fine
-		lock, err := lockerClient1.ObtainLock(ctx, lockRequest)
+		lock, err := lockerClient1.ObtainLock(ctx, lockRequest, nil)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(lock).ToNot(BeNil())
 
 		// 2nd lock blocks until the first lock is released
 		done := make(chan struct{})
-		var lock2 lockerclient.Locker
+		var lock2 lockerclient.Lock
 		var err2 error
 		go func() {
 			defer close(done)
-			lock2, err2 = lockerClient2.ObtainLock(ctx, lockRequest)
+			lock2, err2 = lockerClient2.ObtainLock(ctx, lockRequest, nil)
 		}()
 
 		g.Consistently(done, time.Second).ShouldNot(BeClosed())
@@ -193,7 +196,8 @@ func Test_Lock(t *testing.T) {
 
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
-		lockerClient := setupClient(g, ctx, testConstruct.ServerURL)
+
+		lockerClient := setupClient(g, testConstruct.ServerURL)
 
 		lockRequest := &v1locker.LockCreateRequest{
 			KeyValues: datatypes.KeyValues{
@@ -203,7 +207,7 @@ func Test_Lock(t *testing.T) {
 			Timeout: 100 * time.Millisecond,
 		}
 
-		lock, err := lockerClient.ObtainLock(ctx, lockRequest)
+		lock, err := lockerClient.ObtainLock(ctx, lockRequest, nil)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(lock).ToNot(BeNil())
 
@@ -227,10 +231,7 @@ func TestLocker_List_API(t *testing.T) {
 		defer testConstruct.Shutdown(g)
 
 		httpsClient := testConstruct.ServerClient
-
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
-		lockerClient := setupClient(g, ctx, testConstruct.ServerURL)
+		lockerClient := setupClient(g, testConstruct.ServerURL)
 
 		// setup the first lock
 		lockRequest := &v1locker.LockCreateRequest{
@@ -239,7 +240,11 @@ func TestLocker_List_API(t *testing.T) {
 				"key2": datatypes.String("key two"),
 			},
 		}
-		lock, err := lockerClient.ObtainLock(ctx, lockRequest)
+
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		lock, err := lockerClient.ObtainLock(ctx, lockRequest, nil)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(lock).ToNot(BeNil())
 
@@ -250,7 +255,7 @@ func TestLocker_List_API(t *testing.T) {
 				"key3": datatypes.String("key three"),
 			},
 		}
-		lock, err = lockerClient.ObtainLock(ctx, lockRequest)
+		lock, err = lockerClient.ObtainLock(ctx, lockRequest, nil)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(lock).ToNot(BeNil())
 
@@ -295,10 +300,6 @@ func TestLocker_Async_API_Threading_Checks(t *testing.T) {
 		testConstruct.StartLocker(g)
 		defer testConstruct.Shutdown(g)
 
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
-		lockerClient := setupClient(g, ctx, testConstruct.ServerURL)
-
 		lockRequest := &v1locker.LockCreateRequest{
 			KeyValues: datatypes.KeyValues{
 				"key1": datatypes.String("key one"),
@@ -306,14 +307,20 @@ func TestLocker_Async_API_Threading_Checks(t *testing.T) {
 			},
 		}
 
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
 		wg := new(sync.WaitGroup)
 		for i := 0; i < 300; i++ {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
 
+				// create a new client
+				lockerClient := setupClient(g, testConstruct.ServerURL)
+
 				// create the lock
-				lock, err := lockerClient.ObtainLock(ctx, lockRequest)
+				lock, err := lockerClient.ObtainLock(ctx, lockRequest, nil)
 				g.Expect(err).ToNot(HaveOccurred())
 				g.Expect(lock).ToNot(BeNil())
 
@@ -366,7 +373,6 @@ func TestLocker_Async_API_Threading_Checks(t *testing.T) {
 
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
-		lockerClient := setupClient(g, ctx, testConstruct.ServerURL)
 
 		wg := new(sync.WaitGroup)
 		for i := 0; i < 300; i++ {
@@ -381,8 +387,11 @@ func TestLocker_Async_API_Threading_Checks(t *testing.T) {
 			go func() {
 				defer wg.Done()
 
+				// setup new client
+				lockerClient := setupClient(g, testConstruct.ServerURL)
+
 				// create the lock
-				lock, err := lockerClient.ObtainLock(ctx, lockRequest)
+				lock, err := lockerClient.ObtainLock(ctx, lockRequest, nil)
 				g.Expect(err).ToNot(HaveOccurred())
 				g.Expect(lock).ToNot(BeNil())
 

@@ -1,10 +1,10 @@
 package lockerclient
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/DanLavine/willow/pkg/clients"
@@ -12,24 +12,34 @@ import (
 	"github.com/DanLavine/willow/pkg/models/api/common/errors"
 )
 
-// Locker interface defines a the methods for a *Lock
+// Lock interface defines the methods for an obtained lock from the Locker Service.
+// This is kept as an interface to ensure that any code for the LockClient can be tested and do not need
+// to setup the LockerSerivce so Locks work properly
 //
-// The MockLocker can be used in tests to satisfy the Locker interface
-//
-//go:generate mockgen -imports v1locker="github.com/DanLavine/willow/pkg/models/api/locker/v1" -destination=lockerclientfakes/lock_mock.go -package=lockerclientfakes github.com/DanLavine/willow/pkg/clients/locker_client Locker
-type Locker interface {
+//go:generate mockgen -imports v1locker="github.com/DanLavine/willow/pkg/models/api/locker/v1" -destination=lockerclientfakes/lock_mock.go -package=lockerclientfakes github.com/DanLavine/willow/pkg/clients/locker_client Lock
+type Lock interface {
+	//	RETURNS:
+	//	- <-chan struct{} - can be monitored to know if a lock has been lost or was released
+	//
 	// Done can be used to monitor if a lock is released because of heartbeat failures from the client.
 	Done() <-chan struct{}
 
-	// Release can be used to release the currently held lock
+	//	RETURNS:
+	//	- error - from the service when realeasing the lock. If this happens the lock should be treated
+	//	          as realesed from the client and will eventually time out service side.
+	//
+	// Release the currently held lock
 	Release() error
 }
 
-// Lock is a handler to a obtained exclusive Lock from the Locker service.
-type Lock struct {
+type lock struct {
+	// record stop heartbeating
+	doneOnce *sync.Once
+	done     chan struct{}
+
 	// used to ensure only 1 delete operation proccesses
-	lock     *sync.Mutex
-	released bool
+	heartbeating chan struct{}
+	released     *atomic.Bool
 
 	// remote server client configuration
 	url         string
@@ -38,14 +48,7 @@ type Lock struct {
 
 	// record error callback if configured. Can be used to monitor any unexpeded errors
 	// with the remote service and record them
-	heartbeatErrorCallback func(err error) // optional
-	releaseLockCallback    func()          // cleans up the tree in the locker client
-
-	// channels to signal that we should stop heartbeating
-	done chan struct{}
-	// release is called when only 1 lock wants to be stopped
-	realeasOnce *sync.Once
-	releaseChan chan struct{}
+	releaseLockCallback func() // cleans up the tree in the locker client
 
 	// Lock unique session ID created by the service
 	sessionID string
@@ -54,131 +57,107 @@ type Lock struct {
 	timeout time.Duration
 }
 
-func newLock(sessionID string, timeout time.Duration, url string, client clients.HttpClient, contentType string, heartbeatErrorCallback func(err error), releaseLockCallback func()) *Lock {
-	return &Lock{
-		lock:     new(sync.Mutex),
-		released: false,
+func newLock(sessionID string, timeout time.Duration, url string, client clients.HttpClient, contentType string, heartbeatErrorCallback func(err error), releaseLockCallback func()) *lock {
+	lock := &lock{
+		doneOnce: new(sync.Once),
+		done:     make(chan struct{}),
+
+		heartbeating: make(chan struct{}),
+		released:     new(atomic.Bool),
 
 		client:      client,
 		url:         url,
 		contentType: contentType,
 
-		releaseLockCallback:    releaseLockCallback,
-		heartbeatErrorCallback: heartbeatErrorCallback,
-
-		done:        make(chan struct{}),
-		realeasOnce: new(sync.Once),
-		releaseChan: make(chan struct{}),
+		releaseLockCallback: releaseLockCallback,
 
 		sessionID: sessionID,
 		timeout:   timeout,
 	}
-}
 
-// Execute is a handler for the internal model to manage heartbeats and shouldn't be used by the caller
-func (l *Lock) Execute(ctx context.Context) error {
-	ticker := time.NewTicker(l.timeout / 3)
-	lastTick := time.Now()
+	go func() {
+		defer func() {
+			lock.stop()
+			lock.released.Store(true)
+			close(lock.heartbeating)
+		}()
 
-	// close done when the Lock has been released
-	defer close(l.done)
+		// set ticker to be ((timeout - 10%) /3). This way we try and heartbeat at least 3 times before a failure occurs
+		ticker := time.NewTicker((timeout - (timeout / 10)) / 3)
+		tickFailures := 0
 
-	for {
-		select {
-		case tickTime := <-ticker.C:
-			// need to heartbeat
-			switch l.heartbeat() {
-			case 0:
-				// on successful heartbeat, reset the ticker
-				ticker.Reset(l.timeout / 3)
-				lastTick = tickTime
-			case 1:
-				// must be some sort of error on service side. So stop the ticker since we don't know what the actual issue is
-				// and mimic that we lost the Lock
-				if time.Since(lastTick) >= l.timeout {
-					if l.heartbeatErrorCallback != nil {
-						l.heartbeatErrorCallback(fmt.Errorf("could not heartbeat successfuly since the timeout. Releasing the local Lock since remote is unreachable"))
+		for {
+			// on the last failure, stop heartbeating
+			if tickFailures >= 3 {
+				if heartbeatErrorCallback != nil {
+					heartbeatErrorCallback(fmt.Errorf("could not heartbeat successfuly since the timeout. Releasing the local Lock since remote is unreachable"))
+				}
+
+				return
+			}
+
+			select {
+			case <-lock.done:
+				// release was called. can just excape
+				return
+			case <-ticker.C:
+				// need to heartbeat
+				resp, err := client.Do(&clients.RequestData{
+					Method: "POST",
+					Path:   fmt.Sprintf("%s/v1/locks/%s/heartbeat", url, sessionID),
+					Model:  nil,
+				})
+
+				if err != nil {
+					// select {
+					// case <-lock.done:
+					// 	// race between release and heartbeat called
+					// 	return
+					// default:
+					if heartbeatErrorCallback != nil {
+						heartbeatErrorCallback(fmt.Errorf("failed to heartbeat: %w", err))
 					}
 
-					l.releaseLockCallback()
-					return nil
+					tickFailures++
+					continue
+					// }
 				}
-			case 2:
-				// Lock has been lost and processed accordingly
-				return nil
-			}
-		case <-ctx.Done():
-			// stopping the client, so release the Lock
-			l.releaseLockCallback()
-			_ = l.release() // ignore this error, we are shutting down anyways
-			return nil
-		case <-l.releaseChan:
-			// stop the heartbeat loop fom the client perspective
-			return nil
-		}
-	}
-}
 
-// heartbeat is managed by the goasync loop
-//
-//	RETURNS:
-//	- int - 0 indicattes success, 1 indicates that the heartbeat failed, 2 indicates that the Lock was lost and we can stop the async loop
-func (l *Lock) heartbeat() int {
-	// setup and make the request to heartbeat
-	resp, err := l.client.Do(&clients.RequestData{
-		Method: "POST",
-		Path:   fmt.Sprintf("%s/v1/locks/%s/heartbeat", l.url, l.sessionID),
-		Model:  nil,
-	})
+				switch resp.StatusCode {
+				case http.StatusOK:
+					// this is the success case and the heartbeat passed
+					tickFailures = 0
+				case http.StatusBadRequest, http.StatusGone:
+					// there was an error with the request body or seession id
+					apiError := &errors.Error{}
+					if err := api.DecodeAndValidateHttpResponse(resp, apiError); err != nil {
+						if heartbeatErrorCallback != nil {
+							heartbeatErrorCallback(err)
+						}
+					} else {
+						if heartbeatErrorCallback != nil {
+							heartbeatErrorCallback(apiError)
+						}
+					}
 
-	if err != nil {
-		if l.heartbeatErrorCallback != nil {
-			l.heartbeatErrorCallback(fmt.Errorf("failed to setup heartbeat request: %w", err))
-		}
-		return 1
-	}
+					if resp.StatusCode == http.StatusGone {
+						// release the lock
+						return
+					}
 
-	switch resp.StatusCode {
-	case http.StatusOK:
-		// this is the success case and the Lock was deleted
-		return 0
-	case http.StatusBadRequest:
-		// there was an error with the request body
-		apiError := &errors.Error{}
-		if err := api.DecodeAndValidateHttpResponse(resp, apiError); err != nil {
-			if l.heartbeatErrorCallback != nil {
-				l.heartbeatErrorCallback(err)
-			}
-		} else {
-			if l.heartbeatErrorCallback != nil {
-				l.heartbeatErrorCallback(apiError)
+					tickFailures++
+				default:
+					if heartbeatErrorCallback != nil {
+						heartbeatErrorCallback(fmt.Errorf("received an unexpected status code: %d", resp.StatusCode))
+					}
+
+					tickFailures++
+				}
 			}
 		}
+	}()
 
-		return 1
-	case http.StatusGone:
-		// there was an error with the sessionID
-		heartbeatError := &errors.Error{}
-		if err := api.DecodeAndValidateHttpResponse(resp, heartbeatError); err != nil {
-			if l.heartbeatErrorCallback != nil {
-				l.heartbeatErrorCallback(err)
-			}
-		} else {
-			if l.heartbeatErrorCallback != nil {
-				l.heartbeatErrorCallback(heartbeatError)
-			}
-		}
-
-		// record the error and release the lock
-		l.releaseLockCallback()
-
-		return 2
-	default:
-		if l.heartbeatErrorCallback != nil {
-			l.heartbeatErrorCallback(fmt.Errorf("received an unexpected status code: %d", resp.StatusCode))
-		}
-		return 1
-	}
+	return lock
 }
 
 //	RETURNS:
@@ -186,70 +165,68 @@ func (l *Lock) heartbeat() int {
 //	          as realesed from the client and will eventually time out service side.
 //
 // Release the currently held lock
-func (l *Lock) Release() error {
-	// release the releases chan
-	l.closeRelease()
-
-	// remove the lock from the tree
-	l.releaseLockCallback()
-
-	// wait for the heartbeat process to stop
-	<-l.done
-
+func (l *lock) Release() error {
 	// release the actual lock
-	return l.release()
-}
+	if l.released.CompareAndSwap(false, true) {
+		// stop heartbeating
+		l.stop()
 
-// Done can be used by the client to know when a lock has been released successfully
-func (l *Lock) Done() <-chan struct{} {
-	return l.done
-}
+		// wait for the heartbeat process to stop
+		<-l.heartbeating
 
-// make a call to delete the lock from the remote service
-func (l *Lock) release() error {
-	l.lock.Lock()
-	defer func() {
-		l.released = true
-		l.lock.Unlock()
-	}()
+		// Delete Lock
+		resp, err := l.client.Do(&clients.RequestData{
+			Method: "DELETE",
+			Path:   fmt.Sprintf("%s/v1/locks/%s", l.url, l.sessionID),
+			Model:  nil,
+		})
 
-	// have already been released. Don't allow for multiple calls to mistakenly report that we cannot delete
-	// the lock from the server side
-	if l.released {
-		return nil
-	}
-
-	// Delete Lock
-	resp, err := l.client.Do(&clients.RequestData{
-		Method: "DELETE",
-		Path:   fmt.Sprintf("%s/v1/locks/%s", l.url, l.sessionID),
-		Model:  nil,
-	})
-
-	if err != nil {
-		return err
-	}
-
-	switch resp.StatusCode {
-	case http.StatusNoContent:
-		// this is the success case and the Lock was deleted
-		return nil
-	case http.StatusBadRequest:
-		// there was an error parsing the request body
-		apiError := &errors.Error{}
-		if err := api.DecodeAndValidateHttpResponse(resp, apiError); err != nil {
+		if err != nil {
 			return err
 		}
 
-		return apiError
-	default:
-		return fmt.Errorf("unexpected response code from the remote locker service '%d'. Need to wait for the lock to expire remotely", resp.StatusCode)
+		switch resp.StatusCode {
+		case http.StatusNoContent:
+			// this is the success case and the Lock was deleted
+			return nil
+		case http.StatusBadRequest:
+			// there was an error parsing the request body
+			apiError := &errors.Error{}
+			if err := api.DecodeAndValidateHttpResponse(resp, apiError); err != nil {
+				return err
+			}
+
+			return apiError
+		default:
+			return fmt.Errorf("unexpected response code from the remote locker service '%d'. Need to wait for the lock to expire remotely", resp.StatusCode)
+		}
+	} else {
+		return fmt.Errorf("already released the lock")
 	}
 }
 
+// Done can be used by the client to know when a lock has been released successfully
+func (l *lock) Done() <-chan struct{} {
+	return l.done
+}
+
 // close the release chan only once
-func (l *Lock) closeRelease() {
-	l.realeasOnce.Do(func() {
-		close(l.releaseChan)
+func (l *lock) stop() {
+	l.doneOnce.Do(func() {
+		// remove the item from the client's BTree
+		l.releaseLockCallback()
+
+		// close done
+		close(l.done)
 	})
 }
+
+// What I think could be useful for a reload  on a process that has stopped for an update and restarted. I.E K8S node's would still
+// have docker images for running JOBS that could be picked up and restart heartbeating that they are still processing. In this case
+// the joibs would have a long time to run, but that is to be expected in those use cases
+
+// func (l *lock) ReleaseWithoutAck() { }}
+
+// func (l *lock) Save(diskDir string) {}
+
+// func LoadItem(diskDir string) *Item { }
