@@ -75,5 +75,9 @@ func (eqi *EnqueueQueueItem) DecodeJSON(data []byte) error {
 		return err
 	}
 
+	if eqi.RetryPosition == "" {
+		eqi.RetryPosition = "front"
+	}
+
 	return nil
 }

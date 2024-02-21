@@ -58,8 +58,8 @@ func (lh *lockerHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// set the defaults for the lock request
-	if createLockerRequest.Timeout == 0 {
-		createLockerRequest.Timeout = *lh.cfg.LockDefaultTimeout
+	if createLockerRequest.LockTimeout == 0 {
+		createLockerRequest.LockTimeout = *lh.cfg.LockDefaultTimeout
 	}
 
 	if lockResponse := lh.generalLocker.ObtainLock(r.Context(), createLockerRequest); lockResponse != nil {
@@ -73,7 +73,6 @@ func (lh *lockerHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	// in this case, the client should be disconnected or we are shutting down and they need to retry
 	_, _ = api.EncodeAndSendHttpResponse(r.Header, w, http.StatusServiceUnavailable, nil)
-
 }
 
 func (lh *lockerHandler) Heartbeat(w http.ResponseWriter, r *http.Request) {

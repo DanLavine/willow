@@ -7,8 +7,10 @@ import (
 )
 
 type generalLock struct {
-	lockChan chan struct{}
-	hertbeat chan struct{}
+	done                  chan struct{}
+	lockChan              chan struct{}
+	hertbeat              chan struct{}
+	updateHearbeatTimeout chan time.Duration
 
 	heartbeatLock *sync.RWMutex
 	lastHeartbeat time.Time
@@ -21,8 +23,11 @@ type generalLock struct {
 
 func newGeneralLock(timeout time.Duration, cleanup func() bool) *generalLock {
 	return &generalLock{
-		lockChan:      make(chan struct{}),
-		hertbeat:      make(chan struct{}),
+		done:                  make(chan struct{}),
+		lockChan:              make(chan struct{}),
+		hertbeat:              make(chan struct{}),
+		updateHearbeatTimeout: make(chan time.Duration),
+
 		heartbeatLock: new(sync.RWMutex),
 		lastHeartbeat: time.Now(),
 		timeout:       timeout,
@@ -34,9 +39,14 @@ func newGeneralLock(timeout time.Duration, cleanup func() bool) *generalLock {
 
 func (generalLock *generalLock) Execute(ctx context.Context) error {
 	timer := time.NewTicker(generalLock.timeout)
+	defer close(generalLock.done)
 
 	for {
 		select {
+		case newLockTimeout := <-generalLock.updateHearbeatTimeout:
+			// new client grabbed the lock, need to reset the time to what the client provided
+			generalLock.timeout = newLockTimeout
+			timer.Reset(newLockTimeout)
 		case <-generalLock.hertbeat:
 			// in this case we recieved a heartbeat, so reset the timer
 			generalLock.setLastHeartbeat()

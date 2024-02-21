@@ -395,6 +395,7 @@ func (qccl *queueChannelsClientLocal) updateClientsWaiting(queueName string, cha
 	}
 }
 
+// read operration for the channel
 func (qccl *queueChannelsClientLocal) Channels(logger *zap.Logger, queueName string, query v1common.AssociatedQuery) v1willow.Channels {
 	logger = logger.Named("Channels").With(zap.String("queue_name", queueName))
 	channels := v1willow.Channels{}

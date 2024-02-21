@@ -15,8 +15,8 @@ import (
 
 func setupBody(g *GomegaWithT) io.ReadCloser {
 	lockCreateResponse := &v1locker.LockCreateResponse{
-		SessionID: "some id",
-		Timeout:   time.Second,
+		SessionID:   "some id",
+		LockTimeout: time.Second,
 	}
 
 	data, err := lockCreateResponse.EncodeJSON()
@@ -77,7 +77,7 @@ func Test_DecodeAndValidateHttpResponse(t *testing.T) {
 				// check the server response
 				g.Expect(clientErr).ToNot(HaveOccurred())
 				g.Expect(lockCreateResponse.SessionID).To(Equal("some id"))
-				g.Expect(lockCreateResponse.Timeout).To(Equal(time.Second))
+				g.Expect(lockCreateResponse.LockTimeout).To(Equal(time.Second))
 			})
 
 			t.Run("It can decode an item successfully", func(t *testing.T) {
@@ -93,7 +93,7 @@ func Test_DecodeAndValidateHttpResponse(t *testing.T) {
 				// check the server response
 				g.Expect(clientErr).ToNot(HaveOccurred())
 				g.Expect(lockCreateResponse.SessionID).To(Equal("some id"))
-				g.Expect(lockCreateResponse.Timeout).To(Equal(time.Second))
+				g.Expect(lockCreateResponse.LockTimeout).To(Equal(time.Second))
 			})
 
 			t.Run("It returns an error if data cannot be decoded", func(t *testing.T) {

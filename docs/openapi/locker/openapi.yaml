@@ -10,61 +10,57 @@ paths:
     get:
       operationId: health check
       description: |
-        API to check that the service is reachable from a client
+        API to check that the service is reachable
       responses:
         200:
-          description: "service is running find"
+          description: "service is running fine"
   /v1/locks:
     post:
       operationId: create Lock
       description: |
-        Create or obtain a lock for a collection of `KeyValues`. This request blocks if another process
+        Create or obtain a `Lock` for a collection of `KeyValues`. This request blocks if another process
         already has the lock being requested. It will eventually return if the lock has been freed and
-        claimed, or the server is restarting. In which case, the client will need to retry claiming the lock
+        claimed, or the server is shutdown. In which case, the client will need to retry claiming the lock
+      parameters:
+        - in: header
+          name: Content-Type
+          schema:
+            type: string
+            enum: ["application/json"]
       requestBody:
         required: true
         content:
           appplication/json:
             schema:
-              type: object
-              required:
-                - KeyValues
-              properties:
-                Timeout:
-                  type: integer
-                  format: int64
-                  default: 0
-                  description: "If set to 0, then the server's configuration will be used"
-                KeyValues:
-                  minLength: 1
-                  $ref: "../common/components.yaml#/components/schemas/KeyValues"
+              $ref: "#/components/schemas/CreateLockRequest"
       responses:
         200:
           description: created or obtained the lock
           content:
             appplication/json:
               schema:
-                type: object
-                properties:
-                  SessionID:
-                    type: string
-                    description: "Session ID that is used to send hertbeats or release obtained locks"
-                  Timeout:
-                    description: "How long a server will keep the lock. This value is refreshed when a heartbeat is received"
-                    type: integer
-                    format: int64
+                $ref: "#/components/schemas/CreateLockResponse"
         400:
           description: returned when an error processing for the request body fails
           content:
             appplication/json:
               schema:
                 $ref: "../common/components.yaml#/components/schemas/ApiError"
+        500:
+          description: Internal error that should be addressed by the service maintainer
+          content:
+            appplication/json:
+              schema:
+                type: object
+                properties:
+                  ApiError:
+                    $ref: "../common/components.yaml#/components/schemas/ApiError"
         503:
           description: server is shutting down for a restart and client should retry obtaining the lock
     get:
-      operationId: query Locks
+      operationId: list Locks
       description: |
-        Query all the locks currently in use by this service
+        List all the locks currently in use by this service that match the query
       requestBody:
         required: true
         content:
@@ -84,17 +80,26 @@ paths:
             appplication/json:
               schema:
                 $ref: "../common/components.yaml#/components/schemas/ApiError"
-  /v1/locks/:_lock_session_id:
+        500:
+          description: Internal error that should be addressed by the service maintainer
+          content:
+            appplication/json:
+              schema:
+                type: object
+                properties:
+                  ApiError:
+                    $ref: "../common/components.yaml#/components/schemas/ApiError"
+  /v1/locks/:session_id:
     delete:
       operationId: delete Lock
       description: |
-        Delete a lock based on the SessionID. This way the original client should be the only
-        client to know the generated sessionID. If the client is lost for some reason and the timeout is
-        massive. The original sessionID can be found via the query and deleted through another admin request
+        Delete a `Lock` based on the SessionID. This way the original client should be the only
+        client to know the generated SessionID. If the client is lost for some reason and the timeout is
+        massive. The original SessionID can be found via the query and deleted through another request
       responses:
         204:
           description: Resrouce was deleted or never even existed
-  /v1/locks/:_lock_session_id/heartbeat:
+  /v1/locks/:session_id/heartbeat:
     post:
       operationId: heartbeat Lock
       description: |
@@ -102,21 +107,57 @@ paths:
       responses:
         200:
           description: OK
-        400:
-          description: returned when an error when the request body fails validation
-          content:
-            appplication/json:
-              schema:
-                $ref: "../common/components.yaml#/components/schemas/ApiError"
         410:
           description: returned when there was an error processing the SessionID
           content:
             appplication/json:
               schema:
                 $ref: "../common/components.yaml#/components/schemas/ApiError"
+        500:
+          description: Internal error that should be addressed by the service maintainer
+          content:
+            appplication/json:
+              schema:
+                type: object
+                properties:
+                  ApiError:
+                    $ref: "../common/components.yaml#/components/schemas/ApiError"
 
 components:
   schemas:
+    CreateLockRequest:
+      type: object
+      required:
+        - KeyValues
+      properties:
+        KeyValues:
+          allOf:
+            - $ref: "../common/components.yaml#/components/schemas/KeyValues"
+        LockTimeout:
+          description: |
+            How long a server will keep the lock. This value is refreshed when a heartbeat is received. If
+            this is set 0, then the servers default LockTimeout configuration will be used.
+
+            NOTE: this time is represented in nanoseconds, so `1000000000` = 1 second
+          type: integer
+          format: int64
+          minimum: 1000000000
+
+    CreateLockResponse:
+      type: object
+      properties:
+        SessionID:
+          description: "Unique session ID that needs to be used when heartbeating or releasing the lock"
+          type: string
+        LockTimeout:
+          description: |
+            How long a server will keep the lock. This value is refreshed when a heartbeat is received.
+            Clients should ensure the lock is heartbeat a few time per session to ensure network issues
+            don't cause a lock to be lost entierly.
+          type: integer
+          format: int64
+          minimum: 1000000000
+
     # list locks response
     ListResponse:
       type: object

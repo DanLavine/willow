@@ -78,7 +78,7 @@ func newItem(url string, client clients.HttpClient, queueName string, dequeueIte
 
 				resp, err := item.client.Do(&clients.RequestData{
 					Method: "POST",
-					Path:   fmt.Sprintf("%s/v1/brokers/queues/%s/channels/items/heartbeat", item.url, item.queueName),
+					Path:   fmt.Sprintf("%s/v1/queues/%s/channels/items/heartbeat", item.url, item.queueName),
 					Model: &v1willow.Heartbeat{
 						ItemID:    item.itemID,
 						KeyValues: item.keyValues,
@@ -148,7 +148,7 @@ func (item *Item) ACK(passed bool) error {
 
 	resp, err := item.client.Do(&clients.RequestData{
 		Method: "POST",
-		Path:   fmt.Sprintf("%s/v1/brokers/queues/%s/channels/items/ack", item.url, item.queueName),
+		Path:   fmt.Sprintf("%s/v1/queues/%s/channels/items/ack", item.url, item.queueName),
 		Model: &v1willow.ACK{
 			ItemID:    item.itemID,
 			KeyValues: item.keyValues,
@@ -165,7 +165,7 @@ func (item *Item) ACK(passed bool) error {
 	case http.StatusOK:
 		// nothg to do here
 		return nil
-	case http.StatusBadRequest, http.StatusNotFound, http.StatusInternalServerError:
+	case http.StatusBadRequest, http.StatusNotFound, http.StatusConflict, http.StatusInternalServerError:
 		// faild to ack for some reason
 		apiError := &errors.Error{}
 		if err := api.DecodeAndValidateHttpResponse(resp, apiError); err != nil {

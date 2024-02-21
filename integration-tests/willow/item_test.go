@@ -64,7 +64,7 @@ func Test_Queue_ItemACK(t *testing.T) {
 			g.Expect(err).ToNot(HaveOccurred())
 
 			// dequeue the item
-			item, err := willowClient.DequeueQueueItem(context.Background(), "test queue", &datatypes.AssociatedKeyValuesQuery{})
+			item, err := willowClient.DequeueQueueItem(context.Background(), "test queue", &v1common.AssociatedQuery{})
 
 			g.Expect(err).ToNot(HaveOccurred())
 			g.Expect(item.Data()).To(Equal([]byte(`data for first item`)))
@@ -145,7 +145,7 @@ func Test_Queue_ItemACK(t *testing.T) {
 			done := make(chan struct{})
 			go func() {
 				defer close(done)
-				item, dequeueErr = willowClient.DequeueQueueItem(context.Background(), "test queue", &datatypes.AssociatedKeyValuesQuery{})
+				item, dequeueErr = willowClient.DequeueQueueItem(context.Background(), "test queue", &v1common.AssociatedQuery{})
 			}()
 			g.Eventually(done).Should(BeClosed())
 			g.Expect(dequeueErr).ToNot(HaveOccurred())
@@ -198,7 +198,7 @@ func Test_Queue_ItemACK(t *testing.T) {
 			done = make(chan struct{})
 			go func() {
 				defer close(done)
-				item, dequeueErr = willowClient.DequeueQueueItem(context.Background(), "test queue", &datatypes.AssociatedKeyValuesQuery{})
+				item, dequeueErr = willowClient.DequeueQueueItem(context.Background(), "test queue", &v1common.AssociatedQuery{})
 			}()
 			g.Eventually(done).Should(BeClosed())
 			g.Expect(dequeueErr).ToNot(HaveOccurred())

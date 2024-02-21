@@ -6,7 +6,15 @@ info:
   version: poc 0.0.1
 
 paths:
-  /v1/brokers/queues:
+  /health:
+    get:
+      operationId: health check
+      description: |
+        API to check that the service is reachable
+      responses:
+        200:
+          description: service is running fine
+  /v1/queues:
     post:
       operationId: create Queue
       description: |
@@ -32,14 +40,8 @@ paths:
             appplication/json:
               schema:
                 $ref: "../common/components.yaml#/components/schemas/ApiError"
-        404:
-          description: Error if another queue already exists with that name
-          content:
-            appplication/json:
-              schema:
-                $ref: "../common/components.yaml#/components/schemas/ApiError"
         409:
-          description: Conflict if another `Queue` already exists but is currenty deleting
+          description: Conflict if another `Queue` already exists with the same name
           content:
             appplication/json:
               schema:
@@ -56,7 +58,7 @@ paths:
     get:
       operationId: list Queues
       description: |
-        List all `Queues` without their `Channels`. ATM this is just an API to ensure the state of the system. Because
+        List all `Queues` without their `Channels`. At the moment this is just an API to ensure the state of the system. Because
         all the `Channels` are a collection of unkown KeyValues, it does not it makes sense to have this specific api accept
         some sort of query. Each of the `Queues` have their own the `Channels` and the end user setup can be specific
         as to what each queue is used for.
@@ -82,7 +84,7 @@ paths:
                 properties:
                   ApiError:
                     $ref: "../common/components.yaml#/components/schemas/ApiError"
-  /v1/brokers/queues/:queue_name:
+  /v1/queues/:queue_name:
     get:
       operationId: get Queue
       description: |
@@ -117,6 +119,15 @@ paths:
                     $ref: "../common/components.yaml#/components/schemas/ApiError"
         404:
           description: The `Queue` could not be found
+          content:
+            appplication/json:
+              schema:
+                type: object
+                properties:
+                  ApiError:
+                    $ref: "../common/components.yaml#/components/schemas/ApiError"
+        409:
+          description: The `Queue` is currently being destroyed
           content:
             appplication/json:
               schema:
@@ -171,7 +182,7 @@ paths:
                   ApiError:
                     $ref: "../common/components.yaml#/components/schemas/ApiError"
         409:
-          description: Conflict if the `Queue` already exists but is currenty deleting
+          description: The `Queue` is currently being destroyed
           content:
             appplication/json:
               schema:
@@ -197,15 +208,15 @@ paths:
           schema:
             type: string
             enum: ["application/json"]
-      requestBody:
-        required: true
-        content:
-          appplication/json:
-            schema:
-              $ref: "../common/components.yaml#/components/schemas/KeyValues"
       responses:
         204:
           description: Successfully deleted the `Channel` for a `Queue`
+        409:
+          description: The `Queue` is currently being destroyed
+          content:
+            appplication/json:
+              schema:
+                $ref: "../common/components.yaml#/components/schemas/ApiError"
         500:
           description: Unexpected error service side
           content:
@@ -215,12 +226,13 @@ paths:
                 properties:
                   ApiError:
                     $ref: "../common/components.yaml#/components/schemas/ApiError"
-  /v1/brokers/queus/:queue_name/channels:
+  /v1/queues/:queue_name/channels:
     post:
       operationId: enqueu Item
       description: |
         Enqueue an `Item` to a `Channel`. Each `Channel` is dynamically created based off the requests `KeyValues`
-        if the channel does not yet exists.
+        if the channel does not yet exists. When all the items have been processed from a `Channel` they are automatically
+        deleted
       parameters:
         - in: header
           name: Content-Type
@@ -234,7 +246,7 @@ paths:
             schema:
               $ref: "#/components/schemas/EnqueueItem"
       responses:
-        200:
+        201:
           description: Enqueued the `Item` into a `Channel`
         400:
           description: Error parsing or validating the request body
@@ -248,8 +260,10 @@ paths:
             appplication/json:
               schema:
                 $ref: "../common/components.yaml#/components/schemas/ApiError"
-        422:
-          description: Conflict if the `Rule` has reached the max queue limit or some other api limitation
+        409:
+          description: |
+            Conflict if the `Rule` has reached the max queue limit or some other api limitation
+            like the Queue is being destroyed.
           content:
             appplication/json:
               schema:
@@ -303,6 +317,13 @@ paths:
             appplication/json:
               schema:
                 $ref: "../common/components.yaml#/components/schemas/ApiError"
+        409:
+          description: |
+            Conflict if the `Rule` has been deleted while a client is waiting to dequeue an item
+          content:
+            appplication/json:
+              schema:
+                $ref: "../common/components.yaml#/components/schemas/ApiError"
         500:
           description: Internal error that should be addressed by the service maintainer
           content:
@@ -331,7 +352,7 @@ paths:
         content:
           appplication/json:
             schema:
-              $ref: "../common/components.yaml#/components/schemas/AssociatedKeyValuesQuery"
+              $ref: "../common/components.yaml#/components/schemas/KeyValues"
       responses:
         204:
           description: Successfully deleted all the channels
@@ -350,6 +371,13 @@ paths:
             appplication/json:
               schema:
                 $ref: "../common/components.yaml#/components/schemas/ApiError"
+        409:
+          description: |
+            Conflict if the `Rule` or `Channel` is already being destroyed
+          content:
+            appplication/json:
+              schema:
+                $ref: "../common/components.yaml#/components/schemas/ApiError"
         500:
           description: Internal error that should be addressed by the service maintainer
           content:
@@ -361,7 +389,7 @@ paths:
                     $ref: "../common/components.yaml#/components/schemas/ApiError"
         503:
           description: Service has gone down for a restart and the client should retry the reuest
-  /v1/brokers/queus/:queue_name/channels/ack:
+  /v1/queus/:queue_name/channels/ack:
     post:
       operationId: ack Item
       description: |
@@ -388,7 +416,14 @@ paths:
               schema:
                 $ref: "../common/components.yaml#/components/schemas/ApiError"
         404:
-          description: returned if the `Queue` name cannot be found
+          description: returned if the `Queue` or `Item` cannot be found to ACK
+          content:
+            appplication/json:
+              schema:
+                $ref: "../common/components.yaml#/components/schemas/ApiError"
+        409:
+          description: |
+            Conflict if the `Rule` is being deleted
           content:
             appplication/json:
               schema:
@@ -402,7 +437,7 @@ paths:
                 properties:
                   ApiError:
                     $ref: "../common/components.yaml#/components/schemas/ApiError"
-  /v1/brokers/queus/:queue_name/channels/heartbeat:
+  /v1/queus/:queue_name/channels/heartbeat:
     post:
       operationId: heartbeat Item
       description: |
@@ -435,6 +470,13 @@ paths:
             appplication/json:
               schema:
                 $ref: "../common/components.yaml#/components/schemas/ApiError"
+        409:
+          description: |
+            Conflict if the `Rule` is being deleted
+          content:
+            appplication/json:
+              schema:
+                $ref: "../common/components.yaml#/components/schemas/ApiError"
         500:
           description: Internal error that should be addressed by the service maintainer
           content:
@@ -444,7 +486,6 @@ paths:
                 properties:
                   ApiError:
                     $ref: "../common/components.yaml#/components/schemas/ApiError"
-
 components:
   schemas:
     EnqueueItem:
@@ -476,9 +517,9 @@ components:
         RetryPosition:
           description: |
             In the case of a retry. This indicates where to position the failed item for retrying.
-            `Front` will position the item at the front of the queue to immediately be picked up again.
-            However, if the item is updateable, this operation will removed if there is another item in the queue.
-            `Back` will put the item at the back of the queue to eventually be processed again.
+            `front` will position the item at the front of the queue to immediately be picked up again.
+            However, if the item is updateable, this operation can removed the `Item` if there is another item in the queue.
+            `back` will put the item at the back of the queue to eventually be processed again.
           type: string
           default: front
           enum:
@@ -488,7 +529,9 @@ components:
           description: |
             How long an item should last befor it is considered a 'failure' on the service side if no
             heartbeats were received for the item. This is the time in nanoseconds for how long to wait.
-            If this set as 0, then the server's configuration will be used as the default
+            If this set as 0, then the server's configuration will be used as the default.
+
+            NOTE: this is the time in nanoseconds so `1000000000` = 1 second
           type: integer
           format: int64
 
@@ -564,7 +607,7 @@ components:
           description: |
             Max number of items that can be enqueued and or processing for the queue
           type: integer
-          format: uint64
+          format: int64
         Channels:
           type: array
           items:
@@ -589,7 +632,7 @@ components:
           description: |
             Max number of items that can be enqueued and or processing for the queue
           type: integer
-          format: uint64
+          format: int64
 
     QueueUpdate:
       type: object
@@ -600,4 +643,4 @@ components:
           description: |
             Max number of items that can be enqueued and or processing for the queue
           type: integer
-          format: uint64
+          format: int64

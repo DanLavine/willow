@@ -15,7 +15,7 @@ import (
 )
 
 func errorMissingRuleName(name string) *errors.ServerError {
-	return &errors.ServerError{Message: fmt.Sprintf("failed to find rule '%s' by name", name), StatusCode: http.StatusBadRequest}
+	return &errors.ServerError{Message: fmt.Sprintf("failed to find rule '%s' by name", name), StatusCode: http.StatusNotFound}
 }
 
 type localRulesCient struct {
@@ -63,13 +63,13 @@ func (rm *localRulesCient) CreateRule(logger *zap.Logger, rule *v1limiter.RuleCr
 		switch err {
 		case btreeassociated.ErrorTreeItemDestroying:
 			logger.Warn("failed to create rule. rule is currently being destroy")
-			return &errors.ServerError{Message: "failed to create rule. Previous rule is still in the process of destroying", StatusCode: http.StatusUnprocessableEntity}
+			return &errors.ServerError{Message: "failed to create rule. Previous rule is still in the process of destroying", StatusCode: http.StatusConflict}
 		case btreeassociated.ErrorKeyValuesAlreadyExists:
 			logger.Warn("failed to create new rule because keys exist", zap.Error(err))
-			return &errors.ServerError{Message: "failed to create rule. GroupBy keys already in use by another rule", StatusCode: http.StatusUnprocessableEntity}
+			return &errors.ServerError{Message: "failed to create rule. GroupBy keys already in use by another rule", StatusCode: http.StatusConflict}
 		case btreeassociated.ErrorAssociatedIDAlreadyExists:
 			logger.Warn("failed to create new rule because name exist", zap.Error(err))
-			return &errors.ServerError{Message: "failed to create rule. Name is already in use", StatusCode: http.StatusUnprocessableEntity}
+			return &errors.ServerError{Message: "failed to create rule. Name is already in use", StatusCode: http.StatusConflict}
 		default:
 			logger.Error("failed to create or find a new rule", zap.Error(err))
 			return &errors.ServerError{Message: "failed to create, unexpected error.", StatusCode: http.StatusInternalServerError}
@@ -79,117 +79,7 @@ func (rm *localRulesCient) CreateRule(logger *zap.Logger, rule *v1limiter.RuleCr
 	return nil
 }
 
-//	PARAMETERS:
-//	- logger - logger that will record any unrecoverable errors at this level
-//	- ruleName - name of the rule that is going to be updated
-//	- update - update reuest that defines the new values
-//
-//	RETURNS:
-//	- *errors.ServerError - error response for the client if something unexpected happens
-//
-// Create new Rule
-func (rm *localRulesCient) UpdateRule(logger *zap.Logger, ruleName string, update *v1limiter.RuleUpdateRquest) *errors.ServerError {
-	logger = logger.Named("Update").With(zap.String("rule_name", ruleName))
-
-	updateErr := errorMissingRuleName(ruleName)
-	bTreeAssociatedOnIterate := func(item btreeassociated.AssociatedKeyValues) bool {
-		rule := item.Value().(Rule)
-		updateErr = rule.Update(logger, update)
-
-		return false
-	}
-
-	idValue := datatypes.String(ruleName)
-	query := datatypes.AssociatedKeyValuesQuery{
-		KeyValueSelection: &datatypes.KeyValueSelection{
-			KeyValues: map[string]datatypes.Value{
-				btreeassociated.ReservedID: datatypes.Value{Value: &idValue, ValueComparison: datatypes.EqualsPtr()},
-			},
-		},
-	}
-
-	if err := rm.rules.Query(query, bTreeAssociatedOnIterate); err != nil {
-		switch err {
-		case btreeassociated.ErrorTreeItemDestroying:
-			logger.Warn("failed to update rule. Rule is currently being destroy")
-			return &errors.ServerError{Message: "failed to update Rule. Rule is being destroying", StatusCode: http.StatusUnprocessableEntity}
-		default:
-			logger.Error("failed to find rule by AssociatedID because of an internal server error", zap.Error(err))
-			return errors.InternalServerError
-		}
-	}
-
-	if updateErr != nil {
-		logger.Error("failed to update rule by AssociatedID", zap.Error(updateErr))
-	}
-
-	return updateErr
-}
-
-//	PARAMETERS:
-//	- logger - logger that will record any unrecoverable errors at this level
-//	- name - name of the Rule to obtain for
-//	- getQuery - query for the overrides to obtain as well
-//
-//	RETURNS:
-//	- *errors.ServerError - error response for the client if something unexpected happens
-//
-// Get a Rule by name
-func (rm *localRulesCient) GetRule(logger *zap.Logger, ruleName string, getQuery *v1limiter.RuleGet) (*v1limiter.Rule, *errors.ServerError) {
-	logger = logger.Named("GetRule").With(zap.String("rule_name", ruleName))
-
-	var apiRule *v1limiter.Rule
-	err := errorMissingRuleName(ruleName)
-	bTreeAssociatedOnFind := func(item btreeassociated.AssociatedKeyValues) {
-		rule := item.Value().(Rule)
-
-		if getQuery.OverridesToMatch != nil {
-			// match overrides as well
-			overrides, overridesErr := rm.overridesClient.MatchOverrides(logger, ruleName, getQuery.OverridesToMatch)
-
-			if overridesErr != nil {
-				err = overridesErr
-			} else {
-				err = nil
-				apiRule = &v1limiter.Rule{
-					Name:      ruleName,
-					GroupBy:   item.KeyValues().Keys(),
-					Limit:     rule.Limit(),
-					Overrides: overrides,
-				}
-			}
-		} else {
-			// don't query any overrides
-			err = nil
-			apiRule = &v1limiter.Rule{
-				Name:      ruleName,
-				GroupBy:   item.KeyValues().Keys(),
-				Limit:     rule.Limit(),
-				Overrides: v1limiter.Overrides{},
-			}
-		}
-	}
-
-	if err := rm.rules.FindByAssociatedID(ruleName, bTreeAssociatedOnFind); err != nil {
-		switch err {
-		case btreeassociated.ErrorTreeItemDestroying:
-			logger.Warn("failed to get rule. rule is currently being destroy")
-			return nil, &errors.ServerError{Message: "failed to get rule. Previous rule is still in the process of destroying", StatusCode: http.StatusUnprocessableEntity}
-		default:
-			logger.Error("failed to lookup rule.", zap.Error(err))
-			return nil, errors.InternalServerError
-		}
-	}
-
-	if err == nil {
-		logger.Error("failed to get rule", zap.Error(err))
-	}
-
-	return apiRule, err
-}
-
-// list all group rules that match the provided key values
-// Can also include the overrides
+// list all group rules that match the provided key values. Can also include the overrides
 func (rm *localRulesCient) MatchRules(logger *zap.Logger, matchQuery *v1limiter.RuleMatch) (v1limiter.Rules, *errors.ServerError) {
 	logger = logger.Named("MatchRules")
 	foundRules := v1limiter.Rules{}
@@ -247,6 +137,115 @@ func (rm *localRulesCient) MatchRules(logger *zap.Logger, matchQuery *v1limiter.
 	return foundRules, nil
 }
 
+//	PARAMETERS:
+//	- logger - logger that will record any unrecoverable errors at this level
+//	- name - name of the Rule to obtain for
+//	- getQuery - query for the overrides to obtain as well
+//
+//	RETURNS:
+//	- *errors.ServerError - error response for the client if something unexpected happens
+//
+// Get a Rule by name
+func (rm *localRulesCient) GetRule(logger *zap.Logger, ruleName string, getQuery *v1limiter.RuleGet) (*v1limiter.Rule, *errors.ServerError) {
+	logger = logger.Named("GetRule").With(zap.String("rule_name", ruleName))
+
+	var apiRule *v1limiter.Rule
+	err := errorMissingRuleName(ruleName)
+	bTreeAssociatedOnFind := func(item btreeassociated.AssociatedKeyValues) {
+		rule := item.Value().(Rule)
+
+		if getQuery.OverridesToMatch != nil {
+			// match overrides as well
+			overrides, overridesErr := rm.overridesClient.MatchOverrides(logger, ruleName, getQuery.OverridesToMatch)
+
+			if overridesErr != nil {
+				err = overridesErr
+			} else {
+				err = nil
+				apiRule = &v1limiter.Rule{
+					Name:      ruleName,
+					GroupBy:   item.KeyValues().Keys(),
+					Limit:     rule.Limit(),
+					Overrides: overrides,
+				}
+			}
+		} else {
+			// don't query any overrides
+			err = nil
+			apiRule = &v1limiter.Rule{
+				Name:      ruleName,
+				GroupBy:   item.KeyValues().Keys(),
+				Limit:     rule.Limit(),
+				Overrides: v1limiter.Overrides{},
+			}
+		}
+	}
+
+	if err := rm.rules.FindByAssociatedID(ruleName, bTreeAssociatedOnFind); err != nil {
+		switch err {
+		case btreeassociated.ErrorTreeItemDestroying:
+			logger.Warn("failed to get rule. rule is currently being destroy")
+			return nil, &errors.ServerError{Message: "failed to get rule. Previous rule is still in the process of destroying", StatusCode: http.StatusConflict}
+		default:
+			logger.Error("failed to lookup rule.", zap.Error(err))
+			return nil, errors.InternalServerError
+		}
+	}
+
+	if err == nil {
+		logger.Error("failed to get rule", zap.Error(err))
+	}
+
+	return apiRule, err
+}
+
+//	PARAMETERS:
+//	- logger - logger that will record any unrecoverable errors at this level
+//	- ruleName - name of the rule that is going to be updated
+//	- update - update reuest that defines the new values
+//
+//	RETURNS:
+//	- *errors.ServerError - error response for the client if something unexpected happens
+//
+// Create new Rule
+func (rm *localRulesCient) UpdateRule(logger *zap.Logger, ruleName string, update *v1limiter.RuleUpdateRquest) *errors.ServerError {
+	logger = logger.Named("Update").With(zap.String("rule_name", ruleName))
+
+	updateErr := errorMissingRuleName(ruleName)
+	bTreeAssociatedOnIterate := func(item btreeassociated.AssociatedKeyValues) bool {
+		rule := item.Value().(Rule)
+		updateErr = rule.Update(logger, update)
+
+		return false
+	}
+
+	idValue := datatypes.String(ruleName)
+	query := datatypes.AssociatedKeyValuesQuery{
+		KeyValueSelection: &datatypes.KeyValueSelection{
+			KeyValues: map[string]datatypes.Value{
+				btreeassociated.ReservedID: datatypes.Value{Value: &idValue, ValueComparison: datatypes.EqualsPtr()},
+			},
+		},
+	}
+
+	if err := rm.rules.Query(query, bTreeAssociatedOnIterate); err != nil {
+		switch err {
+		case btreeassociated.ErrorTreeItemDestroying:
+			logger.Warn("failed to update rule. Rule is currently being destroy")
+			return &errors.ServerError{Message: "failed to update Rule. Rule is being destroying", StatusCode: http.StatusConflict}
+		default:
+			logger.Error("failed to find rule by AssociatedID because of an internal server error", zap.Error(err))
+			return errors.InternalServerError
+		}
+	}
+
+	if updateErr != nil {
+		logger.Error("failed to update rule by AssociatedID", zap.Error(updateErr))
+	}
+
+	return updateErr
+}
+
 // Delete a rule by name
 func (rm *localRulesCient) DeleteRule(logger *zap.Logger, ruleName string) *errors.ServerError {
 	logger = logger.Named("DeleteRule").With(zap.String("rule_name", ruleName))
@@ -272,7 +271,7 @@ func (rm *localRulesCient) DeleteRule(logger *zap.Logger, ruleName string) *erro
 		switch err {
 		case btreeassociated.ErrorTreeItemDestroying:
 			logger.Warn("failed to delete rule. Rule is already being destroy")
-			return &errors.ServerError{Message: "failed to delete rule. Previous request to delete Rule is still in the process of destroying", StatusCode: http.StatusUnprocessableEntity}
+			return &errors.ServerError{Message: "failed to delete rule. Previous request to delete Rule is still in the process of destroying", StatusCode: http.StatusConflict}
 		default:
 			logger.Error("failed to lookup rule for deletion", zap.String("name", ruleName), zap.Error(err))
 			return errors.InternalServerError
@@ -308,7 +307,7 @@ func (rm *localRulesCient) CreateOverride(logger *zap.Logger, ruleName string, o
 		switch err {
 		case btreeassociated.ErrorTreeItemDestroying:
 			logger.Warn("failed to create override. Rule is being destroy")
-			return &errors.ServerError{Message: "Rule is being destroyed. Refusing to create Override", StatusCode: http.StatusUnprocessableEntity}
+			return &errors.ServerError{Message: "Rule is being destroyed. Refusing to create Override", StatusCode: http.StatusConflict}
 		default:
 			logger.Error("failed to find rule by associatedid", zap.String("name", ruleName), zap.Error(err))
 			return errorMissingRuleName(ruleName)
@@ -320,61 +319,6 @@ func (rm *localRulesCient) CreateOverride(logger *zap.Logger, ruleName string, o
 	}
 
 	return overrideErr
-}
-
-// Update an override by its name
-func (rm *localRulesCient) UpdateOverride(logger *zap.Logger, ruleName string, overrideName string, override *v1limiter.OverrideUpdate) *errors.ServerError {
-	logger = logger.Named("UpdateOverride").With(zap.String("rule_name", ruleName))
-
-	overrideErr := errorMissingRuleName(ruleName)
-	bTreeAssociatedOnFind := func(item btreeassociated.AssociatedKeyValues) {
-		overrideErr = rm.overridesClient.UpdateOverride(logger, ruleName, overrideName, override)
-	}
-
-	if err := rm.rules.FindByAssociatedID(ruleName, bTreeAssociatedOnFind); err != nil {
-		switch err {
-		case btreeassociated.ErrorTreeItemDestroying:
-			logger.Warn("failed to update override. Rule is being destroyed")
-			return &errors.ServerError{Message: "Rule is being destroyed. Refusing to update Override", StatusCode: http.StatusUnprocessableEntity}
-		default:
-			logger.Error("failed to find rule by associatedid", zap.Error(err))
-			return errorMissingRuleName(ruleName)
-		}
-	}
-
-	if overrideErr != nil {
-		logger.Error("failed to update Override", zap.Error(overrideErr))
-	}
-
-	return overrideErr
-}
-
-// get a single override by name
-func (rm *localRulesCient) GetOverride(logger *zap.Logger, ruleName string, overrideName string) (*v1limiter.Override, *errors.ServerError) {
-	logger = logger.Named("GetOveride").With(zap.String("rule_name", ruleName))
-
-	var override *v1limiter.Override
-	overrideErr := errorMissingRuleName(ruleName)
-	bTreeAssociatedOnFind := func(item btreeassociated.AssociatedKeyValues) {
-		override, overrideErr = rm.overridesClient.GetOverride(logger, ruleName, overrideName)
-	}
-
-	if err := rm.rules.FindByAssociatedID(ruleName, bTreeAssociatedOnFind); err != nil {
-		switch err {
-		case btreeassociated.ErrorTreeItemDestroying:
-			logger.Warn("failed to create rule. rule is already being destroy")
-			return nil, &errors.ServerError{Message: "Rule is being destroyed. Refusing to obtain Override", StatusCode: http.StatusUnprocessableEntity}
-		default:
-			logger.Error("failed to find rule by associatedid", zap.Error(err))
-			return nil, errorMissingRuleName(ruleName)
-		}
-	}
-
-	if overrideErr != nil {
-		logger.Error("failed to get override", zap.Error(overrideErr))
-	}
-
-	return override, overrideErr
 }
 
 // match all overrides for a given Rule
@@ -391,7 +335,7 @@ func (rm *localRulesCient) MatchOverrides(logger *zap.Logger, ruleName string, m
 		switch err {
 		case btreeassociated.ErrorTreeItemDestroying:
 			logger.Warn("failed to match overrides. Rule is currently being destroy")
-			return nil, &errors.ServerError{Message: "failed to match overrides. Rule is being destroying", StatusCode: http.StatusUnprocessableEntity}
+			return nil, &errors.ServerError{Message: "failed to match overrides. Rule is being destroying", StatusCode: http.StatusConflict}
 		default:
 			logger.Error("failed to find rule by associatedid", zap.Error(err))
 			return nil, errorMissingRuleName(ruleName)
@@ -404,6 +348,61 @@ func (rm *localRulesCient) MatchOverrides(logger *zap.Logger, ruleName string, m
 	}
 
 	return overrides, nil
+}
+
+// get a single override by name
+func (rm *localRulesCient) GetOverride(logger *zap.Logger, ruleName string, overrideName string) (*v1limiter.Override, *errors.ServerError) {
+	logger = logger.Named("GetOveride").With(zap.String("rule_name", ruleName))
+
+	var override *v1limiter.Override
+	overrideErr := errorMissingRuleName(ruleName)
+	bTreeAssociatedOnFind := func(item btreeassociated.AssociatedKeyValues) {
+		override, overrideErr = rm.overridesClient.GetOverride(logger, ruleName, overrideName)
+	}
+
+	if err := rm.rules.FindByAssociatedID(ruleName, bTreeAssociatedOnFind); err != nil {
+		switch err {
+		case btreeassociated.ErrorTreeItemDestroying:
+			logger.Warn("failed to get rule. rule is currently being destroy")
+			return nil, &errors.ServerError{Message: "Rule is being destroyed. Refusing to obtain Override", StatusCode: http.StatusConflict}
+		default:
+			logger.Error("failed to find rule by associatedid", zap.Error(err))
+			return nil, errorMissingRuleName(ruleName)
+		}
+	}
+
+	if overrideErr != nil {
+		logger.Error("failed to get override", zap.Error(overrideErr))
+	}
+
+	return override, overrideErr
+}
+
+// Update an override by its name
+func (rm *localRulesCient) UpdateOverride(logger *zap.Logger, ruleName string, overrideName string, override *v1limiter.OverrideUpdate) *errors.ServerError {
+	logger = logger.Named("UpdateOverride").With(zap.String("rule_name", ruleName))
+
+	overrideErr := errorMissingRuleName(ruleName)
+	bTreeAssociatedOnFind := func(item btreeassociated.AssociatedKeyValues) {
+		overrideErr = rm.overridesClient.UpdateOverride(logger, ruleName, overrideName, override)
+	}
+
+	if err := rm.rules.FindByAssociatedID(ruleName, bTreeAssociatedOnFind); err != nil {
+		switch err {
+		case btreeassociated.ErrorTreeItemDestroying:
+			logger.Warn("failed to update override. Rule is being destroyed")
+			return &errors.ServerError{Message: "Rule is being destroyed. Refusing to update Override", StatusCode: http.StatusConflict}
+		default:
+			logger.Error("failed to find rule by associatedid", zap.Error(err))
+			return errorMissingRuleName(ruleName)
+		}
+	}
+
+	if overrideErr != nil {
+		logger.Error("failed to update Override", zap.Error(overrideErr))
+	}
+
+	return overrideErr
 }
 
 // Delete an override
@@ -419,7 +418,7 @@ func (rm *localRulesCient) DeleteOverride(logger *zap.Logger, ruleName string, o
 		switch err {
 		case btreeassociated.ErrorTreeItemDestroying:
 			logger.Warn("refusing to destroy override. Rule is already being destroy")
-			return &errors.ServerError{Message: "Rule is already being destroyed. Refusing to delete override again", StatusCode: http.StatusUnprocessableEntity}
+			return &errors.ServerError{Message: "Rule is already being destroyed. Refusing to delete override again", StatusCode: http.StatusConflict}
 		default:
 			logger.Error("failed to find rule by AssociatedID", zap.Error(err))
 			return errorMissingRuleName(ruleName)

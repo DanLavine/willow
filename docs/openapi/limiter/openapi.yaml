@@ -6,12 +6,19 @@ info:
   version: poc 0.0.1
 
 paths:
+  /health:
+    get:
+      operationId: health check
+      description: "API to check that the service is reachable"
+      responses:
+        200:
+          description: "service is running fine"
   /v1/limiter/rules:
     post:
       operationId: create Rule
       description: |
         `Rules` are the definied restrictive resource for the `Counters` API. Each `Rule` that matches against the `Counter.KeyValues`
-        request is evaluated to ensure that the specific `Rule's` GroupBy selection has not hit the provided limit. It is importnat to
+        request is evaluated to ensure that the specific `Rule's` GroupBy selection has not hit the provided limit. It is important to
         note that if multiple `Rules` all match the same `Counter.KeyValues` then each `Rule` will be evaluated unless one fails which stops the processing
 
         There is special logic when a Rule has a Limit = 0. In this case the service will respond quickly rejecting the request saying the limit has been reached
@@ -36,7 +43,7 @@ paths:
             appplication/json:
               schema:
                 $ref: "../common/components.yaml#/components/schemas/ApiError"
-        422:
+        409:
           description: Conflict if another rule already exists with the same Name or GroupBy keys
           content:
             appplication/json:
@@ -54,7 +61,7 @@ paths:
     get:
       operationId: match Rules
       description: |
-        List any Rules that match the particular `KeyValues` and their `Overrides`.
+        Match any `Rules` that match the particular `KeyValues` and their `Overrides`.
       parameters:
         - in: header
           name: Content-Type
@@ -64,7 +71,7 @@ paths:
       requestBody:
         required: true
         description: |
-          Matching will take all permutations of the provided `[rule | override search].KeyValues` and find
+          Matching will take all permutations of the provided `[rule | override search].KeyValues` and finds
           all possible values that would match the `KeyValues` like a `Counters` request would.
         content:
           appplication/json:
@@ -76,7 +83,7 @@ paths:
           content:
             appplication/json:
               schema:
-                $ref: "#/components/schemas/ListRulesResponse"
+                $ref: "#/components/schemas/RuleResponses"
         400:
           description: Error parsing or validating the request
           content:
@@ -113,13 +120,7 @@ paths:
         content:
           appplication/json:
             schema:
-              type: object
-              properties:
-                OverridesToMatch:
-                  description: |
-                    Optional match query. Leaving this as empty on a request means to not include any `Overrides`
-                  allOf:
-                    - $ref: "../common/components.yaml#/components/schemas/MatchKeyValues"
+              $ref: "#/components/schemas/RuleGet"
       responses:
         200:
           description: |
@@ -139,6 +140,15 @@ paths:
                     $ref: "../common/components.yaml#/components/schemas/ApiError"
         404:
           description: The `Rule` could not be found
+          content:
+            appplication/json:
+              schema:
+                type: object
+                properties:
+                  ApiError:
+                    $ref: "../common/components.yaml#/components/schemas/ApiError"
+        409:
+          description: The current `Rule` is being destroyed
           content:
             appplication/json:
               schema:
@@ -192,6 +202,15 @@ paths:
                 properties:
                   ApiError:
                     $ref: "../common/components.yaml#/components/schemas/ApiError"
+        409:
+          description: The current `Rule` is being destroyed
+          content:
+            appplication/json:
+              schema:
+                type: object
+                properties:
+                  ApiError:
+                    $ref: "../common/components.yaml#/components/schemas/ApiError"
         500:
           description: Internal error that should be addressed by the service maintainer
           content:
@@ -214,6 +233,15 @@ paths:
       responses:
         204:
           description: Successfully deleted the `Rule` and all associatted `Overrides`
+        409:
+          description: The current `Rule` is being destroyed
+          content:
+            appplication/json:
+              schema:
+                type: object
+                properties:
+                  ApiError:
+                    $ref: "../common/components.yaml#/components/schemas/ApiError"
         500:
           description: Unexpected error service side
           content:
@@ -230,8 +258,9 @@ paths:
         Create a new `Override` for a set of `KeyValues`. If multiple `Overrides` have the exact same Name
         or `KeyValues`, then an API error will be returned.
 
-        When matching a `Counter.KeyValues` and there are multiple `Overrides` that match, then each `Override`
-        will be checked to ensure no limits are reached.
+        When matching a `Counter.KeyValues` if a `Rule` has any `Overrides` that match, then the `Rule` itself will
+        be ignored and the `Override` will take precedence. Also, if there are multiple `Overrides` that match, then 
+        each `Override` will be checked to ensure no limits are reached.
       parameters:
         - in: header
           name: Content-Type
@@ -259,8 +288,10 @@ paths:
             appplication/json:
               schema:
                 $ref: "../common/components.yaml#/components/schemas/ApiError"
-        422:
-          description: Conflict if another `Override` already exists with the same KeyValues or Name
+        409:
+          description: |
+            Conflict if another `Override` already exists with the same KeyValues or Name. Could also be the `Rule`
+            or current `Override` is currently being destroyed.
           content:
             appplication/json:
               schema:
@@ -292,16 +323,25 @@ paths:
         content:
           appplication/json:
             schema:
-              $ref: "../common/components.yaml#/components/schemas/MatchKeyValues"
+              $ref: "../common/components.yaml#/components/schemas/MatchQuery"
       responses:
         200:
           description: Successfully searched for any rules that matched the query
           content:
             appplication/json:
               schema:
-                $ref: "#/components/schemas/ListRulesResponse"
+                $ref: "#/components/schemas/RuleOverrides"
         400:
           description: Error parsing or validating the request
+          content:
+            appplication/json:
+              schema:
+                type: object
+                properties:
+                  ApiError:
+                    $ref: "../common/components.yaml#/components/schemas/ApiError"
+        409:
+          description: The current `Rule` is being destroyed
           content:
             appplication/json:
               schema:
@@ -334,8 +374,8 @@ paths:
             appplication/json:
               schema:
                 $ref: "#/components/schemas/RuleOverride"
-        400:
-          description: Error parsing or validating the request
+        404:
+          description: The `Rule` or `Override` could not be found
           content:
             appplication/json:
               schema:
@@ -343,8 +383,8 @@ paths:
                 properties:
                   ApiError:
                     $ref: "../common/components.yaml#/components/schemas/ApiError"
-        404:
-          description: The `Rule` or `Override` could not be found
+        409:
+          description: The `Rule` or `Override` are being deleted
           content:
             appplication/json:
               schema:
@@ -398,6 +438,15 @@ paths:
                 properties:
                   ApiError:
                     $ref: "../common/components.yaml#/components/schemas/ApiError"
+        409:
+          description: The `Rule` or `Override` is currently being destroyed
+          content:
+            appplication/json:
+              schema:
+                type: object
+                properties:
+                  ApiError:
+                    $ref: "../common/components.yaml#/components/schemas/ApiError"
         500:
           description: Internal error that should be addressed by the service maintainer
           content:
@@ -420,6 +469,15 @@ paths:
           description: deleted the Rule Override
         404:
           description: The `Rule` could not be found
+          content:
+            appplication/json:
+              schema:
+                type: object
+                properties:
+                  ApiError:
+                    $ref: "../common/components.yaml#/components/schemas/ApiError"
+        409:
+          description: The `Rule` or `Override` is currently being destroyed
           content:
             appplication/json:
               schema:
@@ -471,14 +529,14 @@ paths:
                   ApiError:
                     $ref: "../common/components.yaml#/components/schemas/ApiError"
         409:
-          description: Conflict if a particular `Rule's` limits are already reached
+          description: Conflict if a particular `Rule` or `Override` Limit is already reached or would go over the Limit
           content:
             appplication/json:
               schema:
                 type: object
                 properties:
                   ApiError:
-                    $ref: "#/components/schemas/LimitReachedResponse"
+                    $ref: "../common/components.yaml#/components/schemas/ApiError"
         500:
           description: Internal error that should be addressed by the service maintainer
           content:
@@ -586,12 +644,21 @@ components:
           description: |
             `Rules` to find that match the KeyValues
           allOf: # need to use all of for the description to display properly
-            - $ref: "../common/components.yaml#/components/schemas/MatchKeyValues"
+            - $ref: "../common/components.yaml#/components/schemas/MatchQuery"
         OverridesToMatch:
           description: |
-            `Overrides` to find for any of the `Rules`. If this is empty, no overrides will be matched
+            `Overrides` to find for any of the found `Rules`. If this is empty, no overrides will be matched
           allOf:
-            - $ref: "../common/components.yaml#/components/schemas/MatchKeyValues"
+            - $ref: "../common/components.yaml#/components/schemas/MatchQuery"
+
+    RuleGet:
+      type: object
+      properties:
+        OverridesToMatch:
+          description: |
+            Optional match query. Leaving this as empty on a request means to not include any `Overrides`
+          allOf:
+            - $ref: "../common/components.yaml#/components/schemas/MatchQuery"
 
     # create a new rule request
     RuleRequest:
@@ -606,10 +673,13 @@ components:
           type: string
         GroupBy:
           description: |
-            GroupBy defines the Keys for any `Counters.KeyValues` that make a unique group matching the `Rule`.
+            GroupBy defines the Keys for any `Counters.KeyValues` that make a unique group matching the `Rule`. The entire
+            grouping of `Counters.KeyValues` is treated as unique so if only 1 `Key` or `Value` differs between 2 `Counters`,
+            then the `Rule` treats those as 2 entierly different comparative objects
           type: array
           items:
             type: string
+          minLength: 1
         Limit:
           description: |
             Max limit for any Key Value Group. If this is set to -1, then the value is treated a 'unlimited'
@@ -655,7 +725,7 @@ components:
         Overrides:
           $ref: "#/components/schemas/RuleOverrides"
 
-    ListRulesResponse:
+    RuleResponses:
       type: array
       items:
         $ref: "#/components/schemas/RuleResponse"
@@ -685,22 +755,6 @@ components:
       type: array
       items:
         $ref: "#/components/schemas/RuleOverride"
-
-    # incremenet response if a rule has already been reached
-    LimitReachedResponse:
-      type: object
-      properties:
-        RuleName:
-          type: string
-        Override:
-          description: if an override was used to determine the limits reached
-          type: object
-          properties:
-            KeyValues:
-              $ref: "../common/components.yaml#/components/schemas/KeyValues"
-            Limit:
-              type: integer
-              format: int64
 
     # increment or decrement counters request
     Counter:

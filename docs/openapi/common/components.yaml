@@ -6,26 +6,25 @@ components:
       properties:
         Error:
           type: string
-
     # Defines how values should be parsed
     DataType:
       type: integer
       description: |
         DataType indicates how to parse and convert the provided Value:\
-        0: uint8\
-        1: uint16\
-        2: uint32\
-        3: uint64\
-        4: uint\
-        5: int8\
-        6: int16\
-        7: int32\
-        8: int64\
-        9: int\
-        10: float32\
-        11: float64\
-        12: string
-      enum: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+        1: uint8\
+        2: uint16\
+        3: uint32\
+        4: uint64\
+        5: uint\
+        6: int8\
+        7: int16\
+        8: int32\
+        9: int64\
+        10: int\
+        11: float32\
+        12: float64\
+        13: string
+      enum: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]
 
     # Generic data type wrapper for any Values in a Key Value pairing
     EncapsulatedValue:
@@ -38,7 +37,7 @@ components:
           $ref: "#/components/schemas/DataType"
         Value:
           description: |
-            String value for the associated DataType.
+            String value for the associated DataType that can be convertied into the desribed type
           type: string
 
     # Map of Encapsulated data
@@ -50,7 +49,7 @@ components:
         $ref: "#/components/schemas/EncapsulatedValue"
 
     # Match KeyValues
-    MatchKeyValues:
+    MatchQuery:
       type: object
       properties:
         KeyValues:

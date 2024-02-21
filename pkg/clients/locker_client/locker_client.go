@@ -62,7 +62,7 @@ type LockClient struct {
 //	- cfg - configuration for the HTTP(s) client
 //
 //	RETURNS:
-//	- LockerClient - properly configured locker client that manages all held locks
+//	- LockClient - properly configured locker client that manages all held locks
 //	- error - any errors setting up the client
 //
 // Setup a new client to the remote locker service. This client automatically manages heartbeats for any obtained locks and
@@ -175,13 +175,13 @@ func (lc *LockClient) ObtainLock(ctx context.Context, lockRequest *v1locker.Lock
 					errCallback := func(err error) {
 						heartbeatErrorCallback(lockRequest.KeyValues, err)
 					}
-					returnLock = newLock(createLockResponse.SessionID, createLockResponse.Timeout, lc.url, lc.client, lc.contentType, errCallback, lostLockWrapper)
+					returnLock = newLock(createLockResponse.SessionID, createLockResponse.LockTimeout, lc.url, lc.client, lc.contentType, errCallback, lostLockWrapper)
 				} else {
-					returnLock = newLock(createLockResponse.SessionID, createLockResponse.Timeout, lc.url, lc.client, lc.contentType, nil, lostLockWrapper)
+					returnLock = newLock(createLockResponse.SessionID, createLockResponse.LockTimeout, lc.url, lc.client, lc.contentType, nil, lostLockWrapper)
 				}
 
 				return returnLock
-			case http.StatusBadRequest:
+			case http.StatusBadRequest, http.StatusInternalServerError:
 				// there was an error with the request. possibly a mismatch on client server versions
 				apiError := &errors.Error{}
 				if err := api.DecodeAndValidateHttpResponse(resp, apiError); err != nil {

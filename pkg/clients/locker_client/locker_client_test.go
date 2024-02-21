@@ -68,8 +68,8 @@ func TestLockerClient_ObtainLock(t *testing.T) {
 			mux := http.NewServeMux()
 			mux.HandleFunc("/v1/locks", func(w http.ResponseWriter, r *http.Request) {
 				createLockResponse := &v1locker.LockCreateResponse{
-					SessionID: "24",
-					Timeout:   time.Second,
+					SessionID:   "24",
+					LockTimeout: time.Second,
 				}
 				_, err := api.EncodeAndSendHttpResponse(http.Header{}, w, http.StatusOK, createLockResponse)
 				g.Expect(err).ToNot(HaveOccurred())
@@ -101,8 +101,8 @@ func TestLockerClient_ObtainLock(t *testing.T) {
 			mux.HandleFunc("/v1/locks", func(w http.ResponseWriter, r *http.Request) {
 				createCounter++
 				createLockResponse := &v1locker.LockCreateResponse{
-					SessionID: "24",
-					Timeout:   time.Second,
+					SessionID:   "24",
+					LockTimeout: time.Second,
 				}
 				_, err := api.EncodeAndSendHttpResponse(http.Header{}, w, http.StatusOK, createLockResponse)
 				g.Expect(err).ToNot(HaveOccurred())

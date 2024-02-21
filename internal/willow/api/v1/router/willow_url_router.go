@@ -31,21 +31,21 @@ func AddV1WillowRoutes(mux *urlrouter.Router, v1QueueHandler handlers.V1QueueHan
 
 	// broker functions
 	//// all queues operations
-	mux.HandleFunc("POST", "/v1/brokers/queues", v1QueueHandler.Create)
-	mux.HandleFunc("GET", "/v1/brokers/queues", v1QueueHandler.List) // just list all queues, don't think a query makes sense
+	mux.HandleFunc("POST", "/v1/queues", v1QueueHandler.Create)
+	mux.HandleFunc("GET", "/v1/queues", v1QueueHandler.List) // just list all queues, don't think a query makes sense
 	//// queue's specific operations
-	mux.HandleFunc("GET", "/v1/brokers/queues/:queue_name", v1QueueHandler.Get)       // this I think can take a query for the queues and return channel details
-	mux.HandleFunc("PUT", "/v1/brokers/queues/:queue_name", v1QueueHandler.Update)    // update how many items can be saved in a queue
-	mux.HandleFunc("DELETE", "/v1/brokers/queues/:queue_name", v1QueueHandler.Delete) // delete a queue and all channels
+	mux.HandleFunc("GET", "/v1/queues/:queue_name", v1QueueHandler.Get)       // this I think can take a query for the queues and return channel details
+	mux.HandleFunc("PUT", "/v1/queues/:queue_name", v1QueueHandler.Update)    // update how many items can be saved in a queue
+	mux.HandleFunc("DELETE", "/v1/queues/:queue_name", v1QueueHandler.Delete) // delete a queue and all channels
 
 	// message channels
 	//// queues
-	mux.HandleFunc("POST", "/v1/brokers/queues/:queue_name/channel", v1QueueHandler.ChannelEnqueue)
-	mux.HandleFunc("GET", "/v1/brokers/queues/:queue_name/channel", v1QueueHandler.ChannelDequeue)
-	mux.HandleFunc("DELETE", "/v1/brokers/queues/:queue_name/channel", v1QueueHandler.ChannelDelete) // Delete a channel by key values
+	mux.HandleFunc("POST", "/v1/queues/:queue_name/channels", v1QueueHandler.ChannelEnqueue)
+	mux.HandleFunc("GET", "/v1/queues/:queue_name/channels", v1QueueHandler.ChannelDequeue)
+	mux.HandleFunc("DELETE", "/v1/queues/:queue_name/channels", v1QueueHandler.ChannelDelete) // Delete a channel by key values
 
 	// item handlers
 	//// queues
-	mux.HandleFunc("POST", "/v1/brokers/queues/:queue_name/channels/items/ack", v1QueueHandler.ItemACK)             // think this is ok? enqueue and dequeue will drive this out
-	mux.HandleFunc("POST", "/v1/brokers/queues/:queue_name/channels/items/heartbeat", v1QueueHandler.ItemHeartbeat) // think this is ok? enqueue and dequeue will drive this out
+	mux.HandleFunc("POST", "/v1/queues/:queue_name/channels/items/ack", v1QueueHandler.ItemACK)             // think this is ok? enqueue and dequeue will drive this out
+	mux.HandleFunc("POST", "/v1/queues/:queue_name/channels/items/heartbeat", v1QueueHandler.ItemHeartbeat) // think this is ok? enqueue and dequeue will drive this out
 }

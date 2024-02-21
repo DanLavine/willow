@@ -16,7 +16,7 @@ func (wc *WillowClient) CreateQueue(queue *v1willow.QueueCreate) error {
 	// setup and make the request
 	resp, err := wc.client.Do(&clients.RequestData{
 		Method: "POST",
-		Path:   fmt.Sprintf("%s/v1/brokers/queues", wc.url),
+		Path:   fmt.Sprintf("%s/v1/queues", wc.url),
 		Model:  queue,
 	})
 
@@ -44,7 +44,7 @@ func (wc *WillowClient) ListQueues() (v1willow.Queues, error) {
 	// setup and make the request
 	resp, err := wc.client.Do(&clients.RequestData{
 		Method: "GET",
-		Path:   fmt.Sprintf("%s/v1/brokers/queues", wc.url),
+		Path:   fmt.Sprintf("%s/v1/queues", wc.url),
 		Model:  nil,
 	})
 
@@ -61,7 +61,7 @@ func (wc *WillowClient) ListQueues() (v1willow.Queues, error) {
 		}
 
 		return queues, nil
-	case http.StatusBadRequest, http.StatusConflict, http.StatusInternalServerError:
+	case http.StatusInternalServerError:
 		apiError := &errors.Error{}
 		if err := api.DecodeAndValidateHttpResponse(resp, apiError); err != nil {
 			return nil, err
@@ -77,7 +77,7 @@ func (wc *WillowClient) GetQueue(queueName string, overridesQuery *v1common.Asso
 	// setup and make the request
 	resp, err := wc.client.Do(&clients.RequestData{
 		Method: "GET",
-		Path:   fmt.Sprintf("%s/v1/brokers/queues/%s", wc.url, queueName),
+		Path:   fmt.Sprintf("%s/v1/queues/%s", wc.url, queueName),
 		Model:  overridesQuery,
 	})
 
@@ -111,7 +111,7 @@ func (wc *WillowClient) UpdateQueue(queueName string, queueUpdate *v1willow.Queu
 	// setup and make the request
 	resp, err := wc.client.Do(&clients.RequestData{
 		Method: "PUT",
-		Path:   fmt.Sprintf("%s/v1/brokers/queues/%s", wc.url, queueName),
+		Path:   fmt.Sprintf("%s/v1/queues/%s", wc.url, queueName),
 		Model:  queueUpdate,
 	})
 
@@ -123,7 +123,7 @@ func (wc *WillowClient) UpdateQueue(queueName string, queueUpdate *v1willow.Queu
 	switch resp.StatusCode {
 	case http.StatusOK:
 		return nil
-	case http.StatusBadRequest, http.StatusConflict, http.StatusInternalServerError:
+	case http.StatusBadRequest, http.StatusNotFound, http.StatusConflict, http.StatusInternalServerError:
 		apiError := &errors.Error{}
 		if err := api.DecodeAndValidateHttpResponse(resp, apiError); err != nil {
 			return err
@@ -139,7 +139,7 @@ func (wc *WillowClient) DeleteQueue(queueName string) error {
 	// setup and make the request
 	resp, err := wc.client.Do(&clients.RequestData{
 		Method: "DELETE",
-		Path:   fmt.Sprintf("%s/v1/brokers/queues/%s", wc.url, queueName),
+		Path:   fmt.Sprintf("%s/v1/queues/%s", wc.url, queueName),
 		Model:  nil,
 	})
 
@@ -151,7 +151,7 @@ func (wc *WillowClient) DeleteQueue(queueName string) error {
 	switch resp.StatusCode {
 	case http.StatusNoContent:
 		return nil
-	case http.StatusBadRequest, http.StatusNotFound, http.StatusConflict, http.StatusInternalServerError:
+	case http.StatusNotFound, http.StatusConflict, http.StatusInternalServerError:
 		apiError := &errors.Error{}
 		if err := api.DecodeAndValidateHttpResponse(resp, apiError); err != nil {
 			return err

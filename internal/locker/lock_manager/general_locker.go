@@ -103,12 +103,12 @@ func (generalLocker *generalLocker) LocksQuery(query *v1common.AssociatedQuery) 
 // Obtain a lock for the given key values.
 // This blocks until one of of the contexts is canceled, or the lock is obtained
 func (generalLocker *generalLocker) ObtainLock(clientCtx context.Context, createLockRequest *v1locker.LockCreateRequest) *v1locker.LockCreateResponse {
-	var timeout time.Duration
 	var lockChan chan struct{}
+	var lockDone chan struct{}
+	var lockUpdateHeartbeatTimeout chan time.Duration
 
 	onCreate := func() any {
-		generalLock := newGeneralLock(createLockRequest.Timeout, func() bool { return generalLocker.freeLock(createLockRequest.KeyValues) })
-		timeout = createLockRequest.Timeout
+		generalLock := newGeneralLock(createLockRequest.LockTimeout, func() bool { return generalLocker.freeLock(createLockRequest.KeyValues) })
 
 		// start running the heartbeat timer in the background
 		_ = generalLocker.taskManager.AddExecuteTask("lock timer", generalLock)
@@ -116,17 +116,20 @@ func (generalLocker *generalLocker) ObtainLock(clientCtx context.Context, create
 		return generalLock
 	}
 
-	// NOTE: it is very important that the all procces in the order that they were found
+	// NOTE: it is very important that they all procces in the order that they were found
 	onFind := func(item btreeassociated.AssociatedKeyValues) {
 		generalLock := item.Value().(*generalLock)
 		generalLock.counterLock.Lock()
 		defer generalLock.counterLock.Unlock()
 
 		generalLock.counter++
-		timeout = generalLock.timeout
 
 		// set the channel to wait for
 		lockChan = generalLock.lockChan
+
+		// grab the channels to update the timer
+		lockDone = generalLock.done
+		lockUpdateHeartbeatTimeout = generalLock.updateHearbeatTimeout
 	}
 
 	// lock every single possible tag combination we might be using
@@ -137,12 +140,20 @@ func (generalLocker *generalLocker) ObtainLock(clientCtx context.Context, create
 
 	switch lockChan {
 	case nil:
-		// this is the created case. Can alwys try and report the sessionID to the client
+		// this is the created case. Can always try and report the sessionID to the client
 	default:
 		// this is the found case
 		select {
 		case <-lockChan:
 			// a lock has been freed and we were able to claim it
+			select {
+			case lockUpdateHeartbeatTimeout <- createLockRequest.LockTimeout:
+				// updated the heartbeat to the new requests timeout
+			case <-lockDone:
+				// the lock must have timed out when wantint to update the new timeout duration. Server is running super slow
+				// for some reason. I think its probably best to refactor that this just re-adds to the async task manager though
+				panic("failed to update the lock in time. This panic is here for now because this need to be refactored!")
+			}
 		case <-clientCtx.Done(): // client canceled
 			// now we need to try and cleanup any locks we currently have recored a counter on
 			generalLocker.freeLock(createLockRequest.KeyValues)
@@ -156,8 +167,8 @@ func (generalLocker *generalLocker) ObtainLock(clientCtx context.Context, create
 
 	// at this point, we have obtained the "locks" for all tag groups
 	return &v1locker.LockCreateResponse{
-		SessionID: sessionID,
-		Timeout:   timeout,
+		SessionID:   sessionID,
+		LockTimeout: createLockRequest.LockTimeout,
 	}
 }
 
@@ -177,7 +188,9 @@ func (generalLocker *generalLocker) Heartbeat(sessionID string) *errors.ServerEr
 		found = true
 	}
 
-	_ = generalLocker.locks.FindByAssociatedID(sessionID, onFind)
+	if err := generalLocker.locks.FindByAssociatedID(sessionID, onFind); err != nil {
+		panic(err)
+	}
 
 	if !found {
 		return &errors.ServerError{Message: "SessionID could not be found", StatusCode: http.StatusGone}

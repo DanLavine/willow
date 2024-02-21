@@ -53,7 +53,7 @@ func (ocl *overridesClientLocal) CreateOverride(logger *zap.Logger, ruleName str
 		case btreeonetomany.ErrorManyIDDestroying:
 			// override is currently being destroyed
 			logger.Warn("override is being destroyed")
-			return &errors.ServerError{Message: "override is being destroy", StatusCode: http.StatusUnprocessableEntity}
+			return &errors.ServerError{Message: "override is being destroy", StatusCode: http.StatusConflict}
 		case btreeonetomany.ErrorManyIDAlreadyExists:
 			// override name already exists
 			logger.Warn("override name is already taken")
@@ -112,41 +112,6 @@ func (ocl *overridesClientLocal) GetOverride(logger *zap.Logger, ruleName string
 	return limiterOverride, overrideErr
 }
 
-func (ocl *overridesClientLocal) UpdateOverride(logger *zap.Logger, ruleName string, overrideName string, overrideUpdate *v1limiter.OverrideUpdate) *errors.ServerError {
-	logger = logger.Named("CreateOverride").With(zap.String("override_name", overrideName))
-
-	overrideErr := errorMissingOverrideName(overrideName)
-
-	onIterate := func(item btreeonetomany.OneToManyItem) bool {
-		override := item.Value().(Override)
-		override.Update(overrideUpdate)
-
-		overrideErr = nil
-		return false
-	}
-
-	overrideNameValue := datatypes.String(overrideName)
-	query := datatypes.AssociatedKeyValuesQuery{
-		KeyValueSelection: &datatypes.KeyValueSelection{
-			KeyValues: map[string]datatypes.Value{
-				"_associated_id": datatypes.Value{Value: &overrideNameValue, ValueComparison: datatypes.EqualsPtr()},
-			},
-		},
-	}
-
-	if err := ocl.overrides.Query(ruleName, query, onIterate); err != nil {
-		switch err {
-		//case ErrorOneIDDestroying.ErrorOneIDDestroying:
-		// This shouldn't happen as the deletion of the `Rule` should block all these request`
-		default:
-			logger.Error("Unexpected error updating the override", zap.Error(err))
-			return errors.InternalServerError
-		}
-	}
-
-	return overrideErr
-}
-
 func (ocl *overridesClientLocal) MatchOverrides(logger *zap.Logger, ruleName string, query *v1common.MatchQuery) (v1limiter.Overrides, *errors.ServerError) {
 	logger = logger.Named("MatchOverrides")
 	overrides := v1limiter.Overrides{}
@@ -188,6 +153,40 @@ func (ocl *overridesClientLocal) MatchOverrides(logger *zap.Logger, ruleName str
 	}
 
 	return overrides, nil
+}
+
+func (ocl *overridesClientLocal) UpdateOverride(logger *zap.Logger, ruleName string, overrideName string, overrideUpdate *v1limiter.OverrideUpdate) *errors.ServerError {
+	logger = logger.Named("CreateOverride").With(zap.String("override_name", overrideName))
+	overrideErr := errorMissingOverrideName(overrideName)
+
+	onIterate := func(item btreeonetomany.OneToManyItem) bool {
+		override := item.Value().(Override)
+		override.Update(overrideUpdate)
+
+		overrideErr = nil
+		return false
+	}
+
+	overrideNameValue := datatypes.String(overrideName)
+	query := datatypes.AssociatedKeyValuesQuery{
+		KeyValueSelection: &datatypes.KeyValueSelection{
+			KeyValues: map[string]datatypes.Value{
+				"_associated_id": datatypes.Value{Value: &overrideNameValue, ValueComparison: datatypes.EqualsPtr()},
+			},
+		},
+	}
+
+	if err := ocl.overrides.Query(ruleName, query, onIterate); err != nil {
+		switch err {
+		//case ErrorOneIDDestroying.ErrorOneIDDestroying:
+		// This shouldn't happen as the deletion of the `Rule` should block all these request`
+		default:
+			logger.Error("Unexpected error updating the override", zap.Error(err))
+			return errors.InternalServerError
+		}
+	}
+
+	return overrideErr
 }
 
 func (ocl *overridesClientLocal) DestroyOverride(logger *zap.Logger, ruleName string, overrideName string) *errors.ServerError {

@@ -125,8 +125,8 @@ func (cm *counterClientLocal) IncrementCounters(logger *zap.Logger, requestConte
 			for _, key := range counter.KeyValues.SortedKeys() {
 				// setup the group to lock
 				lockKeyValues := &v1locker.LockCreateRequest{
-					KeyValues: datatypes.KeyValues{key: counter.KeyValues[key]},
-					Timeout:   time.Second,
+					KeyValues:   datatypes.KeyValues{key: counter.KeyValues[key]},
+					LockTimeout: time.Second,
 				}
 
 				// obtain the required lock

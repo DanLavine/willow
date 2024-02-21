@@ -142,9 +142,9 @@ func Test_Lock(t *testing.T) {
 		g.Consistently(done).ShouldNot(BeClosed())
 
 		// release the lock
-		g.Expect(lock.Release()).ToNot(HaveOccurred())
+		g.Expect(lock.Release()).ToNot(HaveOccurred()) // 1st lock release
 		g.Eventually(done).Should(BeClosed())
-		g.Expect(lock.Release()).ToNot(HaveOccurred())
+		g.Expect(lock.Release()).ToNot(HaveOccurred()) // 2nd lock release
 	})
 
 	t.Run("It can release the clients when the server is shutting down", func(t *testing.T) {
@@ -204,7 +204,7 @@ func Test_Lock(t *testing.T) {
 				"key1": datatypes.String("key one"),
 				"key2": datatypes.String("key two"),
 			},
-			Timeout: 100 * time.Millisecond,
+			LockTimeout: 100 * time.Millisecond,
 		}
 
 		lock, err := lockerClient.ObtainLock(ctx, lockRequest, nil)

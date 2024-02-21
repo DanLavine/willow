@@ -25,7 +25,7 @@ docker compose build [OPTIONAL NAME OF SERVICE]
 * Limiter in this example is exposed over http on port 8082
 * Locker in this example is exposed over http on port 8083
 
-All services have a `http://127.0.0.1:[port]/docs` api that can be viewed for details service instructions
+All services have a `http://127.0.0.1:[port]/v1/docs` api that can be viewed for details service instructions
 
 
 #### Docker Compose

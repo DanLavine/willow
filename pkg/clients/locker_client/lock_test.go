@@ -156,38 +156,23 @@ func TestLock_heartbeat_operations(t *testing.T) {
 		})
 	})
 
-	t.Run("Context when the response code is http.StatusBadRequest or http.StatusGone", func(t *testing.T) {
+	t.Run("Context when the response code is http.StatusGone", func(t *testing.T) {
 		t.Run("Context when the response body cannot be read", func(t *testing.T) {
 			t.Run("It calls heartbeatErrorCallback if the response body cannot be read", func(t *testing.T) {
-				counter := new(atomic.Int64)
 				mux := http.NewServeMux()
 				mux.HandleFunc("/v1/locks/someID/heartbeat", func(w http.ResponseWriter, r *http.Request) {
-					switch counter.Add(1) {
-					case 1:
-						w.Header().Add("content-length", "5")
-						w.Header().Add("Content-Type", "application/json")
-						w.WriteHeader(http.StatusBadRequest)
-						w.Write([]byte(`this isn't json`))
-					default:
-						w.Header().Add("content-length", "5")
-						w.Header().Add("Content-Type", "application/json")
-						w.WriteHeader(http.StatusGone)
-						w.Write([]byte(`this isn't json`))
-					}
+					w.Header().Add("content-length", "5")
+					w.Header().Add("Content-Type", "application/json")
+					w.WriteHeader(http.StatusGone)
+					w.Write([]byte(`this isn't json`))
 				})
 				server := setupServerHttp(mux)
 				defer server.Close()
 
-				lock, _, hertbeatErrorCounter, heartbeatErrs := setupLock(server)
-				defer lock.Release()
+				_, _, hertbeatErrorCounter, heartbeatErrs := setupLock(server)
 
-				// bad request
 				g.Eventually(hertbeatErrorCounter.Load).Should(BeNumerically(">=", int64(1)))
 				g.Expect((*heartbeatErrs)[0].Error()).To(ContainSubstring("failed to read http response body: unexpected EOF"))
-
-				// conflict
-				g.Eventually(hertbeatErrorCounter.Load).Should(BeNumerically(">=", int64(2)))
-				g.Expect((*heartbeatErrs)[1].Error()).To(ContainSubstring("failed to read http response body: unexpected EOF"))
 			})
 		})
 
@@ -196,7 +181,7 @@ func TestLock_heartbeat_operations(t *testing.T) {
 				mux := http.NewServeMux()
 				mux.HandleFunc("/v1/locks/someID/heartbeat", func(w http.ResponseWriter, r *http.Request) {
 					w.Header().Add("Content-Type", "application/json")
-					w.WriteHeader(http.StatusBadRequest)
+					w.WriteHeader(http.StatusGone)
 					w.Write([]byte(`this isn't json`))
 				})
 				server := setupServerHttp(mux)
@@ -215,7 +200,7 @@ func TestLock_heartbeat_operations(t *testing.T) {
 				mux := http.NewServeMux()
 				mux.HandleFunc("/v1/locks/someID/heartbeat", func(w http.ResponseWriter, r *http.Request) {
 					apiErr := &errors.Error{Message: "this is the api error"}
-					_, err := api.EncodeAndSendHttpResponse(http.Header{}, w, http.StatusBadRequest, apiErr)
+					_, err := api.EncodeAndSendHttpResponse(http.Header{}, w, http.StatusGone, apiErr)
 					g.Expect(err).ToNot(HaveOccurred())
 				})
 				server := setupServerHttp(mux)
@@ -228,9 +213,7 @@ func TestLock_heartbeat_operations(t *testing.T) {
 				g.Expect((*heartbeatErrs)[0].Error()).To(ContainSubstring("this is the api error"))
 			})
 		})
-	})
 
-	t.Run("Context when the response code is http.StatusGone", func(t *testing.T) {
 		t.Run("It releases the lock", func(t *testing.T) {
 			mux := http.NewServeMux()
 			mux.HandleFunc("/v1/locks/someID/heartbeat", func(w http.ResponseWriter, r *http.Request) {
@@ -274,121 +257,35 @@ func TestLock_heartbeat_operations(t *testing.T) {
 func TestLock_Release(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	t.Run("Context when the response code is http.StatusGone", func(t *testing.T) {
-		t.Run("It stops the heartbeat operation if it is processing", func(t *testing.T) {
-			// setup server
-			heartbeatCounter := new(atomic.Int64)
-			mux := http.NewServeMux()
-			mux.HandleFunc("/v1/locks/someID/heartbeat", func(w http.ResponseWriter, r *http.Request) {
-				heartbeatCounter.Add(1)
-				w.WriteHeader(http.StatusOK)
-			})
-			mux.HandleFunc("/v1/locks/someID", func(w http.ResponseWriter, r *http.Request) {
-				w.WriteHeader(http.StatusNoContent)
-			})
-			server := setupServerHttp(mux)
-			defer server.Close()
-
-			lock, lostCounter, hertbeatErrorCounter, heartbeatErrs := setupLock(server)
-
-			// release the lock
-			err := lock.Release()
-			g.Expect(err).ToNot(HaveOccurred())
-			g.Expect(lock.Done()).To(BeClosed())
-			currentHeartbeats := heartbeatCounter.Load()
-
-			g.Expect(lostCounter.Load()).To(Equal(int64(1)))
-			g.Expect(hertbeatErrorCounter.Load()).To(Equal(int64(0)))
-			g.Expect(*heartbeatErrs).To(BeNil())
-			g.Consistently(heartbeatCounter.Load()).Should(Equal(currentHeartbeats))
+	t.Run("It stops the heartbeat operation if it is processing", func(t *testing.T) {
+		// setup server
+		heartbeatCounter := new(atomic.Int64)
+		mux := http.NewServeMux()
+		mux.HandleFunc("/v1/locks/someID/heartbeat", func(w http.ResponseWriter, r *http.Request) {
+			heartbeatCounter.Add(1)
+			w.WriteHeader(http.StatusOK)
 		})
+		mux.HandleFunc("/v1/locks/someID", func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusNoContent)
+		})
+		server := setupServerHttp(mux)
+		defer server.Close()
+
+		lock, lostCounter, hertbeatErrorCounter, heartbeatErrs := setupLock(server)
+
+		// release the lock
+		err := lock.Release()
+		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(lock.Done()).To(BeClosed())
+		currentHeartbeats := heartbeatCounter.Load()
+
+		g.Expect(lostCounter.Load()).To(Equal(int64(1)))
+		g.Expect(hertbeatErrorCounter.Load()).To(Equal(int64(0)))
+		g.Expect(*heartbeatErrs).To(BeNil())
+		g.Consistently(heartbeatCounter.Load()).Should(Equal(currentHeartbeats))
 	})
 
-	t.Run("Context when the response code is http.StatusBadRequest", func(t *testing.T) {
-		t.Run("It reports the api error on a bad request", func(t *testing.T) {
-			// setup server
-			mux := http.NewServeMux()
-			mux.HandleFunc("/v1/locks/someID/heartbeat", func(w http.ResponseWriter, r *http.Request) {
-				w.WriteHeader(http.StatusOK)
-			})
-			mux.HandleFunc("/v1/locks/someID", func(w http.ResponseWriter, r *http.Request) {
-				apiErr := &errors.Error{Message: "bad request budy"}
-				_, err := api.EncodeAndSendHttpResponse(http.Header{}, w, http.StatusBadRequest, apiErr)
-				g.Expect(err).ToNot(HaveOccurred())
-			})
-
-			server := setupServerHttp(mux)
-			defer server.Close()
-			lock, lostCounter, hertbeatErrorCounter, heartbeatErrs := setupLock(server)
-
-			// release the lock
-			err := lock.Release()
-			g.Expect(err).To(HaveOccurred())
-			g.Expect(err.Error()).To(ContainSubstring("bad request budy"))
-			g.Expect(lock.Done()).To(BeClosed())
-
-			g.Expect(lostCounter.Load()).To(Equal(int64(1)))
-			g.Expect(hertbeatErrorCounter.Load()).To(Equal(int64(0)))
-			g.Expect(*heartbeatErrs).To(BeNil())
-		})
-
-		t.Run("It returns an error if the response cannot be read", func(t *testing.T) {
-			// setup server
-			mux := http.NewServeMux()
-			mux.HandleFunc("/v1/locks/someID/heartbeat", func(w http.ResponseWriter, r *http.Request) {
-				w.WriteHeader(http.StatusOK)
-			})
-			mux.HandleFunc("/v1/locks/someID", func(w http.ResponseWriter, r *http.Request) {
-				w.Header().Add("content-length", "5")
-				w.Header().Add("Content-Type", "application/json")
-				w.WriteHeader(http.StatusBadRequest)
-				w.Write([]byte(`this isn't json`))
-			})
-
-			server := setupServerHttp(mux)
-			defer server.Close()
-			lock, lostCounter, hertbeatErrorCounter, heartbeatErrs := setupLock(server)
-
-			// release the lock
-			err := lock.Release()
-			g.Expect(err).To(HaveOccurred())
-			g.Expect(err.Error()).To(ContainSubstring("failed to read http response body"))
-			g.Expect(lock.Done()).To(BeClosed())
-
-			g.Expect(lostCounter.Load()).To(Equal(int64(1)))
-			g.Expect(hertbeatErrorCounter.Load()).To(Equal(int64(0)))
-			g.Expect(*heartbeatErrs).To(BeNil())
-		})
-
-		t.Run("It returns an error if the response body cannot be parsed", func(t *testing.T) {
-			// setup server
-			mux := http.NewServeMux()
-			mux.HandleFunc("/v1/locks/someID/heartbeat", func(w http.ResponseWriter, r *http.Request) {
-				w.WriteHeader(http.StatusOK)
-			})
-			mux.HandleFunc("/v1/locks/someID", func(w http.ResponseWriter, r *http.Request) {
-				w.Header().Add("Content-Type", "application/json")
-				w.WriteHeader(http.StatusBadRequest)
-				w.Write([]byte(`this isn't json`))
-			})
-
-			server := setupServerHttp(mux)
-			defer server.Close()
-			lock, lostCounter, hertbeatErrorCounter, heartbeatErrs := setupLock(server)
-
-			// release the lock
-			err := lock.Release()
-			g.Expect(err).To(HaveOccurred())
-			g.Expect(err.Error()).To(ContainSubstring("failed to decode api error response"))
-			g.Expect(lock.Done()).To(BeClosed())
-
-			g.Expect(lostCounter.Load()).To(Equal(int64(1)))
-			g.Expect(hertbeatErrorCounter.Load()).To(Equal(int64(0)))
-			g.Expect(*heartbeatErrs).To(BeNil())
-		})
-	})
-
-	t.Run("Context when the response code is anything else", func(t *testing.T) {
+	t.Run("Context when the response code is anything other than http.StatusGone", func(t *testing.T) {
 		t.Run("It stops heartbeating and closes the Done channel", func(t *testing.T) {
 			// setup server
 			mux := http.NewServeMux()

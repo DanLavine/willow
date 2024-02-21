@@ -16,7 +16,7 @@ import (
 )
 
 func errorMissingQueueName(name string) *errors.ServerError {
-	return &errors.ServerError{Message: fmt.Sprintf("failed to find queue '%s' by name", name), StatusCode: http.StatusBadRequest}
+	return &errors.ServerError{Message: fmt.Sprintf("failed to find queue '%s' by name", name), StatusCode: http.StatusNotFound}
 }
 
 type queueClientLocal struct {
@@ -62,7 +62,7 @@ func (qcl *queueClientLocal) CreateQueue(logger *zap.Logger, queueCreate *v1will
 		switch err {
 		case btree.ErrorKeyAlreadyExists:
 			logger.Warn("failed to create queue. Queue already exists by that name")
-			return &errors.ServerError{Message: fmt.Sprintf("Queue already exists with name '%s'", queueCreate.Name), StatusCode: http.StatusBadRequest}
+			return &errors.ServerError{Message: fmt.Sprintf("Queue already exists with name '%s'", queueCreate.Name), StatusCode: http.StatusConflict}
 		case btree.ErrorKeyDestroying:
 			logger.Warn("failed to create queue. Queue by that name is currenly destroying")
 			return &errors.ServerError{Message: fmt.Sprintf("Queue with name '%s' is currently being destroyed. Try again later", queueCreate.Name), StatusCode: http.StatusConflict}
@@ -73,33 +73,6 @@ func (qcl *queueClientLocal) CreateQueue(logger *zap.Logger, queueCreate *v1will
 	}
 
 	return createQueueError
-}
-
-func (qcl *queueClientLocal) GetQueue(logger *zap.Logger, queueName string, channelQuery *v1common.AssociatedQuery) (*v1willow.Queue, *errors.ServerError) {
-	logger = logger.Named("GetQueue")
-	getQueueError := errorMissingQueueName(queueName)
-
-	var queue *v1willow.Queue
-	onFind := func(treeItem any) {
-		willowQueue := treeItem.(Queue)
-
-		queue = &v1willow.Queue{
-			Name:         queueName,
-			QueueMaxSize: willowQueue.ConfiguredLimit(),
-			Channels:     qcl.queueChannelsClient.Channels(logger, queueName, *channelQuery),
-		}
-	}
-
-	if err := qcl.queues.Find(datatypes.String(queueName), onFind); err != nil {
-		logger.Error("error listing queues from tree", zap.Error(err))
-		return nil, errors.InternalServerError
-	}
-
-	if queue == nil {
-		return nil, getQueueError
-	}
-
-	return queue, nil
 }
 
 func (qcl *queueClientLocal) ListQueues(logger *zap.Logger) (v1willow.Queues, *errors.ServerError) {
@@ -124,6 +97,39 @@ func (qcl *queueClientLocal) ListQueues(logger *zap.Logger) (v1willow.Queues, *e
 	}
 
 	return queues, nil
+}
+
+func (qcl *queueClientLocal) GetQueue(logger *zap.Logger, queueName string, channelQuery *v1common.AssociatedQuery) (*v1willow.Queue, *errors.ServerError) {
+	logger = logger.Named("GetQueue")
+	getQueueError := errorMissingQueueName(queueName)
+
+	var queue *v1willow.Queue
+	onFind := func(treeItem any) {
+		willowQueue := treeItem.(Queue)
+
+		queue = &v1willow.Queue{
+			Name:         queueName,
+			QueueMaxSize: willowQueue.ConfiguredLimit(),
+			Channels:     qcl.queueChannelsClient.Channels(logger, queueName, *channelQuery),
+		}
+	}
+
+	if err := qcl.queues.Find(datatypes.String(queueName), onFind); err != nil {
+		switch err {
+		case btree.ErrorKeyDestroying:
+			logger.Warn("failed to get queue. Queue by that name is currenly destroying")
+			return nil, &errors.ServerError{Message: fmt.Sprintf("Queue with name '%s' is currently being destroyed. Refusing to get the queue and channels", queueName), StatusCode: http.StatusConflict}
+		default:
+			logger.Error("error listing queues from tree", zap.Error(err))
+			return nil, errors.InternalServerError
+		}
+	}
+
+	if queue == nil {
+		return nil, getQueueError
+	}
+
+	return queue, nil
 }
 
 func (qcl *queueClientLocal) UpdateQueue(logger *zap.Logger, queueName string, queueUpdate *v1willow.QueueUpdate) *errors.ServerError {
@@ -240,8 +246,14 @@ func (qcl *queueClientLocal) Ack(logger *zap.Logger, queueName string, ack *v1wi
 	}
 
 	if err := qcl.queues.Find(datatypes.String(queueName), onFind); err != nil {
-		logger.Error("failed to find the queue in the tree for some reason", zap.Error(err))
-		return errors.InternalServerError
+		switch err {
+		case btree.ErrorKeyDestroying:
+			logger.Warn("failed to ack item. Queue by that name is currenly destroying")
+			return &errors.ServerError{Message: fmt.Sprintf("Queue with name '%s' is currently being destroyed. Refusing to acck the item since it is being destroyed too", queueName), StatusCode: http.StatusConflict}
+		default:
+			logger.Error("failed to find the queue in the tree for some reason", zap.Error(err))
+			return errors.InternalServerError
+		}
 	}
 
 	return ackErr
@@ -257,8 +269,14 @@ func (qcl *queueClientLocal) Heartbeat(logger *zap.Logger, queueName string, hea
 	}
 
 	if err := qcl.queues.Find(datatypes.String(queueName), onFind); err != nil {
-		logger.Error("failed to find the queue in the tree for some reason", zap.Error(err))
-		return errors.InternalServerError
+		switch err {
+		case btree.ErrorKeyDestroying:
+			logger.Warn("failed to update queue. Queue by that name is currenly destroying")
+			return &errors.ServerError{Message: fmt.Sprintf("Queue with name '%s' is currently being destroyed. Refusing to update the queue", queueName), StatusCode: http.StatusConflict}
+		default:
+			logger.Error("failed to find the queue in the tree for some reason", zap.Error(err))
+			return errors.InternalServerError
+		}
 	}
 
 	return heartbeatErr

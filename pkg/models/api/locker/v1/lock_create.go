@@ -13,9 +13,9 @@ type LockCreateRequest struct {
 	// KeyValues defines the collection to obtain a lock for
 	KeyValues datatypes.KeyValues
 
-	// Timeout defines how long the lock should remain valid if the client fails to heartbeat.
+	// LockTimeout defines how long the lock should remain valid if the client fails to heartbeat.
 	// If this is set to 0, then the Server's configuration will be used.
-	Timeout time.Duration
+	LockTimeout time.Duration
 }
 
 //	RETURNS:
@@ -62,9 +62,9 @@ type LockCreateResponse struct {
 	// SessionID is a uniquely generated ID to Heartbeat or Release a lock with.
 	SessionID string
 
-	// Timeout duration on the server till a lock is released if no Heartbeats are recieved.
+	// LockTimeout duration on the server till a lock is released if no Heartbeats are recieved.
 	// Clients should ensure that multiple heartbeats are sent per timout to ensure network errors are accounted for
-	Timeout time.Duration
+	LockTimeout time.Duration
 }
 
 //	RETURNS:
@@ -76,7 +76,7 @@ func (resp *LockCreateResponse) Validate() error {
 		return sessionIDEmpty
 	}
 
-	if resp.Timeout == 0 {
+	if resp.LockTimeout == 0 {
 		return timeoutIsInvalid
 	}
 

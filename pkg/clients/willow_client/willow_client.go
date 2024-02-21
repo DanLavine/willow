@@ -35,15 +35,9 @@ type WillowServiceClient interface {
 	//// enqueue a new item to a particular queue's channels
 	EnqueueQueueItem(queueName string, item *v1willow.EnqueueQueueItem) error
 	//// dequeue an item from a queue's channels that match the query
-	DequeueQueueItem(cancelContext context.Context, queueName string, query *datatypes.AssociatedKeyValuesQuery) (*Item, error)
+	DequeueQueueItem(cancelContext context.Context, queueName string, query *v1common.AssociatedQuery) (*Item, error)
 	//// delete a particu;ar channel and all enqueued items
 	DeleteQueueChannel(queueName string, channelKeyValues *datatypes.KeyValues) error
-
-	//// item operations
-	////// heartbeat an item dequeued
-	//HeartbeatItem(queueName string, heartbeat *v1willow.Heartbeat) error
-	////// ack a particualr item to remove or re-queue
-	//ACKItem(queueName string, ack *v1willow.ACK) error
 }
 
 // LimiteClient to connect with remote limiter service

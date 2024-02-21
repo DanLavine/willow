@@ -111,7 +111,7 @@ func Test_DecodeAndValidateHttpRequest(t *testing.T) {
 					KeyValues: datatypes.KeyValues{
 						"key1": datatypes.Int(1),
 					},
-					Timeout: time.Second,
+					LockTimeout: time.Second,
 				}).EncodeJSON()
 				g.Expect(err).ToNot(HaveOccurred())
 
@@ -125,7 +125,7 @@ func Test_DecodeAndValidateHttpRequest(t *testing.T) {
 				// check the server response
 				g.Expect(serverErr).ToNot(HaveOccurred())
 				g.Expect(lockCreateRequest.KeyValues).To(Equal(datatypes.KeyValues{"key1": datatypes.Int(1)}))
-				g.Expect(lockCreateRequest.Timeout).To(Equal(time.Second))
+				g.Expect(lockCreateRequest.LockTimeout).To(Equal(time.Second))
 			})
 		})
 	})
@@ -166,8 +166,8 @@ func Test_EncodeAndSendHttpResponse(t *testing.T) {
 			testWriter := &writeError{}
 
 			lockCreateResp := &v1locker.LockCreateResponse{
-				SessionID: "something",
-				Timeout:   5 * time.Second,
+				SessionID:   "something",
+				LockTimeout: 5 * time.Second,
 			}
 
 			headers := http.Header{}
@@ -200,13 +200,13 @@ func Test_EncodeAndSendHttpResponse(t *testing.T) {
 				testWriter := httptest.NewRecorder()
 
 				lockCreateResp := &v1locker.LockCreateResponse{
-					SessionID: "something",
-					Timeout:   5 * time.Second,
+					SessionID:   "something",
+					LockTimeout: 5 * time.Second,
 				}
 
 				// Encode and send the http request
 				dataWritten, serverErr := EncodeAndSendHttpResponse(http.Header{}, testWriter, http.StatusOK, lockCreateResp)
-				g.Expect(dataWritten).To(Equal(46))
+				g.Expect(dataWritten).To(Equal(50))
 				g.Expect(serverErr).ToNot(HaveOccurred())
 
 				// ensure response recieves proper status code
@@ -226,8 +226,8 @@ func Test_EncodeAndSendHttpResponse(t *testing.T) {
 				testWriter := httptest.NewRecorder()
 
 				lockCreateResp := &v1locker.LockCreateResponse{
-					SessionID: "something",
-					Timeout:   5 * time.Second,
+					SessionID:   "something",
+					LockTimeout: 5 * time.Second,
 				}
 
 				headers := http.Header{}
@@ -235,7 +235,7 @@ func Test_EncodeAndSendHttpResponse(t *testing.T) {
 
 				// Encode and send the http request
 				dataWritten, serverErr := EncodeAndSendHttpResponse(headers, testWriter, http.StatusOK, lockCreateResp)
-				g.Expect(dataWritten).To(Equal(46))
+				g.Expect(dataWritten).To(Equal(50))
 				g.Expect(serverErr).ToNot(HaveOccurred())
 
 				// ensure response recieves proper status code
@@ -255,8 +255,8 @@ func Test_EncodeAndSendHttpResponse(t *testing.T) {
 				testWriter := httptest.NewRecorder()
 
 				lockCreateResp := &v1locker.LockCreateResponse{
-					SessionID: "something",
-					Timeout:   5 * time.Second,
+					SessionID:   "something",
+					LockTimeout: 5 * time.Second,
 				}
 
 				headers := http.Header{}

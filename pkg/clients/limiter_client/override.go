@@ -37,7 +37,7 @@ func (lc *LimitClient) CreateOverride(ruleName string, override *v1limiter.Overr
 	switch resp.StatusCode {
 	case http.StatusCreated:
 		return nil
-	case http.StatusBadRequest, http.StatusNotFound, http.StatusUnprocessableEntity, http.StatusInternalServerError:
+	case http.StatusBadRequest, http.StatusNotFound, http.StatusConflict, http.StatusInternalServerError:
 		apiError := &errors.Error{}
 		if err := api.DecodeAndValidateHttpResponse(resp, apiError); err != nil {
 			return err
@@ -46,6 +46,47 @@ func (lc *LimitClient) CreateOverride(ruleName string, override *v1limiter.Overr
 		return apiError
 	default:
 		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+}
+
+//	PARAMETERS:
+//	- ruleName - name of the Rule to query the Overrides for
+//	- override - Override definition
+//
+//	RETURNS:
+//	- error - error creating the override
+//
+// Match is used to find all the rules that match the provided KeyValues
+func (lc *LimitClient) MatchOverrides(ruleName string, matchQuery *v1common.MatchQuery) (v1limiter.Overrides, error) {
+	// setup and make the request
+	resp, err := lc.client.Do(&clients.RequestData{
+		Method: "GET",
+		Path:   fmt.Sprintf("%s/v1/limiter/rules/%s/overrides", lc.url, ruleName),
+		Model:  matchQuery,
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	// parse the response
+	switch resp.StatusCode {
+	case http.StatusOK:
+		overrides := v1limiter.Overrides{}
+		if err := api.DecodeAndValidateHttpResponse(resp, &overrides); err != nil {
+			return nil, err
+		}
+
+		return overrides, nil
+	case http.StatusBadRequest, http.StatusConflict, http.StatusInternalServerError:
+		apiError := &errors.Error{}
+		if err := api.DecodeAndValidateHttpResponse(resp, apiError); err != nil {
+			return nil, err
+		}
+
+		return nil, apiError
+	default:
+		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
 }
 
@@ -80,48 +121,7 @@ func (lc *LimitClient) GetOverride(ruleName string, overrideName string) (*v1lim
 		}
 
 		return override, nil
-	case http.StatusNotFound, http.StatusBadRequest, http.StatusInternalServerError:
-		apiError := &errors.Error{}
-		if err := api.DecodeAndValidateHttpResponse(resp, apiError); err != nil {
-			return nil, err
-		}
-
-		return nil, apiError
-	default:
-		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
-	}
-}
-
-//	PARAMETERS:
-//	- ruleName - name of the Rule to query the Overrides for
-//	- override - Override definition
-//
-//	RETURNS:
-//	- error - error creating the override
-//
-// Match is used to find all the rules that match the provided KeyValues
-func (lc *LimitClient) MatchOverrides(ruleName string, matchQuery *v1common.MatchQuery) (v1limiter.Overrides, error) {
-	// setup and make the request
-	resp, err := lc.client.Do(&clients.RequestData{
-		Method: "GET",
-		Path:   fmt.Sprintf("%s/v1/limiter/rules/%s/overrides", lc.url, ruleName),
-		Model:  matchQuery,
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	// parse the response
-	switch resp.StatusCode {
-	case http.StatusOK:
-		overrides := v1limiter.Overrides{}
-		if err := api.DecodeAndValidateHttpResponse(resp, &overrides); err != nil {
-			return nil, err
-		}
-
-		return overrides, nil
-	case http.StatusBadRequest, http.StatusInternalServerError:
+	case http.StatusNotFound, http.StatusConflict, http.StatusInternalServerError:
 		apiError := &errors.Error{}
 		if err := api.DecodeAndValidateHttpResponse(resp, apiError); err != nil {
 			return nil, err
@@ -159,7 +159,7 @@ func (lc *LimitClient) UpdateOverride(ruleName string, overrideName string, over
 	switch resp.StatusCode {
 	case http.StatusOK:
 		return nil
-	case http.StatusBadRequest, http.StatusNotFound, http.StatusInternalServerError:
+	case http.StatusBadRequest, http.StatusNotFound, http.StatusConflict, http.StatusInternalServerError:
 		apiError := &errors.Error{}
 		if err := api.DecodeAndValidateHttpResponse(resp, apiError); err != nil {
 			return err
@@ -195,7 +195,7 @@ func (lc *LimitClient) DeleteOverride(ruleName, overrideName string) error {
 	switch resp.StatusCode {
 	case http.StatusNoContent:
 		return nil
-	case http.StatusNotFound, http.StatusInternalServerError:
+	case http.StatusNotFound, http.StatusConflict, http.StatusInternalServerError:
 		apiError := &errors.Error{}
 		if err := api.DecodeAndValidateHttpResponse(resp, apiError); err != nil {
 			return err

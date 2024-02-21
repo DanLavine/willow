@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"fmt"
 	"net/http"
 
 	"github.com/DanLavine/urlrouter"
@@ -10,6 +9,7 @@ import (
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 	"go.uber.org/zap"
 
+	v1common "github.com/DanLavine/willow/pkg/models/api/common/v1"
 	v1willow "github.com/DanLavine/willow/pkg/models/api/willow/v1"
 )
 
@@ -40,22 +40,21 @@ func (qh queueHandler) ChannelDequeue(w http.ResponseWriter, r *http.Request) {
 	defer logger.Debug("processed request")
 
 	// parse the enueue item
-	query := &datatypes.AssociatedKeyValuesQuery{}
+	query := &v1common.AssociatedQuery{}
 	if err := api.DecodeAndValidateHttpRequest(r, query); err != nil {
 		logger.Error("failed to decode enqueue item request", zap.Error(err))
 		_, _ = api.EncodeAndSendHttpResponse(r.Header, w, err.StatusCode, err)
 		return
 	}
 
-	dequeueItem, successCallback, failureCallback, err := qh.queueClient.Dequeue(logger, r.Context(), urlrouter.GetNamedParamters(r.Context())["queue_name"], *query)
-	fmt.Printf("dequeue item: %#v\n", dequeueItem)
+	dequeueItem, successCallback, failureCallback, err := qh.queueClient.Dequeue(logger, r.Context(), urlrouter.GetNamedParamters(r.Context())["queue_name"], query.AssociatedKeyValues)
 	if err != nil {
 		_, _ = api.EncodeAndSendHttpResponse(r.Header, w, err.StatusCode, err)
 		return
 	}
 
 	if _, responseErr := api.EncodeAndSendHttpResponse(r.Header, w, http.StatusOK, dequeueItem); responseErr != nil {
-		logger.Info("Failed so send the response back to the client")
+		logger.Warn("Failed so send the response back to the client")
 		failureCallback()
 	} else {
 		successCallback()

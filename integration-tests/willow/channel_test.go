@@ -303,7 +303,7 @@ func Test_Queue_Dequeue(t *testing.T) {
 		done := make(chan struct{})
 		go func() {
 			defer close(done)
-			item, err = willowClient.DequeueQueueItem(ctx, "test queue", &datatypes.AssociatedKeyValuesQuery{})
+			item, err = willowClient.DequeueQueueItem(ctx, "test queue", &v1common.AssociatedQuery{})
 		}()
 		g.Consistently(done).ShouldNot(BeClosed())
 
@@ -350,7 +350,7 @@ func Test_Queue_Dequeue(t *testing.T) {
 		g.Expect(err).ToNot(HaveOccurred())
 
 		// dequeue the item
-		item, err := willowClient.DequeueQueueItem(context.Background(), "test queue", &datatypes.AssociatedKeyValuesQuery{})
+		item, err := willowClient.DequeueQueueItem(context.Background(), "test queue", &v1common.AssociatedQuery{})
 
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(item.Data()).To(Equal([]byte(`data for first item`)))
@@ -406,7 +406,7 @@ func Test_Queue_Dequeue(t *testing.T) {
 		done := make(chan struct{})
 		go func() {
 			defer close(done)
-			item, dequeueErr = willowClient.DequeueQueueItem(context.Background(), "test queue", &datatypes.AssociatedKeyValuesQuery{})
+			item, dequeueErr = willowClient.DequeueQueueItem(context.Background(), "test queue", &v1common.AssociatedQuery{})
 		}()
 
 		// ensure that the service is attempting to dequeue the item before sending the enqueue request
@@ -559,9 +559,6 @@ func Test_Queue_DeleteChannel(t *testing.T) {
 		// delete a channel
 		err := willowClient.DeleteQueueChannel("test queue", &datatypes.KeyValues{"one": datatypes.Int(1)})
 		g.Expect(err).ToNot(HaveOccurred())
-
-		fmt.Println(willowTestConstruct.ServerStdout.String())
-		fmt.Println(limiterTestConstruct.ServerStdout.String())
 
 		// ensure the counters are setup properly
 		counters, err := limiterClient.QueryCounters(&v1common.AssociatedQuery{})

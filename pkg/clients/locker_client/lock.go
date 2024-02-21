@@ -109,25 +109,19 @@ func newLock(sessionID string, timeout time.Duration, url string, client clients
 				})
 
 				if err != nil {
-					// select {
-					// case <-lock.done:
-					// 	// race between release and heartbeat called
-					// 	return
-					// default:
 					if heartbeatErrorCallback != nil {
 						heartbeatErrorCallback(fmt.Errorf("failed to heartbeat: %w", err))
 					}
 
 					tickFailures++
 					continue
-					// }
 				}
 
 				switch resp.StatusCode {
 				case http.StatusOK:
 					// this is the success case and the heartbeat passed
 					tickFailures = 0
-				case http.StatusBadRequest, http.StatusGone:
+				case http.StatusGone:
 					// there was an error with the request body or seession id
 					apiError := &errors.Error{}
 					if err := api.DecodeAndValidateHttpResponse(resp, apiError); err != nil {
@@ -140,12 +134,8 @@ func newLock(sessionID string, timeout time.Duration, url string, client clients
 						}
 					}
 
-					if resp.StatusCode == http.StatusGone {
-						// release the lock
-						return
-					}
-
-					tickFailures++
+					// release the lock
+					return
 				default:
 					if heartbeatErrorCallback != nil {
 						heartbeatErrorCallback(fmt.Errorf("received an unexpected status code: %d", resp.StatusCode))
@@ -189,14 +179,6 @@ func (l *lock) Release() error {
 		case http.StatusNoContent:
 			// this is the success case and the Lock was deleted
 			return nil
-		case http.StatusBadRequest:
-			// there was an error parsing the request body
-			apiError := &errors.Error{}
-			if err := api.DecodeAndValidateHttpResponse(resp, apiError); err != nil {
-				return err
-			}
-
-			return apiError
 		default:
 			return fmt.Errorf("unexpected response code from the remote locker service '%d'. Need to wait for the lock to expire remotely", resp.StatusCode)
 		}

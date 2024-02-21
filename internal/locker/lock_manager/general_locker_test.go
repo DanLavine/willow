@@ -23,7 +23,7 @@ func defaultLockCreateRequest() *v1locker.LockCreateRequest {
 			"2": datatypes.Int(2),
 			"3": datatypes.Uint64(3),
 		},
-		Timeout: 15 * time.Second,
+		LockTimeout: 15 * time.Second,
 	}
 }
 
@@ -35,7 +35,7 @@ func overlapOneKeyValue() *v1locker.LockCreateRequest {
 			"4": datatypes.Int(2),
 			"5": datatypes.Uint64(3),
 		},
-		Timeout: 15 * time.Second,
+		LockTimeout: 15 * time.Second,
 	}
 }
 
@@ -67,7 +67,7 @@ func TestGeneralLocker_ObtainLocks(t *testing.T) {
 		lockResp := generalLocker.ObtainLock(context.Background(), defaultLockCreateRequest())
 		g.Expect(lockResp).ToNot(BeNil())
 		g.Expect(lockResp.SessionID).ToNot(Equal(""))
-		g.Expect(lockResp.Timeout).To(Equal(15 * time.Second)) // default values
+		g.Expect(lockResp.LockTimeout).To(Equal(15 * time.Second)) // default values
 
 		counter := 0
 		lockCounter := func(_ btreeassociated.AssociatedKeyValues) bool {
@@ -239,7 +239,7 @@ func TestGeneralLocker_ObtainLocks(t *testing.T) {
 						fmt.Sprintf("%d", i%6): datatypes.String("doesn't matter 2"),
 						fmt.Sprintf("%d", i%7): datatypes.String("doesn't matter 3"),
 					},
-					Timeout: 15 * time.Second,
+					LockTimeout: 15 * time.Second,
 				}
 				g.Expect(testReq.Validate()).ToNot(HaveOccurred())
 
@@ -441,7 +441,7 @@ func TestGeneralLocker_Heartbeat(t *testing.T) {
 		taskManager.AddExecuteTask("teset", generalLocker)
 
 		lockRequest := defaultLockCreateRequest()
-		lockRequest.Timeout = 100 * time.Millisecond
+		lockRequest.LockTimeout = 100 * time.Millisecond
 
 		lockResp := generalLocker.ObtainLock(context.Background(), lockRequest)
 		g.Expect(lockResp).ToNot(BeNil())
@@ -469,7 +469,7 @@ func TestGeneralLocker_Heartbeat(t *testing.T) {
 		}()
 
 		lockRequest := defaultLockCreateRequest()
-		lockRequest.Timeout = 100 * time.Millisecond
+		lockRequest.LockTimeout = 100 * time.Millisecond
 
 		lockResp := generalLocker.ObtainLock(context.Background(), lockRequest)
 		g.Expect(lockResp).ToNot(BeNil())
@@ -493,7 +493,7 @@ func TestGeneralLocker_Heartbeat(t *testing.T) {
 			taskManager.AddExecuteTask("teset", generalLocker)
 
 			lockRequest := defaultLockCreateRequest()
-			lockRequest.Timeout = 100 * time.Millisecond
+			lockRequest.LockTimeout = 100 * time.Millisecond
 
 			lockResp := generalLocker.ObtainLock(context.Background(), lockRequest)
 			g.Expect(lockResp).ToNot(BeNil())

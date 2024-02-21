@@ -8,6 +8,7 @@ import (
 	"github.com/DanLavine/willow/pkg/clients"
 	"github.com/DanLavine/willow/pkg/models/api"
 	"github.com/DanLavine/willow/pkg/models/api/common/errors"
+	v1common "github.com/DanLavine/willow/pkg/models/api/common/v1"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 
 	v1willow "github.com/DanLavine/willow/pkg/models/api/willow/v1"
@@ -17,7 +18,7 @@ func (wc *WillowClient) EnqueueQueueItem(queueName string, item *v1willow.Enqueu
 	// setup and make the request
 	resp, err := wc.client.Do(&clients.RequestData{
 		Method: "POST",
-		Path:   fmt.Sprintf("%s/v1/brokers/queues/%s", wc.url, queueName),
+		Path:   fmt.Sprintf("%s/v1/queues/%s/channels", wc.url, queueName),
 		Model:  item,
 	})
 
@@ -29,7 +30,7 @@ func (wc *WillowClient) EnqueueQueueItem(queueName string, item *v1willow.Enqueu
 	switch resp.StatusCode {
 	case http.StatusCreated:
 		return nil
-	case http.StatusBadRequest, http.StatusConflict, http.StatusInternalServerError:
+	case http.StatusBadRequest, http.StatusNotFound, http.StatusConflict, http.StatusInternalServerError:
 		apiError := &errors.Error{}
 		if err := api.DecodeAndValidateHttpResponse(resp, apiError); err != nil {
 			return err
@@ -41,11 +42,11 @@ func (wc *WillowClient) EnqueueQueueItem(queueName string, item *v1willow.Enqueu
 	}
 }
 
-func (wc *WillowClient) DequeueQueueItem(cancelContext context.Context, queueName string, query *datatypes.AssociatedKeyValuesQuery) (*Item, error) {
+func (wc *WillowClient) DequeueQueueItem(cancelContext context.Context, queueName string, query *v1common.AssociatedQuery) (*Item, error) {
 	// setup and make the request
 	resp, err := wc.client.DoWithContext(cancelContext, &clients.RequestData{
 		Method: "GET",
-		Path:   fmt.Sprintf("%s/v1/brokers/queues/%s/channel", wc.url, queueName),
+		Path:   fmt.Sprintf("%s/v1/queues/%s/channels", wc.url, queueName),
 		Model:  query,
 	})
 
@@ -62,7 +63,7 @@ func (wc *WillowClient) DequeueQueueItem(cancelContext context.Context, queueNam
 		}
 
 		return newItem(wc.url, wc.client, queueName, &dequeueItem), nil
-	case http.StatusBadRequest, http.StatusConflict, http.StatusInternalServerError:
+	case http.StatusBadRequest, http.StatusNotFound, http.StatusConflict, http.StatusInternalServerError:
 		apiError := &errors.Error{}
 		if err := api.DecodeAndValidateHttpResponse(resp, apiError); err != nil {
 			return nil, err
@@ -78,7 +79,7 @@ func (wc *WillowClient) DeleteQueueChannel(queueName string, channelKeyValues *d
 	// setup and make the request
 	resp, err := wc.client.Do(&clients.RequestData{
 		Method: "DELETE",
-		Path:   fmt.Sprintf("%s/v1/brokers/queues/%s/channel", wc.url, queueName),
+		Path:   fmt.Sprintf("%s/v1/queues/%s/channels", wc.url, queueName),
 		Model:  channelKeyValues,
 	})
 
@@ -90,7 +91,7 @@ func (wc *WillowClient) DeleteQueueChannel(queueName string, channelKeyValues *d
 	switch resp.StatusCode {
 	case http.StatusNoContent:
 		return nil
-	case http.StatusBadRequest, http.StatusConflict, http.StatusInternalServerError:
+	case http.StatusBadRequest, http.StatusNotFound, http.StatusConflict, http.StatusInternalServerError:
 		apiError := &errors.Error{}
 		if err := api.DecodeAndValidateHttpResponse(resp, apiError); err != nil {
 			return err
