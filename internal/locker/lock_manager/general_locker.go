@@ -14,11 +14,6 @@ import (
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 )
 
-// TODO DSL:
-//	I think there is an issue when releasing the lock. It is not acctually releasing the generalLock resource.
-//	that needs to also be stopped. The callback will eventually trigger when the timeout hits, but thats not great.
-//	should be released immediately
-
 type GeneralLocker interface {
 	// obtain all the locks that make up a collection
 	ObtainLock(clientCtx context.Context, createRequest *v1locker.LockCreateRequest) *v1locker.LockCreateResponse
@@ -35,17 +30,18 @@ type GeneralLocker interface {
 
 type generalLocker struct {
 	// closed when the server shuts down
-	done chan struct{}
+	shutdown context.Context
+	cancel   func()
 
 	// association tree for all possible locks
-	locks btreeassociated.BTreeAssociated
+	locks      btreeassociated.BTreeAssociated
+	lockTimers btreeassociated.BTreeAssociated
 
 	// task manger ensures shutdown requests are processsed properly
 	taskManager goasync.AsyncTaskManager
 }
 
 // nothing to do here for now.
-// TODO: read from disk all the locks that already exist and re-instate them
 func (generalLocker *generalLocker) Initialize() error { return nil }
 
 // nothing to do here
@@ -54,23 +50,35 @@ func (generalLocker *generalLocker) Cleanup() error { return nil }
 // execution for handling shutdown of all the possible locks
 func (generalLocker *generalLocker) Execute(ctx context.Context) error {
 	// NOTE: this blocks until all locks have processed the shutdown request
+	done := make(chan struct{})
 	go func() {
-		defer close(generalLocker.done)
+		defer close(done)
 		_ = generalLocker.taskManager.Run(ctx)
 	}()
 
-	<-generalLocker.done
+	// when the service is told to stop, we want to cancel all the current heartberter operations
+	<-ctx.Done()
+	generalLocker.cancel()
+
+	// wait until all the heartbeater operations have finished processing
+	<-done
 	return nil
 }
 
-func NewGeneralLocker(tree btreeassociated.BTreeAssociated) *generalLocker {
-	if tree == nil {
-		tree = btreeassociated.NewThreadSafe()
+func NewGeneralLocker(lockTimers btreeassociated.BTreeAssociated) *generalLocker {
+	if lockTimers == nil {
+		lockTimers = btreeassociated.NewThreadSafe()
 	}
 
+	locks := btreeassociated.NewThreadSafe()
+
+	shutdown, cancel := context.WithCancel(context.Background())
+
 	return &generalLocker{
-		done:        make(chan struct{}),
-		locks:       tree,
+		shutdown:    shutdown,
+		cancel:      cancel,
+		locks:       locks,
+		lockTimers:  lockTimers,
 		taskManager: goasync.NewTaskManager(goasync.RelaxedConfig()),
 	}
 }
@@ -80,22 +88,20 @@ func (generalLocker *generalLocker) LocksQuery(query *v1common.AssociatedQuery) 
 	locks := v1locker.Locks{}
 
 	onPaginate := func(associatedKeyValues btreeassociated.AssociatedKeyValues) bool {
-		generalLock := associatedKeyValues.Value().(*generalLock)
-		generalLock.counterLock.RLock()
-		defer generalLock.counterLock.RUnlock()
+		generalTimer := associatedKeyValues.Value().(*generalTimer)
 
 		locks = append(locks, &v1locker.Lock{
-			SessionID:          associatedKeyValues.AssociatedID(),
+			SessionID:          generalTimer.sessionID,
 			KeyValues:          associatedKeyValues.KeyValues(),
-			Timeout:            generalLock.timeout,
-			TimeTillExipre:     time.Since(generalLock.getLastHeartbeat()),
-			LocksHeldOrWaiting: generalLock.counter,
+			Timeout:            time.Duration(generalTimer.timeout.Load()),
+			TimeTillExipre:     time.Since(generalTimer.GetLastHeartbeat()),
+			LocksHeldOrWaiting: generalTimer.clientsWaiting.Load(),
 		})
 
 		return true
 	}
 
-	_ = generalLocker.locks.Query(query.AssociatedKeyValues, onPaginate)
+	_ = generalLocker.lockTimers.Query(query.AssociatedKeyValues, onPaginate)
 
 	return locks
 }
@@ -103,153 +109,138 @@ func (generalLocker *generalLocker) LocksQuery(query *v1common.AssociatedQuery) 
 // Obtain a lock for the given key values.
 // This blocks until one of of the contexts is canceled, or the lock is obtained
 func (generalLocker *generalLocker) ObtainLock(clientCtx context.Context, createLockRequest *v1locker.LockCreateRequest) *v1locker.LockCreateResponse {
-	var lockChan chan struct{}
-	var lockDone chan struct{}
-	var lockUpdateHeartbeatTimeout chan time.Duration
+	created := false
+	var lockTimer *generalTimer
 
 	onCreate := func() any {
-		generalLock := newGeneralLock(createLockRequest.LockTimeout, func() bool { return generalLocker.freeLock(createLockRequest.KeyValues) })
-
-		// start running the heartbeat timer in the background
-		_ = generalLocker.taskManager.AddExecuteTask("lock timer", generalLock)
-
-		return generalLock
+		created = true
+		lockTimer = newGeneralLock(func() bool { return generalLocker.freeLock(createLockRequest.KeyValues) })
+		return lockTimer
 	}
 
-	// NOTE: it is very important that they all procces in the order that they were found
 	onFind := func(item btreeassociated.AssociatedKeyValues) {
-		generalLock := item.Value().(*generalLock)
-		generalLock.counterLock.Lock()
-		defer generalLock.counterLock.Unlock()
-
-		generalLock.counter++
-
-		// set the channel to wait for
-		lockChan = generalLock.lockChan
-
-		// grab the channels to update the timer
-		lockDone = generalLock.done
-		lockUpdateHeartbeatTimeout = generalLock.updateHearbeatTimeout
+		lockTimer = item.Value().(*generalTimer)
+		lockTimer.AddWaitingClient()
 	}
 
-	// lock every single possible tag combination we might be using
-	sessionID, err := generalLocker.locks.CreateOrFind(createLockRequest.KeyValues, onCreate, onFind)
+	timerID, err := generalLocker.lockTimers.CreateOrFind(createLockRequest.KeyValues, onCreate, onFind)
 	if err != nil {
 		panic(err)
 	}
 
-	switch lockChan {
-	case nil:
-		// this is the created case. Can always try and report the sessionID to the client
-	default:
-		// this is the found case
-		select {
-		case <-lockChan:
-			// a lock has been freed and we were able to claim it
-			select {
-			case lockUpdateHeartbeatTimeout <- createLockRequest.LockTimeout:
-				// updated the heartbeat to the new requests timeout
-			case <-lockDone:
-				// the lock must have timed out when wantint to update the new timeout duration. Server is running super slow
-				// for some reason. I think its probably best to refactor that this just re-adds to the async task manager though
-				panic("failed to update the lock in time. This panic is here for now because this need to be refactored!")
+	if created {
+		_ = generalLocker.taskManager.AddExecuteTask(timerID, lockTimer)
+	}
+
+	// this is the case when we found a timer that already exists
+	select {
+	// obtained the lock timer.
+	case lockTimer.claimTrigger <- createLockRequest.LockTimeout:
+		// this has a bug and can panic. if there are many clients and shutdown is called.
+		// this can panic on the send. so this channel should never be closed?
+
+		lockID, err := generalLocker.locks.Create(createLockRequest.KeyValues, func() any {
+			return lockTimer.GetHeartbeater()
+		})
+
+		if err != nil {
+			panic(err)
+		}
+
+		lockTimer.sessionID = lockID
+		return &v1locker.LockCreateResponse{
+			SessionID:   lockID,
+			LockTimeout: createLockRequest.LockTimeout,
+		}
+
+	// client has disconnected
+	case <-clientCtx.Done():
+		// want to decrment the counters for timer and possible removal
+		_ = generalLocker.lockTimers.Delete(createLockRequest.KeyValues, func(associatedKeyValues btreeassociated.AssociatedKeyValues) bool {
+			generalTimer := associatedKeyValues.Value().(*generalTimer)
+
+			// remove the lock timer if there are no other clients waiting
+			return generalTimer.RemoveWaitingClient() <= 0
+		})
+
+	// service told to shutdown
+	case <-generalLocker.shutdown.Done():
+		// if we created the timer, can also creat the lock on the shutdown request
+		if created {
+			lockID, err := generalLocker.locks.Create(createLockRequest.KeyValues, func() any {
+				return lockTimer.GetHeartbeater()
+			})
+
+			if err != nil {
+				panic(err)
 			}
-		case <-clientCtx.Done(): // client canceled
-			// now we need to try and cleanup any locks we currently have recored a counter on
-			generalLocker.freeLock(createLockRequest.KeyValues)
-			return nil
-		case <-generalLocker.done: // server shutdown
-			// now we need to try and cleanup any locks we currently have recorded a counter on
-			generalLocker.freeLock(createLockRequest.KeyValues)
-			return nil
+
+			lockTimer.sessionID = lockID
+			return &v1locker.LockCreateResponse{
+				SessionID:   lockID,
+				LockTimeout: createLockRequest.LockTimeout,
+			}
 		}
-	}
-
-	// at this point, we have obtained the "locks" for all tag groups
-	return &v1locker.LockCreateResponse{
-		SessionID:   sessionID,
-		LockTimeout: createLockRequest.LockTimeout,
-	}
-}
-
-// heartbeat a particualr session key values
-func (generalLocker *generalLocker) Heartbeat(sessionID string) *errors.ServerError {
-	found := false
-	onFind := func(item btreeassociated.AssociatedKeyValues) {
-		generalLock := item.Value().(*generalLock)
-
-		select {
-		case generalLock.hertbeat <- struct{}{}:
-			// set a heartbeat to the lock
-		default:
-			// the lock was deleted or we are shutting down
-		}
-
-		found = true
-	}
-
-	if err := generalLocker.locks.FindByAssociatedID(sessionID, onFind); err != nil {
-		panic(err)
-	}
-
-	if !found {
-		return &errors.ServerError{Message: "SessionID could not be found", StatusCode: http.StatusGone}
 	}
 
 	return nil
 }
 
-// delete a lock from the tree
-func (generalLocker *generalLocker) ReleaseLock(lockID string) {
-	var keyValues datatypes.KeyValues
+// heartbeat a particualr session id
+func (generalLocker *generalLocker) Heartbeat(sessionID string) *errors.ServerError {
+	heartbeaterErr := &errors.ServerError{Message: "SessionID could not be found", StatusCode: http.StatusGone}
 
-	// only need to find the 1 item
-	onQuery := func(associatedKeyValues btreeassociated.AssociatedKeyValues) bool {
-		keyValues = associatedKeyValues.KeyValues()
-		return false
-	}
+	_ = generalLocker.locks.FindByAssociatedID(sessionID, func(item btreeassociated.AssociatedKeyValues) {
+		heartbeat := item.Value().(chan struct{})
 
-	idString := datatypes.String(lockID)
-	generalLocker.locks.Query(datatypes.AssociatedKeyValuesQuery{
-		KeyValueSelection: &datatypes.KeyValueSelection{
-			KeyValues: map[string]datatypes.Value{
-				btreeassociated.ReservedID: {Value: &idString, ValueComparison: datatypes.EqualsPtr()},
-			},
-		},
-	}, onQuery)
+		_, ok := <-heartbeat
+		if ok {
+			heartbeaterErr = nil
+		}
+	})
 
-	if len(keyValues) != 0 {
-		_ = generalLocker.freeLock(keyValues)
-	}
+	return heartbeaterErr
+}
+
+// release a lock from the tree. if there are no more clients waitiing, then it will be deleted
+func (generalLocker *generalLocker) ReleaseLock(sessionID string) {
+	// remove the unique heartbeat channel
+	_ = generalLocker.locks.DeleteByAssociatedID(sessionID, func(item btreeassociated.AssociatedKeyValues) bool {
+
+		// attempt to remove the time trigger if there are no other clients
+		_ = generalLocker.lockTimers.Delete(item.KeyValues(), func(associatedKeyValues btreeassociated.AssociatedKeyValues) bool {
+			generalTimer := associatedKeyValues.Value().(*generalTimer)
+			generalTimer.sessionID = ""
+
+			// wait for the timer to process the release
+			<-generalTimer.release
+
+			return generalTimer.RemoveWaitingClient() <= 0
+		})
+
+		// always delete the saved locks heartbeater channel
+		return true
+	})
 }
 
 func (generalLocker *generalLocker) freeLock(keyValues datatypes.KeyValues) bool {
-	removed := false
+	processed := false
 
-	canDelete := func(item btreeassociated.AssociatedKeyValues) bool {
-		generalLock := item.Value().(*generalLock)
+	// remove the unique heartbeat channel
+	_ = generalLocker.locks.Delete(keyValues, func(item btreeassociated.AssociatedKeyValues) bool {
+		processed = true
 
-		// don't need to grab the lock here since this is already write protected on the tree
-		generalLock.counter--
+		// attempt to remove the time trigger if there are no other clients
+		_ = generalLocker.lockTimers.Delete(keyValues, func(associatedKeyValues btreeassociated.AssociatedKeyValues) bool {
+			generalTimer := associatedKeyValues.Value().(*generalTimer)
+			generalTimer.sessionID = ""
 
-		if generalLock.counter == 0 {
-			// nothing to do here, no clients are waiting
-		} else {
-			select {
-			case generalLock.lockChan <- struct{}{}:
-				// this will trigger a client waiting to proceed
-			default:
-				// if this case is hit. Then the client waiting could have also disconnected, and will be cleaned up
-				// on the next call. If delete is next to process as well
-			}
-		}
+			return generalTimer.RemoveWaitingClient() <= 0
+		})
 
-		removed = generalLock.counter == 0
-		return removed
-	}
+		// always delete the saved locks heartbeater channel
+		return true
+	})
 
-	// delete or at least signal to other waiting locks that we are freeing the currently held lock
-	_ = generalLocker.locks.Delete(keyValues, canDelete)
-
-	return removed
+	return processed
 }

@@ -80,15 +80,15 @@ func TestGeneralLocker_ObtainLocks(t *testing.T) {
 	})
 
 	t.Run("Context when creating a lock", func(t *testing.T) {
-		t.Run("Context when the server context is closed", func(t *testing.T) {
-			t.Run("It always reports the sessionID", func(t *testing.T) {
+		t.Run("Context after the server context is closed", func(t *testing.T) {
+			t.Run("It always grabs the lock if it can", func(t *testing.T) {
 				ctx, cancel := context.WithCancel(context.Background())
 
 				done := make(chan struct{})
 				taskManager := goasync.NewTaskManager(goasync.RelaxedConfig())
 				go func() {
+					defer close(done)
 					taskManager.Run(ctx)
-					close(done)
 				}()
 
 				generalLocker := NewGeneralLocker(nil)
@@ -97,7 +97,7 @@ func TestGeneralLocker_ObtainLocks(t *testing.T) {
 				cancel()
 				g.Eventually(done).Should(BeClosed())
 
-				lockResp := generalLocker.ObtainLock(ctx, defaultLockCreateRequest())
+				lockResp := generalLocker.ObtainLock(context.Background(), defaultLockCreateRequest())
 				g.Expect(lockResp).ToNot(BeNil())
 
 				counter := 0
@@ -112,15 +112,15 @@ func TestGeneralLocker_ObtainLocks(t *testing.T) {
 		})
 
 		t.Run("Context when client context is closed", func(t *testing.T) {
-			t.Run("It always reports the sessionID", func(t *testing.T) {
+			t.Run("It returns nil and cleans up any potential locks", func(t *testing.T) {
 				ctx, cancel := context.WithCancel(context.Background())
 				defer cancel()
 
 				done := make(chan struct{})
 				taskManager := goasync.NewTaskManager(goasync.RelaxedConfig())
 				go func() {
+					defer close(done)
 					taskManager.Run(ctx)
-					close(done)
 				}()
 
 				generalLocker := NewGeneralLocker(nil)
@@ -130,7 +130,7 @@ func TestGeneralLocker_ObtainLocks(t *testing.T) {
 				clientCancel()
 
 				lockResp := generalLocker.ObtainLock(clientCtx, defaultLockCreateRequest())
-				g.Expect(lockResp).ToNot(BeNil())
+				g.Expect(lockResp).To(BeNil())
 
 				counter := 0
 				lockCounter := func(_ btreeassociated.AssociatedKeyValues) bool {
@@ -139,7 +139,7 @@ func TestGeneralLocker_ObtainLocks(t *testing.T) {
 				}
 
 				g.Expect(generalLocker.locks.Query(datatypes.AssociatedKeyValuesQuery{}, lockCounter)).ToNot(HaveOccurred())
-				g.Expect(counter).To(Equal(1))
+				g.Expect(counter).To(Equal(0))
 			})
 		})
 	})
@@ -378,25 +378,25 @@ func TestGeneralLocker_ListLocks(t *testing.T) {
 
 		if locks[0].SessionID == lock2.SessionID {
 			g.Expect(locks[0].SessionID).To(Equal(lock2.SessionID))
-			g.Expect(locks[0].LocksHeldOrWaiting).To(Equal(1))
+			g.Expect(locks[0].LocksHeldOrWaiting).To(Equal(int64(1)))
 			g.Expect(locks[0].KeyValues).To(Equal(datatypes.KeyValues{"1": datatypes.String("one"), "4": datatypes.Int(2), "5": datatypes.Uint64(3)}))
 			g.Expect(locks[0].Timeout).To(Equal(15 * time.Second))
 			g.Expect(locks[0].TimeTillExipre).ToNot(Equal(0))
 
 			g.Expect(locks[1].SessionID).To(Equal(lock1.SessionID))
-			g.Expect(locks[1].LocksHeldOrWaiting).To(Equal(1))
+			g.Expect(locks[1].LocksHeldOrWaiting).To(Equal(int64(1)))
 			g.Expect(locks[1].KeyValues).To(Equal(datatypes.KeyValues{"1": datatypes.String("one"), "2": datatypes.Int(2), "3": datatypes.Uint64(3)}))
 			g.Expect(locks[1].Timeout).To(Equal(15 * time.Second))
 			g.Expect(locks[1].TimeTillExipre).ToNot(Equal(0))
 		} else {
 			g.Expect(locks[1].SessionID).To(Equal(lock2.SessionID))
-			g.Expect(locks[1].LocksHeldOrWaiting).To(Equal(1))
+			g.Expect(locks[1].LocksHeldOrWaiting).To(Equal(int64(1)))
 			g.Expect(locks[1].KeyValues).To(Equal(datatypes.KeyValues{"1": datatypes.String("one"), "4": datatypes.Int(2), "5": datatypes.Uint64(3)}))
 			g.Expect(locks[1].Timeout).To(Equal(15 * time.Second))
 			g.Expect(locks[1].TimeTillExipre).ToNot(Equal(0))
 
 			g.Expect(locks[0].SessionID).To(Equal(lock1.SessionID))
-			g.Expect(locks[0].LocksHeldOrWaiting).To(Equal(1))
+			g.Expect(locks[0].LocksHeldOrWaiting).To(Equal(int64(1)))
 			g.Expect(locks[0].KeyValues).To(Equal(datatypes.KeyValues{"1": datatypes.String("one"), "2": datatypes.Int(2), "3": datatypes.Uint64(3)}))
 			g.Expect(locks[0].Timeout).To(Equal(15 * time.Second))
 			g.Expect(locks[0].TimeTillExipre).ToNot(Equal(0))

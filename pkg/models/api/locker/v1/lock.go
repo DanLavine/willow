@@ -21,7 +21,7 @@ type Lock struct {
 	TimeTillExipre time.Duration
 
 	// LocksHeldOrWaiting show how many clients are all trying to obtaiin the same lock
-	LocksHeldOrWaiting int
+	LocksHeldOrWaiting int64
 }
 
 //	RETURNS:
