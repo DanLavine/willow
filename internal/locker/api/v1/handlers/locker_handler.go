@@ -34,10 +34,10 @@ type lockerHandler struct {
 	logger *zap.Logger
 	cfg    *config.LockerConfig
 
-	generalLocker lockmanager.GeneralLocker
+	generalLocker lockmanager.ExcluiveLocker
 }
 
-func NewLockHandler(logger *zap.Logger, cfg *config.LockerConfig, locker lockmanager.GeneralLocker) *lockerHandler {
+func NewLockHandler(logger *zap.Logger, cfg *config.LockerConfig, locker lockmanager.ExcluiveLocker) *lockerHandler {
 	return &lockerHandler{
 		logger:        logger.Named("LockHandler"),
 		cfg:           cfg,
@@ -67,7 +67,7 @@ func (lh *lockerHandler) Create(w http.ResponseWriter, r *http.Request) {
 		if _, respErr := api.EncodeAndSendHttpResponse(r.Header, w, http.StatusOK, lockResponse); respErr != nil {
 			// failing to write the response to the client means we should free the lock
 			logger.Error("Failed to write lock response to client", zap.Error(respErr))
-			lh.generalLocker.ReleaseLock(lockResponse.SessionID)
+			lh.generalLocker.Release(lockResponse.SessionID)
 		}
 	}
 
@@ -123,7 +123,7 @@ func (lh *lockerHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	namedParameters := urlrouter.GetNamedParamters(r.Context())
 
 	// release the lock
-	lh.generalLocker.ReleaseLock(namedParameters["_associated_id"])
+	lh.generalLocker.Release(namedParameters["_associated_id"])
 
 	// respond and ignore the errors
 	_, _ = api.EncodeAndSendHttpResponse(r.Header, w, http.StatusNoContent, nil)

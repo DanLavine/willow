@@ -56,25 +56,20 @@ func setupWillowClient(g *GomegaWithT, url string) willowclient.WillowServiceCli
 }
 
 func Test_Queue_Create(t *testing.T) {
+	t.Parallel()
+
 	g := NewGomegaWithT(t)
 
-	lockerTestConstruct := NewIntrgrationLockerTestConstruct(g)
-	defer lockerTestConstruct.Cleanup(g)
-
-	limiterTestConstruct := NewIntrgrationLimiterTestConstruct(g)
-	defer limiterTestConstruct.Cleanup(g)
-
-	willowTestConstruct := NewIntrgrationWillowTestConstruct(g)
-	defer willowTestConstruct.Cleanup(g)
-
 	t.Run("It can create a queue with proper name", func(t *testing.T) {
-		lockerTestConstruct.StartLocker(g)
+		t.Parallel()
+
+		lockerTestConstruct := StartLocker(g)
 		defer lockerTestConstruct.Shutdown(g)
 
-		limiterTestConstruct.StartLimiter(g, lockerTestConstruct.ServerURL)
+		limiterTestConstruct := StartLimiter(g, lockerTestConstruct.ServerURL)
 		defer limiterTestConstruct.Shutdown(g)
 
-		willowTestConstruct.StartWillow(g, limiterTestConstruct.ServerURL)
+		willowTestConstruct := StartWillow(g, limiterTestConstruct.ServerURL)
 		defer willowTestConstruct.Shutdown(g)
 
 		willowClient := setupWillowClient(g, willowTestConstruct.ServerURL)
@@ -90,15 +85,16 @@ func Test_Queue_Create(t *testing.T) {
 	})
 
 	t.Run("It can have multiple queues with different names", func(t *testing.T) {
-		lockerTestConstruct.StartLocker(g)
+		t.Parallel()
+
+		lockerTestConstruct := StartLocker(g)
 		defer lockerTestConstruct.Shutdown(g)
 
-		limiterTestConstruct.StartLimiter(g, lockerTestConstruct.ServerURL)
+		limiterTestConstruct := StartLimiter(g, lockerTestConstruct.ServerURL)
 		defer limiterTestConstruct.Shutdown(g)
 
-		willowTestConstruct.StartWillow(g, limiterTestConstruct.ServerURL)
+		willowTestConstruct := StartWillow(g, limiterTestConstruct.ServerURL)
 		defer willowTestConstruct.Shutdown(g)
-
 		willowClient := setupWillowClient(g, willowTestConstruct.ServerURL)
 
 		for i := 0; i < 5; i++ {
@@ -114,25 +110,20 @@ func Test_Queue_Create(t *testing.T) {
 }
 
 func Test_Queue_List(t *testing.T) {
+	t.Parallel()
+
 	g := NewGomegaWithT(t)
 
-	lockerTestConstruct := NewIntrgrationLockerTestConstruct(g)
-	defer lockerTestConstruct.Cleanup(g)
-
-	limiterTestConstruct := NewIntrgrationLimiterTestConstruct(g)
-	defer limiterTestConstruct.Cleanup(g)
-
-	willowTestConstruct := NewIntrgrationWillowTestConstruct(g)
-	defer willowTestConstruct.Cleanup(g)
-
 	t.Run("It list all queues without their channels", func(t *testing.T) {
-		lockerTestConstruct.StartLocker(g)
+		t.Parallel()
+
+		lockerTestConstruct := StartLocker(g)
 		defer lockerTestConstruct.Shutdown(g)
 
-		limiterTestConstruct.StartLimiter(g, lockerTestConstruct.ServerURL)
+		limiterTestConstruct := StartLimiter(g, lockerTestConstruct.ServerURL)
 		defer limiterTestConstruct.Shutdown(g)
 
-		willowTestConstruct.StartWillow(g, limiterTestConstruct.ServerURL)
+		willowTestConstruct := StartWillow(g, limiterTestConstruct.ServerURL)
 		defer willowTestConstruct.Shutdown(g)
 
 		willowClient := setupWillowClient(g, willowTestConstruct.ServerURL)
@@ -154,27 +145,21 @@ func Test_Queue_List(t *testing.T) {
 }
 
 func Test_Queue_Get(t *testing.T) {
+	t.Parallel()
+
 	g := NewGomegaWithT(t)
 
-	lockerTestConstruct := NewIntrgrationLockerTestConstruct(g)
-	defer lockerTestConstruct.Cleanup(g)
-
-	limiterTestConstruct := NewIntrgrationLimiterTestConstruct(g)
-	defer limiterTestConstruct.Cleanup(g)
-
-	willowTestConstruct := NewIntrgrationWillowTestConstruct(g)
-	defer willowTestConstruct.Cleanup(g)
-
 	t.Run("It can retrieve a specific queue", func(t *testing.T) {
-		lockerTestConstruct.StartLocker(g)
+		t.Parallel()
+
+		lockerTestConstruct := StartLocker(g)
 		defer lockerTestConstruct.Shutdown(g)
 
-		limiterTestConstruct.StartLimiter(g, lockerTestConstruct.ServerURL)
+		limiterTestConstruct := StartLimiter(g, lockerTestConstruct.ServerURL)
 		defer limiterTestConstruct.Shutdown(g)
 
-		willowTestConstruct.StartWillow(g, limiterTestConstruct.ServerURL)
+		willowTestConstruct := StartWillow(g, limiterTestConstruct.ServerURL)
 		defer willowTestConstruct.Shutdown(g)
-
 		willowClient := setupWillowClient(g, willowTestConstruct.ServerURL)
 
 		createQueue := &v1willow.QueueCreate{
@@ -196,25 +181,20 @@ func Test_Queue_Get(t *testing.T) {
 }
 
 func Test_Queue_Update(t *testing.T) {
+	t.Parallel()
+
 	g := NewGomegaWithT(t)
 
-	lockerTestConstruct := NewIntrgrationLockerTestConstruct(g)
-	defer lockerTestConstruct.Cleanup(g)
-
-	limiterTestConstruct := NewIntrgrationLimiterTestConstruct(g)
-	defer limiterTestConstruct.Cleanup(g)
-
-	willowTestConstruct := NewIntrgrationWillowTestConstruct(g)
-	defer willowTestConstruct.Cleanup(g)
-
 	t.Run("It can update the max queue size", func(t *testing.T) {
-		lockerTestConstruct.StartLocker(g)
+		t.Parallel()
+
+		lockerTestConstruct := StartLocker(g)
 		defer lockerTestConstruct.Shutdown(g)
 
-		limiterTestConstruct.StartLimiter(g, lockerTestConstruct.ServerURL)
+		limiterTestConstruct := StartLimiter(g, lockerTestConstruct.ServerURL)
 		defer limiterTestConstruct.Shutdown(g)
 
-		willowTestConstruct.StartWillow(g, limiterTestConstruct.ServerURL)
+		willowTestConstruct := StartWillow(g, limiterTestConstruct.ServerURL)
 		defer willowTestConstruct.Shutdown(g)
 
 		willowClient := setupWillowClient(g, willowTestConstruct.ServerURL)
@@ -243,25 +223,20 @@ func Test_Queue_Update(t *testing.T) {
 }
 
 func Test_Queue_Delete(t *testing.T) {
+	t.Parallel()
+
 	g := NewGomegaWithT(t)
 
-	lockerTestConstruct := NewIntrgrationLockerTestConstruct(g)
-	defer lockerTestConstruct.Cleanup(g)
-
-	limiterTestConstruct := NewIntrgrationLimiterTestConstruct(g)
-	defer limiterTestConstruct.Cleanup(g)
-
-	willowTestConstruct := NewIntrgrationWillowTestConstruct(g)
-	defer willowTestConstruct.Cleanup(g)
-
 	t.Run("It can delete an empty queue", func(t *testing.T) {
-		lockerTestConstruct.StartLocker(g)
+		t.Parallel()
+
+		lockerTestConstruct := StartLocker(g)
 		defer lockerTestConstruct.Shutdown(g)
 
-		limiterTestConstruct.StartLimiter(g, lockerTestConstruct.ServerURL)
+		limiterTestConstruct := StartLimiter(g, lockerTestConstruct.ServerURL)
 		defer limiterTestConstruct.Shutdown(g)
 
-		willowTestConstruct.StartWillow(g, limiterTestConstruct.ServerURL)
+		willowTestConstruct := StartWillow(g, limiterTestConstruct.ServerURL)
 		defer willowTestConstruct.Shutdown(g)
 
 		willowClient := setupWillowClient(g, willowTestConstruct.ServerURL)
@@ -297,13 +272,15 @@ func Test_Queue_Delete(t *testing.T) {
 	})
 
 	t.Run("It can delete a queue and all Limiter counters for enqueued items", func(t *testing.T) {
-		lockerTestConstruct.StartLocker(g)
+		t.Parallel()
+
+		lockerTestConstruct := StartLocker(g)
 		defer lockerTestConstruct.Shutdown(g)
 
-		limiterTestConstruct.StartLimiter(g, lockerTestConstruct.ServerURL)
+		limiterTestConstruct := StartLimiter(g, lockerTestConstruct.ServerURL)
 		defer limiterTestConstruct.Shutdown(g)
 
-		willowTestConstruct.StartWillow(g, limiterTestConstruct.ServerURL)
+		willowTestConstruct := StartWillow(g, limiterTestConstruct.ServerURL)
 		defer willowTestConstruct.Shutdown(g)
 
 		willowClient := setupWillowClient(g, willowTestConstruct.ServerURL)

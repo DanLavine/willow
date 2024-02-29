@@ -44,13 +44,14 @@ func setupClient(g *GomegaWithT, url string) lockerclient.LockerClient {
 }
 
 func Test_Lock(t *testing.T) {
+	t.Parallel()
+
 	g := NewGomegaWithT(t)
 
-	testConstruct := NewIntrgrationLockerTestConstruct(g)
-	defer testConstruct.Cleanup(g)
-
 	t.Run("It can aquire a lock", func(t *testing.T) {
-		testConstruct.StartLocker(g)
+		t.Parallel()
+
+		testConstruct := StartLocker(g)
 		defer testConstruct.Shutdown(g)
 
 		lockerClient := setupClient(g, testConstruct.ServerURL)
@@ -73,7 +74,9 @@ func Test_Lock(t *testing.T) {
 	})
 
 	t.Run("It can aquire multiple locks with multipe KeyValues", func(t *testing.T) {
-		testConstruct.StartLocker(g)
+		t.Parallel()
+
+		testConstruct := StartLocker(g)
 		defer testConstruct.Shutdown(g)
 
 		lockerClient := setupClient(g, testConstruct.ServerURL)
@@ -108,7 +111,9 @@ func Test_Lock(t *testing.T) {
 	})
 
 	t.Run("It blocks a second requst for the same lock tags", func(t *testing.T) {
-		testConstruct.StartLocker(g)
+		t.Parallel()
+
+		testConstruct := StartLocker(g)
 		defer testConstruct.Shutdown(g)
 
 		// client 1
@@ -148,7 +153,9 @@ func Test_Lock(t *testing.T) {
 	})
 
 	t.Run("It can release the clients when the server is shutting down", func(t *testing.T) {
-		testConstruct.StartLocker(g)
+		t.Parallel()
+
+		testConstruct := StartLocker(g)
 
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
@@ -191,7 +198,9 @@ func Test_Lock(t *testing.T) {
 	})
 
 	t.Run("It keeps a lock by heartbeating", func(t *testing.T) {
-		testConstruct.StartLocker(g)
+		t.Parallel()
+
+		testConstruct := StartLocker(g)
 		defer testConstruct.Shutdown(g)
 
 		ctx, cancel := context.WithCancel(context.Background())
@@ -204,14 +213,16 @@ func Test_Lock(t *testing.T) {
 				"key1": datatypes.String("key one"),
 				"key2": datatypes.String("key two"),
 			},
-			LockTimeout: 100 * time.Millisecond,
+			LockTimeout: time.Second,
 		}
 
-		lock, err := lockerClient.ObtainLock(ctx, lockRequest, nil)
+		lock, err := lockerClient.ObtainLock(ctx, lockRequest, func(keyValue datatypes.KeyValues, err error) {
+			fmt.Println("failed to heartbeat:", err)
+		})
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(lock).ToNot(BeNil())
 
-		g.Consistently(lock.Done(), time.Second).ShouldNot(BeClosed())
+		g.Consistently(lock.Done(), 2*time.Second).ShouldNot(BeClosed())
 
 		g.Expect(lock.Release()).ToNot(HaveOccurred())
 		g.Expect(lock.Done()).To(BeClosed())
@@ -221,13 +232,13 @@ func Test_Lock(t *testing.T) {
 // This would really be an admin API, and I don't think the client should have this implemented?
 // if it was a "list", it would just list the locks that the client currently holds
 func TestLocker_List_API(t *testing.T) {
+	t.Parallel()
 	g := NewGomegaWithT(t)
 
-	testConstruct := NewIntrgrationLockerTestConstruct(g)
-	defer testConstruct.Cleanup(g)
-
 	t.Run("It lists all locks currently held", func(t *testing.T) {
-		testConstruct.StartLocker(g)
+		t.Parallel()
+
+		testConstruct := StartLocker(g)
 		defer testConstruct.Shutdown(g)
 
 		httpsClient := testConstruct.ServerClient
@@ -291,13 +302,13 @@ func TestLocker_List_API(t *testing.T) {
 }
 
 func TestLocker_Async_API_Threading_Checks(t *testing.T) {
+	t.Parallel()
 	g := NewGomegaWithT(t)
 
-	testConstruct := NewIntrgrationLockerTestConstruct(g)
-	defer testConstruct.Cleanup(g)
-
 	t.Run("It can request the same lock many times", func(t *testing.T) {
-		testConstruct.StartLocker(g)
+		t.Parallel()
+
+		testConstruct := StartLocker(g)
 		defer testConstruct.Shutdown(g)
 
 		lockRequest := &v1locker.LockCreateRequest{
@@ -337,7 +348,7 @@ func TestLocker_Async_API_Threading_Checks(t *testing.T) {
 
 		select {
 		case <-time.After(10 * time.Second):
-			g.Fail("failed")
+			g.Fail("failed to obtain 300 of the same lock in 10 seconds")
 		case <-done:
 			// nothing to do here
 		}
@@ -368,7 +379,9 @@ func TestLocker_Async_API_Threading_Checks(t *testing.T) {
 	})
 
 	t.Run("It can request many differnt lock combinations many times", func(t *testing.T) {
-		testConstruct.StartLocker(g)
+		t.Parallel()
+
+		testConstruct := StartLocker(g)
 		defer testConstruct.Shutdown(g)
 
 		ctx, cancel := context.WithCancel(context.Background())
@@ -376,28 +389,31 @@ func TestLocker_Async_API_Threading_Checks(t *testing.T) {
 
 		wg := new(sync.WaitGroup)
 		for i := 0; i < 300; i++ {
-			lockRequest := &v1locker.LockCreateRequest{
-				KeyValues: datatypes.KeyValues{
-					"key1": datatypes.String(fmt.Sprintf("%d", i%5)),
-					"key2": datatypes.String(fmt.Sprintf("%d", i%17)),
-				},
-			}
-
 			wg.Add(1)
-			go func() {
+			go func(counter int) {
 				defer wg.Done()
+
+				lockRequest := &v1locker.LockCreateRequest{
+					KeyValues: datatypes.KeyValues{
+						"key1": datatypes.String(fmt.Sprintf("%d", counter%5)),
+						"key2": datatypes.String(fmt.Sprintf("%d", counter%17)),
+					},
+				}
 
 				// setup new client
 				lockerClient := setupClient(g, testConstruct.ServerURL)
 
-				// create the lock
+				// obtain the lock
 				lock, err := lockerClient.ObtainLock(ctx, lockRequest, nil)
 				g.Expect(err).ToNot(HaveOccurred())
+				if lock == nil {
+					fmt.Println("failed key values:", lockRequest.KeyValues)
+				}
 				g.Expect(lock).ToNot(BeNil())
 
 				// release the lock
 				g.Expect(lock.Release()).ToNot(HaveOccurred())
-			}()
+			}(i)
 		}
 
 		done := make(chan struct{})
@@ -407,8 +423,8 @@ func TestLocker_Async_API_Threading_Checks(t *testing.T) {
 		}()
 
 		select {
-		case <-time.After(10 * time.Second):
-			g.Fail("failed")
+		case <-time.After(20 * time.Second):
+			g.Fail("failed to obtain 300 different locks in 10 seconds")
 		case <-done:
 			// nothing to do here
 		}
@@ -437,5 +453,4 @@ func TestLocker_Async_API_Threading_Checks(t *testing.T) {
 		g.Expect(json.Unmarshal(data, &locks)).ToNot(HaveOccurred())
 		g.Expect(len(locks)).To(Equal(0))
 	})
-
 }

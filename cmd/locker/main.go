@@ -30,7 +30,7 @@ func main() {
 	// setup server mux that is passed to all handlers
 	mux := urlrouter.New()
 	// add the versioned apis to the server mux
-	generalLocker := lockmanager.NewGeneralLocker(nil)
+	generalLocker := lockmanager.NewExclusiveLocker()
 	v1router.AddV1LockerRoutes(mux, v1handlers.NewLockHandler(logger, cfg, generalLocker))
 
 	// setup async handlers

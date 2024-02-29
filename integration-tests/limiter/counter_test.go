@@ -15,13 +15,9 @@ import (
 )
 
 func Test_Limiter_Counters_Update(t *testing.T) {
+	t.Parallel()
+
 	g := NewGomegaWithT(t)
-
-	lockerTestConstruct := NewIntrgrationLockerTestConstruct(g)
-	defer lockerTestConstruct.Cleanup(g)
-
-	limiterTestConstruct := NewIntrgrationLimiterTestConstruct(g)
-	defer limiterTestConstruct.Cleanup(g)
 
 	createRule := func(g *GomegaWithT, limiterClient limiterclient.LimiterClient) {
 		// create rule
@@ -37,10 +33,12 @@ func Test_Limiter_Counters_Update(t *testing.T) {
 
 	t.Run("Incrementing counters", func(t *testing.T) {
 		t.Run("It can increment a counter untill a rule limit is reached", func(t *testing.T) {
-			lockerTestConstruct.StartLocker(g)
+			t.Parallel()
+
+			lockerTestConstruct := StartLocker(g)
 			defer lockerTestConstruct.Shutdown(g)
 
-			limiterTestConstruct.StartLimiter(g, lockerTestConstruct.ServerURL)
+			limiterTestConstruct := StartLimiter(g, lockerTestConstruct.ServerURL)
 			defer limiterTestConstruct.Shutdown(g)
 
 			// setup client
@@ -79,10 +77,12 @@ func Test_Limiter_Counters_Update(t *testing.T) {
 
 	t.Run("Context decrementing counters", func(t *testing.T) {
 		t.Run("It can decrement a counter even if one doesn't exist", func(t *testing.T) {
-			lockerTestConstruct.StartLocker(g)
+			t.Parallel()
+
+			lockerTestConstruct := StartLocker(g)
 			defer lockerTestConstruct.Shutdown(g)
 
-			limiterTestConstruct.StartLimiter(g, lockerTestConstruct.ServerURL)
+			limiterTestConstruct := StartLimiter(g, lockerTestConstruct.ServerURL)
 			defer limiterTestConstruct.Shutdown(g)
 
 			// setup client
@@ -101,10 +101,12 @@ func Test_Limiter_Counters_Update(t *testing.T) {
 		})
 
 		t.Run("It can decrement a counter and allow a rule to start processing again", func(t *testing.T) {
-			lockerTestConstruct.StartLocker(g)
+			t.Parallel()
+
+			lockerTestConstruct := StartLocker(g)
 			defer lockerTestConstruct.Shutdown(g)
 
-			limiterTestConstruct.StartLimiter(g, lockerTestConstruct.ServerURL)
+			limiterTestConstruct := StartLimiter(g, lockerTestConstruct.ServerURL)
 			defer limiterTestConstruct.Shutdown(g)
 
 			// setup client
@@ -158,19 +160,17 @@ func Test_Limiter_Counters_Update(t *testing.T) {
 }
 
 func Test_Limiter_Counters_Query(t *testing.T) {
+	t.Parallel()
+
 	g := NewGomegaWithT(t)
 
-	lockerTestConstruct := NewIntrgrationLockerTestConstruct(g)
-	defer lockerTestConstruct.Cleanup(g)
-
-	limiterTestConstruct := NewIntrgrationLimiterTestConstruct(g)
-	defer limiterTestConstruct.Cleanup(g)
-
 	t.Run("It can list a number of counters that match the query", func(t *testing.T) {
-		lockerTestConstruct.StartLocker(g)
+		t.Parallel()
+
+		lockerTestConstruct := StartLocker(g)
 		defer lockerTestConstruct.Shutdown(g)
 
-		limiterTestConstruct.StartLimiter(g, lockerTestConstruct.ServerURL)
+		limiterTestConstruct := StartLimiter(g, lockerTestConstruct.ServerURL)
 		defer limiterTestConstruct.Shutdown(g)
 
 		// setup client
@@ -245,19 +245,17 @@ func Test_Limiter_Counters_Query(t *testing.T) {
 }
 
 func Test_Limiter_Counters_Set(t *testing.T) {
+	t.Parallel()
+
 	g := NewGomegaWithT(t)
 
-	lockerTestConstruct := NewIntrgrationLockerTestConstruct(g)
-	defer lockerTestConstruct.Cleanup(g)
-
-	limiterTestConstruct := NewIntrgrationLimiterTestConstruct(g)
-	defer limiterTestConstruct.Cleanup(g)
-
 	t.Run("It can set a number of counters regardless of the rules", func(t *testing.T) {
-		lockerTestConstruct.StartLocker(g)
+		t.Parallel()
+
+		lockerTestConstruct := StartLocker(g)
 		defer lockerTestConstruct.Shutdown(g)
 
-		limiterTestConstruct.StartLimiter(g, lockerTestConstruct.ServerURL)
+		limiterTestConstruct := StartLimiter(g, lockerTestConstruct.ServerURL)
 		defer limiterTestConstruct.Shutdown(g)
 
 		// setup client
@@ -307,10 +305,12 @@ func Test_Limiter_Counters_Set(t *testing.T) {
 	})
 
 	t.Run("It removes the counter when set to <= 0", func(t *testing.T) {
-		lockerTestConstruct.StartLocker(g)
+		t.Parallel()
+
+		lockerTestConstruct := StartLocker(g)
 		defer lockerTestConstruct.Shutdown(g)
 
-		limiterTestConstruct.StartLimiter(g, lockerTestConstruct.ServerURL)
+		limiterTestConstruct := StartLimiter(g, lockerTestConstruct.ServerURL)
 		defer limiterTestConstruct.Shutdown(g)
 
 		// setup client

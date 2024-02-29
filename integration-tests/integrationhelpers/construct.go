@@ -2,7 +2,8 @@ package integrationhelpers
 
 import (
 	"bytes"
-	"os"
+	"fmt"
+	"net"
 	"os/exec"
 	"path/filepath"
 	"runtime"
@@ -15,9 +16,35 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-type IntegrationTestConstruct struct {
-	dataDir string
+var (
+	lockerPath  string
+	limiterPath string
+	willowPath  string
+)
 
+// only want to build the executables once per integration run
+func init() {
+	var err error
+	// create locker
+	lockerPath, err = gexec.Build("github.com/DanLavine/willow/cmd/locker", "--race")
+	if err != nil {
+		panic(err)
+	}
+
+	// create limiter
+	limiterPath, err = gexec.Build("github.com/DanLavine/willow/cmd/limiter", "--race")
+	if err != nil {
+		panic(err)
+	}
+
+	// create willow
+	willowPath, err = gexec.Build("github.com/DanLavine/willow/cmd/willow", "--race")
+	if err != nil {
+		panic(err)
+	}
+}
+
+type IntegrationTestConstruct struct {
 	ServerPath   string
 	ServerURL    string
 	Session      *gexec.Session
@@ -28,47 +55,27 @@ type IntegrationTestConstruct struct {
 	ServerClient *testclient.Client
 }
 
-func NewIntrgrationWillowTestConstruct(g *WithT) *IntegrationTestConstruct {
-	willowPath, err := gexec.Build("github.com/DanLavine/willow/cmd/willow", "--race")
+func getFreePort(g *WithT) int {
+	listener, err := net.Listen("tcp", ":0")
 	g.Expect(err).ToNot(HaveOccurred())
 
-	return &IntegrationTestConstruct{
-		ServerPath:   willowPath,
-		ServerURL:    "https://127.0.0.1:8080",
-		ServerClient: testclient.New(g, "https://127.0.0.1:8080"),
-	}
+	defer listener.Close()
+
+	return listener.Addr().(*net.TCPAddr).Port
 }
 
-func NewIntrgrationLimiterTestConstruct(g *WithT) *IntegrationTestConstruct {
-	limiterPath, err := gexec.Build("github.com/DanLavine/willow/cmd/limiter", "--race")
-	g.Expect(err).ToNot(HaveOccurred())
+func StartLocker(g *WithT) *IntegrationTestConstruct {
+	freePort := getFreePort(g)
 
-	return &IntegrationTestConstruct{
-		ServerPath:   limiterPath,
-		ServerURL:    "https://127.0.0.1:8082",
-		ServerClient: testclient.New(g, "https://127.0.0.1:8082"),
+	testConstruct := &IntegrationTestConstruct{
+		ServerURL:    fmt.Sprintf("https://127.0.0.1:%d", freePort),
+		ServerClient: testclient.New(g, fmt.Sprintf("https://127.0.0.1:%d", freePort)),
 	}
-}
-
-func NewIntrgrationLockerTestConstruct(g *WithT) *IntegrationTestConstruct {
-	lockerPath, err := gexec.Build("github.com/DanLavine/willow/cmd/locker", "--race")
-	g.Expect(err).ToNot(HaveOccurred())
-
-	return &IntegrationTestConstruct{
-		ServerPath:   lockerPath,
-		ServerURL:    "https://127.0.0.1:8083",
-		ServerClient: testclient.New(g, "https://127.0.0.1:8083"),
-	}
-}
-
-func (itc *IntegrationTestConstruct) StartLocker(g *WithT) {
-	tmpDir, err := os.MkdirTemp("", "")
-	g.Expect(err).ToNot(HaveOccurred())
-	itc.dataDir = tmpDir
 
 	_, currentDir, _, _ := runtime.Caller(0)
 
 	cmdLineFlags := []string{
+		"-port", fmt.Sprintf("%d", freePort),
 		"-log-level", "debug",
 		"-server-ca", filepath.Join(currentDir, "..", "..", "..", "testhelpers", "tls-keys", "ca.crt"),
 		"-server-key", filepath.Join(currentDir, "..", "..", "..", "testhelpers", "tls-keys", "server.key"),
@@ -76,27 +83,33 @@ func (itc *IntegrationTestConstruct) StartLocker(g *WithT) {
 		"-lock-default-timeout", "1s",
 	}
 
-	lockerExe := exec.Command(itc.ServerPath, cmdLineFlags...)
+	lockerExe := exec.Command(lockerPath, cmdLineFlags...)
 
-	itc.ServerStdout = new(bytes.Buffer)
-	itc.ServerStderr = new(bytes.Buffer)
-	session, err := gexec.Start(lockerExe, itc.ServerStdout, itc.ServerStderr)
+	testConstruct.ServerStdout = new(bytes.Buffer)
+	testConstruct.ServerStderr = new(bytes.Buffer)
+	session, err := gexec.Start(lockerExe, testConstruct.ServerStdout, testConstruct.ServerStderr)
 	g.Expect(err).ToNot(HaveOccurred())
 	g.Eventually(session.Out).Should(gbytes.Say("Locker TCP server running"))
 	time.Sleep(100 * time.Millisecond)
 
 	// record start configuration
-	itc.Session = session
+	testConstruct.Session = session
+
+	return testConstruct
 }
 
-func (itc *IntegrationTestConstruct) StartLimiter(g *WithT, lockerURL string) {
-	tmpDir, err := os.MkdirTemp("", "")
-	g.Expect(err).ToNot(HaveOccurred())
-	itc.dataDir = tmpDir
+func StartLimiter(g *WithT, lockerURL string) *IntegrationTestConstruct {
+	freePort := getFreePort(g)
+
+	testConstruct := &IntegrationTestConstruct{
+		ServerURL:    fmt.Sprintf("https://127.0.0.1:%d", freePort),
+		ServerClient: testclient.New(g, fmt.Sprintf("https://127.0.0.1:%d", freePort)),
+	}
 
 	_, currentDir, _, _ := runtime.Caller(0)
 
 	cmdLineFlags := []string{
+		"-port", fmt.Sprintf("%d", freePort),
 		"-log-level", "debug",
 		"-server-ca", filepath.Join(currentDir, "..", "..", "..", "testhelpers", "tls-keys", "ca.crt"),
 		"-server-key", filepath.Join(currentDir, "..", "..", "..", "testhelpers", "tls-keys", "server.key"),
@@ -108,27 +121,33 @@ func (itc *IntegrationTestConstruct) StartLimiter(g *WithT, lockerURL string) {
 		"-locker-client-crt", filepath.Join(currentDir, "..", "..", "..", "testhelpers", "tls-keys", "client.crt"),
 	}
 
-	lockerExe := exec.Command(itc.ServerPath, cmdLineFlags...)
+	limiterExe := exec.Command(limiterPath, cmdLineFlags...)
 
-	itc.ServerStdout = new(bytes.Buffer)
-	itc.ServerStderr = new(bytes.Buffer)
-	session, err := gexec.Start(lockerExe, itc.ServerStdout, itc.ServerStderr)
+	testConstruct.ServerStdout = new(bytes.Buffer)
+	testConstruct.ServerStderr = new(bytes.Buffer)
+	session, err := gexec.Start(limiterExe, testConstruct.ServerStdout, testConstruct.ServerStderr)
 	g.Expect(err).ToNot(HaveOccurred())
 	g.Eventually(session.Out).Should(gbytes.Say("Limiter TCP server running"))
 	time.Sleep(100 * time.Millisecond)
 
 	// record start configuration
-	itc.Session = session
+	testConstruct.Session = session
+
+	return testConstruct
 }
 
-func (itc *IntegrationTestConstruct) StartWillow(g *WithT, limiterURL string) {
-	tmpDir, err := os.MkdirTemp("", "")
-	g.Expect(err).ToNot(HaveOccurred())
-	itc.dataDir = tmpDir
+func StartWillow(g *WithT, limiterURL string) *IntegrationTestConstruct {
+	freePort := getFreePort(g)
+
+	testConstruct := &IntegrationTestConstruct{
+		ServerURL:    fmt.Sprintf("https://127.0.0.1:%d", freePort),
+		ServerClient: testclient.New(g, fmt.Sprintf("https://127.0.0.1:%d", freePort)),
+	}
 
 	_, currentDir, _, _ := runtime.Caller(0)
 
 	cmdLineFlags := []string{
+		"-port", fmt.Sprintf("%d", freePort),
 		"-log-level", "debug",
 		"-server-ca", filepath.Join(currentDir, "..", "..", "..", "testhelpers", "tls-keys", "ca.crt"),
 		"-server-key", filepath.Join(currentDir, "..", "..", "..", "testhelpers", "tls-keys", "server.key"),
@@ -140,18 +159,20 @@ func (itc *IntegrationTestConstruct) StartWillow(g *WithT, limiterURL string) {
 		"-limiter-client-crt", filepath.Join(currentDir, "..", "..", "..", "testhelpers", "tls-keys", "client.crt"),
 	}
 
-	willowExe := exec.Command(itc.ServerPath, cmdLineFlags...)
+	willowExe := exec.Command(willowPath, cmdLineFlags...)
 
-	itc.ServerStdout = new(bytes.Buffer)
-	itc.ServerStderr = new(bytes.Buffer)
-	session, err := gexec.Start(willowExe, itc.ServerStdout, itc.ServerStderr)
+	testConstruct.ServerStdout = new(bytes.Buffer)
+	testConstruct.ServerStderr = new(bytes.Buffer)
+	session, err := gexec.Start(willowExe, testConstruct.ServerStdout, testConstruct.ServerStderr)
 	g.Expect(err).ToNot(HaveOccurred())
 
 	g.Eventually(session.Out).Should(gbytes.Say("Willow TCP server running"))
 	time.Sleep(100 * time.Millisecond)
 
 	// record start configuration
-	itc.Session = session
+	testConstruct.Session = session
+
+	return testConstruct
 }
 
 func (itc *IntegrationTestConstruct) Shutdown(g *WithT) {
@@ -159,8 +180,6 @@ func (itc *IntegrationTestConstruct) Shutdown(g *WithT) {
 	time.Sleep(time.Second)
 
 	g.Eventually(session, "2s").Should(gexec.Exit(0), func() string { return itc.ServerStdout.String() + itc.ServerStderr.String() })
-
-	g.Expect(os.RemoveAll(itc.dataDir)).ToNot(HaveOccurred())
 }
 
 func (itc *IntegrationTestConstruct) Cleanup(g *WithT) {

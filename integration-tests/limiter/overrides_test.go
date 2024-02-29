@@ -13,19 +13,17 @@ import (
 )
 
 func Test_Limiter_Overrides_Create(t *testing.T) {
+	t.Parallel()
+
 	g := NewGomegaWithT(t)
 
-	lockerTestConstruct := NewIntrgrationLockerTestConstruct(g)
-	defer lockerTestConstruct.Cleanup(g)
-
-	limiterTestConstruct := NewIntrgrationLimiterTestConstruct(g)
-	defer limiterTestConstruct.Cleanup(g)
-
 	t.Run("It can create an override for a rule", func(t *testing.T) {
-		lockerTestConstruct.StartLocker(g)
+		t.Parallel()
+
+		lockerTestConstruct := StartLocker(g)
 		defer lockerTestConstruct.Shutdown(g)
 
-		limiterTestConstruct.StartLimiter(g, lockerTestConstruct.ServerURL)
+		limiterTestConstruct := StartLimiter(g, lockerTestConstruct.ServerURL)
 		defer limiterTestConstruct.Shutdown(g)
 
 		// setup client
@@ -58,19 +56,17 @@ func Test_Limiter_Overrides_Create(t *testing.T) {
 }
 
 func Test_Limiter_Overrides_Get(t *testing.T) {
+	t.Parallel()
+
 	g := NewGomegaWithT(t)
 
-	lockerTestConstruct := NewIntrgrationLockerTestConstruct(g)
-	defer lockerTestConstruct.Cleanup(g)
-
-	limiterTestConstruct := NewIntrgrationLimiterTestConstruct(g)
-	defer limiterTestConstruct.Cleanup(g)
-
 	t.Run("It can get an override by name", func(t *testing.T) {
-		lockerTestConstruct.StartLocker(g)
+		t.Parallel()
+
+		lockerTestConstruct := StartLocker(g)
 		defer lockerTestConstruct.Shutdown(g)
 
-		limiterTestConstruct.StartLimiter(g, lockerTestConstruct.ServerURL)
+		limiterTestConstruct := StartLimiter(g, lockerTestConstruct.ServerURL)
 		defer limiterTestConstruct.Shutdown(g)
 
 		// setup client
@@ -117,19 +113,17 @@ func Test_Limiter_Overrides_Get(t *testing.T) {
 }
 
 func Test_Limiter_Overrides_Update(t *testing.T) {
+	t.Parallel()
+
 	g := NewGomegaWithT(t)
 
-	lockerTestConstruct := NewIntrgrationLockerTestConstruct(g)
-	defer lockerTestConstruct.Cleanup(g)
-
-	limiterTestConstruct := NewIntrgrationLimiterTestConstruct(g)
-	defer limiterTestConstruct.Cleanup(g)
-
 	t.Run("It can update an override by name", func(t *testing.T) {
-		lockerTestConstruct.StartLocker(g)
+		t.Parallel()
+
+		lockerTestConstruct := StartLocker(g)
 		defer lockerTestConstruct.Shutdown(g)
 
-		limiterTestConstruct.StartLimiter(g, lockerTestConstruct.ServerURL)
+		limiterTestConstruct := StartLimiter(g, lockerTestConstruct.ServerURL)
 		defer limiterTestConstruct.Shutdown(g)
 
 		// setup client
@@ -174,19 +168,17 @@ func Test_Limiter_Overrides_Update(t *testing.T) {
 }
 
 func Test_Limiter_Overrides_Delete(t *testing.T) {
+	t.Parallel()
+
 	g := NewGomegaWithT(t)
 
-	lockerTestConstruct := NewIntrgrationLockerTestConstruct(g)
-	defer lockerTestConstruct.Cleanup(g)
-
-	limiterTestConstruct := NewIntrgrationLimiterTestConstruct(g)
-	defer limiterTestConstruct.Cleanup(g)
-
 	t.Run("It can delete an override for a rule", func(t *testing.T) {
-		lockerTestConstruct.StartLocker(g)
+		t.Parallel()
+
+		lockerTestConstruct := StartLocker(g)
 		defer lockerTestConstruct.Shutdown(g)
 
-		limiterTestConstruct.StartLimiter(g, lockerTestConstruct.ServerURL)
+		limiterTestConstruct := StartLimiter(g, lockerTestConstruct.ServerURL)
 		defer limiterTestConstruct.Shutdown(g)
 
 		// setup client
@@ -226,19 +218,17 @@ func Test_Limiter_Overrides_Delete(t *testing.T) {
 }
 
 func Test_Limiter_Overrides_Match(t *testing.T) {
+	t.Parallel()
+
 	g := NewGomegaWithT(t)
 
-	lockerTestConstruct := NewIntrgrationLockerTestConstruct(g)
-	defer lockerTestConstruct.Cleanup(g)
-
-	limiterTestConstruct := NewIntrgrationLimiterTestConstruct(g)
-	defer limiterTestConstruct.Cleanup(g)
-
 	t.Run("It can list the overrides that match the query", func(t *testing.T) {
-		lockerTestConstruct.StartLocker(g)
+		t.Parallel()
+
+		lockerTestConstruct := StartLocker(g)
 		defer lockerTestConstruct.Shutdown(g)
 
-		limiterTestConstruct.StartLimiter(g, lockerTestConstruct.ServerURL)
+		limiterTestConstruct := StartLimiter(g, lockerTestConstruct.ServerURL)
 		defer limiterTestConstruct.Shutdown(g)
 
 		// setup client

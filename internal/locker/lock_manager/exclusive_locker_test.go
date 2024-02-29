@@ -9,10 +9,11 @@ import (
 
 	"github.com/DanLavine/goasync"
 
-	btreeassociated "github.com/DanLavine/willow/internal/datastructures/btree_associated"
+	"github.com/DanLavine/willow/pkg/models/datatypes"
+
 	v1 "github.com/DanLavine/willow/pkg/models/api/common/v1"
 	v1locker "github.com/DanLavine/willow/pkg/models/api/locker/v1"
-	"github.com/DanLavine/willow/pkg/models/datatypes"
+
 	. "github.com/onsi/gomega"
 )
 
@@ -39,17 +40,7 @@ func overlapOneKeyValue() *v1locker.LockCreateRequest {
 	}
 }
 
-func TestGeneralLocker_NewGeneralLocker(t *testing.T) {
-	g := NewGomegaWithT(t)
-
-	t.Run("It creates a tree if nil is passed in for the locks", func(t *testing.T) {
-		generalLocker := NewGeneralLocker(nil)
-		g.Expect(generalLocker).ToNot(BeNil())
-		g.Expect(generalLocker.locks).ToNot(BeNil())
-	})
-}
-
-func TestGeneralLocker_ObtainLocks(t *testing.T) {
+func TestExclusiveLocker_ObtainLocks(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	t.Run("It creates a single lock for the provided key values", func(t *testing.T) {
@@ -61,27 +52,18 @@ func TestGeneralLocker_ObtainLocks(t *testing.T) {
 			taskManager.Run(ctx)
 		}()
 
-		generalLocker := NewGeneralLocker(nil)
-		taskManager.AddExecuteTask("teset", generalLocker)
+		exclusiveLocker := NewExclusiveLocker()
+		taskManager.AddExecuteTask("teset", exclusiveLocker)
 
-		lockResp := generalLocker.ObtainLock(context.Background(), defaultLockCreateRequest())
+		lockResp := exclusiveLocker.ObtainLock(context.Background(), defaultLockCreateRequest())
 		g.Expect(lockResp).ToNot(BeNil())
 		g.Expect(lockResp.SessionID).ToNot(Equal(""))
 		g.Expect(lockResp.LockTimeout).To(Equal(15 * time.Second)) // default values
-
-		counter := 0
-		lockCounter := func(_ btreeassociated.AssociatedKeyValues) bool {
-			counter++
-			return true
-		}
-
-		g.Expect(generalLocker.locks.Query(datatypes.AssociatedKeyValuesQuery{}, lockCounter)).ToNot(HaveOccurred())
-		g.Expect(counter).To(Equal(1))
 	})
 
 	t.Run("Context when creating a lock", func(t *testing.T) {
 		t.Run("Context after the server context is closed", func(t *testing.T) {
-			t.Run("It always grabs the lock if it can", func(t *testing.T) {
+			t.Run("It reeturns nil without creating the lock", func(t *testing.T) {
 				ctx, cancel := context.WithCancel(context.Background())
 
 				done := make(chan struct{})
@@ -91,23 +73,14 @@ func TestGeneralLocker_ObtainLocks(t *testing.T) {
 					taskManager.Run(ctx)
 				}()
 
-				generalLocker := NewGeneralLocker(nil)
-				taskManager.AddExecuteTask("teset", generalLocker)
+				exclusiveLocker := NewExclusiveLocker()
+				taskManager.AddExecuteTask("teset", exclusiveLocker)
 
 				cancel()
 				g.Eventually(done).Should(BeClosed())
 
-				lockResp := generalLocker.ObtainLock(context.Background(), defaultLockCreateRequest())
-				g.Expect(lockResp).ToNot(BeNil())
-
-				counter := 0
-				lockCounter := func(_ btreeassociated.AssociatedKeyValues) bool {
-					counter++
-					return true
-				}
-
-				g.Expect(generalLocker.locks.Query(datatypes.AssociatedKeyValuesQuery{}, lockCounter)).ToNot(HaveOccurred())
-				g.Expect(counter).To(Equal(1))
+				lockResp := exclusiveLocker.ObtainLock(context.Background(), defaultLockCreateRequest())
+				g.Expect(lockResp).To(BeNil())
 			})
 		})
 
@@ -123,23 +96,14 @@ func TestGeneralLocker_ObtainLocks(t *testing.T) {
 					taskManager.Run(ctx)
 				}()
 
-				generalLocker := NewGeneralLocker(nil)
-				taskManager.AddExecuteTask("teset", generalLocker)
+				exclusiveLocker := NewExclusiveLocker()
+				taskManager.AddExecuteTask("teset", exclusiveLocker)
 
 				clientCtx, clientCancel := context.WithCancel(context.Background())
 				clientCancel()
 
-				lockResp := generalLocker.ObtainLock(clientCtx, defaultLockCreateRequest())
+				lockResp := exclusiveLocker.ObtainLock(clientCtx, defaultLockCreateRequest())
 				g.Expect(lockResp).To(BeNil())
-
-				counter := 0
-				lockCounter := func(_ btreeassociated.AssociatedKeyValues) bool {
-					counter++
-					return true
-				}
-
-				g.Expect(generalLocker.locks.Query(datatypes.AssociatedKeyValuesQuery{}, lockCounter)).ToNot(HaveOccurred())
-				g.Expect(counter).To(Equal(0))
 			})
 		})
 	})
@@ -154,16 +118,16 @@ func TestGeneralLocker_ObtainLocks(t *testing.T) {
 				taskManager.Run(ctx)
 			}()
 
-			generalLocker := NewGeneralLocker(nil)
-			taskManager.AddExecuteTask("teset", generalLocker)
+			exclusiveLocker := NewExclusiveLocker()
+			taskManager.AddExecuteTask("teset", exclusiveLocker)
 
-			lockResp := generalLocker.ObtainLock(context.Background(), defaultLockCreateRequest())
+			lockResp := exclusiveLocker.ObtainLock(ctx, defaultLockCreateRequest())
 			g.Expect(lockResp).ToNot(BeNil())
 
 			locked := make(chan struct{})
 			for i := 0; i < 10; i++ {
 				go func() {
-					_ = generalLocker.ObtainLock(context.Background(), defaultLockCreateRequest())
+					_ = exclusiveLocker.ObtainLock(ctx, defaultLockCreateRequest())
 					select {
 					case locked <- struct{}{}:
 					case <-ctx.Done():
@@ -174,7 +138,7 @@ func TestGeneralLocker_ObtainLocks(t *testing.T) {
 			g.Consistently(locked).ShouldNot(Receive())
 
 			// perform an unlock
-			generalLocker.ReleaseLock(lockResp.SessionID)
+			exclusiveLocker.Release(lockResp.SessionID)
 
 			g.Eventually(locked).Should(Receive())
 			g.Consistently(locked).ShouldNot(Receive())
@@ -189,8 +153,8 @@ func TestGeneralLocker_ObtainLocks(t *testing.T) {
 				taskManager.Run(ctx)
 			}()
 
-			generalLocker := NewGeneralLocker(nil)
-			taskManager.AddExecuteTask("teset", generalLocker)
+			exclusiveLocker := NewExclusiveLocker()
+			taskManager.AddExecuteTask("teset", exclusiveLocker)
 
 			wg := new(sync.WaitGroup)
 			for i := 10_000; i < 0; i++ {
@@ -198,8 +162,8 @@ func TestGeneralLocker_ObtainLocks(t *testing.T) {
 
 				go func() {
 					defer wg.Done()
-					lockResp := generalLocker.ObtainLock(context.Background(), defaultLockCreateRequest())
-					generalLocker.ReleaseLock(lockResp.SessionID)
+					lockResp := exclusiveLocker.ObtainLock(context.Background(), defaultLockCreateRequest())
+					exclusiveLocker.Release(lockResp.SessionID)
 				}()
 			}
 
@@ -226,8 +190,8 @@ func TestGeneralLocker_ObtainLocks(t *testing.T) {
 				taskManager.Run(ctx)
 			}()
 
-			generalLocker := NewGeneralLocker(nil)
-			taskManager.AddExecuteTask("teset", generalLocker)
+			exclusiveLocker := NewExclusiveLocker()
+			taskManager.AddExecuteTask("teset", exclusiveLocker)
 
 			wg := new(sync.WaitGroup)
 			for i := 10_000; i < 0; i++ {
@@ -245,8 +209,8 @@ func TestGeneralLocker_ObtainLocks(t *testing.T) {
 
 				go func(req *v1locker.LockCreateRequest) {
 					defer wg.Done()
-					lockResp := generalLocker.ObtainLock(context.Background(), req)
-					generalLocker.ReleaseLock(lockResp.SessionID)
+					lockResp := exclusiveLocker.ObtainLock(context.Background(), req)
+					exclusiveLocker.Release(lockResp.SessionID)
 				}(testReq)
 			}
 
@@ -272,19 +236,19 @@ func TestGeneralLocker_ObtainLocks(t *testing.T) {
 					taskManager.Run(ctx)
 				}()
 
-				generalLocker := NewGeneralLocker(nil)
-				taskManager.AddExecuteTask("teset", generalLocker)
+				exclusiveLocker := NewExclusiveLocker()
+				taskManager.AddExecuteTask("teset", exclusiveLocker)
 
 				wg := new(sync.WaitGroup)
 				for i := 10; i < 0; i++ {
 					if i == 0 {
-						_ = generalLocker.ObtainLock(context.Background(), defaultLockCreateRequest())
+						_ = exclusiveLocker.ObtainLock(context.Background(), defaultLockCreateRequest())
 					} else {
 						wg.Add(1)
 
 						go func() {
 							defer wg.Done()
-							_ = generalLocker.ObtainLock(context.Background(), defaultLockCreateRequest())
+							_ = exclusiveLocker.ObtainLock(context.Background(), defaultLockCreateRequest())
 						}()
 					}
 				}
@@ -314,19 +278,19 @@ func TestGeneralLocker_ObtainLocks(t *testing.T) {
 					taskManager.Run(context.Background())
 				}()
 
-				generalLocker := NewGeneralLocker(nil)
-				taskManager.AddExecuteTask("teset", generalLocker)
+				exclusiveLocker := NewExclusiveLocker()
+				taskManager.AddExecuteTask("teset", exclusiveLocker)
 
 				wg := new(sync.WaitGroup)
 				for i := 10; i < 0; i++ {
 					if i == 0 {
-						_ = generalLocker.ObtainLock(ctx, defaultLockCreateRequest())
+						_ = exclusiveLocker.ObtainLock(ctx, defaultLockCreateRequest())
 					} else {
 						wg.Add(1)
 
 						go func() {
 							defer wg.Done()
-							_ = generalLocker.ObtainLock(ctx, defaultLockCreateRequest())
+							_ = exclusiveLocker.ObtainLock(ctx, defaultLockCreateRequest())
 						}()
 					}
 				}
@@ -350,7 +314,7 @@ func TestGeneralLocker_ObtainLocks(t *testing.T) {
 	})
 }
 
-func TestGeneralLocker_ListLocks(t *testing.T) {
+func TestExclusiveLocker_LocksQuery(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	t.Run("It properly queries all locks that were created", func(t *testing.T) {
@@ -362,41 +326,41 @@ func TestGeneralLocker_ListLocks(t *testing.T) {
 			taskManager.Run(ctx)
 		}()
 
-		generalLocker := NewGeneralLocker(nil)
-		taskManager.AddExecuteTask("teset", generalLocker)
+		exclusiveLocker := NewExclusiveLocker()
+		taskManager.AddExecuteTask("teset", exclusiveLocker)
 
-		lock1 := generalLocker.ObtainLock(context.Background(), defaultLockCreateRequest())
+		lock1 := exclusiveLocker.ObtainLock(context.Background(), defaultLockCreateRequest())
 		g.Expect(lock1).ToNot(BeNil())
-		lock2 := generalLocker.ObtainLock(context.Background(), overlapOneKeyValue())
+		lock2 := exclusiveLocker.ObtainLock(context.Background(), overlapOneKeyValue())
 		g.Expect(lock2).ToNot(BeNil())
 
 		query := datatypes.AssociatedKeyValuesQuery{}
 		g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-		locks := generalLocker.LocksQuery(&v1.AssociatedQuery{AssociatedKeyValues: query})
+		locks := exclusiveLocker.LocksQuery(&v1.AssociatedQuery{AssociatedKeyValues: query})
 		g.Expect(len(locks)).To(Equal(2))
 
 		if locks[0].SessionID == lock2.SessionID {
 			g.Expect(locks[0].SessionID).To(Equal(lock2.SessionID))
-			g.Expect(locks[0].LocksHeldOrWaiting).To(Equal(int64(1)))
+			g.Expect(locks[0].LocksHeldOrWaiting).To(Equal(uint64(1)))
 			g.Expect(locks[0].KeyValues).To(Equal(datatypes.KeyValues{"1": datatypes.String("one"), "4": datatypes.Int(2), "5": datatypes.Uint64(3)}))
 			g.Expect(locks[0].Timeout).To(Equal(15 * time.Second))
 			g.Expect(locks[0].TimeTillExipre).ToNot(Equal(0))
 
 			g.Expect(locks[1].SessionID).To(Equal(lock1.SessionID))
-			g.Expect(locks[1].LocksHeldOrWaiting).To(Equal(int64(1)))
+			g.Expect(locks[1].LocksHeldOrWaiting).To(Equal(uint64(1)))
 			g.Expect(locks[1].KeyValues).To(Equal(datatypes.KeyValues{"1": datatypes.String("one"), "2": datatypes.Int(2), "3": datatypes.Uint64(3)}))
 			g.Expect(locks[1].Timeout).To(Equal(15 * time.Second))
 			g.Expect(locks[1].TimeTillExipre).ToNot(Equal(0))
 		} else {
 			g.Expect(locks[1].SessionID).To(Equal(lock2.SessionID))
-			g.Expect(locks[1].LocksHeldOrWaiting).To(Equal(int64(1)))
+			g.Expect(locks[1].LocksHeldOrWaiting).To(Equal(uint64(1)))
 			g.Expect(locks[1].KeyValues).To(Equal(datatypes.KeyValues{"1": datatypes.String("one"), "4": datatypes.Int(2), "5": datatypes.Uint64(3)}))
 			g.Expect(locks[1].Timeout).To(Equal(15 * time.Second))
 			g.Expect(locks[1].TimeTillExipre).ToNot(Equal(0))
 
 			g.Expect(locks[0].SessionID).To(Equal(lock1.SessionID))
-			g.Expect(locks[0].LocksHeldOrWaiting).To(Equal(int64(1)))
+			g.Expect(locks[0].LocksHeldOrWaiting).To(Equal(uint64(1)))
 			g.Expect(locks[0].KeyValues).To(Equal(datatypes.KeyValues{"1": datatypes.String("one"), "2": datatypes.Int(2), "3": datatypes.Uint64(3)}))
 			g.Expect(locks[0].Timeout).To(Equal(15 * time.Second))
 			g.Expect(locks[0].TimeTillExipre).ToNot(Equal(0))
@@ -404,7 +368,7 @@ func TestGeneralLocker_ListLocks(t *testing.T) {
 	})
 }
 
-func TestGeneralLocker_Heartbeat(t *testing.T) {
+func TestExclusiveLocker_Heartbeat(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	query := datatypes.AssociatedKeyValuesQuery{}
@@ -420,10 +384,10 @@ func TestGeneralLocker_Heartbeat(t *testing.T) {
 			taskManager.Run(ctx)
 		}()
 
-		generalLocker := NewGeneralLocker(nil)
-		taskManager.AddExecuteTask("teset", generalLocker)
+		exclusiveLocker := NewExclusiveLocker()
+		taskManager.AddExecuteTask("teset", exclusiveLocker)
 
-		err := generalLocker.Heartbeat("bad id")
+		err := exclusiveLocker.Heartbeat("bad id")
 		g.Expect(err).ToNot(BeNil())
 		g.Expect(err.Error()).To(ContainSubstring("SessionID could not be found"))
 	})
@@ -437,22 +401,22 @@ func TestGeneralLocker_Heartbeat(t *testing.T) {
 			taskManager.Run(ctx)
 		}()
 
-		generalLocker := NewGeneralLocker(nil)
-		taskManager.AddExecuteTask("teset", generalLocker)
+		exclusiveLocker := NewExclusiveLocker()
+		taskManager.AddExecuteTask("teset", exclusiveLocker)
 
 		lockRequest := defaultLockCreateRequest()
 		lockRequest.LockTimeout = 100 * time.Millisecond
 
-		lockResp := generalLocker.ObtainLock(context.Background(), lockRequest)
+		lockResp := exclusiveLocker.ObtainLock(context.Background(), lockRequest)
 		g.Expect(lockResp).ToNot(BeNil())
 
 		// this timer is longer than the heartbeat timeout
 		for i := 0; i < 3; i++ {
 			time.Sleep(60 * time.Millisecond)
-			g.Expect(generalLocker.Heartbeat(lockResp.SessionID)).To(BeNil())
+			g.Expect(exclusiveLocker.Heartbeat(lockResp.SessionID)).To(BeNil())
 		}
 
-		locks := generalLocker.LocksQuery(generalQuery)
+		locks := exclusiveLocker.LocksQuery(generalQuery)
 		g.Expect(len(locks)).To(Equal(1))
 	})
 
@@ -461,9 +425,9 @@ func TestGeneralLocker_Heartbeat(t *testing.T) {
 		defer cancel()
 
 		// start the task manager with the locker
-		generalLocker := NewGeneralLocker(nil)
+		exclusiveLocker := NewExclusiveLocker()
 		taskManager := goasync.NewTaskManager(goasync.RelaxedConfig())
-		taskManager.AddExecuteTask("teset", generalLocker)
+		taskManager.AddExecuteTask("teset", exclusiveLocker)
 		go func() {
 			taskManager.Run(ctx)
 		}()
@@ -471,11 +435,11 @@ func TestGeneralLocker_Heartbeat(t *testing.T) {
 		lockRequest := defaultLockCreateRequest()
 		lockRequest.LockTimeout = 100 * time.Millisecond
 
-		lockResp := generalLocker.ObtainLock(context.Background(), lockRequest)
+		lockResp := exclusiveLocker.ObtainLock(context.Background(), lockRequest)
 		g.Expect(lockResp).ToNot(BeNil())
 
 		g.Eventually(func() int {
-			return len(generalLocker.LocksQuery(generalQuery))
+			return len(exclusiveLocker.LocksQuery(generalQuery))
 		}).Should(Equal(0))
 	})
 
@@ -489,25 +453,25 @@ func TestGeneralLocker_Heartbeat(t *testing.T) {
 				taskManager.Run(ctx)
 			}()
 
-			generalLocker := NewGeneralLocker(nil)
-			taskManager.AddExecuteTask("teset", generalLocker)
+			exclusiveLocker := NewExclusiveLocker()
+			taskManager.AddExecuteTask("teset", exclusiveLocker)
 
 			lockRequest := defaultLockCreateRequest()
 			lockRequest.LockTimeout = 100 * time.Millisecond
 
-			lockResp := generalLocker.ObtainLock(context.Background(), lockRequest)
+			lockResp := exclusiveLocker.ObtainLock(context.Background(), lockRequest)
 			g.Expect(lockResp).ToNot(BeNil())
 
 			sessionIDChan := make(chan *v1locker.LockCreateResponse)
 			go func() {
-				sessionIDChan <- generalLocker.ObtainLock(context.Background(), lockRequest)
+				sessionIDChan <- exclusiveLocker.ObtainLock(context.Background(), lockRequest)
 			}()
 
 			// ensure that the channel eventually recieves for the next request
 			g.Eventually(sessionIDChan).Should(Receive(Not(BeNil())))
 
 			// the locks should still be listed
-			locks := generalLocker.LocksQuery(generalQuery)
+			locks := exclusiveLocker.LocksQuery(generalQuery)
 			g.Expect(len(locks)).To(Equal(1))
 		})
 	})

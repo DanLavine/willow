@@ -62,8 +62,9 @@ func newItem(url string, client clients.HttpClient, queueName string, dequeueIte
 		defer item.stop()
 
 		// set ticker to be ((timeout - 10%) /3). This way we try and heartbeat at least 3 times before a failure occurs
-		ticker := time.NewTicker((item.heartbeatTimeout - (item.heartbeatTimeout / 10)) / 3)
-		lastTick := time.Now()
+		lastHeartbeat := time.Now()
+		adjustedTimeout := item.heartbeatTimeout - (item.heartbeatTimeout / 10)
+		ticker := time.NewTicker(adjustedTimeout / 3)
 
 		for {
 			select {
@@ -72,7 +73,7 @@ func newItem(url string, client clients.HttpClient, queueName string, dequeueIte
 				return
 			case <-ticker.C:
 				// in this case, we know that we have timed out and don't need to heartbeat anymore
-				if item.heartbeatTimeout > time.Since(lastTick) {
+				if time.Since(lastHeartbeat) >= adjustedTimeout {
 					return
 				}
 
@@ -100,7 +101,7 @@ func newItem(url string, client clients.HttpClient, queueName string, dequeueIte
 				switch resp.StatusCode {
 				case http.StatusOK:
 					// sent a heartbeat
-					lastTick = time.Now()
+					lastHeartbeat = time.Now()
 				case http.StatusBadRequest, http.StatusConflict, http.StatusInternalServerError:
 					// faild to heartbeat for some reason
 					apiError := &errors.Error{}
@@ -119,7 +120,6 @@ func newItem(url string, client clients.HttpClient, queueName string, dequeueIte
 							item.forwardError(apiError)
 						}
 					}
-				// case:
 				default:
 					item.forwardError(fmt.Errorf("unexpected status code while heartbeating: %d", resp.StatusCode))
 				}

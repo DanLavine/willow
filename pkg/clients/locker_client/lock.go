@@ -83,24 +83,23 @@ func newLock(sessionID string, timeout time.Duration, url string, client clients
 		}()
 
 		// set ticker to be ((timeout - 10%) /3). This way we try and heartbeat at least 3 times before a failure occurs
-		ticker := time.NewTicker((timeout - (timeout / 10)) / 3)
-		tickFailures := 0
+		lastHeartbeat := time.Now()
+		adjustedTimeout := timeout - (timeout / 10)
+		ticker := time.NewTicker(adjustedTimeout / 3)
 
 		for {
-			// on the last failure, stop heartbeating
-			if tickFailures >= 3 {
-				if heartbeatErrorCallback != nil {
-					heartbeatErrorCallback(fmt.Errorf("could not heartbeat successfuly since the timeout. Releasing the local Lock since remote is unreachable"))
-				}
-
-				return
-			}
-
 			select {
 			case <-lock.done:
 				// release was called. can just excape
 				return
 			case <-ticker.C:
+				if time.Since(lastHeartbeat) >= adjustedTimeout {
+					if heartbeatErrorCallback != nil {
+						heartbeatErrorCallback(fmt.Errorf("could not heartbeat successfuly since the timeout. Releasing the local Lock since remote is unreachable"))
+					}
+					return
+				}
+
 				// need to heartbeat
 				resp, err := client.Do(&clients.RequestData{
 					Method: "POST",
@@ -113,14 +112,13 @@ func newLock(sessionID string, timeout time.Duration, url string, client clients
 						heartbeatErrorCallback(fmt.Errorf("failed to heartbeat: %w", err))
 					}
 
-					tickFailures++
 					continue
 				}
 
 				switch resp.StatusCode {
 				case http.StatusOK:
 					// this is the success case and the heartbeat passed
-					tickFailures = 0
+					lastHeartbeat = time.Now()
 				case http.StatusGone:
 					// there was an error with the request body or seession id
 					apiError := &errors.Error{}
@@ -140,8 +138,6 @@ func newLock(sessionID string, timeout time.Duration, url string, client clients
 					if heartbeatErrorCallback != nil {
 						heartbeatErrorCallback(fmt.Errorf("received an unexpected status code: %d", resp.StatusCode))
 					}
-
-					tickFailures++
 				}
 			}
 		}

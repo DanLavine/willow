@@ -19,24 +19,17 @@ import (
 func Test_Queue_ItemACK(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	lockerTestConstruct := NewIntrgrationLockerTestConstruct(g)
-	defer lockerTestConstruct.Cleanup(g)
-
-	limiterTestConstruct := NewIntrgrationLimiterTestConstruct(g)
-	defer limiterTestConstruct.Cleanup(g)
-
-	willowTestConstruct := NewIntrgrationWillowTestConstruct(g)
-	defer willowTestConstruct.Cleanup(g)
-
 	t.Run("Context success", func(t *testing.T) {
 		t.Run("It removes the item and updates the Limiter", func(t *testing.T) {
-			lockerTestConstruct.StartLocker(g)
+			t.Parallel()
+
+			lockerTestConstruct := StartLocker(g)
 			defer lockerTestConstruct.Shutdown(g)
 
-			limiterTestConstruct.StartLimiter(g, lockerTestConstruct.ServerURL)
+			limiterTestConstruct := StartLimiter(g, lockerTestConstruct.ServerURL)
 			defer limiterTestConstruct.Shutdown(g)
 
-			willowTestConstruct.StartWillow(g, limiterTestConstruct.ServerURL)
+			willowTestConstruct := StartWillow(g, limiterTestConstruct.ServerURL)
 			defer willowTestConstruct.Shutdown(g)
 
 			willowClient := setupWillowClient(g, willowTestConstruct.ServerURL)
@@ -106,13 +99,15 @@ func Test_Queue_ItemACK(t *testing.T) {
 
 	t.Run("Context failure", func(t *testing.T) {
 		t.Run("It re-queues the item up to the max retry count and updates the Limiter", func(t *testing.T) {
-			lockerTestConstruct.StartLocker(g)
+			t.Parallel()
+
+			lockerTestConstruct := StartLocker(g)
 			defer lockerTestConstruct.Shutdown(g)
 
-			limiterTestConstruct.StartLimiter(g, lockerTestConstruct.ServerURL)
+			limiterTestConstruct := StartLimiter(g, lockerTestConstruct.ServerURL)
 			defer limiterTestConstruct.Shutdown(g)
 
-			willowTestConstruct.StartWillow(g, limiterTestConstruct.ServerURL)
+			willowTestConstruct := StartWillow(g, limiterTestConstruct.ServerURL)
 			defer willowTestConstruct.Shutdown(g)
 
 			willowClient := setupWillowClient(g, willowTestConstruct.ServerURL)
