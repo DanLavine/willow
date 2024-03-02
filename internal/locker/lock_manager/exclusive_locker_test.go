@@ -49,6 +49,7 @@ func TestExclusiveLocker_ObtainLocks(t *testing.T) {
 		go func() {
 			exclusiveLocker.Execute(ctx)
 		}()
+
 		lockResp := exclusiveLocker.ObtainLock(context.Background(), defaultLockCreateRequest())
 		g.Expect(lockResp).ToNot(BeNil())
 		g.Expect(lockResp.SessionID).ToNot(Equal(""))

@@ -2,6 +2,7 @@ package lockmanager
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"sync"
 	"sync/atomic"
@@ -39,8 +40,8 @@ type exclusiveLock struct {
 	releaseResponse chan releaseResponseCode
 
 	// channels to manage lock operations
-	claim         chan time.Duration
-	claimResponse chan string
+	claim         chan func(time.Duration) string
+	claimResponse chan time.Duration
 
 	// timers for clients to know how long a lock is still valid for
 	lastHeartbeatLock *sync.RWMutex
@@ -73,8 +74,8 @@ func newExclusiveLock(timeout func()) *exclusiveLock {
 		release:         make(chan *v1locker.LockClaim),
 		releaseResponse: make(chan releaseResponseCode),
 
-		claim:         make(chan time.Duration),
-		claimResponse: make(chan string),
+		claim:         make(chan func(time.Duration) string),
+		claimResponse: make(chan time.Duration),
 
 		lastHeartbeatLock: new(sync.RWMutex),
 
@@ -97,7 +98,7 @@ func (exclusiveLock *exclusiveLock) Execute(ctx context.Context) error {
 			return nil
 
 		// processed a heartbeat, but there are no claims yet
-		case _ = <-exclusiveLock.heartbeat:
+		case <-exclusiveLock.heartbeat:
 			exclusiveLock.heartbeatResponse <- false
 
 		// processed a relase, but there are no claims yet
@@ -117,114 +118,62 @@ func (exclusiveLock *exclusiveLock) Execute(ctx context.Context) error {
 			exclusiveLock.releaseResponse <- failedRelease
 
 		// client was able to claim the lock
-		case lockTimeout := <-exclusiveLock.claim:
-			// setup the new session id
-			exclusiveLock.sessionIDLock.Lock()
-			exclusiveLock.sessionID = idgenerator.UUID().ID()
-			exclusiveLock.sessionIDLock.Unlock()
-
-			// set the current timeout
-			exclusiveLock.lockTimeoutLock.Lock()
-			exclusiveLock.lockTimeout = lockTimeout
-			exclusiveLock.lockTimeoutLock.Unlock()
-
-			// setup the last heartbeat record
-			exclusiveLock.lastHeartbeatLock.Lock()
-			exclusiveLock.lastHeartbeat = time.Now()
-			exclusiveLock.lastHeartbeatLock.Unlock()
-
-			exclusiveLock.lastHeartbeat = time.Now()
-
+		case exclusiveLock.claim <- exclusiveLock.processClaim:
 			// respond with the new session id
-			exclusiveLock.claimResponse <- exclusiveLock.sessionID
+			lockTimeout := <-exclusiveLock.claimResponse
 
 			// start the new heartbeat loop operation
 			ticker := time.NewTicker(lockTimeout)
 
 		HEARTBEAT_LOOP:
-			select {
-			// server shutdown
-			case <-ctx.Done():
+			for {
 				select {
-				// if a timeout is processing, this should wait untill that is finished
-				case <-exclusiveLock.blockDone:
-					// wait and process the timeout
-					<-exclusiveLock.timedOut
+				// server shutdown
+				case <-ctx.Done():
+					select {
+					// if a timeout is processing, this should wait untill that is finished
+					case <-exclusiveLock.blockDone:
+						// wait and process the timeout
+						<-exclusiveLock.timedOut
 
-					if exclusiveLock.clientsWaitingForClaim.Add(^uint64(0)) == 0 {
-						exclusiveLock.timedOut <- true
-						return nil
-					} else {
-						exclusiveLock.timedOut <- false
+						if exclusiveLock.clientsWaitingForClaim.Add(^uint64(0)) == 0 {
+							exclusiveLock.timedOut <- true
+							return nil
+						} else {
+							exclusiveLock.timedOut <- false
+						}
+					default:
 					}
-				default:
-				}
 
-				return nil
-
-			// heartbeat
-			case claim := <-exclusiveLock.heartbeat:
-				if claim.SessionID == exclusiveLock.sessionID {
-					// setup the last heartbeat record
-					exclusiveLock.lastHeartbeatLock.Lock()
-					exclusiveLock.lastHeartbeat = time.Now()
-					exclusiveLock.lastHeartbeatLock.Unlock()
-
-					exclusiveLock.heartbeatResponse <- true
-				} else {
-					exclusiveLock.heartbeatResponse <- false
-				}
-
-			// timed out
-			case <-ticker.C:
-				ticker.Stop()
-
-				// clear the session id
-				exclusiveLock.sessionIDLock.Lock()
-				exclusiveLock.sessionID = ""
-				exclusiveLock.sessionIDLock.Unlock()
-
-				// set the current timeout
-				exclusiveLock.lockTimeoutLock.Lock()
-				exclusiveLock.lockTimeout = 0
-				exclusiveLock.lockTimeoutLock.Unlock()
-
-				// clear the last heartbeat time
-				exclusiveLock.lastHeartbeatLock.Lock()
-				exclusiveLock.lastHeartbeat = time.Time{}
-				exclusiveLock.lastHeartbeatLock.Unlock()
-
-				// need to run the cleanup in the background thread so the tree can grab the delete lock to check
-				exclusiveLock.blockDone <- struct{}{}
-				go func() {
-					exclusiveLock.timeout()
-				}()
-
-			// will trigger on a timeout
-			case <-exclusiveLock.timedOut:
-				// always read from the block of done to clear it out
-				<-exclusiveLock.blockDone
-
-				if exclusiveLock.clientsWaitingForClaim.Add(^uint64(0)) == 0 {
-					exclusiveLock.timedOut <- true
 					return nil
-				} else {
-					exclusiveLock.timedOut <- false
-				}
 
-			// releasing a claim or a client was disconnected
-			case claim := <-exclusiveLock.release:
-				// this is the case that a client has disconnected
-				if claim == nil {
-					// should never have more than 0 clients at this point
-					_ = exclusiveLock.clientsWaitingForClaim.Add(^uint64(0))
-					exclusiveLock.releaseResponse <- processedRelease
-					goto HEARTBEAT_LOOP
-				}
+				// heartbeat
+				case claim := <-exclusiveLock.heartbeat:
+					fmt.Println("exclusive lock session id", exclusiveLock.sessionID)
+					fmt.Println("claim session id", claim.SessionID)
+					fmt.Println("equal", exclusiveLock.sessionID == claim.SessionID)
 
-				// this is the case that a release occured with proper session id
-				if claim.SessionID == exclusiveLock.sessionID {
-					// reset the session id
+					if claim.SessionID == exclusiveLock.sessionID {
+						// setup the last heartbeat record
+						exclusiveLock.lastHeartbeatLock.Lock()
+						exclusiveLock.lastHeartbeat = time.Now()
+						exclusiveLock.lastHeartbeatLock.Unlock()
+
+						// update the ticker
+						ticker.Reset(exclusiveLock.lockTimeout)
+
+						exclusiveLock.heartbeatResponse <- true
+					} else {
+						exclusiveLock.heartbeatResponse <- false
+					}
+
+				// timed out
+				case <-ticker.C:
+					ticker.Stop()
+
+					fmt.Println("timed out")
+
+					// clear the session id
 					exclusiveLock.sessionIDLock.Lock()
 					exclusiveLock.sessionID = ""
 					exclusiveLock.sessionIDLock.Unlock()
@@ -234,23 +183,71 @@ func (exclusiveLock *exclusiveLock) Execute(ctx context.Context) error {
 					exclusiveLock.lockTimeout = 0
 					exclusiveLock.lockTimeoutLock.Unlock()
 
-					// clear the heartbeat timer
+					// clear the last heartbeat time
 					exclusiveLock.lastHeartbeatLock.Lock()
 					exclusiveLock.lastHeartbeat = time.Time{}
 					exclusiveLock.lastHeartbeatLock.Unlock()
 
-					// stop the timeout ticker
-					ticker.Stop()
+					// need to run the cleanup in the background thread so the tree can grab the delete lock to check
+					exclusiveLock.blockDone <- struct{}{}
+					go func() {
+						exclusiveLock.timeout()
+					}()
+
+				// will trigger on a timeout
+				case <-exclusiveLock.timedOut:
+					// always read from the block of done to clear it out
+					<-exclusiveLock.blockDone
 
 					if exclusiveLock.clientsWaitingForClaim.Add(^uint64(0)) == 0 {
-						exclusiveLock.releaseResponse <- processedAndDestroy
+						exclusiveLock.timedOut <- true
 						return nil
 					} else {
-						exclusiveLock.releaseResponse <- processedRelease
+						exclusiveLock.timedOut <- false
 					}
-				} else {
-					exclusiveLock.releaseResponse <- failedRelease
-					goto HEARTBEAT_LOOP
+
+					break HEARTBEAT_LOOP
+
+				// releasing a claim or a client was disconnected
+				case claim := <-exclusiveLock.release:
+					// this is the case that a client has disconnected
+					if claim == nil {
+						// should never have more than 0 clients at this point
+						_ = exclusiveLock.clientsWaitingForClaim.Add(^uint64(0))
+						exclusiveLock.releaseResponse <- processedRelease
+						break HEARTBEAT_LOOP
+					}
+
+					// this is the case that a release occured with proper session id
+					if claim.SessionID == exclusiveLock.sessionID {
+						// reset the session id
+						exclusiveLock.sessionIDLock.Lock()
+						exclusiveLock.sessionID = ""
+						exclusiveLock.sessionIDLock.Unlock()
+
+						// set the current timeout
+						exclusiveLock.lockTimeoutLock.Lock()
+						exclusiveLock.lockTimeout = 0
+						exclusiveLock.lockTimeoutLock.Unlock()
+
+						// clear the heartbeat timer
+						exclusiveLock.lastHeartbeatLock.Lock()
+						exclusiveLock.lastHeartbeat = time.Time{}
+						exclusiveLock.lastHeartbeatLock.Unlock()
+
+						// stop the timeout ticker
+						ticker.Stop()
+
+						if exclusiveLock.clientsWaitingForClaim.Add(^uint64(0)) == 0 {
+							exclusiveLock.releaseResponse <- processedAndDestroy
+							return nil
+						} else {
+							exclusiveLock.releaseResponse <- processedRelease
+							break HEARTBEAT_LOOP
+						}
+					} else {
+						exclusiveLock.releaseResponse <- failedRelease
+					}
 				}
 			}
 		}
@@ -264,8 +261,26 @@ func (exclusiveLock *exclusiveLock) Execute(ctx context.Context) error {
 //	- string - the sessionID for the claim
 //
 // Claim a lock. This will set the unique sessionID if the claim has been captured
-func (exclusiveLock *exclusiveLock) ProcessClaim(timeout time.Duration) string {
-	return <-exclusiveLock.claimResponse
+func (exclusiveLock *exclusiveLock) processClaim(lockTimeout time.Duration) string {
+	// setup the new session id
+	exclusiveLock.sessionIDLock.Lock()
+	exclusiveLock.sessionID = idgenerator.UUID().ID()
+	exclusiveLock.sessionIDLock.Unlock()
+
+	// set the current timeout
+	exclusiveLock.lockTimeoutLock.Lock()
+	exclusiveLock.lockTimeout = lockTimeout
+	exclusiveLock.lockTimeoutLock.Unlock()
+
+	// setup the last heartbeat record
+	exclusiveLock.lastHeartbeatLock.Lock()
+	exclusiveLock.lastHeartbeat = time.Now()
+	exclusiveLock.lastHeartbeatLock.Unlock()
+
+	// inform the async process to continue
+	exclusiveLock.claimResponse <- lockTimeout
+
+	return exclusiveLock.sessionID
 }
 
 //	RETURNS
@@ -273,7 +288,7 @@ func (exclusiveLock *exclusiveLock) ProcessClaim(timeout time.Duration) string {
 //
 // GetClaimChannel returns a channel any claims can be processed on. This also tracks the total number of clients waiting for
 // a claim
-func (exclusiveLock *exclusiveLock) GetClaimChannel() chan<- time.Duration {
+func (exclusiveLock *exclusiveLock) GetClaimChannel() <-chan func(lockTimeout time.Duration) string {
 	exclusiveLock.clientsWaitingForClaim.Add(1)
 	return exclusiveLock.claim
 }
@@ -289,9 +304,11 @@ func (exclusiveLock *exclusiveLock) Heartbeat(claim *v1locker.LockClaim) *errors
 	select {
 	case exclusiveLock.heartbeat <- claim:
 		if passed := <-exclusiveLock.heartbeatResponse; passed {
+			fmt.Println("passed?", passed)
 			return nil
 		}
 
+		fmt.Println("failed to pass")
 		return &errors.ServerError{Message: "SessionID for the claim is invalid", StatusCode: http.StatusConflict}
 	case <-exclusiveLock.done:
 		return errors.ServerShutdown

@@ -101,7 +101,7 @@ func (exclusiveLocker *exclusiveLocker) LocksQuery(query *v1common.AssociatedQue
 }
 
 func (exclusiveLocker *exclusiveLocker) ObtainLock(clientCtx context.Context, createLockRequest *v1locker.LockCreateRequest) *v1locker.LockCreateResponse {
-	var claimChannel chan<- time.Duration
+	var claimChannel <-chan func(time.Duration) string
 
 	onCreate := func() any {
 		lock := newExclusiveLock(func() { exclusiveLocker.timeout(createLockRequest.KeyValues) })
@@ -135,9 +135,9 @@ func (exclusiveLocker *exclusiveLocker) ObtainLock(clientCtx context.Context, cr
 		})
 
 	// claim was obtained
-	case claimChannel <- createLockRequest.LockTimeout:
+	case processClaim := <-claimChannel:
 		// at this point, we have successfuly have the exclusive claim so create the lock
-		sessionID := lock.ProcessClaim(createLockRequest.LockTimeout)
+		sessionID := processClaim(createLockRequest.LockTimeout)
 
 		return &v1locker.LockCreateResponse{
 			LockID:      lockID,
