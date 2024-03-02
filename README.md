@@ -94,13 +94,11 @@ I want to work on at a glance:
   
   1. Simplify the clients and ensure the API is properly documented with failure status codes
 
-     * I currently have things setup to need `content-type: application/json` headers which just make hings hard to use when
-      trying out the service. I had a notion of have a "fast" api for only byte arrays, but I don't really need that to begin
-      with. So just simplify things for now and document what a "fast" api would be:
+     * I currently have things setup to need `content-type: application/json` headers which just make hings hard to use when trying out the service. I had a notion of have a "fast" api for only byte arrays, but I don't really need that to begin with. So just simplify things for now and document what a "fast" api would be:
         * Don't check queues against Limiter rules
         * raw byte encoding
-        * works more like other Queue services that need fast queue throughput is the main goal of a setup like this. Then
-          people would only need to setup 1 service for both types of queue systems
+        * works more like other Queue services that need fast queue throughput is the main goal of a setup
+          like this. Then people would only need to setup 1 service for both types of queue systems
 
   2. Have logged `session_ids` flow through all services.
     * Nice to see how the system works end to end

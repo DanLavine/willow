@@ -89,25 +89,67 @@ paths:
                 properties:
                   ApiError:
                     $ref: "../common/components.yaml#/components/schemas/ApiError"
-  /v1/locks/:session_id:
+  /v1/locks/:lock_id:
     delete:
       operationId: delete Lock
       description: |
         Delete a `Lock` based on the SessionID. This way the original client should be the only
         client to know the generated SessionID. If the client is lost for some reason and the timeout is
         massive. The original SessionID can be found via the query and deleted through another request
+      parameters:
+        - in: header
+          name: Content-Type
+          schema:
+            type: string
+            enum: ["application/json"]
+      requestBody:
+        required: true
+        content:
+          appplication/json:
+            schema:
+              $ref: "#/components/schemas/LockClaim"
       responses:
         204:
           description: Resrouce was deleted or never even existed
-  /v1/locks/:session_id/heartbeat:
+        404:
+          description: returned when the lock_id cannot be found
+          content:
+            appplication/json:
+              schema:
+                $ref: "../common/components.yaml#/components/schemas/ApiError"
+        409:
+          description: returned when there was an error processing the SessionID
+          content:
+            appplication/json:
+              schema:
+                $ref: "../common/components.yaml#/components/schemas/ApiError"
+  /v1/locks/:lock_id/heartbeat:
     post:
       operationId: heartbeat Lock
       description: |
         Heartbeat a lock by the unique SessionID
+      parameters:
+        - in: header
+          name: Content-Type
+          schema:
+            type: string
+            enum: ["application/json"]
+      requestBody:
+        required: true
+        content:
+          appplication/json:
+            schema:
+              $ref: "#/components/schemas/LockClaim"
       responses:
         200:
           description: OK
-        410:
+        404:
+          description: returned when the lock_id cannot be found
+          content:
+            appplication/json:
+              schema:
+                $ref: "../common/components.yaml#/components/schemas/ApiError"
+        409:
           description: returned when there was an error processing the SessionID
           content:
             appplication/json:
@@ -125,6 +167,14 @@ paths:
 
 components:
   schemas:
+    LockClaim:
+      type: object
+      properties:
+        SessionID:
+          description: |
+            The unique SessionID returned when a lock was originally claimed
+          type: string
+
     CreateLockRequest:
       type: object
       required:
@@ -146,6 +196,9 @@ components:
     CreateLockResponse:
       type: object
       properties:
+        LockID:
+          description: ID for the `Lock`
+          type: string
         SessionID:
           description: "Unique session ID that needs to be used when heartbeating or releasing the lock"
           type: string

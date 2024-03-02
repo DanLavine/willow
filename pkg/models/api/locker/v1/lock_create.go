@@ -59,6 +59,10 @@ func (req *LockCreateRequest) DecodeJSON(data []byte) error {
 
 // LockCreateResponse is the response once a client recieves the Lock
 type LockCreateResponse struct {
+	// LockID is a consistent ID for all clients that trry to obtain a lock and have to wait. If the
+	// lock is completely released, then the service will generate a new LockID on the next request creating the lock
+	LockID string
+
 	// SessionID is a uniquely generated ID to Heartbeat or Release a lock with.
 	SessionID string
 

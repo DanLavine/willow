@@ -175,9 +175,9 @@ func (lc *LockClient) ObtainLock(ctx context.Context, lockRequest *v1locker.Lock
 					errCallback := func(err error) {
 						heartbeatErrorCallback(lockRequest.KeyValues, err)
 					}
-					returnLock = newLock(createLockResponse.SessionID, createLockResponse.LockTimeout, lc.url, lc.client, lc.contentType, errCallback, lostLockWrapper)
+					returnLock = newLock(createLockResponse, lc.url, lc.client, lc.contentType, errCallback, lostLockWrapper)
 				} else {
-					returnLock = newLock(createLockResponse.SessionID, createLockResponse.LockTimeout, lc.url, lc.client, lc.contentType, nil, lostLockWrapper)
+					returnLock = newLock(createLockResponse, lc.url, lc.client, lc.contentType, nil, lostLockWrapper)
 				}
 
 				return returnLock

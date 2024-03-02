@@ -30,15 +30,15 @@ func main() {
 	// setup server mux that is passed to all handlers
 	mux := urlrouter.New()
 	// add the versioned apis to the server mux
-	generalLocker := lockmanager.NewExclusiveLocker()
-	v1router.AddV1LockerRoutes(mux, v1handlers.NewLockHandler(logger, cfg, generalLocker))
+	exclusiveLocker := lockmanager.NewExclusiveLocker()
+	v1router.AddV1LockerRoutes(mux, v1handlers.NewLockHandler(logger, cfg, exclusiveLocker))
 
 	// setup async handlers
 	//// using strict config ensures that if any process fails, the server will ty and shutdown gracefully
 	taskManager := goasync.NewTaskManager(goasync.StrictConfig())
 
 	// general locker
-	taskManager.AddTask("general Locker", generalLocker)
+	taskManager.AddTask("exclusive Locker", exclusiveLocker)
 
 	// v1 api handlers
 	//// http2 server to handle all client requests

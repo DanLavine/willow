@@ -11,6 +11,7 @@ import (
 	"github.com/DanLavine/willow/pkg/clients"
 	"github.com/DanLavine/willow/pkg/models/api"
 	"github.com/DanLavine/willow/pkg/models/api/common/errors"
+	v1 "github.com/DanLavine/willow/pkg/models/api/locker/v1"
 	. "github.com/onsi/gomega"
 )
 
@@ -37,7 +38,7 @@ func setupLock(server *httptest.Server) (*lock, *atomic.Int64, *atomic.Int64, *[
 		panic(err)
 	}
 
-	lock := newLock("someID", 200*time.Millisecond, server.URL, client, api.ContentTypeJSON, heartbeatErrorCallback, lockLostCallback)
+	lock := newLock(&v1.LockCreateResponse{LockID: "someID", SessionID: "sessionID", LockTimeout: 200 * time.Millisecond}, server.URL, client, api.ContentTypeJSON, heartbeatErrorCallback, lockLostCallback)
 
 	return lock, lostLockCallbackCounter, heartbeatErrorCallbackCounter, &heartbeatErrorCallbackError
 }
@@ -156,14 +157,14 @@ func TestLock_heartbeat_operations(t *testing.T) {
 		})
 	})
 
-	t.Run("Context when the response code is http.StatusGone", func(t *testing.T) {
+	t.Run("Context when the response code is http.StatusConflict or http.StatusBadRequest", func(t *testing.T) {
 		t.Run("Context when the response body cannot be read", func(t *testing.T) {
 			t.Run("It calls heartbeatErrorCallback if the response body cannot be read", func(t *testing.T) {
 				mux := http.NewServeMux()
 				mux.HandleFunc("/v1/locks/someID/heartbeat", func(w http.ResponseWriter, r *http.Request) {
 					w.Header().Add("content-length", "5")
 					w.Header().Add("Content-Type", "application/json")
-					w.WriteHeader(http.StatusGone)
+					w.WriteHeader(http.StatusConflict)
 					w.Write([]byte(`this isn't json`))
 				})
 				server := setupServerHttp(mux)
@@ -181,7 +182,7 @@ func TestLock_heartbeat_operations(t *testing.T) {
 				mux := http.NewServeMux()
 				mux.HandleFunc("/v1/locks/someID/heartbeat", func(w http.ResponseWriter, r *http.Request) {
 					w.Header().Add("Content-Type", "application/json")
-					w.WriteHeader(http.StatusGone)
+					w.WriteHeader(http.StatusBadRequest)
 					w.Write([]byte(`this isn't json`))
 				})
 				server := setupServerHttp(mux)
@@ -200,7 +201,7 @@ func TestLock_heartbeat_operations(t *testing.T) {
 				mux := http.NewServeMux()
 				mux.HandleFunc("/v1/locks/someID/heartbeat", func(w http.ResponseWriter, r *http.Request) {
 					apiErr := &errors.Error{Message: "this is the api error"}
-					_, err := api.EncodeAndSendHttpResponse(http.Header{}, w, http.StatusGone, apiErr)
+					_, err := api.EncodeAndSendHttpResponse(http.Header{}, w, http.StatusConflict, apiErr)
 					g.Expect(err).ToNot(HaveOccurred())
 				})
 				server := setupServerHttp(mux)
@@ -219,7 +220,7 @@ func TestLock_heartbeat_operations(t *testing.T) {
 			mux.HandleFunc("/v1/locks/someID/heartbeat", func(w http.ResponseWriter, r *http.Request) {
 				w.Header().Add("content-length", "5")
 				w.Header().Add("Content-Type", "application/json")
-				w.WriteHeader(http.StatusGone)
+				w.WriteHeader(http.StatusBadRequest)
 				w.Write([]byte(`this isn't json`))
 			})
 			server := setupServerHttp(mux)
