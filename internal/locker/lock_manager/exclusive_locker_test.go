@@ -7,8 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DanLavine/goasync"
-
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 
 	v1 "github.com/DanLavine/willow/pkg/models/api/common/v1"
@@ -47,14 +45,10 @@ func TestExclusiveLocker_ObtainLocks(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
-		taskManager := goasync.NewTaskManager(goasync.RelaxedConfig())
-		go func() {
-			taskManager.Run(ctx)
-		}()
-
 		exclusiveLocker := NewExclusiveLocker()
-		taskManager.AddExecuteTask("teset", exclusiveLocker)
-
+		go func() {
+			exclusiveLocker.Execute(ctx)
+		}()
 		lockResp := exclusiveLocker.ObtainLock(context.Background(), defaultLockCreateRequest())
 		g.Expect(lockResp).ToNot(BeNil())
 		g.Expect(lockResp.SessionID).ToNot(Equal(""))
@@ -67,14 +61,11 @@ func TestExclusiveLocker_ObtainLocks(t *testing.T) {
 				ctx, cancel := context.WithCancel(context.Background())
 
 				done := make(chan struct{})
-				taskManager := goasync.NewTaskManager(goasync.RelaxedConfig())
+				exclusiveLocker := NewExclusiveLocker()
 				go func() {
 					defer close(done)
-					taskManager.Run(ctx)
+					exclusiveLocker.Execute(ctx)
 				}()
-
-				exclusiveLocker := NewExclusiveLocker()
-				taskManager.AddExecuteTask("teset", exclusiveLocker)
 
 				cancel()
 				g.Eventually(done).Should(BeClosed())
@@ -90,14 +81,11 @@ func TestExclusiveLocker_ObtainLocks(t *testing.T) {
 				defer cancel()
 
 				done := make(chan struct{})
-				taskManager := goasync.NewTaskManager(goasync.RelaxedConfig())
+				exclusiveLocker := NewExclusiveLocker()
 				go func() {
 					defer close(done)
-					taskManager.Run(ctx)
+					exclusiveLocker.Execute(ctx)
 				}()
-
-				exclusiveLocker := NewExclusiveLocker()
-				taskManager.AddExecuteTask("teset", exclusiveLocker)
 
 				clientCtx, clientCancel := context.WithCancel(context.Background())
 				clientCancel()
@@ -113,13 +101,10 @@ func TestExclusiveLocker_ObtainLocks(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 
-			taskManager := goasync.NewTaskManager(goasync.RelaxedConfig())
-			go func() {
-				taskManager.Run(ctx)
-			}()
-
 			exclusiveLocker := NewExclusiveLocker()
-			taskManager.AddExecuteTask("teset", exclusiveLocker)
+			go func() {
+				exclusiveLocker.Execute(ctx)
+			}()
 
 			lockResp := exclusiveLocker.ObtainLock(ctx, defaultLockCreateRequest())
 			g.Expect(lockResp).ToNot(BeNil())
@@ -138,7 +123,11 @@ func TestExclusiveLocker_ObtainLocks(t *testing.T) {
 			g.Consistently(locked).ShouldNot(Receive())
 
 			// perform an unlock
-			exclusiveLocker.Release(lockResp.SessionID)
+			claim := &v1locker.LockClaim{
+				SessionID: lockResp.SessionID,
+			}
+			g.Expect(claim.Validate()).ToNot(HaveOccurred())
+			g.Expect(exclusiveLocker.Release(lockResp.LockID, claim)).ToNot(HaveOccurred())
 
 			g.Eventually(locked).Should(Receive())
 			g.Consistently(locked).ShouldNot(Receive())
@@ -148,13 +137,10 @@ func TestExclusiveLocker_ObtainLocks(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 
-			taskManager := goasync.NewTaskManager(goasync.RelaxedConfig())
-			go func() {
-				taskManager.Run(ctx)
-			}()
-
 			exclusiveLocker := NewExclusiveLocker()
-			taskManager.AddExecuteTask("teset", exclusiveLocker)
+			go func() {
+				exclusiveLocker.Execute(ctx)
+			}()
 
 			wg := new(sync.WaitGroup)
 			for i := 10_000; i < 0; i++ {
@@ -163,7 +149,11 @@ func TestExclusiveLocker_ObtainLocks(t *testing.T) {
 				go func() {
 					defer wg.Done()
 					lockResp := exclusiveLocker.ObtainLock(context.Background(), defaultLockCreateRequest())
-					exclusiveLocker.Release(lockResp.SessionID)
+					claim := &v1locker.LockClaim{
+						SessionID: lockResp.SessionID,
+					}
+					g.Expect(claim.Validate()).ToNot(HaveOccurred())
+					exclusiveLocker.Release(lockResp.LockID, claim)
 				}()
 			}
 
@@ -185,13 +175,10 @@ func TestExclusiveLocker_ObtainLocks(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 
-			taskManager := goasync.NewTaskManager(goasync.RelaxedConfig())
-			go func() {
-				taskManager.Run(ctx)
-			}()
-
 			exclusiveLocker := NewExclusiveLocker()
-			taskManager.AddExecuteTask("teset", exclusiveLocker)
+			go func() {
+				exclusiveLocker.Execute(ctx)
+			}()
 
 			wg := new(sync.WaitGroup)
 			for i := 10_000; i < 0; i++ {
@@ -210,7 +197,11 @@ func TestExclusiveLocker_ObtainLocks(t *testing.T) {
 				go func(req *v1locker.LockCreateRequest) {
 					defer wg.Done()
 					lockResp := exclusiveLocker.ObtainLock(context.Background(), req)
-					exclusiveLocker.Release(lockResp.SessionID)
+					claim := &v1locker.LockClaim{
+						SessionID: lockResp.SessionID,
+					}
+					g.Expect(claim.Validate()).ToNot(HaveOccurred())
+					exclusiveLocker.Release(lockResp.LockID, claim)
 				}(testReq)
 			}
 
@@ -231,13 +222,11 @@ func TestExclusiveLocker_ObtainLocks(t *testing.T) {
 		t.Run("Context when the server is shutdown", func(t *testing.T) {
 			t.Run("It frees up any waiting clients", func(t *testing.T) {
 				ctx, cancel := context.WithCancel(context.Background())
-				taskManager := goasync.NewTaskManager(goasync.RelaxedConfig())
-				go func() {
-					taskManager.Run(ctx)
-				}()
 
 				exclusiveLocker := NewExclusiveLocker()
-				taskManager.AddExecuteTask("teset", exclusiveLocker)
+				go func() {
+					exclusiveLocker.Execute(ctx)
+				}()
 
 				wg := new(sync.WaitGroup)
 				for i := 10; i < 0; i++ {
@@ -273,13 +262,11 @@ func TestExclusiveLocker_ObtainLocks(t *testing.T) {
 		t.Run("Context if the client is closed", func(t *testing.T) {
 			t.Run("It frees up any waiting clients", func(t *testing.T) {
 				ctx, cancel := context.WithCancel(context.Background())
-				taskManager := goasync.NewTaskManager(goasync.RelaxedConfig())
-				go func() {
-					taskManager.Run(context.Background())
-				}()
 
 				exclusiveLocker := NewExclusiveLocker()
-				taskManager.AddExecuteTask("teset", exclusiveLocker)
+				go func() {
+					exclusiveLocker.Execute(ctx)
+				}()
 
 				wg := new(sync.WaitGroup)
 				for i := 10; i < 0; i++ {
@@ -321,13 +308,10 @@ func TestExclusiveLocker_LocksQuery(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
-		taskManager := goasync.NewTaskManager(goasync.RelaxedConfig())
-		go func() {
-			taskManager.Run(ctx)
-		}()
-
 		exclusiveLocker := NewExclusiveLocker()
-		taskManager.AddExecuteTask("teset", exclusiveLocker)
+		go func() {
+			exclusiveLocker.Execute(ctx)
+		}()
 
 		lock1 := exclusiveLocker.ObtainLock(context.Background(), defaultLockCreateRequest())
 		g.Expect(lock1).ToNot(BeNil())
@@ -375,34 +359,54 @@ func TestExclusiveLocker_Heartbeat(t *testing.T) {
 	g.Expect(query.Validate()).ToNot(HaveOccurred())
 	generalQuery := &v1.AssociatedQuery{AssociatedKeyValues: query}
 
-	t.Run("It returns an error if the session ID does not exist", func(t *testing.T) {
+	t.Run("It returns an error if the LockID does not exist", func(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
-		taskManager := goasync.NewTaskManager(goasync.RelaxedConfig())
+		exclusiveLocker := NewExclusiveLocker()
 		go func() {
-			taskManager.Run(ctx)
+			exclusiveLocker.Execute(ctx)
 		}()
 
-		exclusiveLocker := NewExclusiveLocker()
-		taskManager.AddExecuteTask("teset", exclusiveLocker)
+		claim := &v1locker.LockClaim{
+			SessionID: "nope",
+		}
+		g.Expect(claim.Validate()).ToNot(HaveOccurred())
 
-		err := exclusiveLocker.Heartbeat("bad id")
+		err := exclusiveLocker.Heartbeat("bad id", claim)
 		g.Expect(err).ToNot(BeNil())
-		g.Expect(err.Error()).To(ContainSubstring("SessionID could not be found"))
+		g.Expect(err.Error()).To(ContainSubstring("LockID could not be found"))
+	})
+
+	t.Run("It returns an error if the claim is invalid", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		exclusiveLocker := NewExclusiveLocker()
+		go func() {
+			exclusiveLocker.Execute(ctx)
+		}()
+		lockResp := exclusiveLocker.ObtainLock(context.Background(), defaultLockCreateRequest())
+		g.Expect(lockResp).ToNot(BeNil())
+
+		claim := &v1locker.LockClaim{
+			SessionID: "nope",
+		}
+		g.Expect(claim.Validate()).ToNot(HaveOccurred())
+
+		err := exclusiveLocker.Heartbeat(lockResp.LockID, claim)
+		g.Expect(err).ToNot(BeNil())
+		g.Expect(err.Error()).To(ContainSubstring("SessionID for the claim is invalid"))
 	})
 
 	t.Run("It keeps the lock around as long as the heartbeats are received", func(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
-		taskManager := goasync.NewTaskManager(goasync.RelaxedConfig())
-		go func() {
-			taskManager.Run(ctx)
-		}()
-
 		exclusiveLocker := NewExclusiveLocker()
-		taskManager.AddExecuteTask("teset", exclusiveLocker)
+		go func() {
+			exclusiveLocker.Execute(ctx)
+		}()
 
 		lockRequest := defaultLockCreateRequest()
 		lockRequest.LockTimeout = 100 * time.Millisecond
@@ -413,7 +417,11 @@ func TestExclusiveLocker_Heartbeat(t *testing.T) {
 		// this timer is longer than the heartbeat timeout
 		for i := 0; i < 3; i++ {
 			time.Sleep(60 * time.Millisecond)
-			g.Expect(exclusiveLocker.Heartbeat(lockResp.SessionID)).To(BeNil())
+			claim := &v1locker.LockClaim{
+				SessionID: lockResp.SessionID,
+			}
+			g.Expect(claim.Validate()).ToNot(HaveOccurred())
+			g.Expect(exclusiveLocker.Heartbeat(lockResp.LockID, claim)).To(BeNil())
 		}
 
 		locks := exclusiveLocker.LocksQuery(generalQuery)
@@ -426,10 +434,8 @@ func TestExclusiveLocker_Heartbeat(t *testing.T) {
 
 		// start the task manager with the locker
 		exclusiveLocker := NewExclusiveLocker()
-		taskManager := goasync.NewTaskManager(goasync.RelaxedConfig())
-		taskManager.AddExecuteTask("teset", exclusiveLocker)
 		go func() {
-			taskManager.Run(ctx)
+			exclusiveLocker.Execute(ctx)
 		}()
 
 		lockRequest := defaultLockCreateRequest()
@@ -442,37 +448,52 @@ func TestExclusiveLocker_Heartbeat(t *testing.T) {
 			return len(exclusiveLocker.LocksQuery(generalQuery))
 		}).Should(Equal(0))
 	})
+}
 
-	t.Run("Context when multiple clients are waiting for the same lock", func(t *testing.T) {
-		t.Run("It allows a new client to obtain the lock", func(t *testing.T) {
-			ctx, cancel := context.WithCancel(context.Background())
-			defer cancel()
+func TestExclusiveLocker_Release(t *testing.T) {
+	g := NewGomegaWithT(t)
 
-			taskManager := goasync.NewTaskManager(goasync.RelaxedConfig())
-			go func() {
-				taskManager.Run(ctx)
-			}()
+	query := datatypes.AssociatedKeyValuesQuery{}
+	g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-			exclusiveLocker := NewExclusiveLocker()
-			taskManager.AddExecuteTask("teset", exclusiveLocker)
+	t.Run("It returns an error if the LockID does not exist", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
 
-			lockRequest := defaultLockCreateRequest()
-			lockRequest.LockTimeout = 100 * time.Millisecond
+		exclusiveLocker := NewExclusiveLocker()
+		go func() {
+			exclusiveLocker.Execute(ctx)
+		}()
 
-			lockResp := exclusiveLocker.ObtainLock(context.Background(), lockRequest)
-			g.Expect(lockResp).ToNot(BeNil())
+		claim := &v1locker.LockClaim{
+			SessionID: "nope",
+		}
+		g.Expect(claim.Validate()).ToNot(HaveOccurred())
 
-			sessionIDChan := make(chan *v1locker.LockCreateResponse)
-			go func() {
-				sessionIDChan <- exclusiveLocker.ObtainLock(context.Background(), lockRequest)
-			}()
+		err := exclusiveLocker.Release("bad id", claim)
+		g.Expect(err).ToNot(BeNil())
+		g.Expect(err.Error()).To(ContainSubstring("LockID could not be found"))
+	})
 
-			// ensure that the channel eventually recieves for the next request
-			g.Eventually(sessionIDChan).Should(Receive(Not(BeNil())))
+	t.Run("It returns an error if the claim is invalid", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
 
-			// the locks should still be listed
-			locks := exclusiveLocker.LocksQuery(generalQuery)
-			g.Expect(len(locks)).To(Equal(1))
-		})
+		exclusiveLocker := NewExclusiveLocker()
+		go func() {
+			exclusiveLocker.Execute(ctx)
+		}()
+
+		lockResp := exclusiveLocker.ObtainLock(context.Background(), defaultLockCreateRequest())
+		g.Expect(lockResp).ToNot(BeNil())
+
+		claim := &v1locker.LockClaim{
+			SessionID: "nope",
+		}
+		g.Expect(claim.Validate()).ToNot(HaveOccurred())
+
+		err := exclusiveLocker.Heartbeat(lockResp.LockID, claim)
+		g.Expect(err).ToNot(BeNil())
+		g.Expect(err.Error()).To(ContainSubstring("SessionID for the claim is invalid"))
 	})
 }

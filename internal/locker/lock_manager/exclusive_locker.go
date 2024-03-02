@@ -18,13 +18,13 @@ type ExcluiveLocker interface {
 	ObtainLock(clientCtx context.Context, createRequest *v1locker.LockCreateRequest) *v1locker.LockCreateResponse
 
 	// Heartbeat any number of locks so we know they are still running properly
-	Heartbeat(sessions string) *errors.ServerError
+	Heartbeat(lockID string, lockClaim *v1locker.LockClaim) *errors.ServerError
 
 	// Find all locks currently held in the tree
 	LocksQuery(query *v1common.AssociatedQuery) v1locker.Locks
 
 	// Release or delete a specific lock
-	Release(lockID string)
+	Release(lockID string, lockClaim *v1locker.LockClaim)
 }
 
 type exclusiveLocker struct {
@@ -33,8 +33,7 @@ type exclusiveLocker struct {
 	cancel   func()
 
 	// association trees for all possible locks
-	exclusiveLocks  btreeassociated.BTreeAssociated
-	exclusiveClaims btreeassociated.BTreeAssociated
+	exclusiveLocks btreeassociated.BTreeAssociated
 
 	// task manger ensures shutdown requests are processsed properly
 	taskManager goasync.AsyncTaskManager
@@ -44,11 +43,10 @@ func NewExclusiveLocker() *exclusiveLocker {
 	shutdown, cancel := context.WithCancel(context.Background())
 
 	return &exclusiveLocker{
-		shutdown:        shutdown,
-		cancel:          cancel,
-		exclusiveLocks:  btreeassociated.NewThreadSafe(),
-		exclusiveClaims: btreeassociated.NewThreadSafe(),
-		taskManager:     goasync.NewTaskManager(goasync.RelaxedConfig()),
+		shutdown:       shutdown,
+		cancel:         cancel,
+		exclusiveLocks: btreeassociated.NewThreadSafe(),
+		taskManager:    goasync.NewTaskManager(goasync.RelaxedConfig()),
 	}
 }
 
@@ -88,9 +86,10 @@ func (exclusiveLocker *exclusiveLocker) LocksQuery(query *v1common.AssociatedQue
 		exclusiveLock := associatedKeyValues.Value().(*exclusiveLock)
 
 		locks = append(locks, &v1locker.Lock{
-			SessionID:          associatedKeyValues.AssociatedID(),
+			LockID:             associatedKeyValues.AssociatedID(),
+			SessionID:          exclusiveLock.getSessionID(),
 			KeyValues:          associatedKeyValues.KeyValues(),
-			Timeout:            exclusiveLock.lockTimeout,
+			Timeout:            exclusiveLock.getLockTimeout(),
 			TimeTillExipre:     time.Since(exclusiveLock.getLastHeartbeatTime()),
 			LocksHeldOrWaiting: exclusiveLock.clientsWaitingForClaim.Load(),
 		})
@@ -102,31 +101,30 @@ func (exclusiveLocker *exclusiveLocker) LocksQuery(query *v1common.AssociatedQue
 }
 
 func (exclusiveLocker *exclusiveLocker) ObtainLock(clientCtx context.Context, createLockRequest *v1locker.LockCreateRequest) *v1locker.LockCreateResponse {
-	var claim *exclusiveClaim
+	var lock *exclusiveLock
+	var claimChannel chan<- time.Duration
 
 	created := false
 	onCreate := func() any {
 		created = true
-
-		claim = newExclusiveClaim()
-		claim.addClientWaiting()
-
-		return claim
+		lock = newExclusiveLock(func() channelAction { return exclusiveLocker.timeout(createLockRequest.KeyValues) })
+		claimChannel = lock.GetClaimChannel()
+		return lock
 	}
 
 	onFind := func(item btreeassociated.AssociatedKeyValues) {
-		claim = item.Value().(*exclusiveClaim)
-		claim.addClientWaiting()
+		lock = item.Value().(*exclusiveLock)
+		claimChannel = lock.GetClaimChannel()
 	}
 
-	claimID, err := exclusiveLocker.exclusiveClaims.CreateOrFind(createLockRequest.KeyValues, onCreate, onFind)
+	lockID, err := exclusiveLocker.exclusiveLocks.CreateOrFind(createLockRequest.KeyValues, onCreate, onFind)
 	if err != nil {
 		panic(err)
 	}
 
-	// if this was create, create the task with the claim id to the task manager
+	// if this was create, create the task with the lock id to the task manager
 	if created {
-		_ = exclusiveLocker.taskManager.AddExecuteTask(claimID, claim)
+		_ = exclusiveLocker.taskManager.AddExecuteTask(lockID, lock)
 	}
 
 	select {
@@ -137,33 +135,18 @@ func (exclusiveLocker *exclusiveLocker) ObtainLock(clientCtx context.Context, cr
 	// client disconnected
 	case <-clientCtx.Done():
 		// decrement the claim and remove the object from the tree if there are no other clients waiting
-		_ = exclusiveLocker.exclusiveClaims.Delete(createLockRequest.KeyValues, func(associatedKeyValues btreeassociated.AssociatedKeyValues) bool {
-			return associatedKeyValues.Value().(*exclusiveClaim).removeClientWaiting(false) == 0
+		_ = exclusiveLocker.exclusiveLocks.Delete(createLockRequest.KeyValues, func(associatedKeyValues btreeassociated.AssociatedKeyValues) bool {
+			return associatedKeyValues.Value().(*exclusiveLock).ReleaseLostClient()
 		})
 
 	// claim was obtained
-	case _, ok := <-claim.claim:
-		// if the claim channel was closed. then it could be a race with the serivce shutdown
-		if !ok {
-			return nil
-		}
-
+	case claimChannel <- createLockRequest.LockTimeout:
 		// at this point, we have successfuly have the exclusive claim so create the lock
-		var exclusiveLock *exclusiveLock
-		lockID, err := exclusiveLocker.exclusiveLocks.Create(createLockRequest.KeyValues, func() any {
-			exclusiveLock = newExclusiveLock(claim.clientsWaitingForClaim, createLockRequest.LockTimeout, func() bool { return exclusiveLocker.timeout(createLockRequest.KeyValues) })
-			return exclusiveLock
-		})
-
-		if err != nil {
-			panic(err)
-		}
-
-		// start processing the lock in the background
-		_ = exclusiveLocker.taskManager.AddExecuteTask(lockID, exclusiveLock)
+		sessionID := lock.ProcessClaim(createLockRequest.LockTimeout)
 
 		return &v1locker.LockCreateResponse{
-			SessionID:   lockID,
+			LockID:      lockID,
+			SessionID:   sessionID,
 			LockTimeout: createLockRequest.LockTimeout,
 		}
 	}
@@ -171,64 +154,40 @@ func (exclusiveLocker *exclusiveLocker) ObtainLock(clientCtx context.Context, cr
 	return nil
 }
 
-func (exclusiveLocker *exclusiveLocker) Heartbeat(lockID string) *errors.ServerError {
-	heartbeaterErr := &errors.ServerError{Message: "SessionID could not be found", StatusCode: http.StatusGone}
+func (exclusiveLocker *exclusiveLocker) Heartbeat(lockID string, claim *v1locker.LockClaim) *errors.ServerError {
+	heartbeaterErr := &errors.ServerError{Message: "LockID could not be found", StatusCode: http.StatusGone}
 
 	exclusiveLocker.exclusiveLocks.FindByAssociatedID(lockID, func(associatedKeyValues btreeassociated.AssociatedKeyValues) {
-		_, ok := <-associatedKeyValues.Value().(*exclusiveLock).heartbeat
-
-		// heartbeat was processed
-		if ok {
-			heartbeaterErr = nil
-		}
+		exclusiveLock := associatedKeyValues.Value().(*exclusiveLock)
+		heartbeaterErr = exclusiveLock.Heartbeat(claim)
 	})
 
 	return heartbeaterErr
 }
 
-func (exclusiveLocker *exclusiveLocker) Release(lockID string) {
-	var keyValues datatypes.KeyValues
+func (exclusiveLocker *exclusiveLocker) Release(lockID string, claim *v1locker.LockClaim) *errors.ServerError {
+	releaseError := &errors.ServerError{Message: "LockID could not be found", StatusCode: http.StatusGone}
 
 	exclusiveLocker.exclusiveLocks.DeleteByAssociatedID(lockID, func(associatedKeyValues btreeassociated.AssociatedKeyValues) bool {
+		var destroy bool
 		exclusiveLock := associatedKeyValues.Value().(*exclusiveLock)
-
-		_, ok := <-exclusiveLock.release
-
-		// lock was released
-		if ok {
-			keyValues = associatedKeyValues.KeyValues()
-			return true
-		}
-
-		// service shutdown. client will need to retry the request
-		return false
+		destroy, releaseError = exclusiveLock.ReleaseLock(claim)
+		return destroy
 	})
 
-	// if this is true, we released the lock. now need to update the claim
-	if len(keyValues) > 0 {
-		_ = exclusiveLocker.exclusiveClaims.Delete(keyValues, func(associatedKeyValues btreeassociated.AssociatedKeyValues) bool {
-			return associatedKeyValues.Value().(*exclusiveClaim).removeClientWaiting(true) == 0
-		})
-	}
+	return releaseError
 }
 
 // callback for the lock when a timeout occurs.
-func (exclusiveLocker *exclusiveLocker) timeout(lockKeyValues datatypes.KeyValues) bool {
-	lockRemoved := false
+func (exclusiveLocker *exclusiveLocker) timeout(lockKeyValues datatypes.KeyValues) channelAction {
+	action := channelAction{okToProcess: false, ok: false}
 
-	// lock was removed
 	exclusiveLocker.exclusiveLocks.Delete(lockKeyValues, func(associatedKeyValues btreeassociated.AssociatedKeyValues) bool {
-		lockRemoved = true
-		return true
+		exclusiveLock := associatedKeyValues.Value().(*exclusiveLock)
+
+		action = exclusiveLock.TimeOut()
+		return action.ok
 	})
 
-	// if this is true, we released the lock. now need to update the claim
-	if lockRemoved {
-		_ = exclusiveLocker.exclusiveClaims.Delete(lockKeyValues, func(associatedKeyValues btreeassociated.AssociatedKeyValues) bool {
-			exclusiveClaim := associatedKeyValues.Value().(*exclusiveClaim)
-			return exclusiveClaim.removeClientWaiting(true) == 0
-		})
-	}
-
-	return lockRemoved
+	return action
 }

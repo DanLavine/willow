@@ -31,8 +31,8 @@ func AddV1LockerRoutes(mux *urlrouter.Router, v1Handler handlers.V1LockerHandler
 
 	// crud operations for group rules
 	mux.HandleFunc("POST", "/v1/locks", v1Handler.Create)
-	mux.HandleFunc("DELETE", "/v1/locks/:_associated_id", v1Handler.Delete)
-	mux.HandleFunc("POST", "/v1/locks/:_associated_id/heartbeat", v1Handler.Heartbeat)
+	mux.HandleFunc("DELETE", "/v1/locks/:lock_id", v1Handler.Delete)
+	mux.HandleFunc("POST", "/v1/locks/:lock_id/heartbeat", v1Handler.Heartbeat)
 
 	// Admin APIs
 	// TODO: Need to actual account for auth for this

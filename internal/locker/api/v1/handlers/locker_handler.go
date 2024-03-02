@@ -67,7 +67,7 @@ func (lh *lockerHandler) Create(w http.ResponseWriter, r *http.Request) {
 		if _, respErr := api.EncodeAndSendHttpResponse(r.Header, w, http.StatusOK, lockResponse); respErr != nil {
 			// failing to write the response to the client means we should free the lock
 			logger.Error("Failed to write lock response to client", zap.Error(respErr))
-			lh.generalLocker.Release(lockResponse.SessionID)
+			lh.generalLocker.Release(lockResponse.LockID, &v1locker.LockClaim{SessionID: lockResponse.SessionID})
 		}
 	}
 
@@ -80,11 +80,18 @@ func (lh *lockerHandler) Heartbeat(w http.ResponseWriter, r *http.Request) {
 	logger.Debug("starting request")
 	defer logger.Debug("processed request")
 
+	// parse the claim
+	lockClaim := &v1locker.LockClaim{}
+	if err := api.DecodeAndValidateHttpRequest(r, lockClaim); err != nil {
+		_, _ = api.EncodeAndSendHttpResponse(r.Header, w, err.StatusCode, err)
+		return
+	}
+
 	// obtain named parameters from the url
 	namedParameters := urlrouter.GetNamedParamters(r.Context())
 
 	// heartbeat the lock
-	heartbeatError := lh.generalLocker.Heartbeat(namedParameters["_associated_id"])
+	heartbeatError := lh.generalLocker.Heartbeat(namedParameters["lock_id"], lockClaim)
 
 	if heartbeatError == nil {
 		// heartbeat was successful
@@ -119,11 +126,18 @@ func (lh *lockerHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	logger.Debug("starting request")
 	defer logger.Debug("processed request")
 
+	// parse the claim
+	lockClaim := &v1locker.LockClaim{}
+	if err := api.DecodeAndValidateHttpRequest(r, lockClaim); err != nil {
+		_, _ = api.EncodeAndSendHttpResponse(r.Header, w, err.StatusCode, err)
+		return
+	}
+
 	// obtain named parameters from the url
 	namedParameters := urlrouter.GetNamedParamters(r.Context())
 
 	// release the lock
-	lh.generalLocker.Release(namedParameters["_associated_id"])
+	lh.generalLocker.Release(namedParameters["lock_id"], lockClaim)
 
 	// respond and ignore the errors
 	_, _ = api.EncodeAndSendHttpResponse(r.Header, w, http.StatusNoContent, nil)

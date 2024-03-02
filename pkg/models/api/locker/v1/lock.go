@@ -9,7 +9,10 @@ import (
 
 // Lock is the full representation of the Lock Object
 type Lock struct {
-	// SessionID associated with the lock clients are using to heartbeat or release a lock with
+	// LockID to identify the lock
+	LockID string
+
+	// SessionID associated with the client currently holding the lock. Used to heartbeat or release a lock
 	SessionID string
 
 	// KeyValues collection that deffines the lock
