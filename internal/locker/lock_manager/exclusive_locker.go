@@ -101,30 +101,25 @@ func (exclusiveLocker *exclusiveLocker) LocksQuery(query *v1common.AssociatedQue
 }
 
 func (exclusiveLocker *exclusiveLocker) ObtainLock(clientCtx context.Context, createLockRequest *v1locker.LockCreateRequest) *v1locker.LockCreateResponse {
-	var lock *exclusiveLock
 	var claimChannel chan<- time.Duration
 
-	created := false
 	onCreate := func() any {
-		created = true
-		lock = newExclusiveLock(func() channelAction { return exclusiveLocker.timeout(createLockRequest.KeyValues) })
+		lock := newExclusiveLock(func() { exclusiveLocker.timeout(createLockRequest.KeyValues) })
 		claimChannel = lock.GetClaimChannel()
+
+		// add the task to the task manager
+		_ = exclusiveLocker.taskManager.AddExecuteTask("", lock)
+
 		return lock
 	}
 
 	onFind := func(item btreeassociated.AssociatedKeyValues) {
-		lock = item.Value().(*exclusiveLock)
-		claimChannel = lock.GetClaimChannel()
+		claimChannel = item.Value().(*exclusiveLock).GetClaimChannel()
 	}
 
 	lockID, err := exclusiveLocker.exclusiveLocks.CreateOrFind(createLockRequest.KeyValues, onCreate, onFind)
 	if err != nil {
 		panic(err)
-	}
-
-	// if this was create, create the task with the lock id to the task manager
-	if created {
-		_ = exclusiveLocker.taskManager.AddExecuteTask(lockID, lock)
 	}
 
 	select {
@@ -179,15 +174,9 @@ func (exclusiveLocker *exclusiveLocker) Release(lockID string, claim *v1locker.L
 }
 
 // callback for the lock when a timeout occurs.
-func (exclusiveLocker *exclusiveLocker) timeout(lockKeyValues datatypes.KeyValues) channelAction {
-	action := channelAction{okToProcess: false, ok: false}
-
+func (exclusiveLocker *exclusiveLocker) timeout(lockKeyValues datatypes.KeyValues) {
 	exclusiveLocker.exclusiveLocks.Delete(lockKeyValues, func(associatedKeyValues btreeassociated.AssociatedKeyValues) bool {
 		exclusiveLock := associatedKeyValues.Value().(*exclusiveLock)
-
-		action = exclusiveLock.TimeOut()
-		return action.ok
+		return exclusiveLock.TimeOut()
 	})
-
-	return action
 }
