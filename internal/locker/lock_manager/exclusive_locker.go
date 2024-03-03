@@ -24,14 +24,10 @@ type ExcluiveLocker interface {
 	LocksQuery(query *v1common.AssociatedQuery) v1locker.Locks
 
 	// Release or delete a specific lock
-	Release(lockID string, lockClaim *v1locker.LockClaim)
+	Release(lockID string, lockClaim *v1locker.LockClaim) *errors.ServerError
 }
 
 type exclusiveLocker struct {
-	// closed when the server shuts down
-	shutdown context.Context
-	cancel   func()
-
 	// association trees for all possible locks
 	exclusiveLocks btreeassociated.BTreeAssociated
 
@@ -40,11 +36,7 @@ type exclusiveLocker struct {
 }
 
 func NewExclusiveLocker() *exclusiveLocker {
-	shutdown, cancel := context.WithCancel(context.Background())
-
 	return &exclusiveLocker{
-		shutdown:       shutdown,
-		cancel:         cancel,
 		exclusiveLocks: btreeassociated.NewThreadSafe(),
 		taskManager:    goasync.NewTaskManager(goasync.RelaxedConfig()),
 	}
@@ -56,18 +48,9 @@ func (exclusiveLocker *exclusiveLocker) Cleanup() error    { return nil }
 // execution for handling shutdown of all the possible locks
 func (exclusiveLocker *exclusiveLocker) Execute(ctx context.Context) error {
 	// NOTE: this blocks until all locks have processed the shutdown request
-	done := make(chan struct{})
-	go func() {
-		defer close(done)
-		_ = exclusiveLocker.taskManager.Run(ctx)
-	}()
-
 	// when the service is told to stop, we want to cancel all the current claim operations
-	<-ctx.Done()
-	exclusiveLocker.cancel()
+	_ = exclusiveLocker.taskManager.Run(ctx)
 
-	// wait until all the heartbeater operations have finished processing
-	<-done
 	return nil
 }
 
@@ -85,12 +68,20 @@ func (exclusiveLocker *exclusiveLocker) LocksQuery(query *v1common.AssociatedQue
 	exclusiveLocker.exclusiveLocks.Query(query.AssociatedKeyValues, func(associatedKeyValues btreeassociated.AssociatedKeyValues) bool {
 		exclusiveLock := associatedKeyValues.Value().(*exclusiveLock)
 
+		var expireTime time.Duration
+		lastHeartbeatTime := exclusiveLock.getLastHeartbeatTime()
+		if lastHeartbeatTime == (time.Time{}) {
+			expireTime = 0
+		} else {
+			expireTime = time.Since(lastHeartbeatTime)
+		}
+
 		locks = append(locks, &v1locker.Lock{
 			LockID:             associatedKeyValues.AssociatedID(),
 			SessionID:          exclusiveLock.getSessionID(),
 			KeyValues:          associatedKeyValues.KeyValues(),
 			Timeout:            exclusiveLock.getLockTimeout(),
-			TimeTillExipre:     time.Since(exclusiveLock.getLastHeartbeatTime()),
+			TimeTillExipre:     expireTime,
 			LocksHeldOrWaiting: exclusiveLock.clientsWaitingForClaim.Load(),
 		})
 
@@ -105,10 +96,17 @@ func (exclusiveLocker *exclusiveLocker) ObtainLock(clientCtx context.Context, cr
 
 	onCreate := func() any {
 		lock := newExclusiveLock(func() { exclusiveLocker.timeout(createLockRequest.KeyValues) })
-		claimChannel = lock.GetClaimChannel()
 
 		// add the task to the task manager
-		_ = exclusiveLocker.taskManager.AddExecuteTask("", lock)
+		if err := exclusiveLocker.taskManager.AddExecuteTask("", lock); err == nil {
+			claimChannel = lock.GetClaimChannel()
+		} else {
+			// on an error, just set thest to a closed channel to exit from the claim operation
+			closedChannel := make(chan func(time.Duration) string)
+			close(closedChannel)
+
+			claimChannel = closedChannel
+		}
 
 		return lock
 	}
@@ -123,10 +121,6 @@ func (exclusiveLocker *exclusiveLocker) ObtainLock(clientCtx context.Context, cr
 	}
 
 	select {
-	// service was told to shutdown
-	case <-exclusiveLocker.shutdown.Done():
-		return nil
-
 	// client disconnected
 	case <-clientCtx.Done():
 		// decrement the claim and remove the object from the tree if there are no other clients waiting
@@ -134,15 +128,22 @@ func (exclusiveLocker *exclusiveLocker) ObtainLock(clientCtx context.Context, cr
 			return associatedKeyValues.Value().(*exclusiveLock).ReleaseLostClient()
 		})
 
-	// claim was obtained
-	case processClaim := <-claimChannel:
-		// at this point, we have successfuly have the exclusive claim so create the lock
-		sessionID := processClaim(createLockRequest.LockTimeout)
+	// claim was obtained or lock stopped processing for shutdown
+	case processClaim, ok := <-claimChannel:
+		// service was told to shutdown and the client did not obtain the lock
+		if !ok {
+			return nil
+		}
 
-		return &v1locker.LockCreateResponse{
-			LockID:      lockID,
-			SessionID:   sessionID,
-			LockTimeout: createLockRequest.LockTimeout,
+		if ok {
+			// at this point, we have successfuly have the exclusive claim so create the lock
+			sessionID := processClaim(createLockRequest.LockTimeout)
+
+			return &v1locker.LockCreateResponse{
+				LockID:      lockID,
+				SessionID:   sessionID,
+				LockTimeout: createLockRequest.LockTimeout,
+			}
 		}
 	}
 

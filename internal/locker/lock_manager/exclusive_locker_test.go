@@ -60,16 +60,10 @@ func TestExclusiveLocker_ObtainLocks(t *testing.T) {
 		t.Run("Context after the server context is closed", func(t *testing.T) {
 			t.Run("It reeturns nil without creating the lock", func(t *testing.T) {
 				ctx, cancel := context.WithCancel(context.Background())
-
-				done := make(chan struct{})
-				exclusiveLocker := NewExclusiveLocker()
-				go func() {
-					defer close(done)
-					exclusiveLocker.Execute(ctx)
-				}()
-
 				cancel()
-				g.Eventually(done).Should(BeClosed())
+
+				exclusiveLocker := NewExclusiveLocker()
+				g.Expect(exclusiveLocker.Execute(ctx)).ToNot(HaveOccurred())
 
 				lockResp := exclusiveLocker.ObtainLock(context.Background(), defaultLockCreateRequest())
 				g.Expect(lockResp).To(BeNil())

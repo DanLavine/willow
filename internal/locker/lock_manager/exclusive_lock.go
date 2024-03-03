@@ -2,7 +2,6 @@ package lockmanager
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"sync"
 	"sync/atomic"
@@ -89,13 +88,21 @@ func newExclusiveLock(timeout func()) *exclusiveLock {
 }
 
 func (exclusiveLock *exclusiveLock) Execute(ctx context.Context) error {
-	defer close(exclusiveLock.done)
+	defer func() {
+		close(exclusiveLock.claim)
+		close(exclusiveLock.done)
+	}()
 
 	for {
 		select {
-		// service was told to shutdown
-		case <-ctx.Done():
-			return nil
+		// service was told to shutdown.
+		//
+		// NOTE: don't need to check this here. In the case of a client creating a new lock when a shutdown processes, we want
+		// to ensure the client is able to claim the newly created lock before we exit.
+		// Then in the case of the lock being released, the client will either retry because it recieved a server shutdown
+		// response code. OR, the lock will be released and a new client can either clam the lock before the service shutdown
+		//
+		// case <-ctx.Done():
 
 		// processed a heartbeat, but there are no claims yet
 		case <-exclusiveLock.heartbeat:
@@ -117,9 +124,10 @@ func (exclusiveLock *exclusiveLock) Execute(ctx context.Context) error {
 			// this is the case that a release occured, but there is no claim
 			exclusiveLock.releaseResponse <- failedRelease
 
-		// client was able to claim the lock
+		// client was able to claim the lock.
+		// NOTE: this is a write operation so the caller can get a callback function to call. This way they do not
+		// need to save off a variable for the lock in the exclusive_locker
 		case exclusiveLock.claim <- exclusiveLock.processClaim:
-			// respond with the new session id
 			lockTimeout := <-exclusiveLock.claimResponse
 
 			// start the new heartbeat loop operation
@@ -149,10 +157,6 @@ func (exclusiveLock *exclusiveLock) Execute(ctx context.Context) error {
 
 				// heartbeat
 				case claim := <-exclusiveLock.heartbeat:
-					fmt.Println("exclusive lock session id", exclusiveLock.sessionID)
-					fmt.Println("claim session id", claim.SessionID)
-					fmt.Println("equal", exclusiveLock.sessionID == claim.SessionID)
-
 					if claim.SessionID == exclusiveLock.sessionID {
 						// setup the last heartbeat record
 						exclusiveLock.lastHeartbeatLock.Lock()
@@ -170,8 +174,6 @@ func (exclusiveLock *exclusiveLock) Execute(ctx context.Context) error {
 				// timed out
 				case <-ticker.C:
 					ticker.Stop()
-
-					fmt.Println("timed out")
 
 					// clear the session id
 					exclusiveLock.sessionIDLock.Lock()
@@ -304,11 +306,9 @@ func (exclusiveLock *exclusiveLock) Heartbeat(claim *v1locker.LockClaim) *errors
 	select {
 	case exclusiveLock.heartbeat <- claim:
 		if passed := <-exclusiveLock.heartbeatResponse; passed {
-			fmt.Println("passed?", passed)
 			return nil
 		}
 
-		fmt.Println("failed to pass")
 		return &errors.ServerError{Message: "SessionID for the claim is invalid", StatusCode: http.StatusConflict}
 	case <-exclusiveLock.done:
 		return errors.ServerShutdown
