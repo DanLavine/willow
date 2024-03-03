@@ -127,7 +127,7 @@ func (exclusiveLocker *exclusiveLocker) ObtainLock(clientCtx context.Context, cr
 		// decrement the claim and remove the object from the tree if there are no other clients waiting
 
 		_ = exclusiveLocker.exclusiveLocks.Delete(createLockRequest.KeyValues, func(associatedKeyValues btreeassociated.AssociatedKeyValues) bool {
-			return associatedKeyValues.Value().(*exclusiveLock).ReleaseLostClient()
+			return associatedKeyValues.Value().(*exclusiveLock).LostClient()
 		})
 
 	// claim was obtained or lock stopped processing for shutdown

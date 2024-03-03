@@ -34,9 +34,13 @@ type exclusiveLock struct {
 	heartbeat         chan *v1locker.LockClaim
 	heartbeatResponse chan bool
 
-	// channels to manager releasing a client or lock
+	// channels to manager releasing a lock
 	release         chan *v1locker.LockClaim
 	releaseResponse chan releaseResponseCode
+
+	// channels to manager releasing a lock
+	clientLost         chan struct{}
+	clientLostResponse chan bool
 
 	// channels to manage lock operations
 	claim         chan func(time.Duration) string
@@ -73,6 +77,9 @@ func newExclusiveLock(timeout func()) *exclusiveLock {
 		release:         make(chan *v1locker.LockClaim),
 		releaseResponse: make(chan releaseResponseCode),
 
+		clientLost:         make(chan struct{}),
+		clientLostResponse: make(chan bool),
+
 		claim:         make(chan func(time.Duration) string),
 		claimResponse: make(chan time.Duration),
 
@@ -89,6 +96,7 @@ func newExclusiveLock(timeout func()) *exclusiveLock {
 
 func (exclusiveLock *exclusiveLock) Execute(ctx context.Context) error {
 	defer func() {
+		close(exclusiveLock.clientLost)
 		close(exclusiveLock.claim)
 		close(exclusiveLock.done)
 	}()
@@ -104,25 +112,14 @@ func (exclusiveLock *exclusiveLock) Execute(ctx context.Context) error {
 		//
 		// case <-ctx.Done():
 
-		// processed a heartbeat, but there are no claims yet
-		case <-exclusiveLock.heartbeat:
-			exclusiveLock.heartbeatResponse <- false
-
-		// processed a relase, but there are no claims yet
-		case claim := <-exclusiveLock.release:
-			// this is the case that a client has disconnected
-			if claim == nil {
-				if exclusiveLock.clientsWaitingForClaim.Add(^uint64(0)) == 0 {
-					exclusiveLock.releaseResponse <- processedAndDestroy
-					return nil
-				}
-
-				exclusiveLock.releaseResponse <- processedRelease
-			} else {
-				// this is the case that a release occured, after a timeout. Don't need to drop the clients waiting count
-				// since that happened on the timeout
-				exclusiveLock.releaseResponse <- failedRelease
+		// processed a client lost
+		case exclusiveLock.clientLost <- struct{}{}:
+			if exclusiveLock.clientsWaitingForClaim.Add(^uint64(0)) == 0 {
+				exclusiveLock.clientLostResponse <- true
+				return nil
 			}
+
+			exclusiveLock.clientLostResponse <- false
 
 		// client was able to claim the lock.
 		// NOTE: this is a write operation so the caller can get a callback function to call. This way they do not
@@ -155,6 +152,13 @@ func (exclusiveLock *exclusiveLock) Execute(ctx context.Context) error {
 
 					return nil
 
+				// processed a client lost
+				case exclusiveLock.clientLost <- struct{}{}:
+					if exclusiveLock.clientsWaitingForClaim.Add(^uint64(0)) == 0 {
+						panic("lost client is at 0 while a lock is heald")
+					}
+					exclusiveLock.clientLostResponse <- false
+
 				// heartbeat
 				case claim := <-exclusiveLock.heartbeat:
 					if claim.SessionID == exclusiveLock.sessionID {
@@ -170,6 +174,41 @@ func (exclusiveLock *exclusiveLock) Execute(ctx context.Context) error {
 					} else {
 						exclusiveLock.heartbeatResponse <- false
 					}
+
+				// releasing a claim
+				case claim := <-exclusiveLock.release:
+					// this is the case that a release occured with proper session id
+					if claim.SessionID == exclusiveLock.sessionID {
+						// reset the session id
+						exclusiveLock.sessionIDLock.Lock()
+						exclusiveLock.sessionID = ""
+						exclusiveLock.sessionIDLock.Unlock()
+
+						// set the current timeout
+						exclusiveLock.lockTimeoutLock.Lock()
+						exclusiveLock.lockTimeout = 0
+						exclusiveLock.lockTimeoutLock.Unlock()
+
+						// clear the heartbeat timer
+						exclusiveLock.lastHeartbeatLock.Lock()
+						exclusiveLock.lastHeartbeat = time.Time{}
+						exclusiveLock.lastHeartbeatLock.Unlock()
+
+						// stop the timeout ticker
+						ticker.Stop()
+
+						if exclusiveLock.clientsWaitingForClaim.Add(^uint64(0)) == 0 {
+							exclusiveLock.releaseResponse <- processedAndDestroy
+							return nil
+						}
+
+						exclusiveLock.releaseResponse <- processedRelease
+						break HEARTBEAT_LOOP
+					}
+
+					// this is an error case and the counter should not be decremented.
+					// api was called with an invalid SessionID
+					exclusiveLock.releaseResponse <- failedRelease
 
 				// timed out
 				case <-ticker.C:
@@ -210,49 +249,6 @@ func (exclusiveLock *exclusiveLock) Execute(ctx context.Context) error {
 					}
 
 					break HEARTBEAT_LOOP
-
-				// releasing a claim or a client was disconnected
-				case claim := <-exclusiveLock.release:
-					// this is the case that a client has disconnected
-					if claim == nil {
-						// should never have more than 0 clients at this point
-						_ = exclusiveLock.clientsWaitingForClaim.Add(^uint64(0))
-						exclusiveLock.releaseResponse <- processedRelease
-						continue HEARTBEAT_LOOP
-					}
-
-					// this is the case that a release occured with proper session id
-					if claim.SessionID == exclusiveLock.sessionID {
-						// reset the session id
-						exclusiveLock.sessionIDLock.Lock()
-						exclusiveLock.sessionID = ""
-						exclusiveLock.sessionIDLock.Unlock()
-
-						// set the current timeout
-						exclusiveLock.lockTimeoutLock.Lock()
-						exclusiveLock.lockTimeout = 0
-						exclusiveLock.lockTimeoutLock.Unlock()
-
-						// clear the heartbeat timer
-						exclusiveLock.lastHeartbeatLock.Lock()
-						exclusiveLock.lastHeartbeat = time.Time{}
-						exclusiveLock.lastHeartbeatLock.Unlock()
-
-						// stop the timeout ticker
-						ticker.Stop()
-
-						if exclusiveLock.clientsWaitingForClaim.Add(^uint64(0)) == 0 {
-							exclusiveLock.releaseResponse <- processedAndDestroy
-							return nil
-						} else {
-							exclusiveLock.releaseResponse <- processedRelease
-							break HEARTBEAT_LOOP
-						}
-					} else {
-						// this is an error case and the counter should not be decremented.
-						// api was called with an invalid SessionID
-						exclusiveLock.releaseResponse <- failedRelease
-					}
 				}
 			}
 		}
@@ -352,20 +348,13 @@ func (exclusiveLock *exclusiveLock) ReleaseLock(claim *v1locker.LockClaim) (bool
 //	- *errors.ServerError - error encountered when heartbeating the lock
 //
 // ReleaseLostClient is called from the manager when a client disconnects
-func (exclusiveLock *exclusiveLock) ReleaseLostClient() bool {
-	select {
-	case exclusiveLock.release <- nil:
-		response := <-exclusiveLock.releaseResponse
-
-		switch response {
-		case processedRelease:
-			return false
-		default: // processedAndDestroy:
-			return true
-		}
-	case <-exclusiveLock.done:
-		return false
+func (exclusiveLock *exclusiveLock) LostClient() bool {
+	_, ok := <-exclusiveLock.clientLost
+	if ok {
+		return <-exclusiveLock.clientLostResponse
 	}
+
+	return false
 }
 
 //	RETURNS
