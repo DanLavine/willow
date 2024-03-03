@@ -16,8 +16,8 @@ type releaseResponseCode int
 
 const (
 	failedRelease       releaseResponseCode = 0
-	processedRelease                        = 1
-	processedAndDestroy                     = 2
+	processedRelease    releaseResponseCode = 1
+	processedAndDestroy releaseResponseCode = 2
 )
 
 type exclusiveLock struct {
@@ -118,11 +118,11 @@ func (exclusiveLock *exclusiveLock) Execute(ctx context.Context) error {
 				}
 
 				exclusiveLock.releaseResponse <- processedRelease
-				continue
+			} else {
+				// this is the case that a release occured, after a timeout. Don't need to drop the clients waiting count
+				// since that happened on the timeout
+				exclusiveLock.releaseResponse <- failedRelease
 			}
-
-			// this is the case that a release occured, but there is no claim
-			exclusiveLock.releaseResponse <- failedRelease
 
 		// client was able to claim the lock.
 		// NOTE: this is a write operation so the caller can get a callback function to call. This way they do not
@@ -190,8 +190,9 @@ func (exclusiveLock *exclusiveLock) Execute(ctx context.Context) error {
 					exclusiveLock.lastHeartbeat = time.Time{}
 					exclusiveLock.lastHeartbeatLock.Unlock()
 
-					// need to run the cleanup in the background thread so the tree can grab the delete lock to check
+					// need to run the cleanup in a background thread so the tree can grab the delete lock to check
 					exclusiveLock.blockDone <- struct{}{}
+
 					go func() {
 						exclusiveLock.timeout()
 					}()
@@ -217,7 +218,7 @@ func (exclusiveLock *exclusiveLock) Execute(ctx context.Context) error {
 						// should never have more than 0 clients at this point
 						_ = exclusiveLock.clientsWaitingForClaim.Add(^uint64(0))
 						exclusiveLock.releaseResponse <- processedRelease
-						break HEARTBEAT_LOOP
+						continue HEARTBEAT_LOOP
 					}
 
 					// this is the case that a release occured with proper session id
@@ -248,6 +249,8 @@ func (exclusiveLock *exclusiveLock) Execute(ctx context.Context) error {
 							break HEARTBEAT_LOOP
 						}
 					} else {
+						// this is an error case and the counter should not be decremented.
+						// api was called with an invalid SessionID
 						exclusiveLock.releaseResponse <- failedRelease
 					}
 				}
@@ -262,7 +265,7 @@ func (exclusiveLock *exclusiveLock) Execute(ctx context.Context) error {
 //	RETURNS
 //	- string - the sessionID for the claim
 //
-// Claim a lock. This will set the unique sessionID if the claim has been captured
+// processClaim is the callback the exclusive_locker will call when a client obtains a lock
 func (exclusiveLock *exclusiveLock) processClaim(lockTimeout time.Duration) string {
 	// setup the new session id
 	exclusiveLock.sessionIDLock.Lock()

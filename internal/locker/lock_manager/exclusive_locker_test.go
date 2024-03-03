@@ -138,7 +138,7 @@ func TestExclusiveLocker_ObtainLocks(t *testing.T) {
 			}()
 
 			wg := new(sync.WaitGroup)
-			for i := 10_000; i < 0; i++ {
+			for i := 0; i < 10_000; i++ {
 				wg.Add(1)
 
 				go func() {
@@ -176,7 +176,7 @@ func TestExclusiveLocker_ObtainLocks(t *testing.T) {
 			}()
 
 			wg := new(sync.WaitGroup)
-			for i := 10_000; i < 0; i++ {
+			for i := 0; i < 10_000; i++ {
 				wg.Add(1)
 
 				testReq := &v1locker.LockCreateRequest{
@@ -224,7 +224,7 @@ func TestExclusiveLocker_ObtainLocks(t *testing.T) {
 				}()
 
 				wg := new(sync.WaitGroup)
-				for i := 10; i < 0; i++ {
+				for i := 0; i < 10; i++ {
 					if i == 0 {
 						_ = exclusiveLocker.ObtainLock(context.Background(), defaultLockCreateRequest())
 					} else {
@@ -254,7 +254,7 @@ func TestExclusiveLocker_ObtainLocks(t *testing.T) {
 			})
 		})
 
-		t.Run("Context if the client is closed", func(t *testing.T) {
+		t.Run("Context if a single client is closed", func(t *testing.T) {
 			t.Run("It frees up any waiting clients", func(t *testing.T) {
 				ctx, cancel := context.WithCancel(context.Background())
 
@@ -264,7 +264,7 @@ func TestExclusiveLocker_ObtainLocks(t *testing.T) {
 				}()
 
 				wg := new(sync.WaitGroup)
-				for i := 10; i < 0; i++ {
+				for i := 0; i < 10; i++ {
 					if i == 0 {
 						_ = exclusiveLocker.ObtainLock(ctx, defaultLockCreateRequest())
 					} else {
@@ -423,7 +423,7 @@ func TestExclusiveLocker_Heartbeat(t *testing.T) {
 		g.Expect(len(locks)).To(Equal(1))
 	})
 
-	t.Run("It removes the lock if no heartbeats are received", func(t *testing.T) {
+	t.Run("It removes the lock if no heartbeats are received and there are no other clients waiting", func(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
@@ -442,6 +442,39 @@ func TestExclusiveLocker_Heartbeat(t *testing.T) {
 		g.Eventually(func() int {
 			return len(exclusiveLocker.LocksQuery(generalQuery))
 		}).Should(Equal(0))
+
+		t.Run("It allows another client to claim the lock if no heartbeats are recieved", func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+
+			// start the task manager with the locker
+			exclusiveLocker := NewExclusiveLocker()
+			go func() {
+				exclusiveLocker.Execute(ctx)
+			}()
+
+			lockRequest := defaultLockCreateRequest()
+			lockRequest.LockTimeout = 100 * time.Millisecond
+
+			locked := make(chan struct{})
+			for i := 0; i < 5; i++ {
+				go func() {
+					_ = exclusiveLocker.ObtainLock(ctx, lockRequest)
+					select {
+					case locked <- struct{}{}:
+					case <-ctx.Done():
+					}
+				}()
+			}
+
+			for i := 0; i < 5; i++ {
+				g.Eventually(locked).Should(Receive())
+			}
+
+			g.Eventually(func() int {
+				return len(exclusiveLocker.LocksQuery(generalQuery))
+			}).Should(Equal(0))
+		})
 	})
 }
 
@@ -490,5 +523,90 @@ func TestExclusiveLocker_Release(t *testing.T) {
 		err := exclusiveLocker.Heartbeat(lockResp.LockID, claim)
 		g.Expect(err).ToNot(BeNil())
 		g.Expect(err.Error()).To(ContainSubstring("SessionID for the claim is invalid"))
+	})
+}
+
+func TestExclusiveLocker_async(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	t.Run("It properly processes the client records for all timeout and release options", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		exclusiveLocker := NewExclusiveLocker()
+		go func() {
+			exclusiveLocker.Execute(ctx)
+		}()
+
+		defaultLock := defaultLockCreateRequest()
+		defaultLock.LockTimeout = time.Second
+
+		wg := new(sync.WaitGroup)
+		for i := 0; i < 1000; i++ {
+			wg.Add(1)
+
+			go func(timeout int) {
+				defer wg.Done()
+
+				deadlineCtx, _ := context.WithDeadline(context.Background(), time.Now().Add(time.Duration(timeout%10)*200*time.Millisecond))
+				lock := exclusiveLocker.ObtainLock(deadlineCtx, defaultLock)
+				startTime := time.Now()
+
+				// call with an invalid session ID for release
+				if timeout%5 == 0 {
+					if lock != nil {
+						g.Expect(exclusiveLocker.Release(lock.LockID, &v1locker.LockClaim{SessionID: "bad id"})).To(HaveOccurred())
+					}
+				}
+
+				// call with an invalid session ID for heartbeat
+				if timeout%4 == 0 {
+					if lock != nil {
+						g.Expect(exclusiveLocker.Heartbeat(lock.LockID, &v1locker.LockClaim{SessionID: "bad id"})).To(HaveOccurred())
+					}
+				}
+
+				// call with a good session ID for heartbeat
+				if timeout%8 == 0 {
+					if lock != nil {
+						g.Expect(exclusiveLocker.Heartbeat(lock.LockID, &v1locker.LockClaim{SessionID: lock.SessionID})).ToNot(HaveOccurred())
+					}
+				}
+
+				// successful release
+				if timeout%7 == 0 {
+					if lock != nil {
+						g.Expect(exclusiveLocker.Release(lock.LockID, &v1locker.LockClaim{SessionID: lock.SessionID})).ToNot(HaveOccurred())
+					}
+				}
+
+				// attempt to hit bad release before next claim
+				if timeout%3 == 0 {
+					if lock != nil {
+						fmt.Println("time till call", time.Since(startTime))
+						g.Expect(exclusiveLocker.Release(lock.LockID, &v1locker.LockClaim{SessionID: lock.SessionID})).ToNot(HaveOccurred())
+						g.Expect(exclusiveLocker.Release(lock.LockID, &v1locker.LockClaim{SessionID: lock.SessionID})).To(HaveOccurred())
+					}
+				}
+			}(i)
+		}
+
+		done := make(chan struct{})
+		go func() {
+			wg.Wait()
+			close(done)
+		}()
+
+		select {
+		case <-time.After(10 * time.Second):
+			g.Fail("Failed to run async waits for same lock")
+		case <-done:
+			// nothing to do here, everything closed properly
+		}
+
+		g.Eventually(func() int {
+			locks := exclusiveLocker.LocksQuery(&v1.AssociatedQuery{AssociatedKeyValues: datatypes.AssociatedKeyValuesQuery{}})
+			return len(locks)
+		}, 3*time.Second).Should(Equal(0)) // race detection can be a bit slow on the check here. so allow for 3 seconds
 	})
 }

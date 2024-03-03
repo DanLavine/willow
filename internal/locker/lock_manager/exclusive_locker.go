@@ -101,7 +101,8 @@ func (exclusiveLocker *exclusiveLocker) ObtainLock(clientCtx context.Context, cr
 		if err := exclusiveLocker.taskManager.AddExecuteTask("", lock); err == nil {
 			claimChannel = lock.GetClaimChannel()
 		} else {
-			// on an error, just set thest to a closed channel to exit from the claim operation
+			// on an error, just set thest to a closed channel to exit from the claim operation. The client will
+			// need to retry and the lock should not be saved
 			closedChannel := make(chan func(time.Duration) string)
 			close(closedChannel)
 
@@ -124,6 +125,7 @@ func (exclusiveLocker *exclusiveLocker) ObtainLock(clientCtx context.Context, cr
 	// client disconnected
 	case <-clientCtx.Done():
 		// decrement the claim and remove the object from the tree if there are no other clients waiting
+
 		_ = exclusiveLocker.exclusiveLocks.Delete(createLockRequest.KeyValues, func(associatedKeyValues btreeassociated.AssociatedKeyValues) bool {
 			return associatedKeyValues.Value().(*exclusiveLock).ReleaseLostClient()
 		})
@@ -178,6 +180,8 @@ func (exclusiveLocker *exclusiveLocker) Release(lockID string, claim *v1locker.L
 func (exclusiveLocker *exclusiveLocker) timeout(lockKeyValues datatypes.KeyValues) {
 	exclusiveLocker.exclusiveLocks.Delete(lockKeyValues, func(associatedKeyValues btreeassociated.AssociatedKeyValues) bool {
 		exclusiveLock := associatedKeyValues.Value().(*exclusiveLock)
-		return exclusiveLock.TimeOut()
+		shouldTimeout := exclusiveLock.TimeOut()
+
+		return shouldTimeout
 	})
 }
