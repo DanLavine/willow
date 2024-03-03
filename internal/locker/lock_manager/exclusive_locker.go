@@ -153,7 +153,7 @@ func (exclusiveLocker *exclusiveLocker) ObtainLock(clientCtx context.Context, cr
 }
 
 func (exclusiveLocker *exclusiveLocker) Heartbeat(lockID string, claim *v1locker.LockClaim) *errors.ServerError {
-	heartbeaterErr := &errors.ServerError{Message: "LockID could not be found", StatusCode: http.StatusGone}
+	heartbeaterErr := &errors.ServerError{Message: "LockID could not be found", StatusCode: http.StatusNotFound}
 
 	exclusiveLocker.exclusiveLocks.FindByAssociatedID(lockID, func(associatedKeyValues btreeassociated.AssociatedKeyValues) {
 		exclusiveLock := associatedKeyValues.Value().(*exclusiveLock)
@@ -164,7 +164,7 @@ func (exclusiveLocker *exclusiveLocker) Heartbeat(lockID string, claim *v1locker
 }
 
 func (exclusiveLocker *exclusiveLocker) Release(lockID string, claim *v1locker.LockClaim) *errors.ServerError {
-	releaseError := &errors.ServerError{Message: "LockID could not be found", StatusCode: http.StatusGone}
+	releaseError := &errors.ServerError{Message: "LockID could not be found", StatusCode: http.StatusNotFound}
 
 	exclusiveLocker.exclusiveLocks.DeleteByAssociatedID(lockID, func(associatedKeyValues btreeassociated.AssociatedKeyValues) bool {
 		var destroy bool

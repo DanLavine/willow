@@ -10,6 +10,7 @@ import (
 	"github.com/DanLavine/willow/pkg/clients"
 	"github.com/DanLavine/willow/pkg/models/api"
 	"github.com/DanLavine/willow/pkg/models/api/common/errors"
+	v1locker "github.com/DanLavine/willow/pkg/models/api/locker/v1"
 )
 
 // Lock interface defines the methods for an obtained lock from the Locker Service.
@@ -50,14 +51,15 @@ type lock struct {
 	// with the remote service and record them
 	releaseLockCallback func() // cleans up the tree in the locker client
 
-	// Lock unique session ID created by the service
+	// Lock unique IDs created by the service
+	lockID    string
 	sessionID string
 
 	// timeout for the configured Lock
 	timeout time.Duration
 }
 
-func newLock(sessionID string, timeout time.Duration, url string, client clients.HttpClient, contentType string, heartbeatErrorCallback func(err error), releaseLockCallback func()) *lock {
+func newLock(lockResponse *v1locker.LockCreateResponse, url string, client clients.HttpClient, contentType string, heartbeatErrorCallback func(err error), releaseLockCallback func()) *lock {
 	lock := &lock{
 		doneOnce: new(sync.Once),
 		done:     make(chan struct{}),
@@ -71,8 +73,9 @@ func newLock(sessionID string, timeout time.Duration, url string, client clients
 
 		releaseLockCallback: releaseLockCallback,
 
-		sessionID: sessionID,
-		timeout:   timeout,
+		lockID:    lockResponse.LockID,
+		sessionID: lockResponse.SessionID,
+		timeout:   lockResponse.LockTimeout,
 	}
 
 	go func() {
@@ -84,7 +87,7 @@ func newLock(sessionID string, timeout time.Duration, url string, client clients
 
 		// set ticker to be ((timeout - 10%) /3). This way we try and heartbeat at least 3 times before a failure occurs
 		lastHeartbeat := time.Now()
-		adjustedTimeout := timeout - (timeout / 10)
+		adjustedTimeout := lockResponse.LockTimeout - (lockResponse.LockTimeout / 10)
 		ticker := time.NewTicker(adjustedTimeout / 3)
 
 		for {
@@ -103,8 +106,10 @@ func newLock(sessionID string, timeout time.Duration, url string, client clients
 				// need to heartbeat
 				resp, err := client.Do(&clients.RequestData{
 					Method: "POST",
-					Path:   fmt.Sprintf("%s/v1/locks/%s/heartbeat", url, sessionID),
-					Model:  nil,
+					Path:   fmt.Sprintf("%s/v1/locks/%s/heartbeat", url, lockResponse.LockID),
+					Model: &v1locker.LockClaim{
+						SessionID: lockResponse.SessionID,
+					},
 				})
 
 				if err != nil {
@@ -119,7 +124,7 @@ func newLock(sessionID string, timeout time.Duration, url string, client clients
 				case http.StatusOK:
 					// this is the success case and the heartbeat passed
 					lastHeartbeat = time.Now()
-				case http.StatusGone:
+				case http.StatusConflict, http.StatusBadRequest:
 					// there was an error with the request body or seession id
 					apiError := &errors.Error{}
 					if err := api.DecodeAndValidateHttpResponse(resp, apiError); err != nil {
@@ -163,8 +168,10 @@ func (l *lock) Release() error {
 		// Delete Lock
 		resp, err := l.client.Do(&clients.RequestData{
 			Method: "DELETE",
-			Path:   fmt.Sprintf("%s/v1/locks/%s", l.url, l.sessionID),
-			Model:  nil,
+			Path:   fmt.Sprintf("%s/v1/locks/%s", l.url, l.lockID),
+			Model: &v1locker.LockClaim{
+				SessionID: l.sessionID,
+			},
 		})
 
 		if err != nil {
@@ -175,6 +182,15 @@ func (l *lock) Release() error {
 		case http.StatusNoContent:
 			// this is the success case and the Lock was deleted
 			return nil
+		case http.StatusConflict, http.StatusBadRequest:
+			// there was an error with the request body or seession id
+			apiError := &errors.Error{}
+			if err := api.DecodeAndValidateHttpResponse(resp, apiError); err != nil {
+				return err
+			}
+
+			// release the lock
+			return apiError
 		default:
 			return fmt.Errorf("unexpected response code from the remote locker service '%d'. Need to wait for the lock to expire remotely", resp.StatusCode)
 		}

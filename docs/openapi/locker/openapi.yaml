@@ -111,6 +111,18 @@ paths:
       responses:
         204:
           description: Resrouce was deleted or never even existed
+        404:
+          description: returned when the lock_id cannot be found
+          content:
+            appplication/json:
+              schema:
+                $ref: "../common/components.yaml#/components/schemas/ApiError"
+        409:
+          description: returned when there was an error processing the SessionID
+          content:
+            appplication/json:
+              schema:
+                $ref: "../common/components.yaml#/components/schemas/ApiError"
   /v1/locks/:lock_id/heartbeat:
     post:
       operationId: heartbeat Lock
@@ -131,7 +143,13 @@ paths:
       responses:
         200:
           description: OK
-        410:
+        404:
+          description: returned when the lock_id cannot be found
+          content:
+            appplication/json:
+              schema:
+                $ref: "../common/components.yaml#/components/schemas/ApiError"
+        409:
           description: returned when there was an error processing the SessionID
           content:
             appplication/json:
