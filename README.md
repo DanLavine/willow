@@ -74,7 +74,7 @@ stable. At that pooint I will also want to setup a CICD to build and deploy thin
 # Limitations
 
 1. Currently the system is only in memory only. I had to figure out how to save all my apis through the unique Key + Value Pairs
-2. No authorization for Limitations created in the Limiter Service. So removing arbitrary thiings will probably cause major
+2. No authorization for Limitations created in the Limiter Service. So removing arbitrary things will probably cause major
    problems
 
 # Future Plans
@@ -94,7 +94,8 @@ I want to work on at a glance:
   
   1. Simplify the clients and ensure the API is properly documented with failure status codes
 
-     * I currently have things setup to need `content-type: application/json` headers which just make hings hard to use when trying out the service. I had a notion of have a "fast" api for only byte arrays, but I don't really need that to begin with. So just simplify things for now and document what a "fast" api would be:
+     * I currently have things setup to need `content-type: application/json` headers which just make hings hard to use when trying out the service. 
+       I had a notion of have a "fast" api for only byte arrays, but I don't really need that to begin with. So just simplify things for now and document what a "fast" api would be:
         * Don't check queues against Limiter rules
         * raw byte encoding
         * works more like other Queue services that need fast queue throughput is the main goal of a setup
