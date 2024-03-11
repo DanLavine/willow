@@ -1,6 +1,7 @@
 package overrides
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 
@@ -9,6 +10,7 @@ import (
 	"go.uber.org/zap"
 
 	btreeonetomany "github.com/DanLavine/willow/internal/datastructures/btree_one_to_many"
+	"github.com/DanLavine/willow/internal/reporting"
 	v1common "github.com/DanLavine/willow/pkg/models/api/common/v1"
 	v1limiter "github.com/DanLavine/willow/pkg/models/api/limiter/v1"
 )
@@ -39,8 +41,8 @@ func NewOverridesClientLocal(tree btreeonetomany.BTreeOneToMany, constructor Ove
 	}
 }
 
-func (ocl *overridesClientLocal) CreateOverride(logger *zap.Logger, ruleName string, override *v1limiter.Override) *errors.ServerError {
-	logger = logger.Named("CreateOverride").With(zap.String("override_name", override.Name))
+func (ocl *overridesClientLocal) CreateOverride(ctx context.Context, ruleName string, override *v1limiter.Override) *errors.ServerError {
+	logger := reporting.GetLogger(ctx).Named("CreateOverride").With(zap.String("override_name", override.Name))
 
 	onCreate := func() any {
 		return ocl.constructor.New(override)
@@ -71,8 +73,8 @@ func (ocl *overridesClientLocal) CreateOverride(logger *zap.Logger, ruleName str
 	return nil
 }
 
-func (ocl *overridesClientLocal) GetOverride(logger *zap.Logger, ruleName string, overrideName string) (*v1limiter.Override, *errors.ServerError) {
-	logger = logger.Named("GetOverride").With(zap.String("override_name", overrideName))
+func (ocl *overridesClientLocal) GetOverride(ctx context.Context, ruleName string, overrideName string) (*v1limiter.Override, *errors.ServerError) {
+	logger := reporting.GetLogger(ctx).Named("GetOverride").With(zap.String("override_name", overrideName))
 
 	var limiterOverride *v1limiter.Override
 	overrideErr := errorMissingOverrideName(overrideName)
@@ -112,8 +114,8 @@ func (ocl *overridesClientLocal) GetOverride(logger *zap.Logger, ruleName string
 	return limiterOverride, overrideErr
 }
 
-func (ocl *overridesClientLocal) MatchOverrides(logger *zap.Logger, ruleName string, query *v1common.MatchQuery) (v1limiter.Overrides, *errors.ServerError) {
-	logger = logger.Named("MatchOverrides")
+func (ocl *overridesClientLocal) MatchOverrides(ctx context.Context, ruleName string, query *v1common.MatchQuery) (v1limiter.Overrides, *errors.ServerError) {
+	logger := reporting.GetLogger(ctx).Named("MatchOverrides")
 	overrides := v1limiter.Overrides{}
 
 	onIterate := func(item btreeonetomany.OneToManyItem) bool {
@@ -155,8 +157,8 @@ func (ocl *overridesClientLocal) MatchOverrides(logger *zap.Logger, ruleName str
 	return overrides, nil
 }
 
-func (ocl *overridesClientLocal) UpdateOverride(logger *zap.Logger, ruleName string, overrideName string, overrideUpdate *v1limiter.OverrideUpdate) *errors.ServerError {
-	logger = logger.Named("CreateOverride").With(zap.String("override_name", overrideName))
+func (ocl *overridesClientLocal) UpdateOverride(ctx context.Context, ruleName string, overrideName string, overrideUpdate *v1limiter.OverrideUpdate) *errors.ServerError {
+	logger := reporting.GetLogger(ctx).Named("UpdateOverride").With(zap.String("override_name", overrideName))
 	overrideErr := errorMissingOverrideName(overrideName)
 
 	onIterate := func(item btreeonetomany.OneToManyItem) bool {
@@ -189,8 +191,8 @@ func (ocl *overridesClientLocal) UpdateOverride(logger *zap.Logger, ruleName str
 	return overrideErr
 }
 
-func (ocl *overridesClientLocal) DestroyOverride(logger *zap.Logger, ruleName string, overrideName string) *errors.ServerError {
-	logger = logger.Named("DeleteOverride")
+func (ocl *overridesClientLocal) DestroyOverride(ctx context.Context, ruleName string, overrideName string) *errors.ServerError {
+	logger := reporting.GetLogger(ctx).Named("DestroyOverride").With(zap.String("override_name", overrideName))
 
 	var deleteErr *errors.ServerError
 	canDelete := func(item btreeonetomany.OneToManyItem) bool {
@@ -214,15 +216,15 @@ func (ocl *overridesClientLocal) DestroyOverride(logger *zap.Logger, ruleName st
 	}
 
 	if deleteErr != nil {
-		logger.Error("failed to delete the override for the rule", zap.String("override_name", overrideName), zap.Error(deleteErr))
+		logger.Error("failed to delete the override for the rule", zap.Error(deleteErr))
 		return errors.InternalServerError
 	}
 
 	return nil
 }
 
-func (ocl *overridesClientLocal) DestroyOverrides(logger *zap.Logger, ruleName string) *errors.ServerError {
-	logger = logger.Named("DeleteOverride")
+func (ocl *overridesClientLocal) DestroyOverrides(ctx context.Context, ruleName string) *errors.ServerError {
+	logger := reporting.GetLogger(ctx).Named("DestroyOverrides")
 
 	var deleteErr *errors.ServerError
 	canDelete := func(item btreeonetomany.OneToManyItem) bool {
@@ -250,8 +252,8 @@ func (ocl *overridesClientLocal) DestroyOverrides(logger *zap.Logger, ruleName s
 	return nil
 }
 
-func (ocl *overridesClientLocal) FindOverrideLimits(logger *zap.Logger, ruleName string, keyValues datatypes.KeyValues) (v1limiter.Overrides, *errors.ServerError) {
-	logger = logger.Named("FindOverrideLimits")
+func (ocl *overridesClientLocal) FindOverrideLimits(ctx context.Context, ruleName string, keyValues datatypes.KeyValues) (v1limiter.Overrides, *errors.ServerError) {
+	logger := reporting.GetLogger(ctx).Named("FindOverrideLimits").With(zap.String("rule_name", ruleName))
 	overrides := v1limiter.Overrides{}
 
 	// stop if a limit is at 0

@@ -27,6 +27,7 @@ type LockerClient interface {
 	//	PARAMS:
 	//	- ctx - Context that can be used to cancel the blocking requst trying to obtain the lock. NOTE: once a lock is obtained, release must be called
 	//	- lockRequest - request for the lock to obtain
+	//	- headers (optional) - optional http headers to add to the http request
 	//	- heartbeatErrorCallback (optional) - callback for heartbeat errors. Mainly used to log any errors the managed client to the locker service might be experiencing
 	//
 	//	RETURNS
@@ -37,7 +38,7 @@ type LockerClient interface {
 	// Obtain a lock for a particular set of KeyValues. This blocks until the desired lock is obtained, or the context is canceled.
 	// The returned lock will automatically heartbeat to ensure that the lock remains valid. If the heartbeat fails for some reason,
 	// the channel returned from the `lock.Done()` call will be closed. It is up to the clients to monitor for a lock being lost
-	ObtainLock(ctx context.Context, lockRequest *v1locker.LockCreateRequest, heartbeatErrorCallback func(keyValue datatypes.KeyValues, err error)) (Lock, error)
+	ObtainLock(ctx context.Context, lockRequest *v1locker.LockCreateRequest, headers http.Header, heartbeatErrorCallback func(keyValue datatypes.KeyValues, err error)) (Lock, error)
 }
 
 // LockClient interacts with the Locker service.
@@ -89,12 +90,12 @@ func NewLockClient(cfg *clients.Config) (*LockClient, error) {
 // Healthy is used to ensure that the Locker service can be reached
 func (lc *LockClient) Healthy() error {
 	// setup and make the request
-	resp, err := lc.client.Do(&clients.RequestData{
-		Method: "GET",
-		Path:   fmt.Sprintf("%s/health", lc.url),
-		Model:  nil,
-	})
+	req, err := lc.client.SetupRequest("GET", fmt.Sprintf("%s/health", lc.url))
+	if err != nil {
+		return fmt.Errorf("failed to setup request to healthy api")
+	}
 
+	resp, err := lc.client.Do(req)
 	if err != nil {
 		return err
 	}
@@ -111,6 +112,7 @@ func (lc *LockClient) Healthy() error {
 //	PARAMS:
 //	- ctx - Context that can be used to cancel the blocking requst trying to obtain the lock. NOTE: once a lock is obtained, release must be called
 //	- lockRequest - request for the lock to obtain
+//	- headers (optional) - optional http headers to add to the http request
 //	- heartbeatErrorCallback (optional) - callback for heartbeat errors. Mainly used to log any errors the managed client to the locker service might be experiencing
 //
 //	RETURNS
@@ -121,7 +123,7 @@ func (lc *LockClient) Healthy() error {
 // Obtain a lock for a particular set of KeyValues. This blocks until the desired lock is obtained, or the context is canceled.
 // The returned lock will automatically heartbeat to ensure that the lock remains valid. If the heartbeat fails for some reason,
 // the channel returned from the `lock.Done()` call will be closed. It is up to the clients to monitor for a lock being lost
-func (lc *LockClient) ObtainLock(ctx context.Context, lockRequest *v1locker.LockCreateRequest, heartbeatErrorCallback func(keyValue datatypes.KeyValues, err error)) (Lock, error) {
+func (lc *LockClient) ObtainLock(ctx context.Context, lockRequest *v1locker.LockCreateRequest, headers http.Header, heartbeatErrorCallback func(keyValue datatypes.KeyValues, err error)) (Lock, error) {
 	obtainedLock := make(chan struct{})
 	defer close(obtainedLock)
 
@@ -132,12 +134,15 @@ func (lc *LockClient) ObtainLock(ctx context.Context, lockRequest *v1locker.Lock
 	onCreate := func() any {
 		for {
 			// setup and make request
-			resp, err := lc.client.DoWithContext(ctx, &clients.RequestData{
-				Method: "POST",
-				Path:   fmt.Sprintf("%s/v1/locks", lc.url),
-				Model:  lockRequest,
-			})
+			req, err := lc.client.EncodedRequestWithCancel(ctx, "POST", fmt.Sprintf("%s/v1/locks", lc.url), lockRequest)
+			if err != nil {
+				lockErr = err
+				return nil
+			}
 
+			clients.AppendHeaders(req, headers)
+
+			resp, err := lc.client.Do(req)
 			if err != nil {
 				select {
 				case <-ctx.Done():

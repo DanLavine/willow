@@ -18,35 +18,35 @@ type LimiterClient interface {
 
 	// Rule operations
 	// Create a new Rule
-	CreateRule(rule *v1limiter.RuleCreateRequest) error
+	CreateRule(rule *v1limiter.RuleCreateRequest, headers http.Header) error
 	// Get a spcific rule by name and query the possible overrides
-	GetRule(ruleName string, query *v1limiter.RuleGet) (*v1limiter.Rule, error)
+	GetRule(ruleName string, query *v1limiter.RuleGet, headers http.Header) (*v1limiter.Rule, error)
 	// MAtch Rules and possible Overrides for a specific KeyValues group
-	MatchRules(query *v1limiter.RuleMatch) (v1limiter.Rules, error)
+	MatchRules(query *v1limiter.RuleMatch, headers http.Header) (v1limiter.Rules, error)
 	// Update a Rule by name
-	UpdateRule(ruleName string, ruleUpdate *v1limiter.RuleUpdateRquest) error
+	UpdateRule(ruleName string, ruleUpdate *v1limiter.RuleUpdateRquest, headers http.Header) error
 	// Delete a Rule by name
-	DeleteRule(ruleName string) error
+	DeleteRule(ruleName string, headers http.Header) error
 
 	// Override operations
 	// Create an Override for a particular Rule
-	CreateOverride(ruleName string, override *v1limiter.Override) error
+	CreateOverride(ruleName string, override *v1limiter.Override, headers http.Header) error
 	// Get an Override for a particular Rule
-	GetOverride(ruleName string, overrideName string) (*v1limiter.Override, error)
+	GetOverride(ruleName string, overrideName string, headers http.Header) (*v1limiter.Override, error)
 	// Match Overrides
-	MatchOverrides(ruleName string, query *v1common.MatchQuery) (v1limiter.Overrides, error)
+	MatchOverrides(ruleName string, query *v1common.MatchQuery, headers http.Header) (v1limiter.Overrides, error)
 	// Update a particular Override
-	UpdateOverride(ruleName string, overrideName string, overrideUpdate *v1limiter.OverrideUpdate) error
+	UpdateOverride(ruleName string, overrideName string, overrideUpdate *v1limiter.OverrideUpdate, headers http.Header) error
 	// Delete an Override for a particual Rule
-	DeleteOverride(ruleName string, overrideName string) error
+	DeleteOverride(ruleName string, overrideName string, headers http.Header) error
 
 	// Counter operations
 	// Increment Or Decrement a particual Counter
-	UpdateCounter(counter *v1limiter.Counter) error
+	UpdateCounter(counter *v1limiter.Counter, headers http.Header) error
 	// Query Counters
-	QueryCounters(query *v1common.AssociatedQuery) (v1limiter.Counters, error)
+	QueryCounters(query *v1common.AssociatedQuery, headers http.Header) (v1limiter.Counters, error)
 	// Forcefully set the Counter without enforcing any rules
-	SetCounters(counters *v1limiter.Counter) error
+	SetCounters(counters *v1limiter.Counter, headers http.Header) error
 }
 
 // LimiteClient to connect with remote limiter service
@@ -84,12 +84,12 @@ func NewLimiterClient(cfg *clients.Config) (*LimitClient, error) {
 
 func (lc *LimitClient) Healthy() error {
 	// setup and make the request
-	resp, err := lc.client.Do(&clients.RequestData{
-		Method: "GET",
-		Path:   fmt.Sprintf("%s/health", lc.url),
-		Model:  nil,
-	})
+	req, err := lc.client.SetupRequest("GET", fmt.Sprintf("%s/health", lc.url))
+	if err != nil {
+		return fmt.Errorf("failed to setup request to healthy api")
+	}
 
+	resp, err := lc.client.Do(req)
 	if err != nil {
 		return err
 	}

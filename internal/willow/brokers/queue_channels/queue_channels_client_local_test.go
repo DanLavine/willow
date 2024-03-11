@@ -3,6 +3,7 @@ package queuechannels
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"testing"
 	"time"
 
@@ -11,11 +12,13 @@ import (
 	"go.uber.org/zap/zaptest/observer"
 
 	btreeonetomany "github.com/DanLavine/willow/internal/datastructures/btree_one_to_many"
+	"github.com/DanLavine/willow/internal/reporting"
 	"github.com/DanLavine/willow/internal/willow/brokers/queue_channels/constructor"
 	"github.com/DanLavine/willow/internal/willow/brokers/queue_channels/constructor/constructorfakes"
 	"github.com/DanLavine/willow/pkg/clients/limiter_client/limiterclientfakes"
 	"github.com/DanLavine/willow/pkg/models/api/common/errors"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
+	"github.com/DanLavine/willow/testhelpers"
 
 	v1limiter "github.com/DanLavine/willow/pkg/models/api/limiter/v1"
 	v1willow "github.com/DanLavine/willow/pkg/models/api/willow/v1"
@@ -47,8 +50,8 @@ func setupConstuctor(t *testing.T, g *GomegaWithT) (*gomock.Controller, construc
 
 	// setup the limiter client to always pass
 	fakeLimiterClient := limiterclientfakes.NewMockLimiterClient(mockController)
-	fakeLimiterClient.EXPECT().UpdateCounter(gomock.Any()).DoAndReturn(func(_ *v1limiter.Counter) error { return nil }).AnyTimes()
-	fakeLimiterClient.EXPECT().SetCounters(gomock.Any()).DoAndReturn(func(_ *v1limiter.Counter) error { return nil }).AnyTimes()
+	fakeLimiterClient.EXPECT().UpdateCounter(gomock.Any(), gomock.Any()).DoAndReturn(func(_ *v1limiter.Counter, _ http.Header) error { return nil }).AnyTimes()
+	fakeLimiterClient.EXPECT().SetCounters(gomock.Any(), gomock.Any()).DoAndReturn(func(_ *v1limiter.Counter, _ http.Header) error { return nil }).AnyTimes()
 
 	constructor, err := constructor.NewQueueChannelConstructor("memory", fakeLimiterClient)
 	g.Expect(err).ToNot(HaveOccurred())
@@ -67,8 +70,8 @@ func Test_queueChannelsClientLocal_EnqueueQueueItem(t *testing.T) {
 
 			// setup fake queue channel
 			mockQueueChannel := constructorfakes.NewMockQueueChannel(mockController)
-			mockQueueChannel.EXPECT().Enqueue(gomock.Any(), gomock.Any()).DoAndReturn(func(*zap.Logger, *v1willow.EnqueueQueueItem) *errors.ServerError { return nil }).Times(1)
-			mockQueueChannel.EXPECT().Dequeue().DoAndReturn(func() (channel <-chan func(logger *zap.Logger) (*v1willow.DequeueQueueItem, func(), func())) {
+			mockQueueChannel.EXPECT().Enqueue(gomock.Any(), gomock.Any()).DoAndReturn(func(context.Context, *v1willow.EnqueueQueueItem) *errors.ServerError { return nil }).Times(1)
+			mockQueueChannel.EXPECT().Dequeue().DoAndReturn(func() (channel <-chan func(logger context.Context) (*v1willow.DequeueQueueItem, func(), func())) {
 				return nil
 			}).Times(1)
 
@@ -79,7 +82,7 @@ func Test_queueChannelsClientLocal_EnqueueQueueItem(t *testing.T) {
 			// setup queue channel client local
 			queueChannelClentLocal := NewLocalQueueChannelsClient(mockConstructor)
 
-			err := queueChannelClentLocal.EnqueueQueueItem(zap.NewNop(), "queue name", defaultEnqueueItem(g))
+			err := queueChannelClentLocal.EnqueueQueueItem(testhelpers.NewContextWithLogger(), "queue name", defaultEnqueueItem(g))
 			g.Expect(err).ToNot(HaveOccurred())
 		})
 
@@ -90,8 +93,8 @@ func Test_queueChannelsClientLocal_EnqueueQueueItem(t *testing.T) {
 
 			// setup fake queue channel
 			mockQueueChannel := constructorfakes.NewMockQueueChannel(mockController)
-			mockQueueChannel.EXPECT().Enqueue(gomock.Any(), gomock.Any()).DoAndReturn(func(*zap.Logger, *v1willow.EnqueueQueueItem) *errors.ServerError { return nil }).Times(5)
-			mockQueueChannel.EXPECT().Dequeue().DoAndReturn(func() (channel <-chan func(logger *zap.Logger) (*v1willow.DequeueQueueItem, func(), func())) {
+			mockQueueChannel.EXPECT().Enqueue(gomock.Any(), gomock.Any()).DoAndReturn(func(context.Context, *v1willow.EnqueueQueueItem) *errors.ServerError { return nil }).Times(5)
+			mockQueueChannel.EXPECT().Dequeue().DoAndReturn(func() (channel <-chan func(logger context.Context) (*v1willow.DequeueQueueItem, func(), func())) {
 				return nil
 			}).Times(5)
 
@@ -102,11 +105,11 @@ func Test_queueChannelsClientLocal_EnqueueQueueItem(t *testing.T) {
 			// setup queue channel client local
 			queueChannelClentLocal := NewLocalQueueChannelsClient(mockConstructor)
 
-			g.Expect(queueChannelClentLocal.EnqueueQueueItem(zap.NewNop(), "queue name 1", defaultEnqueueItem(g)))
-			g.Expect(queueChannelClentLocal.EnqueueQueueItem(zap.NewNop(), "queue name 2", defaultEnqueueItem(g)))
-			g.Expect(queueChannelClentLocal.EnqueueQueueItem(zap.NewNop(), "queue name 3", defaultEnqueueItem(g)))
-			g.Expect(queueChannelClentLocal.EnqueueQueueItem(zap.NewNop(), "queue name 4", defaultEnqueueItem(g)))
-			g.Expect(queueChannelClentLocal.EnqueueQueueItem(zap.NewNop(), "queue name 5", defaultEnqueueItem(g)))
+			g.Expect(queueChannelClentLocal.EnqueueQueueItem(testhelpers.NewContextWithLogger(), "queue name 1", defaultEnqueueItem(g)))
+			g.Expect(queueChannelClentLocal.EnqueueQueueItem(testhelpers.NewContextWithLogger(), "queue name 2", defaultEnqueueItem(g)))
+			g.Expect(queueChannelClentLocal.EnqueueQueueItem(testhelpers.NewContextWithLogger(), "queue name 3", defaultEnqueueItem(g)))
+			g.Expect(queueChannelClentLocal.EnqueueQueueItem(testhelpers.NewContextWithLogger(), "queue name 4", defaultEnqueueItem(g)))
+			g.Expect(queueChannelClentLocal.EnqueueQueueItem(testhelpers.NewContextWithLogger(), "queue name 5", defaultEnqueueItem(g)))
 		})
 
 		t.Run("It creates a new channel with the same Name + different KeyValues", func(t *testing.T) {
@@ -116,8 +119,8 @@ func Test_queueChannelsClientLocal_EnqueueQueueItem(t *testing.T) {
 
 			// setup fake queue channel
 			mockQueueChannel := constructorfakes.NewMockQueueChannel(mockController)
-			mockQueueChannel.EXPECT().Enqueue(gomock.Any(), gomock.Any()).DoAndReturn(func(*zap.Logger, *v1willow.EnqueueQueueItem) *errors.ServerError { return nil }).Times(5)
-			mockQueueChannel.EXPECT().Dequeue().DoAndReturn(func() (channel <-chan func(logger *zap.Logger) (*v1willow.DequeueQueueItem, func(), func())) {
+			mockQueueChannel.EXPECT().Enqueue(gomock.Any(), gomock.Any()).DoAndReturn(func(context.Context, *v1willow.EnqueueQueueItem) *errors.ServerError { return nil }).Times(5)
+			mockQueueChannel.EXPECT().Dequeue().DoAndReturn(func() (channel <-chan func(logger context.Context) (*v1willow.DequeueQueueItem, func(), func())) {
 				return nil
 			}).Times(5)
 
@@ -140,7 +143,7 @@ func Test_queueChannelsClientLocal_EnqueueQueueItem(t *testing.T) {
 					TimeoutDuration: time.Second,
 				}
 				g.Expect(enqueuItem.Validate()).ToNot(HaveOccurred())
-				g.Expect(queueChannelClentLocal.EnqueueQueueItem(zap.NewNop(), "queue name", enqueuItem))
+				g.Expect(queueChannelClentLocal.EnqueueQueueItem(testhelpers.NewContextWithLogger(), "queue name", enqueuItem))
 			}
 		})
 
@@ -151,7 +154,7 @@ func Test_queueChannelsClientLocal_EnqueueQueueItem(t *testing.T) {
 
 			// setup fake queue channel
 			mockQueueChannel := constructorfakes.NewMockQueueChannel(mockController)
-			mockQueueChannel.EXPECT().Enqueue(gomock.Any(), gomock.Any()).DoAndReturn(func(*zap.Logger, *v1willow.EnqueueQueueItem) *errors.ServerError {
+			mockQueueChannel.EXPECT().Enqueue(gomock.Any(), gomock.Any()).DoAndReturn(func(context.Context, *v1willow.EnqueueQueueItem) *errors.ServerError {
 				return &errors.ServerError{Message: "failed to enqueue item"}
 			}).Times(1)
 
@@ -162,7 +165,7 @@ func Test_queueChannelsClientLocal_EnqueueQueueItem(t *testing.T) {
 			// setup queue channel client local
 			queueChannelClentLocal := NewLocalQueueChannelsClient(mockConstructor)
 
-			err := queueChannelClentLocal.EnqueueQueueItem(zap.NewNop(), "queue name", defaultEnqueueItem(g))
+			err := queueChannelClentLocal.EnqueueQueueItem(testhelpers.NewContextWithLogger(), "queue name", defaultEnqueueItem(g))
 			g.Expect(err).To(HaveOccurred())
 			g.Expect(err.Error()).To(ContainSubstring("failed to enqueue item"))
 		})
@@ -176,8 +179,8 @@ func Test_queueChannelsClientLocal_EnqueueQueueItem(t *testing.T) {
 
 			// setup fake queue channel
 			mockQueueChannel := constructorfakes.NewMockQueueChannel(mockController)
-			mockQueueChannel.EXPECT().Enqueue(gomock.Any(), gomock.Any()).DoAndReturn(func(*zap.Logger, *v1willow.EnqueueQueueItem) *errors.ServerError { return nil }).Times(5)
-			mockQueueChannel.EXPECT().Dequeue().DoAndReturn(func() (channel <-chan func(logger *zap.Logger) (*v1willow.DequeueQueueItem, func(), func())) {
+			mockQueueChannel.EXPECT().Enqueue(gomock.Any(), gomock.Any()).DoAndReturn(func(context.Context, *v1willow.EnqueueQueueItem) *errors.ServerError { return nil }).Times(5)
+			mockQueueChannel.EXPECT().Dequeue().DoAndReturn(func() (channel <-chan func(logger context.Context) (*v1willow.DequeueQueueItem, func(), func())) {
 				return nil
 			}).Times(1)
 
@@ -188,11 +191,11 @@ func Test_queueChannelsClientLocal_EnqueueQueueItem(t *testing.T) {
 			// setup queue channel client local
 			queueChannelClentLocal := NewLocalQueueChannelsClient(mockConstructor)
 
-			g.Expect(queueChannelClentLocal.EnqueueQueueItem(zap.NewNop(), "queue name", defaultEnqueueItem(g)))
-			g.Expect(queueChannelClentLocal.EnqueueQueueItem(zap.NewNop(), "queue name", defaultEnqueueItem(g)))
-			g.Expect(queueChannelClentLocal.EnqueueQueueItem(zap.NewNop(), "queue name", defaultEnqueueItem(g)))
-			g.Expect(queueChannelClentLocal.EnqueueQueueItem(zap.NewNop(), "queue name", defaultEnqueueItem(g)))
-			g.Expect(queueChannelClentLocal.EnqueueQueueItem(zap.NewNop(), "queue name", defaultEnqueueItem(g)))
+			g.Expect(queueChannelClentLocal.EnqueueQueueItem(testhelpers.NewContextWithLogger(), "queue name", defaultEnqueueItem(g)))
+			g.Expect(queueChannelClentLocal.EnqueueQueueItem(testhelpers.NewContextWithLogger(), "queue name", defaultEnqueueItem(g)))
+			g.Expect(queueChannelClentLocal.EnqueueQueueItem(testhelpers.NewContextWithLogger(), "queue name", defaultEnqueueItem(g)))
+			g.Expect(queueChannelClentLocal.EnqueueQueueItem(testhelpers.NewContextWithLogger(), "queue name", defaultEnqueueItem(g)))
+			g.Expect(queueChannelClentLocal.EnqueueQueueItem(testhelpers.NewContextWithLogger(), "queue name", defaultEnqueueItem(g)))
 		})
 	})
 }
@@ -232,7 +235,7 @@ func Test_queueChannelsClientLocal_DequeueQueueItem(t *testing.T) {
 
 			go func() {
 				defer close(done)
-				dequeueItem, success, failure, dequeueErr = queueChannelClentLocal.DequeueQueueItem(zap.NewNop(), context.Background(), "test queue", query)
+				dequeueItem, success, failure, dequeueErr = queueChannelClentLocal.DequeueQueueItem(testhelpers.NewContextWithLogger(), "test queue", query)
 			}()
 
 			g.Consistently(done).ShouldNot(BeClosed())
@@ -270,7 +273,7 @@ func Test_queueChannelsClientLocal_DequeueQueueItem(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			go func() {
 				defer close(done)
-				dequeueItem, success, failure, dequeueErr = queueChannelClentLocal.DequeueQueueItem(zap.NewNop(), ctx, "test queue", query)
+				dequeueItem, success, failure, dequeueErr = queueChannelClentLocal.DequeueQueueItem(context.WithValue(ctx, reporting.CustomLogger, zap.NewNop()), "test queue", query)
 			}()
 
 			g.Consistently(done).ShouldNot(BeClosed())
@@ -307,7 +310,7 @@ func Test_queueChannelsClientLocal_DequeueQueueItem(t *testing.T) {
 			g.Expect(query.Validate()).ToNot(HaveOccurred())
 
 			testZapCore, testLogs := observer.New(zap.DebugLevel)
-			testLgger := zap.New(testZapCore)
+			testContext := context.WithValue(context.Background(), reporting.CustomLogger, zap.New(testZapCore))
 
 			// run dequeue and wait till it has checked all current channels
 			done := make(chan struct{})
@@ -317,7 +320,7 @@ func Test_queueChannelsClientLocal_DequeueQueueItem(t *testing.T) {
 			var dequeueErr *errors.ServerError
 			go func() {
 				defer close(done)
-				dequeueItem, success, failure, dequeueErr = queueChannelClentLocal.DequeueQueueItem(testLgger, context.Background(), "test queue", query)
+				dequeueItem, success, failure, dequeueErr = queueChannelClentLocal.DequeueQueueItem(testContext, "test queue", query)
 			}()
 			g.Eventually(func() string {
 				if testLogs.Len() == 0 {
@@ -327,7 +330,7 @@ func Test_queueChannelsClientLocal_DequeueQueueItem(t *testing.T) {
 			}).Should(ContainSubstring("waiting for available item"))
 
 			// enqueue a new item
-			g.Expect(queueChannelClentLocal.EnqueueQueueItem(zap.NewNop(), "test queue", defaultEnqueueItem(g)))
+			g.Expect(queueChannelClentLocal.EnqueueQueueItem(testhelpers.NewContextWithLogger(), "test queue", defaultEnqueueItem(g)))
 
 			g.Eventually(done).Should(BeClosed())
 			g.Expect(dequeueItem).ToNot(BeNil())
@@ -368,7 +371,7 @@ func Test_queueChannelsClientLocal_DequeueQueueItem(t *testing.T) {
 			g.Expect(query.Validate()).ToNot(HaveOccurred())
 
 			testZapCore, testLogs := observer.New(zap.DebugLevel)
-			testLgger := zap.New(testZapCore)
+			testContext := context.WithValue(context.Background(), reporting.CustomLogger, zap.New(testZapCore))
 
 			// run dequeue and wait till it has checked all current channels
 			done := make(chan struct{})
@@ -378,7 +381,7 @@ func Test_queueChannelsClientLocal_DequeueQueueItem(t *testing.T) {
 			var dequeueErr *errors.ServerError
 			go func() {
 				defer close(done)
-				dequeueItem, success, failure, dequeueErr = queueChannelClentLocal.DequeueQueueItem(testLgger, context.Background(), "test queue", query)
+				dequeueItem, success, failure, dequeueErr = queueChannelClentLocal.DequeueQueueItem(testContext, "test queue", query)
 			}()
 			g.Eventually(func() string {
 				if testLogs.Len() == 0 {
@@ -388,7 +391,7 @@ func Test_queueChannelsClientLocal_DequeueQueueItem(t *testing.T) {
 			}).Should(ContainSubstring("waiting for available item"))
 
 			// enqueue an item that triggers the request
-			g.Expect(queueChannelClentLocal.EnqueueQueueItem(zap.NewNop(), "test queue", defaultEnqueueItem(g)))
+			g.Expect(queueChannelClentLocal.EnqueueQueueItem(testhelpers.NewContextWithLogger(), "test queue", defaultEnqueueItem(g)))
 			g.Consistently(done).ShouldNot(BeClosed())
 
 			// enqueue an item that should not trigger the request
@@ -405,7 +408,7 @@ func Test_queueChannelsClientLocal_DequeueQueueItem(t *testing.T) {
 				TimeoutDuration: time.Second,
 			}
 			g.Expect(enqueueItem.Validate()).ToNot(HaveOccurred())
-			g.Expect(queueChannelClentLocal.EnqueueQueueItem(zap.NewNop(), "test queue", enqueueItem))
+			g.Expect(queueChannelClentLocal.EnqueueQueueItem(testhelpers.NewContextWithLogger(), "test queue", enqueueItem))
 
 			g.Eventually(done).Should(BeClosed())
 			g.Expect(dequeueItem).ToNot(BeNil())
@@ -440,7 +443,7 @@ func Test_queueChannelsClientLocal_DequeueQueueItem(t *testing.T) {
 			}()
 
 			// enqueue an item
-			g.Expect(queueChannelClentLocal.EnqueueQueueItem(zap.NewNop(), "test queue", defaultEnqueueItem(g)))
+			g.Expect(queueChannelClentLocal.EnqueueQueueItem(testhelpers.NewContextWithLogger(), "test queue", defaultEnqueueItem(g)))
 
 			query := datatypes.AssociatedKeyValuesQuery{
 				KeyValueSelection: &datatypes.KeyValueSelection{
@@ -451,7 +454,7 @@ func Test_queueChannelsClientLocal_DequeueQueueItem(t *testing.T) {
 			}
 			g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-			dequeueItem, success, failure, dequeueErr := queueChannelClentLocal.DequeueQueueItem(zap.NewNop(), context.Background(), "test queue", query)
+			dequeueItem, success, failure, dequeueErr := queueChannelClentLocal.DequeueQueueItem(testhelpers.NewContextWithLogger(), "test queue", query)
 			g.Expect(dequeueItem).ToNot(BeNil())
 			g.Expect(dequeueItem.Item).To(Equal([]byte(`item to queue`)))
 			g.Expect(dequeueItem.ItemID).ToNot(Equal(""))
@@ -475,7 +478,7 @@ func Test_queueChannelsClientLocal_DequeueQueueItem(t *testing.T) {
 			}()
 
 			// enqueue an item that will dequeue
-			g.Expect(queueChannelClentLocal.EnqueueQueueItem(zap.NewNop(), "test queue", defaultEnqueueItem(g)))
+			g.Expect(queueChannelClentLocal.EnqueueQueueItem(testhelpers.NewContextWithLogger(), "test queue", defaultEnqueueItem(g)))
 
 			// enqueue an item that will not dequeue
 			enqueueItem := &v1willow.EnqueueQueueItem{
@@ -491,7 +494,7 @@ func Test_queueChannelsClientLocal_DequeueQueueItem(t *testing.T) {
 				TimeoutDuration: time.Second,
 			}
 			g.Expect(enqueueItem.Validate()).ToNot(HaveOccurred())
-			g.Expect(queueChannelClentLocal.EnqueueQueueItem(zap.NewNop(), "test queue", enqueueItem))
+			g.Expect(queueChannelClentLocal.EnqueueQueueItem(testhelpers.NewContextWithLogger(), "test queue", enqueueItem))
 
 			keyLimit := 1
 			query := datatypes.AssociatedKeyValuesQuery{
@@ -506,7 +509,7 @@ func Test_queueChannelsClientLocal_DequeueQueueItem(t *testing.T) {
 			}
 			g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-			dequeueItem, success, failure, dequeueErr := queueChannelClentLocal.DequeueQueueItem(zap.NewNop(), context.Background(), "test queue", query)
+			dequeueItem, success, failure, dequeueErr := queueChannelClentLocal.DequeueQueueItem(testhelpers.NewContextWithLogger(), "test queue", query)
 			g.Expect(dequeueItem).ToNot(BeNil())
 			g.Expect(dequeueItem.Item).To(Equal([]byte(`item to queue`)))
 			g.Expect(dequeueItem.ItemID).ToNot(Equal(""))
@@ -543,11 +546,11 @@ func Test_queueChannelsClientLocal_DequeueQueueItem(t *testing.T) {
 
 			// setup the channel
 			count := 0
-			dequeueChanOne := make(chan func(logger *zap.Logger) (*v1willow.DequeueQueueItem, func(), func()))
-			dequeueChanTwo := make(chan func(logger *zap.Logger) (*v1willow.DequeueQueueItem, func(), func()))
+			dequeueChanOne := make(chan func(logger context.Context) (*v1willow.DequeueQueueItem, func(), func()))
+			dequeueChanTwo := make(chan func(logger context.Context) (*v1willow.DequeueQueueItem, func(), func()))
 
-			fakeQueueChannel.EXPECT().Enqueue(gomock.Any(), gomock.Any()).DoAndReturn(func(*zap.Logger, *v1willow.EnqueueQueueItem) *errors.ServerError { return nil }).AnyTimes()
-			fakeQueueChannel.EXPECT().Dequeue().DoAndReturn(func() <-chan (func(logger *zap.Logger) (*v1willow.DequeueQueueItem, func(), func())) {
+			fakeQueueChannel.EXPECT().Enqueue(gomock.Any(), gomock.Any()).DoAndReturn(func(context.Context, *v1willow.EnqueueQueueItem) *errors.ServerError { return nil }).AnyTimes()
+			fakeQueueChannel.EXPECT().Dequeue().DoAndReturn(func() <-chan (func(logger context.Context) (*v1willow.DequeueQueueItem, func(), func())) {
 				// IMPORTANT TO HAVE THIS BE 2. the enqueue calls dequeue 1 time each to update any clients currently waiting
 				if count <= 2 {
 					count++
@@ -560,10 +563,10 @@ func Test_queueChannelsClientLocal_DequeueQueueItem(t *testing.T) {
 			// setup the response for the dequeue chan
 			go func() {
 				// first reponse is all nil (mimic the limiter blocking a request)
-				dequeueChanOne <- func(logger *zap.Logger) (*v1willow.DequeueQueueItem, func(), func()) { return nil, nil, nil }
+				dequeueChanOne <- func(logger context.Context) (*v1willow.DequeueQueueItem, func(), func()) { return nil, nil, nil }
 
 				// second response over same channel now should pass
-				dequeueChanTwo <- func(logger *zap.Logger) (*v1willow.DequeueQueueItem, func(), func()) {
+				dequeueChanTwo <- func(logger context.Context) (*v1willow.DequeueQueueItem, func(), func()) {
 					return &v1willow.DequeueQueueItem{
 						KeyValues:       datatypes.KeyValues{"one": datatypes.Int(1), "two": datatypes.Float32(2.0)},
 						ItemID:          "something",
@@ -576,7 +579,7 @@ func Test_queueChannelsClientLocal_DequeueQueueItem(t *testing.T) {
 			queueChannelClentLocal := NewLocalQueueChannelsClient(constructor)
 
 			// enqueue our fake chan twice
-			g.Expect(queueChannelClentLocal.EnqueueQueueItem(zap.NewNop(), "test queue", &v1willow.EnqueueQueueItem{
+			g.Expect(queueChannelClentLocal.EnqueueQueueItem(testhelpers.NewContextWithLogger(), "test queue", &v1willow.EnqueueQueueItem{
 				Item:            []byte(`doesn't matter 1`),
 				KeyValues:       datatypes.KeyValues{"one": datatypes.Int(1)},
 				Updateable:      false,
@@ -585,7 +588,7 @@ func Test_queueChannelsClientLocal_DequeueQueueItem(t *testing.T) {
 				TimeoutDuration: time.Second,
 			})).ToNot(HaveOccurred())
 
-			g.Expect(queueChannelClentLocal.EnqueueQueueItem(zap.NewNop(), "test queue", &v1willow.EnqueueQueueItem{
+			g.Expect(queueChannelClentLocal.EnqueueQueueItem(testhelpers.NewContextWithLogger(), "test queue", &v1willow.EnqueueQueueItem{
 				Item:            []byte(`doesn't matter 2`),
 				KeyValues:       datatypes.KeyValues{"one": datatypes.Int(1), "two": datatypes.Float32(2.0)},
 				Updateable:      false,
@@ -619,7 +622,7 @@ func Test_queueChannelsClientLocal_DequeueQueueItem(t *testing.T) {
 			var dequeueErr *errors.ServerError
 			go func() {
 				defer close(done)
-				dequeueItem, success, failure, dequeueErr = queueChannelClentLocal.DequeueQueueItem(zap.NewNop(), context.Background(), "test queue", query)
+				dequeueItem, success, failure, dequeueErr = queueChannelClentLocal.DequeueQueueItem(testhelpers.NewContextWithLogger(), "test queue", query)
 			}()
 
 			g.Eventually(done).Should(BeClosed())
@@ -641,9 +644,9 @@ func Test_queueChannelsClientLocal_DequeueQueueItem(t *testing.T) {
 			defer mockController.Finish()
 
 			// setup the channel
-			dequeueChan := make(chan func(logger *zap.Logger) (*v1willow.DequeueQueueItem, func(), func()))
-			fakeQueueChannel.EXPECT().Enqueue(gomock.Any(), gomock.Any()).DoAndReturn(func(*zap.Logger, *v1willow.EnqueueQueueItem) *errors.ServerError { return nil }).Times(1)
-			fakeQueueChannel.EXPECT().Dequeue().DoAndReturn(func() <-chan (func(logger *zap.Logger) (*v1willow.DequeueQueueItem, func(), func())) {
+			dequeueChan := make(chan func(logger context.Context) (*v1willow.DequeueQueueItem, func(), func()))
+			fakeQueueChannel.EXPECT().Enqueue(gomock.Any(), gomock.Any()).DoAndReturn(func(context.Context, *v1willow.EnqueueQueueItem) *errors.ServerError { return nil }).Times(1)
+			fakeQueueChannel.EXPECT().Dequeue().DoAndReturn(func() <-chan (func(logger context.Context) (*v1willow.DequeueQueueItem, func(), func())) {
 				return dequeueChan
 			}).AnyTimes()
 			fakeQueueChannel.EXPECT().Execute(gomock.Any()).DoAndReturn(func(ctx context.Context) error { return nil }).Times(1)
@@ -651,11 +654,11 @@ func Test_queueChannelsClientLocal_DequeueQueueItem(t *testing.T) {
 			// setup the response for the dequeue chan
 			go func() {
 				// first reponse is all nil (mimic the limiter blocking a request)
-				empty := func(logger *zap.Logger) (*v1willow.DequeueQueueItem, func(), func()) { return nil, nil, nil }
+				empty := func(logger context.Context) (*v1willow.DequeueQueueItem, func(), func()) { return nil, nil, nil }
 				dequeueChan <- empty
 
 				// second response over same channel now should pass
-				item := func(logger *zap.Logger) (*v1willow.DequeueQueueItem, func(), func()) {
+				item := func(logger context.Context) (*v1willow.DequeueQueueItem, func(), func()) {
 					return &v1willow.DequeueQueueItem{
 						KeyValues:       datatypes.KeyValues{"one": datatypes.Int(1)},
 						ItemID:          "something",
@@ -669,7 +672,7 @@ func Test_queueChannelsClientLocal_DequeueQueueItem(t *testing.T) {
 			queueChannelClentLocal := NewLocalQueueChannelsClient(constructor)
 
 			// enqueue our fake chan
-			g.Expect(queueChannelClentLocal.EnqueueQueueItem(zap.NewNop(), "test queue", &v1willow.EnqueueQueueItem{
+			g.Expect(queueChannelClentLocal.EnqueueQueueItem(testhelpers.NewContextWithLogger(), "test queue", &v1willow.EnqueueQueueItem{
 				Item:            []byte(`doesn't matter`),
 				KeyValues:       datatypes.KeyValues{"one": datatypes.Int(1)},
 				Updateable:      false,
@@ -703,7 +706,7 @@ func Test_queueChannelsClientLocal_DequeueQueueItem(t *testing.T) {
 			var dequeueErr *errors.ServerError
 			go func() {
 				defer close(done)
-				dequeueItem, success, failure, dequeueErr = queueChannelClentLocal.DequeueQueueItem(zap.NewNop(), context.Background(), "test queue", query)
+				dequeueItem, success, failure, dequeueErr = queueChannelClentLocal.DequeueQueueItem(testhelpers.NewContextWithLogger(), "test queue", query)
 			}()
 
 			g.Eventually(done).Should(BeClosed())
@@ -731,7 +734,7 @@ func Test_queueChannelsClientLocal_ACK(t *testing.T) {
 
 		// setup the limiter client to always pass
 		fakeLimiterClient := limiterclientfakes.NewMockLimiterClient(mockController)
-		fakeLimiterClient.EXPECT().UpdateCounter(gomock.Any()).DoAndReturn(func(_ *v1limiter.Counter) error { return nil }).AnyTimes()
+		fakeLimiterClient.EXPECT().UpdateCounter(gomock.Any(), gomock.Any()).DoAndReturn(func(_ *v1limiter.Counter, _ http.Header) error { return nil }).AnyTimes()
 
 		constructor, err := constructor.NewQueueChannelConstructor("memory", fakeLimiterClient)
 		g.Expect(err).ToNot(HaveOccurred())
@@ -754,7 +757,7 @@ func Test_queueChannelsClientLocal_ACK(t *testing.T) {
 
 		queueChannelClentLocal := NewLocalQueueChannelsClient(constructor)
 
-		err := queueChannelClentLocal.ACK(zap.NewNop(), "not found", ack)
+		err := queueChannelClentLocal.ACK(testhelpers.NewContextWithLogger(), "not found", ack)
 		g.Expect(err).To(HaveOccurred())
 		g.Expect(err.Error()).To(ContainSubstring("Failed to find channel by key values"))
 	})
@@ -780,7 +783,7 @@ func Test_queueChannelsClientLocal_ACK(t *testing.T) {
 			}
 			g.Expect(enqueuItem.Validate()).ToNot(HaveOccurred())
 
-			err := queueChannelClentLocal.EnqueueQueueItem(zap.NewNop(), "queue name", enqueuItem)
+			err := queueChannelClentLocal.EnqueueQueueItem(testhelpers.NewContextWithLogger(), "queue name", enqueuItem)
 			g.Expect(err).ToNot(HaveOccurred())
 		}
 
@@ -795,7 +798,7 @@ func Test_queueChannelsClientLocal_ACK(t *testing.T) {
 			var dequeueErr *errors.ServerError
 			go func() {
 				defer close(done)
-				dequeueItem, success, failure, dequeueErr = queueChannelClentLocal.DequeueQueueItem(zap.NewNop(), context.Background(), "queue name", query)
+				dequeueItem, success, failure, dequeueErr = queueChannelClentLocal.DequeueQueueItem(testhelpers.NewContextWithLogger(), "queue name", query)
 			}()
 
 			g.Eventually(done).Should(BeClosed())
@@ -835,7 +838,7 @@ func Test_queueChannelsClientLocal_ACK(t *testing.T) {
 			}
 			g.Expect(ack.Validate()).ToNot(HaveOccurred())
 
-			err := queueChannelClentLocal.ACK(zap.NewNop(), "queue name", ack)
+			err := queueChannelClentLocal.ACK(testhelpers.NewContextWithLogger(), "queue name", ack)
 			g.Expect(err).ToNot(HaveOccurred())
 
 			// ensure the channel is eventually deleted.
@@ -877,7 +880,7 @@ func Test_queueChannelsClientLocal_ACK(t *testing.T) {
 			}
 			g.Expect(ack.Validate()).ToNot(HaveOccurred())
 
-			err := queueChannelClentLocal.ACK(zap.NewNop(), "queue name", ack)
+			err := queueChannelClentLocal.ACK(testhelpers.NewContextWithLogger(), "queue name", ack)
 			g.Expect(err).ToNot(HaveOccurred())
 
 			// ensure the channel is not deleted
@@ -920,7 +923,7 @@ func Test_queueChannelsClientLocal_ACK(t *testing.T) {
 			}
 			g.Expect(ack.Validate()).ToNot(HaveOccurred())
 
-			err := queueChannelClentLocal.ACK(zap.NewNop(), "queue name", ack)
+			err := queueChannelClentLocal.ACK(testhelpers.NewContextWithLogger(), "queue name", ack)
 			g.Expect(err).ToNot(HaveOccurred())
 
 			// ensure the channel is not deleted
@@ -943,7 +946,7 @@ func Test_queueChannelsClientLocal_ACK(t *testing.T) {
 			}
 			g.Expect(ack.Validate()).ToNot(HaveOccurred())
 
-			err = queueChannelClentLocal.ACK(zap.NewNop(), "queue name", ack2)
+			err = queueChannelClentLocal.ACK(testhelpers.NewContextWithLogger(), "queue name", ack2)
 			g.Expect(err).ToNot(HaveOccurred())
 
 			// ensure the channel is eventually deleted
@@ -970,8 +973,8 @@ func Test_queueChannelsClientLocal_Heartbeat(t *testing.T) {
 
 		// setup the limiter client to always pass
 		fakeLimiterClient := limiterclientfakes.NewMockLimiterClient(mockController)
-		fakeLimiterClient.EXPECT().UpdateCounter(gomock.Any()).DoAndReturn(func(_ *v1limiter.Counter) error { return nil }).AnyTimes()
-		fakeLimiterClient.EXPECT().SetCounters(gomock.Any()).DoAndReturn(func(_ *v1limiter.Counter) error { return nil }).AnyTimes()
+		fakeLimiterClient.EXPECT().UpdateCounter(gomock.Any(), gomock.Any()).DoAndReturn(func(_ *v1limiter.Counter, _ http.Header) error { return nil }).AnyTimes()
+		fakeLimiterClient.EXPECT().SetCounters(gomock.Any(), gomock.Any()).DoAndReturn(func(_ *v1limiter.Counter, _ http.Header) error { return nil }).AnyTimes()
 
 		constructor, err := constructor.NewQueueChannelConstructor("memory", fakeLimiterClient)
 		g.Expect(err).ToNot(HaveOccurred())
@@ -1001,7 +1004,7 @@ func Test_queueChannelsClientLocal_Heartbeat(t *testing.T) {
 		}
 		g.Expect(enqueuItem.Validate()).ToNot(HaveOccurred())
 
-		err := queueChannelClentLocal.EnqueueQueueItem(zap.NewNop(), "queue name", enqueuItem)
+		err := queueChannelClentLocal.EnqueueQueueItem(testhelpers.NewContextWithLogger(), "queue name", enqueuItem)
 		g.Expect(err).ToNot(HaveOccurred())
 	}
 
@@ -1016,7 +1019,7 @@ func Test_queueChannelsClientLocal_Heartbeat(t *testing.T) {
 		var dequeueErr *errors.ServerError
 		go func() {
 			defer close(done)
-			dequeueItem, success, failure, dequeueErr = queueChannelClentLocal.DequeueQueueItem(zap.NewNop(), context.Background(), "queue name", query)
+			dequeueItem, success, failure, dequeueErr = queueChannelClentLocal.DequeueQueueItem(testhelpers.NewContextWithLogger(), "queue name", query)
 		}()
 
 		g.Eventually(done, 2*time.Second).Should(BeClosed())
@@ -1045,7 +1048,7 @@ func Test_queueChannelsClientLocal_Heartbeat(t *testing.T) {
 
 		queueChannelClentLocal := NewLocalQueueChannelsClient(constructor)
 
-		err := queueChannelClentLocal.Heartbeat(zap.NewNop(), "queue name", hearbeat)
+		err := queueChannelClentLocal.Heartbeat(testhelpers.NewContextWithLogger(), "queue name", hearbeat)
 		g.Expect(err).To(HaveOccurred())
 		g.Expect(err.Error()).To(ContainSubstring("Failed to find channel for item by key values"))
 	})
@@ -1075,7 +1078,7 @@ func Test_queueChannelsClientLocal_Heartbeat(t *testing.T) {
 		g.Expect(hearbeat.Validate()).ToNot(HaveOccurred())
 
 		for i := 0; i < 5; i++ {
-			err := queueChannelClentLocal.Heartbeat(zap.NewNop(), "queue name", hearbeat)
+			err := queueChannelClentLocal.Heartbeat(testhelpers.NewContextWithLogger(), "queue name", hearbeat)
 			g.Expect(err).ToNot(HaveOccurred())
 
 			time.Sleep(300 * time.Millisecond)
@@ -1089,7 +1092,7 @@ func Test_queueChannelsClientLocal_Heartbeat(t *testing.T) {
 		}
 		g.Expect(ack.Validate()).ToNot(HaveOccurred())
 
-		err := queueChannelClentLocal.ACK(zap.NewNop(), "queue name", ack)
+		err := queueChannelClentLocal.ACK(testhelpers.NewContextWithLogger(), "queue name", ack)
 		g.Expect(err).ToNot(HaveOccurred())
 	})
 
@@ -1139,7 +1142,7 @@ func Test_queueChannelsClientLocal_DestroyChannelsForQueue(t *testing.T) {
 
 		queueChannelClentLocal := NewLocalQueueChannelsClient(constructor)
 
-		err := queueChannelClentLocal.DestroyChannelsForQueue(zap.NewNop(), "does not matter")
+		err := queueChannelClentLocal.DestroyChannelsForQueue(testhelpers.NewContextWithLogger(), "does not matter")
 		g.Expect(err).ToNot(HaveOccurred())
 	})
 
@@ -1163,7 +1166,7 @@ func Test_queueChannelsClientLocal_DestroyChannelsForQueue(t *testing.T) {
 			}
 			g.Expect(enqueuItem.Validate()).ToNot(HaveOccurred())
 
-			err := queueChannelClentLocal.EnqueueQueueItem(zap.NewNop(), "queue name", enqueuItem)
+			err := queueChannelClentLocal.EnqueueQueueItem(testhelpers.NewContextWithLogger(), "queue name", enqueuItem)
 			g.Expect(err).ToNot(HaveOccurred())
 		}
 
@@ -1179,9 +1182,9 @@ func Test_queueChannelsClientLocal_DestroyChannelsForQueue(t *testing.T) {
 			TimeoutDuration: time.Second,
 		}
 		g.Expect(enqueuItem.Validate()).ToNot(HaveOccurred())
-		g.Expect(queueChannelClentLocal.EnqueueQueueItem(zap.NewNop(), "queue name 2", enqueuItem)).ToNot(HaveOccurred())
+		g.Expect(queueChannelClentLocal.EnqueueQueueItem(testhelpers.NewContextWithLogger(), "queue name 2", enqueuItem)).ToNot(HaveOccurred())
 
-		err := queueChannelClentLocal.DestroyChannelsForQueue(zap.NewNop(), "queue name")
+		err := queueChannelClentLocal.DestroyChannelsForQueue(testhelpers.NewContextWithLogger(), "queue name")
 		g.Expect(err).ToNot(HaveOccurred())
 
 		// should only have 1 item left in the second queue's channels

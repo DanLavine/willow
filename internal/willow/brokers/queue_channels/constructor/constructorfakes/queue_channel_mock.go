@@ -11,7 +11,6 @@ import (
 	errors "github.com/DanLavine/willow/pkg/models/api/common/errors"
 	v1 "github.com/DanLavine/willow/pkg/models/api/willow/v1"
 	gomock "go.uber.org/mock/gomock"
-	zap "go.uber.org/zap"
 )
 
 // MockQueueChannel is a mock of QueueChannel interface.
@@ -38,7 +37,7 @@ func (m *MockQueueChannel) EXPECT() *MockQueueChannelMockRecorder {
 }
 
 // ACK mocks base method.
-func (m *MockQueueChannel) ACK(arg0 *zap.Logger, arg1 *v1.ACK) (bool, *errors.ServerError) {
+func (m *MockQueueChannel) ACK(arg0 context.Context, arg1 *v1.ACK) (bool, *errors.ServerError) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ACK", arg0, arg1)
 	ret0, _ := ret[0].(bool)
@@ -67,10 +66,10 @@ func (mr *MockQueueChannelMockRecorder) Delete() *gomock.Call {
 }
 
 // Dequeue mocks base method.
-func (m *MockQueueChannel) Dequeue() <-chan func(*zap.Logger) (*v1.DequeueQueueItem, func(), func()) {
+func (m *MockQueueChannel) Dequeue() <-chan func(context.Context) (*v1.DequeueQueueItem, func(), func()) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Dequeue")
-	ret0, _ := ret[0].(<-chan func(*zap.Logger) (*v1.DequeueQueueItem, func(), func()))
+	ret0, _ := ret[0].(<-chan func(context.Context) (*v1.DequeueQueueItem, func(), func()))
 	return ret0
 }
 
@@ -81,7 +80,7 @@ func (mr *MockQueueChannelMockRecorder) Dequeue() *gomock.Call {
 }
 
 // Enqueue mocks base method.
-func (m *MockQueueChannel) Enqueue(arg0 *zap.Logger, arg1 *v1.EnqueueQueueItem) *errors.ServerError {
+func (m *MockQueueChannel) Enqueue(arg0 context.Context, arg1 *v1.EnqueueQueueItem) *errors.ServerError {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Enqueue", arg0, arg1)
 	ret0, _ := ret[0].(*errors.ServerError)
@@ -109,7 +108,7 @@ func (mr *MockQueueChannelMockRecorder) Execute(arg0 interface{}) *gomock.Call {
 }
 
 // ForceDelete mocks base method.
-func (m *MockQueueChannel) ForceDelete(arg0 *zap.Logger) {
+func (m *MockQueueChannel) ForceDelete(arg0 context.Context) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "ForceDelete", arg0)
 }
@@ -121,7 +120,7 @@ func (mr *MockQueueChannelMockRecorder) ForceDelete(arg0 interface{}) *gomock.Ca
 }
 
 // Heartbeat mocks base method.
-func (m *MockQueueChannel) Heartbeat(arg0 *zap.Logger, arg1 *v1.Heartbeat) *errors.ServerError {
+func (m *MockQueueChannel) Heartbeat(arg0 context.Context, arg1 *v1.Heartbeat) *errors.ServerError {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Heartbeat", arg0, arg1)
 	ret0, _ := ret[0].(*errors.ServerError)

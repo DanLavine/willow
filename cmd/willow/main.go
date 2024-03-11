@@ -11,7 +11,7 @@ import (
 	"github.com/DanLavine/goasync"
 	"github.com/DanLavine/urlrouter"
 	"github.com/DanLavine/willow/internal/config"
-	"github.com/DanLavine/willow/internal/logger"
+	"github.com/DanLavine/willow/internal/reporting"
 	"github.com/DanLavine/willow/internal/willow/api"
 	"github.com/DanLavine/willow/internal/willow/api/v1/handlers"
 	"github.com/DanLavine/willow/internal/willow/brokers/queue_channels/constructor"
@@ -32,7 +32,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	logger := logger.NewZapLogger(cfg)
+	logger := reporting.NewZapLogger(cfg)
 	defer logger.Sync()
 
 	// setup shutdown signal
@@ -73,7 +73,7 @@ func main() {
 		Name:    "_willow_queue_enqueued_limits",
 		GroupBy: []string{"_willow_queue_name", "_willow_enqueued"},
 		Limit:   0, // by default the limit is 0
-	})
+	}, nil)
 	if err != nil {
 		logger.Fatal("Failed to setup Limiter enqueue rule", zap.Error(err))
 	}

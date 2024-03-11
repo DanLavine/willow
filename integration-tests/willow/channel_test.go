@@ -42,7 +42,7 @@ func Test_Queue_Enqueue(t *testing.T) {
 			Name:         "test queue",
 			QueueMaxSize: 5,
 		}
-		g.Expect(willowClient.CreateQueue(createQueue)).ToNot(HaveOccurred())
+		g.Expect(willowClient.CreateQueue(createQueue, nil)).ToNot(HaveOccurred())
 
 		// enqueue the item
 		enqueueQueueItem := &v1willow.EnqueueQueueItem{
@@ -55,11 +55,11 @@ func Test_Queue_Enqueue(t *testing.T) {
 			RetryPosition:   "front",
 			TimeoutDuration: 5 * time.Second,
 		}
-		err := willowClient.EnqueueQueueItem("test queue", enqueueQueueItem)
+		err := willowClient.EnqueueQueueItem("test queue", enqueueQueueItem, nil)
 		g.Expect(err).ToNot(HaveOccurred())
 
 		// ensure the counters are setup properly
-		counters, err := limiterClient.QueryCounters(&v1common.AssociatedQuery{})
+		counters, err := limiterClient.QueryCounters(&v1common.AssociatedQuery{}, nil)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(len(counters)).To(Equal(1))
 	})
@@ -84,7 +84,7 @@ func Test_Queue_Enqueue(t *testing.T) {
 			Name:         "test queue",
 			QueueMaxSize: 5,
 		}
-		g.Expect(willowClient.CreateQueue(createQueue)).ToNot(HaveOccurred())
+		g.Expect(willowClient.CreateQueue(createQueue, nil)).ToNot(HaveOccurred())
 
 		// enqueue multiple item
 		enqueueQueueItem1 := &v1willow.EnqueueQueueItem{
@@ -97,7 +97,7 @@ func Test_Queue_Enqueue(t *testing.T) {
 			RetryPosition:   "front",
 			TimeoutDuration: 5 * time.Second,
 		}
-		g.Expect(willowClient.EnqueueQueueItem("test queue", enqueueQueueItem1)).ToNot(HaveOccurred())
+		g.Expect(willowClient.EnqueueQueueItem("test queue", enqueueQueueItem1, nil)).ToNot(HaveOccurred())
 
 		enqueueQueueItem2 := &v1willow.EnqueueQueueItem{ // updates the previous item
 			Item: []byte(`data for second item`),
@@ -109,7 +109,7 @@ func Test_Queue_Enqueue(t *testing.T) {
 			RetryPosition:   "front",
 			TimeoutDuration: 5 * time.Second,
 		}
-		g.Expect(willowClient.EnqueueQueueItem("test queue", enqueueQueueItem2)).ToNot(HaveOccurred())
+		g.Expect(willowClient.EnqueueQueueItem("test queue", enqueueQueueItem2, nil)).ToNot(HaveOccurred())
 
 		enqueueQueueItem3 := &v1willow.EnqueueQueueItem{
 			Item: []byte(`data for third item`),
@@ -122,7 +122,7 @@ func Test_Queue_Enqueue(t *testing.T) {
 			RetryPosition:   "front",
 			TimeoutDuration: 5 * time.Second,
 		}
-		g.Expect(willowClient.EnqueueQueueItem("test queue", enqueueQueueItem3)).ToNot(HaveOccurred())
+		g.Expect(willowClient.EnqueueQueueItem("test queue", enqueueQueueItem3, nil)).ToNot(HaveOccurred())
 
 		enqueueQueueItem4 := &v1willow.EnqueueQueueItem{
 			Item: []byte(`data for fourth item`),
@@ -136,7 +136,7 @@ func Test_Queue_Enqueue(t *testing.T) {
 			RetryPosition:   "front",
 			TimeoutDuration: 5 * time.Second,
 		}
-		g.Expect(willowClient.EnqueueQueueItem("test queue", enqueueQueueItem4)).ToNot(HaveOccurred())
+		g.Expect(willowClient.EnqueueQueueItem("test queue", enqueueQueueItem4, nil)).ToNot(HaveOccurred())
 
 		enqueueQueueItem5 := &v1willow.EnqueueQueueItem{
 			Item: []byte(`data for fifth item`),
@@ -150,10 +150,10 @@ func Test_Queue_Enqueue(t *testing.T) {
 			RetryPosition:   "front",
 			TimeoutDuration: 5 * time.Second,
 		}
-		g.Expect(willowClient.EnqueueQueueItem("test queue", enqueueQueueItem5)).ToNot(HaveOccurred())
+		g.Expect(willowClient.EnqueueQueueItem("test queue", enqueueQueueItem5, nil)).ToNot(HaveOccurred())
 
 		// ensure the counters are setup properly
-		counters, err := limiterClient.QueryCounters(&v1common.AssociatedQuery{})
+		counters, err := limiterClient.QueryCounters(&v1common.AssociatedQuery{}, nil)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(len(counters)).To(Equal(3))
 		g.Expect(counters).To(ContainElements(
@@ -208,7 +208,7 @@ func Test_Queue_Enqueue(t *testing.T) {
 			Name:         "test queue",
 			QueueMaxSize: 2,
 		}
-		g.Expect(willowClient.CreateQueue(createQueue)).ToNot(HaveOccurred())
+		g.Expect(willowClient.CreateQueue(createQueue, nil)).ToNot(HaveOccurred())
 
 		// enqueue multiple item
 		// ensure the first itme can collapse
@@ -228,7 +228,7 @@ func Test_Queue_Enqueue(t *testing.T) {
 				RetryPosition:   "front",
 				TimeoutDuration: 5 * time.Second,
 			}
-			g.Expect(willowClient.EnqueueQueueItem("test queue", enqueueQueueItem)).ToNot(HaveOccurred())
+			g.Expect(willowClient.EnqueueQueueItem("test queue", enqueueQueueItem, nil)).ToNot(HaveOccurred())
 		}
 
 		// next item enqueued should error
@@ -242,12 +242,12 @@ func Test_Queue_Enqueue(t *testing.T) {
 			RetryPosition:   "front",
 			TimeoutDuration: 5 * time.Second,
 		}
-		err := willowClient.EnqueueQueueItem("test queue", enqueueQueueItem)
+		err := willowClient.EnqueueQueueItem("test queue", enqueueQueueItem, nil)
 		g.Expect(err).To(HaveOccurred())
 		g.Expect(err.Error()).To(ContainSubstring("Queue has reached the total number of allowed queue items"))
 
 		// ensure the counters are setup properly
-		counters, err := limiterClient.QueryCounters(&v1common.AssociatedQuery{})
+		counters, err := limiterClient.QueryCounters(&v1common.AssociatedQuery{}, nil)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(len(counters)).To(Equal(1))
 		g.Expect(counters).To(ContainElements(
@@ -287,7 +287,7 @@ func Test_Queue_Dequeue(t *testing.T) {
 			Name:         "test queue",
 			QueueMaxSize: 5,
 		}
-		g.Expect(willowClient.CreateQueue(createQueue)).ToNot(HaveOccurred())
+		g.Expect(willowClient.CreateQueue(createQueue, nil)).ToNot(HaveOccurred())
 
 		// dequeue the item
 		var item *willowclient.Item
@@ -297,7 +297,7 @@ func Test_Queue_Dequeue(t *testing.T) {
 		done := make(chan struct{})
 		go func() {
 			defer close(done)
-			item, err = willowClient.DequeueQueueItem(ctx, "test queue", &v1common.AssociatedQuery{})
+			item, err = willowClient.DequeueQueueItem(ctx, "test queue", &v1common.AssociatedQuery{}, nil)
 		}()
 		g.Consistently(done).ShouldNot(BeClosed())
 
@@ -329,7 +329,7 @@ func Test_Queue_Dequeue(t *testing.T) {
 			Name:         "test queue",
 			QueueMaxSize: 5,
 		}
-		g.Expect(willowClient.CreateQueue(createQueue)).ToNot(HaveOccurred())
+		g.Expect(willowClient.CreateQueue(createQueue, nil)).ToNot(HaveOccurred())
 
 		// enqueue the item
 		enqueueQueueItem := &v1willow.EnqueueQueueItem{
@@ -342,17 +342,17 @@ func Test_Queue_Dequeue(t *testing.T) {
 			RetryPosition:   "front",
 			TimeoutDuration: 5 * time.Second,
 		}
-		err := willowClient.EnqueueQueueItem("test queue", enqueueQueueItem)
+		err := willowClient.EnqueueQueueItem("test queue", enqueueQueueItem, nil)
 		g.Expect(err).ToNot(HaveOccurred())
 
 		// dequeue the item
-		item, err := willowClient.DequeueQueueItem(context.Background(), "test queue", &v1common.AssociatedQuery{})
+		item, err := willowClient.DequeueQueueItem(context.Background(), "test queue", &v1common.AssociatedQuery{}, nil)
 
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(item.Data()).To(Equal([]byte(`data for first item`)))
 
 		// ensure the counters are setup properly
-		counters, err := limiterClient.QueryCounters(&v1common.AssociatedQuery{})
+		counters, err := limiterClient.QueryCounters(&v1common.AssociatedQuery{}, nil)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(len(counters)).To(Equal(2))
 		g.Expect(counters).To(ContainElements(
@@ -395,7 +395,7 @@ func Test_Queue_Dequeue(t *testing.T) {
 			Name:         "test queue",
 			QueueMaxSize: 5,
 		}
-		g.Expect(willowClient.CreateQueue(createQueue)).ToNot(HaveOccurred())
+		g.Expect(willowClient.CreateQueue(createQueue, nil)).ToNot(HaveOccurred())
 
 		// dequeue the item
 		var item *willowclient.Item
@@ -404,7 +404,7 @@ func Test_Queue_Dequeue(t *testing.T) {
 		done := make(chan struct{})
 		go func() {
 			defer close(done)
-			item, dequeueErr = willowClient.DequeueQueueItem(context.Background(), "test queue", &v1common.AssociatedQuery{})
+			item, dequeueErr = willowClient.DequeueQueueItem(context.Background(), "test queue", &v1common.AssociatedQuery{}, nil)
 		}()
 
 		// ensure that the service is attempting to dequeue the item before sending the enqueue request
@@ -423,7 +423,7 @@ func Test_Queue_Dequeue(t *testing.T) {
 			RetryPosition:   "front",
 			TimeoutDuration: 5 * time.Second,
 		}
-		err := willowClient.EnqueueQueueItem("test queue", enqueueQueueItem)
+		err := willowClient.EnqueueQueueItem("test queue", enqueueQueueItem, nil)
 		g.Expect(err).ToNot(HaveOccurred())
 
 		// dequeue should recieve
@@ -432,7 +432,7 @@ func Test_Queue_Dequeue(t *testing.T) {
 		g.Expect(item.Data()).To(Equal([]byte(`data for first item`)))
 
 		// ensure the counters are setup properly
-		counters, err := limiterClient.QueryCounters(&v1common.AssociatedQuery{})
+		counters, err := limiterClient.QueryCounters(&v1common.AssociatedQuery{}, nil)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(len(counters)).To(Equal(2))
 		g.Expect(counters).To(ContainElements(
@@ -481,7 +481,7 @@ func Test_Queue_DeleteChannel(t *testing.T) {
 			Name:         "test queue",
 			QueueMaxSize: 5,
 		}
-		g.Expect(willowClient.CreateQueue(createQueue)).ToNot(HaveOccurred())
+		g.Expect(willowClient.CreateQueue(createQueue, nil)).ToNot(HaveOccurred())
 
 		// enqueue multiple item
 		enqueueQueueItem1 := &v1willow.EnqueueQueueItem{
@@ -494,7 +494,7 @@ func Test_Queue_DeleteChannel(t *testing.T) {
 			RetryPosition:   "front",
 			TimeoutDuration: 5 * time.Second,
 		}
-		g.Expect(willowClient.EnqueueQueueItem("test queue", enqueueQueueItem1)).ToNot(HaveOccurred())
+		g.Expect(willowClient.EnqueueQueueItem("test queue", enqueueQueueItem1, nil)).ToNot(HaveOccurred())
 
 		enqueueQueueItem2 := &v1willow.EnqueueQueueItem{ // updates the previous item
 			Item: []byte(`data for second item`),
@@ -506,7 +506,7 @@ func Test_Queue_DeleteChannel(t *testing.T) {
 			RetryPosition:   "front",
 			TimeoutDuration: 5 * time.Second,
 		}
-		g.Expect(willowClient.EnqueueQueueItem("test queue", enqueueQueueItem2)).ToNot(HaveOccurred())
+		g.Expect(willowClient.EnqueueQueueItem("test queue", enqueueQueueItem2, nil)).ToNot(HaveOccurred())
 
 		enqueueQueueItem3 := &v1willow.EnqueueQueueItem{
 			Item: []byte(`data for third item`),
@@ -519,7 +519,7 @@ func Test_Queue_DeleteChannel(t *testing.T) {
 			RetryPosition:   "front",
 			TimeoutDuration: 5 * time.Second,
 		}
-		g.Expect(willowClient.EnqueueQueueItem("test queue", enqueueQueueItem3)).ToNot(HaveOccurred())
+		g.Expect(willowClient.EnqueueQueueItem("test queue", enqueueQueueItem3, nil)).ToNot(HaveOccurred())
 
 		enqueueQueueItem4 := &v1willow.EnqueueQueueItem{
 			Item: []byte(`data for fourth item`),
@@ -533,7 +533,7 @@ func Test_Queue_DeleteChannel(t *testing.T) {
 			RetryPosition:   "front",
 			TimeoutDuration: 5 * time.Second,
 		}
-		g.Expect(willowClient.EnqueueQueueItem("test queue", enqueueQueueItem4)).ToNot(HaveOccurred())
+		g.Expect(willowClient.EnqueueQueueItem("test queue", enqueueQueueItem4, nil)).ToNot(HaveOccurred())
 
 		enqueueQueueItem5 := &v1willow.EnqueueQueueItem{
 			Item: []byte(`data for fifth item`),
@@ -547,14 +547,14 @@ func Test_Queue_DeleteChannel(t *testing.T) {
 			RetryPosition:   "front",
 			TimeoutDuration: 5 * time.Second,
 		}
-		g.Expect(willowClient.EnqueueQueueItem("test queue", enqueueQueueItem5)).ToNot(HaveOccurred())
+		g.Expect(willowClient.EnqueueQueueItem("test queue", enqueueQueueItem5, nil)).ToNot(HaveOccurred())
 
 		// delete a channel
-		err := willowClient.DeleteQueueChannel("test queue", &datatypes.KeyValues{"one": datatypes.Int(1)})
+		err := willowClient.DeleteQueueChannel("test queue", &datatypes.KeyValues{"one": datatypes.Int(1)}, nil)
 		g.Expect(err).ToNot(HaveOccurred())
 
 		// ensure the counters are setup properly
-		counters, err := limiterClient.QueryCounters(&v1common.AssociatedQuery{})
+		counters, err := limiterClient.QueryCounters(&v1common.AssociatedQuery{}, nil)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(len(counters)).To(Equal(2))
 		g.Expect(counters).To(ContainElements(

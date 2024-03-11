@@ -15,7 +15,7 @@ import (
 	"github.com/DanLavine/willow/internal/limiter/counters"
 	"github.com/DanLavine/willow/internal/limiter/overrides"
 	"github.com/DanLavine/willow/internal/limiter/rules"
-	"github.com/DanLavine/willow/internal/logger"
+	"github.com/DanLavine/willow/internal/reporting"
 	"github.com/DanLavine/willow/pkg/clients"
 	lockerclient "github.com/DanLavine/willow/pkg/clients/locker_client"
 	"go.uber.org/zap"
@@ -31,7 +31,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	logger := logger.NewZapLogger(cfg)
+	logger := reporting.NewZapLogger(cfg)
 	defer logger.Sync()
 
 	// setup shutdown signal
@@ -54,8 +54,13 @@ func main() {
 	// ensure the locker client can connect to the locker service
 	for i := 0; i < 10; i++ {
 		if err := lockerClient.Healthy(); err != nil {
-			logger.Error("error checking health of locker service", zap.Error(err))
-			time.Sleep(10 * time.Second)
+			logger.Error("error checking health of locker service. Will try again in 10 seconds", zap.Error(err))
+
+			select {
+			case <-time.After(10 * time.Second):
+			case <-shutdown.Done():
+				os.Exit(1)
+			}
 
 			if i == 9 {
 				log.Fatal("failed to setup the locker client which is required")

@@ -14,10 +14,16 @@ import (
 // HTTP Client is used to make request to any of the Willow services
 type HttpClient interface {
 	// Perform an HTTP request that is expected to retun right away
-	Do(requestData *RequestData) (*http.Response, error)
+	Do(request *http.Request) (*http.Response, error)
 
-	// Perform an HTTP request that can take a while and can be canceld with the ctx
-	DoWithContext(ctx context.Context, requestData *RequestData) (*http.Response, error)
+	// SsetupRequest with any headers setup for the clients configuration
+	SetupRequest(method, url string) (*http.Request, error)
+
+	// EncodeModel
+	EncodedRequest(method, url string, Model api.APIObject) (*http.Request, error)
+
+	// EncodeModelWithCancel
+	EncodedRequestWithCancel(ctx context.Context, method, url string, Model api.APIObject) (*http.Request, error)
 }
 
 type httpClient struct {
@@ -49,53 +55,90 @@ func NewHTTPClient(cfg *Config) (*httpClient, error) {
 	}, nil
 }
 
-// Do makes a request to the remote service
-func (httpClient *httpClient) Do(requestData *RequestData) (*http.Response, error) {
-	return httpClient.do(context.Background(), requestData)
+// SetupRequest to the client's configured settings. This includes any headers for encoding
+// the client is expecting to recieve on an error or successful response
+func (httpClient *httpClient) SetupRequest(method, url string) (*http.Request, error) {
+	req, err := http.NewRequestWithContext(context.Background(), method, url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("unexpected error setting up http request: %w", err)
+	}
+
+	req.Header.Add("Content-Type", string(httpClient.contentType))
+
+	return req, nil
 }
 
-// Do makes a request to the remote service
-func (httpClient *httpClient) DoWithContext(ctx context.Context, requestData *RequestData) (*http.Response, error) {
-	return httpClient.do(ctx, requestData)
-}
+// EncodeRequest to the client's configured settings. The returnd HTTP request has a requried header set
+// 'Content-Type' for services to recognize, but additional headers can be added such as the 'x_request_id'
+// to add a trace log id for each service to track a single request
+func (httpClient *httpClient) EncodedRequest(method, url string, model api.APIObject) (*http.Request, error) {
+	if model == nil {
+		return nil, fmt.Errorf("model cannot be nil")
+	}
 
-// Do makes a request to the remote service
-func (httpClient *httpClient) do(ctx context.Context, requestData *RequestData) (*http.Response, error) {
 	var err error
 	var req *http.Request
 
-	// make the request bassed off the content type
 	switch httpClient.contentType {
 	case api.ContentTypeJSON:
-
-		// setup request with proper encoding
-		if requestData.Model != nil {
-			// validate the model
-			if err := requestData.Model.Validate(); err != nil {
-				return nil, fmt.Errorf("failed to validate model localy, not sending request: %w", err)
-			}
-
-			// encode the mode
-			data, err := requestData.Model.EncodeJSON()
-			if err != nil {
-				return nil, fmt.Errorf("failed to encode the model local, not sending request: %w", err)
-			}
-
-			req, err = http.NewRequestWithContext(ctx, requestData.Method, requestData.Path, bytes.NewBuffer(data))
-			if err != nil {
-				return nil, fmt.Errorf("unexpected error setting up http request: %w", err)
-			}
-		} else {
-			req, err = http.NewRequestWithContext(ctx, requestData.Method, requestData.Path, nil)
-			if err != nil {
-				return nil, fmt.Errorf("unexpected error setting up http request: %w", err)
-			}
+		// validate the model
+		if err := model.Validate(); err != nil {
+			return nil, fmt.Errorf("failed to validate model localy, not sending request: %w", err)
 		}
+
+		// encode the mode
+		data, err := model.EncodeJSON()
+		if err != nil {
+			return nil, fmt.Errorf("failed to encode the model local, not sending request: %w", err)
+		}
+
+		req, err = http.NewRequestWithContext(context.Background(), method, url, bytes.NewBuffer(data))
+		if err != nil {
+			return nil, fmt.Errorf("unexpected error setting up http request: %w", err)
+		}
+
+		req.Header.Add("Content-Type", string(httpClient.contentType))
 	}
 
-	// add the proper header for the content type. Any API can hit an error and still needs to know how to process correctly
-	req.Header.Add("Content-Type", string(httpClient.contentType))
+	return req, err
+}
 
-	// make the request
-	return httpClient.client.Do(req)
+// EncodeRequest to the client's configured settings. The returnd HTTP request has a requried header set
+// 'Content-Type' for services to recognize, but additional headers can be added such as the 'x_request_id'
+// to add a trace log id for each service to track a single request
+func (httpClient *httpClient) EncodedRequestWithCancel(ctx context.Context, method, url string, model api.APIObject) (*http.Request, error) {
+	if model == nil {
+		return nil, fmt.Errorf("model cannot be nil")
+	}
+
+	var err error
+	var req *http.Request
+
+	switch httpClient.contentType {
+	case api.ContentTypeJSON:
+		// validate the model
+		if err := model.Validate(); err != nil {
+			return nil, fmt.Errorf("failed to validate model localy, not sending request: %w", err)
+		}
+
+		// encode the mode
+		data, err := model.EncodeJSON()
+		if err != nil {
+			return nil, fmt.Errorf("failed to encode the model local, not sending request: %w", err)
+		}
+
+		req, err = http.NewRequestWithContext(ctx, method, url, bytes.NewBuffer(data))
+		if err != nil {
+			return nil, fmt.Errorf("unexpected error setting up http request: %w", err)
+		}
+
+		req.Header.Add("Content-Type", string(httpClient.contentType))
+	}
+
+	return req, err
+}
+
+// Do makes a request to the remote service
+func (httpClient *httpClient) Do(request *http.Request) (*http.Response, error) {
+	return httpClient.client.Do(request)
 }

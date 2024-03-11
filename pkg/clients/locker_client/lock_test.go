@@ -59,7 +59,7 @@ func TestLock_heartbeat_operations(t *testing.T) {
 
 		// create the lock and counters
 		lock, lostCounter, hertbeatErrorCounter, _ := setupLock(server)
-		defer lock.Release()
+		defer lock.Release(nil)
 
 		g.Consistently(func() int64 { return lostCounter.Load() }).Should(Equal(int64(0)))
 		g.Consistently(func() int64 { return hertbeatErrorCounter.Load() }).Should(Equal(int64(0)))
@@ -113,7 +113,7 @@ func TestLock_heartbeat_operations(t *testing.T) {
 		g.Eventually(func() int64 { return heartbeatCounter.Load() }).Should(BeNumerically(">=", 3))
 
 		// release the lock
-		err := lock.Release()
+		err := lock.Release(nil)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(lock.Done()).To(BeClosed())
 		g.Expect(deleteCounter.Load()).To(Equal(int64(1)))
@@ -132,7 +132,7 @@ func TestLock_heartbeat_operations(t *testing.T) {
 		server := setupServerHttp(mux)
 		server.Close()
 		lock, _, hertbeatErrorCounter, heartbeatErrs := setupLock(server)
-		defer lock.Release()
+		defer lock.Release(nil)
 
 		g.Eventually(hertbeatErrorCounter.Load).Should(BeNumerically(">=", int64(1)))
 		g.Expect((*heartbeatErrs)[0].Error()).To(ContainSubstring("connect: connection refused"))
@@ -150,7 +150,7 @@ func TestLock_heartbeat_operations(t *testing.T) {
 			defer server.Close()
 
 			lock, _, _, heartbeatErrs := setupLock(server)
-			defer lock.Release()
+			defer lock.Release(nil)
 
 			g.Eventually(heartbeatCounter.Load).Should(BeNumerically(">=", int64(1)))
 			g.Expect(*heartbeatErrs).To(BeNil())
@@ -189,7 +189,7 @@ func TestLock_heartbeat_operations(t *testing.T) {
 				defer server.Close()
 
 				lock, _, hertbeatErrorCounter, heartbeatErrs := setupLock(server)
-				defer lock.Release()
+				defer lock.Release(nil)
 
 				g.Eventually(hertbeatErrorCounter.Load).Should(BeNumerically(">=", int64(1)))
 				g.Expect((*heartbeatErrs)[0].Error()).To(ContainSubstring("failed to decode api error response"))
@@ -208,7 +208,7 @@ func TestLock_heartbeat_operations(t *testing.T) {
 				defer server.Close()
 
 				lock, _, hertbeatErrorCounter, heartbeatErrs := setupLock(server)
-				defer lock.Release()
+				defer lock.Release(nil)
 
 				g.Eventually(hertbeatErrorCounter.Load).Should(BeNumerically(">=", int64(1)))
 				g.Expect((*heartbeatErrs)[0].Error()).To(ContainSubstring("this is the api error"))
@@ -227,7 +227,7 @@ func TestLock_heartbeat_operations(t *testing.T) {
 			defer server.Close()
 
 			lock, _, hertbeatErrorCounter, _ := setupLock(server)
-			defer lock.Release()
+			defer lock.Release(nil)
 
 			// gone
 			g.Eventually(hertbeatErrorCounter.Load).Should(BeNumerically(">=", int64(1)))
@@ -247,7 +247,7 @@ func TestLock_heartbeat_operations(t *testing.T) {
 			server := setupServerHttp(mux)
 			defer server.Close()
 			lock, _, hertbeatErrorCounter, heartbeatErrs := setupLock(server)
-			defer lock.Release()
+			defer lock.Release(nil)
 
 			g.Eventually(hertbeatErrorCounter.Load).Should(BeNumerically(">=", int64(1)))
 			g.Expect((*heartbeatErrs)[0].Error()).To(ContainSubstring("received an unexpected status code: 500"))
@@ -275,7 +275,7 @@ func TestLock_Release(t *testing.T) {
 		lock, lostCounter, hertbeatErrorCounter, heartbeatErrs := setupLock(server)
 
 		// release the lock
-		err := lock.Release()
+		err := lock.Release(nil)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(lock.Done()).To(BeClosed())
 		currentHeartbeats := heartbeatCounter.Load()
@@ -303,7 +303,7 @@ func TestLock_Release(t *testing.T) {
 			lock, lostCounter, hertbeatErrorCounter, heartbeatErrs := setupLock(server)
 
 			// release the lock
-			err := lock.Release()
+			err := lock.Release(nil)
 			g.Expect(err).To(HaveOccurred())
 			g.Expect(err.Error()).To(ContainSubstring("unexpected response code from the remote locker service '500'. Need to wait for the lock to expire "))
 			g.Expect(lock.Done()).To(BeClosed())
@@ -329,11 +329,11 @@ func TestLock_Release(t *testing.T) {
 		lock, _, _, _ := setupLock(server)
 
 		// release the lock
-		err := lock.Release()
+		err := lock.Release(nil)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(lock.Done()).To(BeClosed())
 
-		err = lock.Release()
+		err = lock.Release(nil)
 		g.Expect(err).To(HaveOccurred())
 		g.Expect(err.Error()).To(ContainSubstring("already released the lock"))
 	})
@@ -353,7 +353,7 @@ func TestLock_Release(t *testing.T) {
 		g.Eventually(lock.Done()).Should(BeClosed())
 
 		// release the lock
-		err := lock.Release()
+		err := lock.Release(nil)
 		g.Expect(err).To(HaveOccurred())
 		g.Expect(err.Error()).To(ContainSubstring("already released the lock"))
 

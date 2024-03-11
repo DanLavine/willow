@@ -66,11 +66,11 @@ func Test_Lock(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
-		lock, err := lockerClient.ObtainLock(ctx, lockRequest, nil)
+		lock, err := lockerClient.ObtainLock(ctx, lockRequest, nil, nil)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(lock).ToNot(BeNil())
 
-		g.Expect(lock.Release()).ToNot(HaveOccurred())
+		g.Expect(lock.Release(nil)).ToNot(HaveOccurred())
 	})
 
 	t.Run("It can aquire multiple locks with multipe KeyValues", func(t *testing.T) {
@@ -98,16 +98,16 @@ func Test_Lock(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
-		lock1, err := lockerClient.ObtainLock(ctx, lockRequest1, nil)
+		lock1, err := lockerClient.ObtainLock(ctx, lockRequest1, nil, nil)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(lock1).ToNot(BeNil())
 
-		lock2, err := lockerClient.ObtainLock(ctx, lockRequest2, nil)
+		lock2, err := lockerClient.ObtainLock(ctx, lockRequest2, nil, nil)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(lock2).ToNot(BeNil())
 
-		g.Expect(lock1.Release()).ToNot(HaveOccurred())
-		g.Expect(lock2.Release()).ToNot(HaveOccurred())
+		g.Expect(lock1.Release(nil)).ToNot(HaveOccurred())
+		g.Expect(lock2.Release(nil)).ToNot(HaveOccurred())
 	})
 
 	t.Run("It blocks a second requst for the same lock tags", func(t *testing.T) {
@@ -133,7 +133,7 @@ func Test_Lock(t *testing.T) {
 		defer cancel()
 
 		// 1st lock goes fine
-		lock, err := lockerClient1.ObtainLock(ctx, lockRequest, nil)
+		lock, err := lockerClient1.ObtainLock(ctx, lockRequest, nil, nil)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(lock).ToNot(BeNil())
 
@@ -141,15 +141,15 @@ func Test_Lock(t *testing.T) {
 		done := make(chan struct{})
 		go func() {
 			defer close(done)
-			lock, err = lockerClient2.ObtainLock(ctx, lockRequest, nil)
+			lock, err = lockerClient2.ObtainLock(ctx, lockRequest, nil, nil)
 		}()
 
 		g.Consistently(done).ShouldNot(BeClosed())
 
 		// release the lock
-		g.Expect(lock.Release()).ToNot(HaveOccurred()) // 1st lock release
+		g.Expect(lock.Release(nil)).ToNot(HaveOccurred()) // 1st lock release
 		g.Eventually(done).Should(BeClosed())
-		g.Expect(lock.Release()).ToNot(HaveOccurred()) // 2nd lock release
+		g.Expect(lock.Release(nil)).ToNot(HaveOccurred()) // 2nd lock release
 	})
 
 	t.Run("It can release the clients when the server is shutting down", func(t *testing.T) {
@@ -174,7 +174,7 @@ func Test_Lock(t *testing.T) {
 		}
 
 		// 1st lock goes fine
-		lock, err := lockerClient1.ObtainLock(ctx, lockRequest, nil)
+		lock, err := lockerClient1.ObtainLock(ctx, lockRequest, nil, nil)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(lock).ToNot(BeNil())
 
@@ -184,7 +184,7 @@ func Test_Lock(t *testing.T) {
 		var err2 error
 		go func() {
 			defer close(done)
-			lock2, err2 = lockerClient2.ObtainLock(ctx, lockRequest, nil)
+			lock2, err2 = lockerClient2.ObtainLock(ctx, lockRequest, nil, nil)
 		}()
 
 		g.Consistently(done, time.Second).ShouldNot(BeClosed())
@@ -216,7 +216,7 @@ func Test_Lock(t *testing.T) {
 			LockTimeout: time.Second,
 		}
 
-		lock, err := lockerClient.ObtainLock(ctx, lockRequest, func(keyValue datatypes.KeyValues, err error) {
+		lock, err := lockerClient.ObtainLock(ctx, lockRequest, nil, func(keyValue datatypes.KeyValues, err error) {
 			fmt.Println("failed to heartbeat:", err)
 		})
 		g.Expect(err).ToNot(HaveOccurred())
@@ -224,7 +224,7 @@ func Test_Lock(t *testing.T) {
 
 		g.Consistently(lock.Done(), 2*time.Second).ShouldNot(BeClosed())
 
-		g.Expect(lock.Release()).ToNot(HaveOccurred())
+		g.Expect(lock.Release(nil)).ToNot(HaveOccurred())
 		g.Expect(lock.Done()).To(BeClosed())
 	})
 }
@@ -255,7 +255,7 @@ func TestLocker_List_API(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
-		lock, err := lockerClient.ObtainLock(ctx, lockRequest, nil)
+		lock, err := lockerClient.ObtainLock(ctx, lockRequest, nil, nil)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(lock).ToNot(BeNil())
 
@@ -266,7 +266,7 @@ func TestLocker_List_API(t *testing.T) {
 				"key3": datatypes.String("key three"),
 			},
 		}
-		lock, err = lockerClient.ObtainLock(ctx, lockRequest, nil)
+		lock, err = lockerClient.ObtainLock(ctx, lockRequest, nil, nil)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(lock).ToNot(BeNil())
 
@@ -331,12 +331,12 @@ func TestLocker_Async_API_Threading_Checks(t *testing.T) {
 				lockerClient := setupClient(g, testConstruct.ServerURL)
 
 				// create the lock
-				lock, err := lockerClient.ObtainLock(ctx, lockRequest, nil)
+				lock, err := lockerClient.ObtainLock(ctx, lockRequest, nil, nil)
 				g.Expect(err).ToNot(HaveOccurred())
 				g.Expect(lock).ToNot(BeNil())
 
 				// release the lock
-				g.Expect(lock.Release()).ToNot(HaveOccurred())
+				g.Expect(lock.Release(nil)).ToNot(HaveOccurred())
 			}()
 		}
 
@@ -404,7 +404,7 @@ func TestLocker_Async_API_Threading_Checks(t *testing.T) {
 				lockerClient := setupClient(g, testConstruct.ServerURL)
 
 				// obtain the lock
-				lock, err := lockerClient.ObtainLock(ctx, lockRequest, nil)
+				lock, err := lockerClient.ObtainLock(ctx, lockRequest, nil, nil)
 				g.Expect(err).ToNot(HaveOccurred())
 				if lock == nil {
 					fmt.Println("failed key values:", lockRequest.KeyValues)
@@ -412,7 +412,7 @@ func TestLocker_Async_API_Threading_Checks(t *testing.T) {
 				g.Expect(lock).ToNot(BeNil())
 
 				// release the lock
-				g.Expect(lock.Release()).ToNot(HaveOccurred())
+				g.Expect(lock.Release(nil)).ToNot(HaveOccurred())
 			}(i)
 		}
 

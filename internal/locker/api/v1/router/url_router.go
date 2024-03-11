@@ -29,7 +29,6 @@ func AddV1LockerRoutes(mux *urlrouter.Router, v1Handler handlers.V1LockerHandler
 		}, nil).ServeHTTP(w, r)
 	})
 
-	// crud operations for group rules
 	mux.HandleFunc("POST", "/v1/locks", v1Handler.Create)
 	mux.HandleFunc("DELETE", "/v1/locks/:lock_id", v1Handler.Delete)
 	mux.HandleFunc("POST", "/v1/locks/:lock_id/heartbeat", v1Handler.Heartbeat)

@@ -7,24 +7,26 @@ import (
 
 	"github.com/DanLavine/goasync"
 	btreeassociated "github.com/DanLavine/willow/internal/datastructures/btree_associated"
+	"github.com/DanLavine/willow/internal/reporting"
 	"github.com/DanLavine/willow/pkg/models/api/common/errors"
 	v1common "github.com/DanLavine/willow/pkg/models/api/common/v1"
 	v1locker "github.com/DanLavine/willow/pkg/models/api/locker/v1"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
+	"go.uber.org/zap"
 )
 
 type ExcluiveLocker interface {
 	// obtain all the locks that make up a collection
-	ObtainLock(clientCtx context.Context, createRequest *v1locker.LockCreateRequest) *v1locker.LockCreateResponse
+	ObtainLock(ctx context.Context, createRequest *v1locker.LockCreateRequest) *v1locker.LockCreateResponse
 
 	// Heartbeat any number of locks so we know they are still running properly
-	Heartbeat(lockID string, lockClaim *v1locker.LockClaim) *errors.ServerError
+	Heartbeat(ctx context.Context, lockID string, lockClaim *v1locker.LockClaim) *errors.ServerError
 
 	// Find all locks currently held in the tree
-	LocksQuery(query *v1common.AssociatedQuery) v1locker.Locks
+	LocksQuery(ctx context.Context, query *v1common.AssociatedQuery) v1locker.Locks
 
 	// Release or delete a specific lock
-	Release(lockID string, lockClaim *v1locker.LockClaim) *errors.ServerError
+	Release(ctx context.Context, lockID string, lockClaim *v1locker.LockClaim) *errors.ServerError
 }
 
 type exclusiveLocker struct {
@@ -55,14 +57,11 @@ func (exclusiveLocker *exclusiveLocker) Execute(ctx context.Context) error {
 }
 
 // Helper to find all the currently held locks and the number of clients also wanting to obtain the locks.
-//
-// NOTE: there is a slight race condition where a lock is release and before it is claimed again, this will
-// not find that lock. However to do that I believe I would need to change the API soaving rather than having the
-// '/v1/locks/:lock_id' apis, they would also require some sort of "session id" to identify themselves as actually
-// having the lock. Eventually this would just be an "ADMIN" api, so I don't see it being used for real in the system
-// as we don't actuallyl want to return LockIDs to clients. Those should be hidden for just the clients that obtained
-// the original lock.
-func (exclusiveLocker *exclusiveLocker) LocksQuery(query *v1common.AssociatedQuery) v1locker.Locks {
+func (exclusiveLocker *exclusiveLocker) LocksQuery(ctx context.Context, query *v1common.AssociatedQuery) v1locker.Locks {
+	logger := reporting.GetLogger(ctx).Named("LocksQuery")
+	logger.Debug("querying locks")
+	defer logger.Debug("done querying lock")
+
 	locks := v1locker.Locks{}
 
 	exclusiveLocker.exclusiveLocks.Query(query.AssociatedKeyValues, func(associatedKeyValues btreeassociated.AssociatedKeyValues) bool {
@@ -91,17 +90,21 @@ func (exclusiveLocker *exclusiveLocker) LocksQuery(query *v1common.AssociatedQue
 	return locks
 }
 
-func (exclusiveLocker *exclusiveLocker) ObtainLock(clientCtx context.Context, createLockRequest *v1locker.LockCreateRequest) *v1locker.LockCreateResponse {
+func (exclusiveLocker *exclusiveLocker) ObtainLock(ctx context.Context, createLockRequest *v1locker.LockCreateRequest) *v1locker.LockCreateResponse {
+	logger := reporting.GetLogger(ctx).Named("ObtainLock")
+	logger.Debug("obtaining lock")
+	defer logger.Debug("done obtaining lock")
+
 	var claimChannel <-chan func(time.Duration) string
 
 	onCreate := func() any {
-		lock := newExclusiveLock(func() { exclusiveLocker.timeout(createLockRequest.KeyValues) })
+		lock := newExclusiveLock(func() { exclusiveLocker.timeout(reporting.BaseLogger(logger), createLockRequest.KeyValues) })
 
 		// add the task to the task manager
 		if err := exclusiveLocker.taskManager.AddExecuteTask("", lock); err == nil {
 			claimChannel = lock.GetClaimChannel()
 		} else {
-			// on an error, just set thest to a closed channel to exit from the claim operation. The client will
+			// on an error, just set these to a closed channel to exit from the claim operation. The client will
 			// need to retry and the lock should not be saved
 			closedChannel := make(chan func(time.Duration) string)
 			close(closedChannel)
@@ -123,9 +126,9 @@ func (exclusiveLocker *exclusiveLocker) ObtainLock(clientCtx context.Context, cr
 
 	select {
 	// client disconnected
-	case <-clientCtx.Done():
+	case <-ctx.Done():
 		// decrement the claim and remove the object from the tree if there are no other clients waiting
-
+		logger.Info("client disconnected")
 		_ = exclusiveLocker.exclusiveLocks.Delete(createLockRequest.KeyValues, func(associatedKeyValues btreeassociated.AssociatedKeyValues) bool {
 			return associatedKeyValues.Value().(*exclusiveLock).LostClient()
 		})
@@ -134,11 +137,13 @@ func (exclusiveLocker *exclusiveLocker) ObtainLock(clientCtx context.Context, cr
 	case processClaim, ok := <-claimChannel:
 		// service was told to shutdown and the client did not obtain the lock
 		if !ok {
+			logger.Info("server is shutting down. Client will need to retry obtaining the lock")
 			return nil
 		}
 
 		if ok {
 			// at this point, we have successfuly have the exclusive claim so create the lock
+			logger.Info("claimed the lock")
 			sessionID := processClaim(createLockRequest.LockTimeout)
 
 			return &v1locker.LockCreateResponse{
@@ -152,7 +157,10 @@ func (exclusiveLocker *exclusiveLocker) ObtainLock(clientCtx context.Context, cr
 	return nil
 }
 
-func (exclusiveLocker *exclusiveLocker) Heartbeat(lockID string, claim *v1locker.LockClaim) *errors.ServerError {
+func (exclusiveLocker *exclusiveLocker) Heartbeat(ctx context.Context, lockID string, claim *v1locker.LockClaim) *errors.ServerError {
+	logger := reporting.GetLogger(ctx).Named("Heartbeat")
+	logger.Debug("attempting to heartbeat")
+
 	heartbeaterErr := &errors.ServerError{Message: "LockID could not be found", StatusCode: http.StatusNotFound}
 
 	exclusiveLocker.exclusiveLocks.FindByAssociatedID(lockID, func(associatedKeyValues btreeassociated.AssociatedKeyValues) {
@@ -160,10 +168,19 @@ func (exclusiveLocker *exclusiveLocker) Heartbeat(lockID string, claim *v1locker
 		heartbeaterErr = exclusiveLock.Heartbeat(claim)
 	})
 
+	if heartbeaterErr == nil {
+		logger.Debug("successfully heartbeat")
+	} else {
+		logger.Debug("failed to heartbeat", zap.Error(heartbeaterErr))
+	}
+
 	return heartbeaterErr
 }
 
-func (exclusiveLocker *exclusiveLocker) Release(lockID string, claim *v1locker.LockClaim) *errors.ServerError {
+func (exclusiveLocker *exclusiveLocker) Release(ctx context.Context, lockID string, claim *v1locker.LockClaim) *errors.ServerError {
+	logger := reporting.GetLogger(ctx).Named("Release")
+	logger.Debug("releasing the lock")
+
 	releaseError := &errors.ServerError{Message: "LockID could not be found", StatusCode: http.StatusNotFound}
 
 	exclusiveLocker.exclusiveLocks.DeleteByAssociatedID(lockID, func(associatedKeyValues btreeassociated.AssociatedKeyValues) bool {
@@ -173,12 +190,20 @@ func (exclusiveLocker *exclusiveLocker) Release(lockID string, claim *v1locker.L
 		return destroy
 	})
 
+	if releaseError == nil {
+		logger.Debug("released the lock")
+	} else {
+		logger.Debug("failed to release the lock", zap.Error(releaseError))
+	}
+
 	return releaseError
 }
 
 // callback for the lock when a timeout occurs.
-func (exclusiveLocker *exclusiveLocker) timeout(lockKeyValues datatypes.KeyValues) {
+func (exclusiveLocker *exclusiveLocker) timeout(logger *zap.Logger, lockKeyValues datatypes.KeyValues) {
 	exclusiveLocker.exclusiveLocks.Delete(lockKeyValues, func(associatedKeyValues btreeassociated.AssociatedKeyValues) bool {
+		logger.Warn("lock timed out", zap.Any("key_values", lockKeyValues))
+
 		exclusiveLock := associatedKeyValues.Value().(*exclusiveLock)
 		shouldTimeout := exclusiveLock.TimeOut()
 

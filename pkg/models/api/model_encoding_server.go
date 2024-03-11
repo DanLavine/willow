@@ -31,8 +31,10 @@ func DecodeAndValidateHttpRequest(r *http.Request, obj APIObject) *errors.Server
 	contentType := ContentTypeHeader(r.Header)
 	switch contentType {
 	case ContentTypeJSON:
-		if err := obj.DecodeJSON(data); err != nil {
-			return errors.ServerErrorDecodeingJson(err)
+		if data != nil {
+			if err := obj.DecodeJSON(data); err != nil {
+				return errors.ServerErrorDecodeingJson(err)
+			}
 		}
 	default:
 		return errors.ServerUnknownContentType(contentType)
