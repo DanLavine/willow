@@ -107,6 +107,7 @@ func (exclusiveLock *exclusiveLock) Execute(ctx context.Context) error {
 		//
 		// NOTE: don't need to check this here. In the case of a client creating a new lock when a shutdown processes, we want
 		// to ensure the client is able to claim the newly created lock before we exit.
+		//
 		// Then in the case of the lock being released, the client will either retry because it recieved a server shutdown
 		// response code. OR, the lock will be released and a new client can either clam the lock before the service shutdown
 		//
@@ -265,7 +266,8 @@ func (exclusiveLock *exclusiveLock) Execute(ctx context.Context) error {
 func (exclusiveLock *exclusiveLock) processClaim(lockTimeout time.Duration) string {
 	// setup the new session id
 	exclusiveLock.sessionIDLock.Lock()
-	exclusiveLock.sessionID = idgenerator.UUID().ID()
+	sessionID := idgenerator.UUID().ID()
+	exclusiveLock.sessionID = sessionID
 	exclusiveLock.sessionIDLock.Unlock()
 
 	// set the current timeout
@@ -281,7 +283,7 @@ func (exclusiveLock *exclusiveLock) processClaim(lockTimeout time.Duration) stri
 	// inform the async process to continue
 	exclusiveLock.claimResponse <- lockTimeout
 
-	return exclusiveLock.sessionID
+	return sessionID
 }
 
 //	RETURNS

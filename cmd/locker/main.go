@@ -10,7 +10,7 @@ import (
 	"github.com/DanLavine/goasync"
 	"github.com/DanLavine/urlrouter"
 	"github.com/DanLavine/willow/internal/config"
-	"github.com/DanLavine/willow/internal/logger"
+	"github.com/DanLavine/willow/internal/reporting"
 
 	"github.com/DanLavine/willow/internal/locker/api"
 	v1handlers "github.com/DanLavine/willow/internal/locker/api/v1/handlers"
@@ -24,7 +24,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	logger := logger.NewZapLogger(cfg)
+	logger := reporting.NewZapLogger(cfg)
 	defer logger.Sync()
 
 	// setup server mux that is passed to all handlers
