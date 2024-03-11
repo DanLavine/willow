@@ -3,6 +3,7 @@ package clients
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/pem"
 	"fmt"
 	"os"
 
@@ -55,21 +56,12 @@ func (cfg *Config) Validate() error {
 
 	if cfg.CAFile == "" && cfg.ClientCRTFile == "" && cfg.ClientKeyFile == "" {
 		// this is fine, nothing to do since they are all nil
+	} else if cfg.CAFile != "" && (cfg.ClientCRTFile == "" || cfg.ClientKeyFile == "") {
+		return fmt.Errorf("when using custom certs and the 'CAFile' is provided then 'ClientKeyFile' and 'ClienCRTFile' must also be provided")
 	} else {
-		// ensure all provided certs are here
-		if cfg.CAFile == "" || cfg.ClientCRTFile == "" || cfg.ClientKeyFile == "" {
-			return fmt.Errorf("when providing custom certs, all 3 values must be provided [CAFile | ClientKeyFile | ClienCRTFile]")
-		}
-
-		// parse root ca
-		rootCAData, err := os.ReadFile(cfg.CAFile)
-		if err != nil {
-			return fmt.Errorf("failed to read the CAFile: %w", err)
-		}
-
-		rootCAs := x509.NewCertPool()
-		if ok := rootCAs.AppendCertsFromPEM([]byte(rootCAData)); !ok {
-			return fmt.Errorf("error parsing CAFile")
+		// ensure all other certs are valid
+		if cfg.ClientCRTFile == "" || cfg.ClientKeyFile == "" {
+			return fmt.Errorf("when providing custom certs, the key and crt values must be provided [ClientKeyFile | ClienCRTFile]")
 		}
 
 		// parse client certs
@@ -78,7 +70,41 @@ func (cfg *Config) Validate() error {
 			return fmt.Errorf("failed to read the ClientKeyFile or ClientCRTFile: %w", err)
 		}
 
-		cfg.rootCAs = rootCAs
+		// optional parse root ca
+		if cfg.CAFile != "" {
+			rootCAData, err := os.ReadFile(cfg.CAFile)
+			if err != nil {
+				return fmt.Errorf("failed to read the CAFile: %w", err)
+			}
+
+			rootCAs := x509.NewCertPool()
+			if ok := rootCAs.AppendCertsFromPEM([]byte(rootCAData)); !ok {
+				return fmt.Errorf("error parsing CAFile")
+			}
+
+			// validate that the key is corret
+			keyData, err := os.ReadFile(cfg.ClientCRTFile)
+			if err != nil {
+				return fmt.Errorf("failed to read ClientCRTFile: %w", err)
+			}
+
+			block, _ := pem.Decode(keyData)
+			if block == nil {
+				return fmt.Errorf("failed to decode ClientCRTFile")
+			}
+
+			cert, err := x509.ParseCertificate(block.Bytes)
+			if err != nil {
+				return fmt.Errorf("faled to parse ClientCRTFile: %w", err)
+			}
+
+			if _, err = cert.Verify(x509.VerifyOptions{Roots: rootCAs}); err != nil {
+				return fmt.Errorf("failed to verify certs: %w", err)
+			}
+
+			cfg.rootCAs = rootCAs
+		}
+
 		cfg.cert = cert
 	}
 

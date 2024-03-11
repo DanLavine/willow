@@ -38,13 +38,13 @@ func NewZapLogger(config config.Config) *zap.Logger {
 }
 
 func AddRequestID(logger *zap.Logger, req *http.Request) *zap.Logger {
-	if requestID := req.Header.Get("request_id"); requestID != "" {
-		return logger.With(zap.String("request_id", requestID))
+	if requestID := req.Header.Get("x_request_id"); requestID != "" {
+		return logger.With(zap.String("x_request_id", requestID))
 	}
 
-	return logger.With(zap.String("request_id", uuid.New().String()))
+	return logger.With(zap.String("x_request_id", uuid.New().String()))
 }
 
 func StripRequestID(logger *zap.Logger) *zap.Logger {
-	return logger.With(zap.String("request_id", ""))
+	return logger.With(zap.String("x_request_id", ""))
 }

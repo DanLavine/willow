@@ -30,7 +30,7 @@ type Lock interface {
 	//	          as realesed from the client and will eventually time out service side.
 	//
 	// Release the currently held lock
-	Release() error
+	Release(headers http.Header) error
 }
 
 type lock struct {
@@ -103,15 +103,16 @@ func newLock(lockResponse *v1locker.LockCreateResponse, url string, client clien
 					return
 				}
 
-				// need to heartbeat
-				resp, err := client.Do(&clients.RequestData{
-					Method: "POST",
-					Path:   fmt.Sprintf("%s/v1/locks/%s/heartbeat", url, lockResponse.LockID),
-					Model: &v1locker.LockClaim{
-						SessionID: lockResponse.SessionID,
-					},
-				})
+				req, err := client.EncodedRequest("POST", fmt.Sprintf("%s/v1/locks/%s/heartbeat", url, lockResponse.LockID), &v1locker.LockClaim{SessionID: lockResponse.SessionID})
+				if err != nil {
+					if heartbeatErrorCallback != nil {
+						heartbeatErrorCallback(fmt.Errorf("failed to setup heartbeat requestt: %w", err))
+					}
 
+					continue
+				}
+
+				resp, err := client.Do(req)
 				if err != nil {
 					if heartbeatErrorCallback != nil {
 						heartbeatErrorCallback(fmt.Errorf("failed to heartbeat: %w", err))
@@ -151,12 +152,15 @@ func newLock(lockResponse *v1locker.LockCreateResponse, url string, client clien
 	return lock
 }
 
+//	PARAMTERS
+//	- headers - optional http headers to apply to the request
+//
 //	RETURNS:
 //	- error - from the service when realeasing the lock. If this happens the lock should be treated
 //	          as realesed from the client and will eventually time out service side.
 //
 // Release the currently held lock
-func (l *lock) Release() error {
+func (l *lock) Release(headers http.Header) error {
 	// release the actual lock
 	if l.released.CompareAndSwap(false, true) {
 		// stop heartbeating
@@ -166,14 +170,14 @@ func (l *lock) Release() error {
 		<-l.heartbeating
 
 		// Delete Lock
-		resp, err := l.client.Do(&clients.RequestData{
-			Method: "DELETE",
-			Path:   fmt.Sprintf("%s/v1/locks/%s", l.url, l.lockID),
-			Model: &v1locker.LockClaim{
-				SessionID: l.sessionID,
-			},
-		})
+		req, err := l.client.EncodedRequest("DELETE", fmt.Sprintf("%s/v1/locks/%s", l.url, l.lockID), &v1locker.LockClaim{SessionID: l.sessionID})
+		if err != nil {
+			return err
+		}
 
+		clients.AppendHeaders(req, headers)
+
+		resp, err := l.client.Do(req)
 		if err != nil {
 			return err
 		}

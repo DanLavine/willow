@@ -54,8 +54,13 @@ func main() {
 	// ensure the locker client can connect to the locker service
 	for i := 0; i < 10; i++ {
 		if err := lockerClient.Healthy(); err != nil {
-			logger.Error("error checking health of locker service", zap.Error(err))
-			time.Sleep(10 * time.Second)
+			logger.Error("error checking health of locker service. Will try again in 10 seconds", zap.Error(err))
+
+			select {
+			case <-time.After(10 * time.Second):
+			case <-shutdown.Done():
+				os.Exit(1)
+			}
 
 			if i == 9 {
 				log.Fatal("failed to setup the locker client which is required")
