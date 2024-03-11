@@ -14,6 +14,7 @@ import (
 //	PARAMETERS:
 //	- ruleName - name of the Rule to create the Override for
 //	- override - Override definition to create
+//	- headers (optional) - any headers to apply to the request
 //
 //	RETURNS:
 //	- error - error creating the override
@@ -21,14 +22,16 @@ import (
 // CreateOverride creates a new Override for a particular rule. It is important to Note that the `Override.KeyValues` must
 // include the `Rule.GroubBy` Keys. At least for now, I like this enforcement to make the Overrides easier to reason about
 // that they should be for a specific grouping of KeyValue items.
-func (lc *LimitClient) CreateOverride(ruleName string, override *v1limiter.Override) error {
+func (lc *LimitClient) CreateOverride(ruleName string, override *v1limiter.Override, headers http.Header) error {
 	// setup and make the request
-	resp, err := lc.client.Do(&clients.RequestData{
-		Method: "POST",
-		Path:   fmt.Sprintf("%s/v1/limiter/rules/%s/overrides", lc.url, ruleName),
-		Model:  override,
-	})
+	req, err := lc.client.EncodedRequest("POST", fmt.Sprintf("%s/v1/limiter/rules/%s/overrides", lc.url, ruleName), override)
+	if err != nil {
+		return err
+	}
 
+	clients.AppendHeaders(req, headers)
+
+	resp, err := lc.client.Do(req)
 	if err != nil {
 		return err
 	}
@@ -52,19 +55,22 @@ func (lc *LimitClient) CreateOverride(ruleName string, override *v1limiter.Overr
 //	PARAMETERS:
 //	- ruleName - name of the Rule to query the Overrides for
 //	- override - Override definition
+//	- headers (optional) - any headers to apply to the request
 //
 //	RETURNS:
 //	- error - error creating the override
 //
 // Match is used to find all the rules that match the provided KeyValues
-func (lc *LimitClient) MatchOverrides(ruleName string, matchQuery *v1common.MatchQuery) (v1limiter.Overrides, error) {
+func (lc *LimitClient) MatchOverrides(ruleName string, matchQuery *v1common.MatchQuery, headers http.Header) (v1limiter.Overrides, error) {
 	// setup and make the request
-	resp, err := lc.client.Do(&clients.RequestData{
-		Method: "GET",
-		Path:   fmt.Sprintf("%s/v1/limiter/rules/%s/overrides", lc.url, ruleName),
-		Model:  matchQuery,
-	})
+	req, err := lc.client.EncodedRequest("GET", fmt.Sprintf("%s/v1/limiter/rules/%s/overrides", lc.url, ruleName), matchQuery)
+	if err != nil {
+		return nil, err
+	}
 
+	clients.AppendHeaders(req, headers)
+
+	resp, err := lc.client.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -93,6 +99,7 @@ func (lc *LimitClient) MatchOverrides(ruleName string, matchQuery *v1common.Matc
 //	PARAMETERS:
 //	- ruleName - name of the Rule that contains the override
 //	- overrideName - name of the Override to obtain
+//	- headers (optional) - any headers to apply to the request
 //
 //	RETURNS:
 //	- error - error creating the override
@@ -100,14 +107,16 @@ func (lc *LimitClient) MatchOverrides(ruleName string, matchQuery *v1common.Matc
 // CreateOverride creates a new Override for a particular rule. It is important to Note that the `Override.KeyValues` must
 // include the `Rule.GroubBy` Keys. At least for now, I like this enforcement to make the Overrides easier to reason about
 // that they should be for a specific grouping of KeyValue items.
-func (lc *LimitClient) GetOverride(ruleName string, overrideName string) (*v1limiter.Override, error) {
-	// setup and make the request
-	resp, err := lc.client.Do(&clients.RequestData{
-		Method: "GET",
-		Path:   fmt.Sprintf("%s/v1/limiter/rules/%s/overrides/%s", lc.url, ruleName, overrideName),
-		Model:  nil,
-	})
+func (lc *LimitClient) GetOverride(ruleName string, overrideName string, headers http.Header) (*v1limiter.Override, error) {
+	// setup and make the reques
+	req, err := lc.client.SetupRequest("GET", fmt.Sprintf("%s/v1/limiter/rules/%s/overrides/%s", lc.url, ruleName, overrideName))
+	if err != nil {
+		return nil, err
+	}
 
+	clients.AppendHeaders(req, headers)
+
+	resp, err := lc.client.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -136,6 +145,7 @@ func (lc *LimitClient) GetOverride(ruleName string, overrideName string) (*v1lim
 //	PARAMETERS:
 //	- ruleName - name of the Rule to create the Override for
 //	- override - Override definition to create
+//	- headers (optional) - any headers to apply to the request
 //
 //	RETURNS:
 //	- error - error creating the override
@@ -143,14 +153,16 @@ func (lc *LimitClient) GetOverride(ruleName string, overrideName string) (*v1lim
 // CreateOverride creates a new Override for a particular rule. It is important to Note that the `Override.KeyValues` must
 // include the `Rule.GroubBy` Keys. At least for now, I like this enforcement to make the Overrides easier to reason about
 // that they should be for a specific grouping of KeyValue items.
-func (lc *LimitClient) UpdateOverride(ruleName string, overrideName string, overrideUpdate *v1limiter.OverrideUpdate) error {
+func (lc *LimitClient) UpdateOverride(ruleName string, overrideName string, overrideUpdate *v1limiter.OverrideUpdate, headers http.Header) error {
 	// setup and make the request
-	resp, err := lc.client.Do(&clients.RequestData{
-		Method: "PUT",
-		Path:   fmt.Sprintf("%s/v1/limiter/rules/%s/overrides/%s", lc.url, ruleName, overrideName),
-		Model:  overrideUpdate,
-	})
+	req, err := lc.client.EncodedRequest("PUT", fmt.Sprintf("%s/v1/limiter/rules/%s/overrides/%s", lc.url, ruleName, overrideName), overrideUpdate)
+	if err != nil {
+		return err
+	}
 
+	clients.AppendHeaders(req, headers)
+
+	resp, err := lc.client.Do(req)
 	if err != nil {
 		return err
 	}
@@ -174,19 +186,22 @@ func (lc *LimitClient) UpdateOverride(ruleName string, overrideName string, over
 //	PARAMETERS:
 //	- ruleName - name of the Rule to delete the Overide from
 //	- overrideName - name of the Override to delete
+//	- headers (optional) - any headers to apply to the request
 //
 //	RETURNS:
 //	- error - error deleting the override
 //
 // DeleteOverride removes a particual override for a Rule
-func (lc *LimitClient) DeleteOverride(ruleName, overrideName string) error {
+func (lc *LimitClient) DeleteOverride(ruleName, overrideName string, headers http.Header) error {
 	// setup and make the request
-	resp, err := lc.client.Do(&clients.RequestData{
-		Method: "DELETE",
-		Path:   fmt.Sprintf("%s/v1/limiter/rules/%s/overrides/%s", lc.url, ruleName, overrideName),
-		Model:  nil,
-	})
+	req, err := lc.client.SetupRequest("DELETE", fmt.Sprintf("%s/v1/limiter/rules/%s/overrides/%s", lc.url, ruleName, overrideName))
+	if err != nil {
+		return err
+	}
 
+	clients.AppendHeaders(req, headers)
+
+	resp, err := lc.client.Do(req)
 	if err != nil {
 		return err
 	}

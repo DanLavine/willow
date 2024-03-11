@@ -77,15 +77,20 @@ func newItem(url string, client clients.HttpClient, queueName string, dequeueIte
 					return
 				}
 
-				resp, err := item.client.Do(&clients.RequestData{
-					Method: "POST",
-					Path:   fmt.Sprintf("%s/v1/queues/%s/channels/items/heartbeat", item.url, item.queueName),
-					Model: &v1willow.Heartbeat{
+				req, err := client.EncodedRequest(
+					"POST",
+					fmt.Sprintf("%s/v1/queues/%s/channels/items/heartbeat", item.url, item.queueName),
+					&v1willow.Heartbeat{
 						ItemID:    item.itemID,
 						KeyValues: item.keyValues,
 					},
-				})
+				)
+				if err != nil {
+					item.forwardError(err)
+					continue
+				}
 
+				resp, err := client.Do(req)
 				// error making the request. This should not happen
 				if err != nil {
 					select {
@@ -143,19 +148,34 @@ func (item *Item) Done() <-chan struct{} {
 	return item.done
 }
 
-func (item *Item) ACK(passed bool) error {
+//	PARAMETERS:
+//	- passed - true iff the item successfully processed and can be removed from the remote queue. If false,
+//	           the item might be retried for processing
+//	- headers (optional) - any headers to apply to the request
+//
+//	RETURNS:
+//	- error - error creating the queue
+//
+// ACK an item to inform the service that it successfully processed, or needs to be retried
+func (item *Item) ACK(passed bool, headers http.Header) error {
 	item.stop()
 
-	resp, err := item.client.Do(&clients.RequestData{
-		Method: "POST",
-		Path:   fmt.Sprintf("%s/v1/queues/%s/channels/items/ack", item.url, item.queueName),
-		Model: &v1willow.ACK{
+	req, err := item.client.EncodedRequest(
+		"POST",
+		fmt.Sprintf("%s/v1/queues/%s/channels/items/ack", item.url, item.queueName),
+		&v1willow.ACK{
 			ItemID:    item.itemID,
 			KeyValues: item.keyValues,
 			Passed:    passed,
 		},
-	})
+	)
+	if err != nil {
+		return err
+	}
 
+	clients.AppendHeaders(req, headers)
+
+	resp, err := item.client.Do(req)
 	if err != nil {
 		return err
 	}

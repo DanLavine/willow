@@ -104,7 +104,7 @@ func (exclusiveLocker *exclusiveLocker) ObtainLock(ctx context.Context, createLo
 		if err := exclusiveLocker.taskManager.AddExecuteTask("", lock); err == nil {
 			claimChannel = lock.GetClaimChannel()
 		} else {
-			// on an error, just set thest to a closed channel to exit from the claim operation. The client will
+			// on an error, just set these to a closed channel to exit from the claim operation. The client will
 			// need to retry and the lock should not be saved
 			closedChannel := make(chan func(time.Duration) string)
 			close(closedChannel)

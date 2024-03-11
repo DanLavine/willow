@@ -14,6 +14,7 @@ import (
 
 //	PARAMETERS:
 //	- counter - Counter object to increment or decrement counters from. This value is checked against all Rules
+//	- headers (optional) - any headers to apply to the request
 //
 //	RETURNS:
 //	- error - Error if there was a limit reached, or encoding issue
@@ -22,14 +23,16 @@ import (
 // 1. If the `Counter.Counters` is positive, then the counter will either be created or incremented server side.
 // 2. If the `Counter.Counters` is negative, then the counter will be decremented server side. If this value reaches 0, then the counter is automatically deleted
 // An error will be returned if there is a Rule that limits the total number of Counters associatted with the KeyValues
-func (lc *LimitClient) UpdateCounter(counter *v1limiter.Counter) error {
+func (lc *LimitClient) UpdateCounter(counter *v1limiter.Counter, headers http.Header) error {
 	// setup and make the request
-	resp, err := lc.client.Do(&clients.RequestData{
-		Method: "PUT",
-		Path:   fmt.Sprintf("%s/v1/limiter/counters", lc.url),
-		Model:  counter,
-	})
+	req, err := lc.client.EncodedRequest("PUT", fmt.Sprintf("%s/v1/limiter/counters", lc.url), counter)
+	if err != nil {
+		return err
+	}
 
+	clients.AppendHeaders(req, headers)
+
+	resp, err := lc.client.Do(req)
 	if err != nil {
 		return err
 	}
@@ -53,19 +56,22 @@ func (lc *LimitClient) UpdateCounter(counter *v1limiter.Counter) error {
 
 //	PARAMETERS:
 //	- query - Common query operation to find any number of saved counters
+//	- headers (optional) - any headers to apply to the request
 //
 //	RETURNS:
 //	- error - Error if there was an unexpcted or encoding issue
 //
 // LisCounters can be used to query any Counters
-func (lc *LimitClient) QueryCounters(query *v1common.AssociatedQuery) (v1limiter.Counters, error) {
+func (lc *LimitClient) QueryCounters(query *v1common.AssociatedQuery, headers http.Header) (v1limiter.Counters, error) {
 	// setup and make the request
-	resp, err := lc.client.Do(&clients.RequestData{
-		Method: "GET",
-		Path:   fmt.Sprintf("%s/v1/limiter/counters", lc.url),
-		Model:  query,
-	})
+	req, err := lc.client.EncodedRequest("GET", fmt.Sprintf("%s/v1/limiter/counters", lc.url), query)
+	if err != nil {
+		return nil, err
+	}
 
+	clients.AppendHeaders(req, headers)
+
+	resp, err := lc.client.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -93,19 +99,22 @@ func (lc *LimitClient) QueryCounters(query *v1common.AssociatedQuery) (v1limiter
 
 //	PARAMETERS:
 //	- counter - Counter object to set specific counters for
+//	- headers (optional) - any headers to apply to the request
 //
 //	RETURNS:
 //	- error - Error if there was a limit reached, or encoding issue
 //
 // SetCounters is used to forcefully set the number of counters for a particual KeyValues without enforcing any rules
-func (lc *LimitClient) SetCounters(counters *v1limiter.Counter) error {
+func (lc *LimitClient) SetCounters(counters *v1limiter.Counter, headers http.Header) error {
 	// setup and make the request
-	resp, err := lc.client.Do(&clients.RequestData{
-		Method: "POST",
-		Path:   fmt.Sprintf("%s/v1/limiter/counters/set", lc.url),
-		Model:  counters,
-	})
+	req, err := lc.client.EncodedRequest("POST", fmt.Sprintf("%s/v1/limiter/counters/set", lc.url), counters)
+	if err != nil {
+		return err
+	}
 
+	clients.AppendHeaders(req, headers)
+
+	resp, err := lc.client.Do(req)
 	if err != nil {
 		return err
 	}

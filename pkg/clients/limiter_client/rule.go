@@ -12,21 +12,24 @@ import (
 
 //	PARAMETERS:
 //	- rule - Rule definition to create
+//	- headers (optional) - any headers to apply to the request
 //
 //	RETURNS:
 //	- error - error creating the rule
 //
 // CreateRule creates a new Rule to enforce Counters against
-func (lc *LimitClient) CreateRule(rule *v1limiter.RuleCreateRequest) error {
+func (lc *LimitClient) CreateRule(rule *v1limiter.RuleCreateRequest, headers http.Header) error {
 	// setup and make the request
-	resp, err := lc.client.Do(&clients.RequestData{
-		Method: "POST",
-		Path:   fmt.Sprintf("%s/v1/limiter/rules", lc.url),
-		Model:  rule,
-	})
-
+	req, err := lc.client.EncodedRequest("POST", fmt.Sprintf("%s/v1/limiter/rules", lc.url), rule)
 	if err != nil {
 		return err
+	}
+
+	clients.AppendHeaders(req, headers)
+
+	resp, err := lc.client.Do(req)
+	if err != nil {
+		return nil
 	}
 
 	// parse the response
@@ -48,19 +51,21 @@ func (lc *LimitClient) CreateRule(rule *v1limiter.RuleCreateRequest) error {
 //	PARAMETERS:
 //	- ruleName - name of the Rule to get
 //	- query - overrides to include for the found rule
-//
+//	- headers (optional) - any headers to apply to the request
 //	RETURNS:
 //	- error - error findinig the Rule or Overrides
 //
 // GetRule is used to find a specific Rule and any optional Overrides that match the query
-func (lc *LimitClient) GetRule(ruleName string, query *v1limiter.RuleGet) (*v1limiter.Rule, error) {
+func (lc *LimitClient) GetRule(ruleName string, query *v1limiter.RuleGet, headers http.Header) (*v1limiter.Rule, error) {
 	// setup and make the request
-	resp, err := lc.client.Do(&clients.RequestData{
-		Method: "GET",
-		Path:   fmt.Sprintf("%s/v1/limiter/rules/%s", lc.url, ruleName),
-		Model:  query,
-	})
+	req, err := lc.client.EncodedRequest("GET", fmt.Sprintf("%s/v1/limiter/rules/%s", lc.url, ruleName), query)
+	if err != nil {
+		return nil, err
+	}
 
+	clients.AppendHeaders(req, headers)
+
+	resp, err := lc.client.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -88,19 +93,22 @@ func (lc *LimitClient) GetRule(ruleName string, query *v1limiter.RuleGet) (*v1li
 
 //	PARAMETERS:
 //	- matchQuery - query that can be used to match KeyValues to Rules
+//	- headers (optional) - any headers to apply to the request
 //
 //	RETURNS:
 //	- error - unexpected errors when querying Rule or Overrides
 //
 // MatchRules is used to find any Rules and optional Overrides for the matchQuery
-func (lc *LimitClient) MatchRules(matchQuery *v1limiter.RuleMatch) (v1limiter.Rules, error) {
+func (lc *LimitClient) MatchRules(matchQuery *v1limiter.RuleMatch, headers http.Header) (v1limiter.Rules, error) {
 	// setup and make the request
-	resp, err := lc.client.Do(&clients.RequestData{
-		Method: "GET",
-		Path:   fmt.Sprintf("%s/v1/limiter/rules", lc.url),
-		Model:  matchQuery,
-	})
+	req, err := lc.client.EncodedRequest("GET", fmt.Sprintf("%s/v1/limiter/rules", lc.url), matchQuery)
+	if err != nil {
+		return nil, err
+	}
 
+	clients.AppendHeaders(req, headers)
+
+	resp, err := lc.client.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -129,19 +137,22 @@ func (lc *LimitClient) MatchRules(matchQuery *v1limiter.RuleMatch) (v1limiter.Ru
 //	PARAMATERS
 //	- ruleName - name of the Rule to update
 //	- ruleUpdate - update definition for a particular Rule
+//	- headers (optional) - any headers to apply to the request
 //
 //	RETURNS:
 //	- error - unexpected errors when updating the Rule
 //
 // UpdateRule can update the default limits for a particular Rule
-func (lc *LimitClient) UpdateRule(ruleName string, ruleUpdate *v1limiter.RuleUpdateRquest) error {
+func (lc *LimitClient) UpdateRule(ruleName string, ruleUpdate *v1limiter.RuleUpdateRquest, headers http.Header) error {
 	// setup and make the request
-	resp, err := lc.client.Do(&clients.RequestData{
-		Method: "PUT",
-		Path:   fmt.Sprintf("%s/v1/limiter/rules/%s", lc.url, ruleName),
-		Model:  ruleUpdate,
-	})
+	req, err := lc.client.EncodedRequest("PUT", fmt.Sprintf("%s/v1/limiter/rules/%s", lc.url, ruleName), ruleUpdate)
+	if err != nil {
+		return err
+	}
 
+	clients.AppendHeaders(req, headers)
+
+	resp, err := lc.client.Do(req)
 	if err != nil {
 		return err
 	}
@@ -164,19 +175,22 @@ func (lc *LimitClient) UpdateRule(ruleName string, ruleUpdate *v1limiter.RuleUpd
 
 //	PARAMATERS
 //	- ruleName - name of the Rule to delete
+//	- headers (optional) - any headers to apply to the request
 //
 //	RETURNS:
 //	- error - unexpected errors when deleting the Rule
 //
 // DeleteRule deletes a Rule and all Overrides for the associated Rule
-func (lc *LimitClient) DeleteRule(ruleName string) error {
+func (lc *LimitClient) DeleteRule(ruleName string, headers http.Header) error {
 	// setup and make the request
-	resp, err := lc.client.Do(&clients.RequestData{
-		Method: "DELETE",
-		Path:   fmt.Sprintf("%s/v1/limiter/rules/%s", lc.url, ruleName),
-		Model:  nil,
-	})
+	req, err := lc.client.SetupRequest("DELETE", fmt.Sprintf("%s/v1/limiter/rules/%s", lc.url, ruleName))
+	if err != nil {
+		return err
+	}
 
+	clients.AppendHeaders(req, headers)
+
+	resp, err := lc.client.Do(req)
 	if err != nil {
 		return err
 	}

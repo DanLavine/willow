@@ -12,14 +12,24 @@ import (
 	v1willow "github.com/DanLavine/willow/pkg/models/api/willow/v1"
 )
 
-func (wc *WillowClient) CreateQueue(queue *v1willow.QueueCreate) error {
+//	PARAMETERS:
+//	- queue - Queue definition to create
+//	- headers (optional) - any headers to apply to the request
+//
+//	RETURNS:
+//	- error - error creating the queue
+//
+// CreateQueue creates a new Queue. This will return an error if the queue name already exists
+func (wc *WillowClient) CreateQueue(queue *v1willow.QueueCreate, headers http.Header) error {
 	// setup and make the request
-	resp, err := wc.client.Do(&clients.RequestData{
-		Method: "POST",
-		Path:   fmt.Sprintf("%s/v1/queues", wc.url),
-		Model:  queue,
-	})
+	req, err := wc.client.EncodedRequest("POST", fmt.Sprintf("%s/v1/queues", wc.url), queue)
+	if err != nil {
+		return err
+	}
 
+	clients.AppendHeaders(req, headers)
+
+	resp, err := wc.client.Do(req)
 	if err != nil {
 		return err
 	}
@@ -40,14 +50,23 @@ func (wc *WillowClient) CreateQueue(queue *v1willow.QueueCreate) error {
 	}
 }
 
-func (wc *WillowClient) ListQueues() (v1willow.Queues, error) {
+//	PARAMETERS:
+//	- headers (optional) - any headers to apply to the request
+//
+//	RETURNS:
+//	- error - error creating the queue
+//
+// List all the queues without any of the details about the queue's channels
+func (wc *WillowClient) ListQueues(headers http.Header) (v1willow.Queues, error) {
 	// setup and make the request
-	resp, err := wc.client.Do(&clients.RequestData{
-		Method: "GET",
-		Path:   fmt.Sprintf("%s/v1/queues", wc.url),
-		Model:  nil,
-	})
+	req, err := wc.client.SetupRequest("GET", fmt.Sprintf("%s/v1/queues", wc.url))
+	if err != nil {
+		return nil, err
+	}
 
+	clients.AppendHeaders(req, headers)
+
+	resp, err := wc.client.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -73,14 +92,25 @@ func (wc *WillowClient) ListQueues() (v1willow.Queues, error) {
 	}
 }
 
-func (wc *WillowClient) GetQueue(queueName string, overridesQuery *v1common.AssociatedQuery) (*v1willow.Queue, error) {
+//	PARAMETERS:
+//	- queueName - name of the queue to obtain
+//	- channelsQuery - query for specific channels to find
+//	- headers (optional) - any headers to apply to the request
+//
+//	RETURNS:
+//	- error - error creating the queue
+//
+// GetQueue retrieves a queue and any channels that match the provided query
+func (wc *WillowClient) GetQueue(queueName string, channelsQuery *v1common.AssociatedQuery, headers http.Header) (*v1willow.Queue, error) {
 	// setup and make the request
-	resp, err := wc.client.Do(&clients.RequestData{
-		Method: "GET",
-		Path:   fmt.Sprintf("%s/v1/queues/%s", wc.url, queueName),
-		Model:  overridesQuery,
-	})
+	req, err := wc.client.EncodedRequest("GET", fmt.Sprintf("%s/v1/queues/%s", wc.url, queueName), channelsQuery)
+	if err != nil {
+		return nil, err
+	}
 
+	clients.AppendHeaders(req, headers)
+
+	resp, err := wc.client.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -107,14 +137,25 @@ func (wc *WillowClient) GetQueue(queueName string, overridesQuery *v1common.Asso
 	}
 }
 
-func (wc *WillowClient) UpdateQueue(queueName string, queueUpdate *v1willow.QueueUpdate) error {
+//	PARAMETERS:
+//	- queueName - name of the queue to update
+//	- queueUpdate - full configuration to apply to the existing queue
+//	- headers (optional) - any headers to apply to the request
+//
+//	RETURNS:
+//	- error - error creating the queue
+//
+// UpdateQueue is used to upadte the queue's specific properties
+func (wc *WillowClient) UpdateQueue(queueName string, queueUpdate *v1willow.QueueUpdate, headers http.Header) error {
 	// setup and make the request
-	resp, err := wc.client.Do(&clients.RequestData{
-		Method: "PUT",
-		Path:   fmt.Sprintf("%s/v1/queues/%s", wc.url, queueName),
-		Model:  queueUpdate,
-	})
+	req, err := wc.client.EncodedRequest("PUT", fmt.Sprintf("%s/v1/queues/%s", wc.url, queueName), queueUpdate)
+	if err != nil {
+		return err
+	}
 
+	clients.AppendHeaders(req, headers)
+
+	resp, err := wc.client.Do(req)
 	if err != nil {
 		return err
 	}
@@ -135,14 +176,24 @@ func (wc *WillowClient) UpdateQueue(queueName string, queueUpdate *v1willow.Queu
 	}
 }
 
-func (wc *WillowClient) DeleteQueue(queueName string) error {
+//	PARAMETERS:
+//	- queueName - name of the queue to update
+//	- headers (optional) - any headers to apply to the request
+//
+//	RETURNS:
+//	- error - error creating the queue
+//
+// Delete a queue and any channels associated with the Queue
+func (wc *WillowClient) DeleteQueue(queueName string, headers http.Header) error {
 	// setup and make the request
-	resp, err := wc.client.Do(&clients.RequestData{
-		Method: "DELETE",
-		Path:   fmt.Sprintf("%s/v1/queues/%s", wc.url, queueName),
-		Model:  nil,
-	})
+	req, err := wc.client.SetupRequest("DELETE", fmt.Sprintf("%s/v1/queues/%s", wc.url, queueName))
+	if err != nil {
+		return err
+	}
 
+	clients.AppendHeaders(req, headers)
+
+	resp, err := wc.client.Do(req)
 	if err != nil {
 		return err
 	}

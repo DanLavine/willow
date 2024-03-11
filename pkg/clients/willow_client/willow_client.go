@@ -21,23 +21,23 @@ type WillowServiceClient interface {
 
 	// Queue Operations
 	//// Create a new queue
-	CreateQueue(queue *v1willow.QueueCreate) error
+	CreateQueue(queue *v1willow.QueueCreate, headers http.Header) error
 	//// Get a spcific queue by name and query the possible channels
-	GetQueue(queueName string, query *v1common.AssociatedQuery) (*v1willow.Queue, error)
+	GetQueue(queueName string, query *v1common.AssociatedQuery, headers http.Header) (*v1willow.Queue, error)
 	//// List all possible rules without their channels
-	ListQueues() (v1willow.Queues, error)
+	ListQueues(headers http.Header) (v1willow.Queues, error)
 	//// Update a particualr queue
-	UpdateQueue(queueName string, update *v1willow.QueueUpdate) error
+	UpdateQueue(queueName string, update *v1willow.QueueUpdate, headers http.Header) error
 	//// Delete a particualr queue
-	DeleteQueue(queueName string) error
+	DeleteQueue(queueName string, headers http.Header) error
 
 	// channel operations
 	//// enqueue a new item to a particular queue's channels
-	EnqueueQueueItem(queueName string, item *v1willow.EnqueueQueueItem) error
+	EnqueueQueueItem(queueName string, item *v1willow.EnqueueQueueItem, headers http.Header) error
 	//// dequeue an item from a queue's channels that match the query
-	DequeueQueueItem(cancelContext context.Context, queueName string, query *v1common.AssociatedQuery) (*Item, error)
+	DequeueQueueItem(cancelContext context.Context, queueName string, query *v1common.AssociatedQuery, headers http.Header) (*Item, error)
 	//// delete a particu;ar channel and all enqueued items
-	DeleteQueueChannel(queueName string, channelKeyValues *datatypes.KeyValues) error
+	DeleteQueueChannel(queueName string, channelKeyValues *datatypes.KeyValues, headers http.Header) error
 }
 
 // LimiteClient to connect with remote limiter service
@@ -73,14 +73,14 @@ func NewWillowClient(cfg *clients.Config) (*WillowClient, error) {
 	}, nil
 }
 
-func (lc *WillowClient) Healthy() error {
+func (wc *WillowClient) Healthy() error {
 	// setup and make the request
-	resp, err := lc.client.Do(&clients.RequestData{
-		Method: "GET",
-		Path:   fmt.Sprintf("%s/health", lc.url),
-		Model:  nil,
-	})
+	req, err := wc.client.SetupRequest("GET", fmt.Sprintf("%s/health", wc.url))
+	if err != nil {
+		return fmt.Errorf("failed to setup request to healthy api")
+	}
 
+	resp, err := wc.client.Do(req)
 	if err != nil {
 		return err
 	}

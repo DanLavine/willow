@@ -16,6 +16,9 @@ type HttpClient interface {
 	// Perform an HTTP request that is expected to retun right away
 	Do(request *http.Request) (*http.Response, error)
 
+	// SsetupRequest with any headers setup for the clients configuration
+	SetupRequest(method, url string) (*http.Request, error)
+
 	// EncodeModel
 	EncodedRequest(method, url string, Model api.APIObject) (*http.Request, error)
 
@@ -50,6 +53,19 @@ func NewHTTPClient(cfg *Config) (*httpClient, error) {
 		client:      client,
 		contentType: cfg.ContentEncoding,
 	}, nil
+}
+
+// SetupRequest to the client's configured settings. This includes any headers for encoding
+// the client is expecting to recieve on an error or successful response
+func (httpClient *httpClient) SetupRequest(method, url string) (*http.Request, error) {
+	req, err := http.NewRequestWithContext(context.Background(), method, url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("unexpected error setting up http request: %w", err)
+	}
+
+	req.Header.Add("Content-Type", string(httpClient.contentType))
+
+	return req, nil
 }
 
 // EncodeRequest to the client's configured settings. The returnd HTTP request has a requried header set

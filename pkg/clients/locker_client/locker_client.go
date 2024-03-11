@@ -90,7 +90,7 @@ func NewLockClient(cfg *clients.Config) (*LockClient, error) {
 // Healthy is used to ensure that the Locker service can be reached
 func (lc *LockClient) Healthy() error {
 	// setup and make the request
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s/health", lc.url), nil)
+	req, err := lc.client.SetupRequest("GET", fmt.Sprintf("%s/health", lc.url))
 	if err != nil {
 		return fmt.Errorf("failed to setup request to healthy api")
 	}
