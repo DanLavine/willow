@@ -93,7 +93,7 @@ I would like to take them, you can check out the docs for each service directly.
 I want to work on at a glance:
   
 1. setup smarter queries. Need to document what I currently don't like and want to improve in the current API.
-   Will record all the info I think in this [document](./docs/services/general/rfc_genral_query_improvements.md).
+   Will record all the info I think in this [document](./docs/services/general/rfc_general_query_improvements.md).
    From there I think there will be a very large list of work items. I at least have a basic feature set of an api, but there
    are some major issues qround query with round robin vs Sorted orders with a particualar key, especially in a horizontally:
    scalable mode. So there is going to be a large api change potentialy.
