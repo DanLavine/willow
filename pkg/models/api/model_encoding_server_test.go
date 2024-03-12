@@ -103,7 +103,7 @@ func Test_DecodeAndValidateHttpRequest(t *testing.T) {
 
 				// check the server response
 				g.Expect(serverErr).To(HaveOccurred())
-				g.Expect(serverErr.Error()).To(Equal("failed validation: 'KeValues' is empty, but requires a length of at least 1"))
+				g.Expect(serverErr.Error()).To(Equal("failed validation: 'KeyValues' is empty, but requires a length of at least 1"))
 			})
 
 			t.Run("It can decode an item successfully", func(t *testing.T) {
@@ -206,7 +206,7 @@ func Test_EncodeAndSendHttpResponse(t *testing.T) {
 
 				// Encode and send the http request
 				dataWritten, serverErr := EncodeAndSendHttpResponse(http.Header{}, testWriter, http.StatusOK, lockCreateResp)
-				g.Expect(dataWritten).To(Equal(50))
+				g.Expect(dataWritten).To(Equal(62))
 				g.Expect(serverErr).ToNot(HaveOccurred())
 
 				// ensure response recieves proper status code
@@ -235,7 +235,7 @@ func Test_EncodeAndSendHttpResponse(t *testing.T) {
 
 				// Encode and send the http request
 				dataWritten, serverErr := EncodeAndSendHttpResponse(headers, testWriter, http.StatusOK, lockCreateResp)
-				g.Expect(dataWritten).To(Equal(50))
+				g.Expect(dataWritten).To(Equal(62))
 				g.Expect(serverErr).ToNot(HaveOccurred())
 
 				// ensure response recieves proper status code

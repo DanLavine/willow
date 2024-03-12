@@ -22,24 +22,11 @@ const (
 
 // Setup a context with a logger that has any tracing data setup on the logger
 func SetupContextWithLoggerFromRequest(ctx context.Context, logger *zap.Logger, req *http.Request) (context.Context, *zap.Logger) {
-	var loggerWithRequestID *zap.Logger
+	ctx, traceID := saveTraceHeaders(ctx, req.Header)
+	loggerWithRequestID := logger.With(zap.String(constTraceHeader, traceID))
 
-	if requestID := req.Header.Get(constTraceHeader); requestID != "" {
-		loggerWithRequestID = logger.With(zap.String(constTraceHeader, requestID))
-	} else {
-		loggerWithRequestID = logger.With(zap.String(constTraceHeader, uuid.New().String()))
-	}
-
-	return SaveTraceHeaders(context.WithValue(ctx, CustomLogger, loggerWithRequestID), req.Header), loggerWithRequestID
+	return context.WithValue(ctx, CustomLogger, loggerWithRequestID), loggerWithRequestID
 }
-
-// // Add a logger to a context
-// func NamedLoggerFromContext(ctx context.Context, name string) (context.Context, *zap.Logger) {
-// 	currentLogger := ctx.Value(CustomLogger).(*zap.Logger)
-// 	newLogger := currentLogger.Named(name)
-
-// 	return context.WithValue(ctx, CustomLogger, newLogger), newLogger
-// }
 
 // Get the logger saved in the context. This will panic if the logger is nil
 func GetLogger(ctx context.Context) *zap.Logger {
@@ -51,14 +38,15 @@ func UpdateLogger(ctx context.Context, logger *zap.Logger) context.Context {
 }
 
 // Save any headers from an http request that might be interesting
-func SaveTraceHeaders(ctx context.Context, headers http.Header) context.Context {
-	xRequestHeaders := headers[constTraceHeader]
-	if len(xRequestHeaders) == 1 {
-		return context.WithValue(ctx, xRequestHeader, xRequestHeaders[0])
+func saveTraceHeaders(ctx context.Context, headers http.Header) (context.Context, string) {
+	xRequestHeaders := headers.Get(constTraceHeader)
+	if xRequestHeaders != "" {
+		return context.WithValue(ctx, xRequestHeader, xRequestHeaders), xRequestHeaders
 	}
 
 	// malformed or missing
-	return ctx
+	traceID := uuid.New().String()
+	return context.WithValue(ctx, xRequestHeader, traceID), traceID
 }
 
 // Get the headers for a trace
