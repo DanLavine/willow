@@ -37,17 +37,18 @@ There are special cases to consider saving the data differently and or changing 
    to `POST v1/willow/:queue_name/channels` (enqueue item to a channel). In this case the channel is defined by the
    enqueued Item's `Key Value pairs` and can be created if there are no Items, or destroyed when the last item is removed.
 
-# Workflows that this proposal attempts to answer
+# Workflows to address the query issues
 
 There are 2 main stratagies that I can easly think of to solve the issues below, but they each have there own
-drawbacks and limitations.
+drawbacks and limitations in a horazontally scaled system.
 
 1. Consistent hashing for `Key Values pairs` to know which node a resource belongs to
 
    **Pros**:
    1. Routing is somewhat easy to maintain as everything is consistent
-
+   2. Only data that is save is at the source of truth on the Nodes
     
+
    **Cons**:
    1. If there are many "bad actor" Resources on a particular node, then they cannot be moved to a new isolated node.
    2. Scaling the system is hard as each resource meeds to be moved in some sort of automated fashion to the proper node
@@ -56,26 +57,33 @@ drawbacks and limitations.
       2. Possible solution: The new node would need to wait to process a request untill a rebalance is comoplete
    3. Querys for `Order By` keys are very hard and slow as they need to reach out to each node and then perform an inital lookup for values
       currently exist. Then perform single actions on resource for specifically sorted `Key Value pairs`.
+  
+2. Thin API that defines the `Key Value pairs` the Resources and which Nodes they belong to. In this case, there will need to be a
+   "DB" that has the objects defined and which nodes they run on. The "DB" still has the problems of solution 1, but are now much
+   more managable as it is a thin data layer with no actual logic.
 
-### Horizontaly scalable node selection for a resource
+   **Pros**:
+   1. Scaling the cluster can be easier as the "DB" layer could provide additional resource operations as a "deleting"/"scaling"/etc
+      state for the "thin" api to quickly respond in those scenarios
+   2. Querys can be much faster as they need to now:
+      1. Interact with the DB state which can prioritize fast execution
+      2. Based on what is returrned, perform some sort of operation
+    
 
-Lets take the simplest look at the resources, Locks. Each lock is defined by the `Key Values` that make up the lock.
-What would be the proper
+   **Cons**:
+   1. The data for a "Resource" is now duplicated. So when performing a "CRUD" operations for example we would need to:
+      1. Lock down the "API DB" for the create operation
+      2. Perform a create of the resource on the internal api (Possibly change the API a bit as it could just be an ID now?)
+      3. Report to the DB that the resource is created
+   2. Split brain scenarios seem much easier to come across now if something crashes before it is able to respond to the replication
+      data that the "Create/Delete" operation successfully completed
+   3. 
 
 
-Unknowns:
+# Unknowns
 
 1. With current thoughts on authorization for `_[name]` keys, are those special cases? (I.E. when looking for a
    particular Rule to enforce from Willow, willow will have some sort of `_willow_queue_name` Key + Value. But
    what happens now when using the `KeyLimits` to enforce specific length of items we are searching for. Does the
    `_willow_queue_name` Key count against the Max Keys limit?) This will require some investigation on a pattern
    that can easily be described and makes sense
-
-# Solutions
-
-Unknown for now. This will requires some experimentation to ensure:
-
-1. Using sorts does not put the services into deadlock scenarios:
-  * Since everything is an actual "processes" that is looked up and an operation is performed. We need to ensure
-    there are no locks for the entire query operation to process? This is complex one to think through
-2. the special case of `_[service]` Keys are accounted for
