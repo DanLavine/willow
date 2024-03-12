@@ -70,6 +70,8 @@ func (lh *lockerHandler) Create(w http.ResponseWriter, r *http.Request) {
 			logger.Error("Failed to write lock response to client", zap.Error(respErr))
 			lh.generalLocker.Release(ctx, lockResponse.LockID, &v1locker.LockClaim{SessionID: lockResponse.SessionID})
 		}
+
+		return
 	}
 
 	// in this case, the client should be disconnected or we are shutting down and they need to retry
