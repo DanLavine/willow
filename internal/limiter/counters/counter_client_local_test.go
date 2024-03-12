@@ -3,14 +3,17 @@ package counters
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"testing"
 	"time"
 
 	"github.com/DanLavine/willow/internal/limiter/overrides"
 	"github.com/DanLavine/willow/internal/limiter/rules"
+	"github.com/DanLavine/willow/internal/reporting"
 	"github.com/DanLavine/willow/pkg/clients/locker_client/lockerclientfakes"
 	"github.com/DanLavine/willow/pkg/models/api/common/errors"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
+	"github.com/DanLavine/willow/testhelpers"
 	"go.uber.org/mock/gomock"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
@@ -56,7 +59,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 			Counters: 1,
 		}
 
-		err := countersClientLocal.IncrementCounters(zap.NewNop(), ctx, nil, counter)
+		err := countersClientLocal.IncrementCounters(testhelpers.NewContextWithLogger(), ctx, nil, counter)
 		g.Expect(err).ToNot(HaveOccurred())
 	})
 
@@ -74,7 +77,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 				Limit:   int64(i),
 			}
 			g.Expect(createRequest.Validate()).ToNot(HaveOccurred())
-			g.Expect(rulesClient.CreateRule(zap.NewNop(), createRequest)).ToNot(HaveOccurred())
+			g.Expect(rulesClient.CreateRule(testhelpers.NewContextWithLogger(), createRequest)).ToNot(HaveOccurred())
 		}
 
 		counter := &v1limiter.Counter{
@@ -86,7 +89,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 			Counters: 1,
 		}
 
-		err := countersClientLocal.IncrementCounters(zap.NewNop(), ctx, nil, counter)
+		err := countersClientLocal.IncrementCounters(testhelpers.NewContextWithLogger(), ctx, nil, counter)
 		g.Expect(err).To(HaveOccurred())
 		g.Expect(err.Message).To(ContainSubstring("Limit has already been reached for rule 'test0'"))
 	})
@@ -104,7 +107,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 			Limit:   15,
 		}
 		g.Expect(createRequest.Validate()).ToNot(HaveOccurred())
-		g.Expect(rulesClient.CreateRule(zap.NewNop(), createRequest)).ToNot(HaveOccurred())
+		g.Expect(rulesClient.CreateRule(testhelpers.NewContextWithLogger(), createRequest)).ToNot(HaveOccurred())
 
 		// create 5 overrides
 		for k := 2; k < 7; k++ {
@@ -118,7 +121,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 				Limit: int64(k - 2),
 			}
 			g.Expect(overrideRequest.Validate()).ToNot(HaveOccurred())
-			g.Expect(rulesClient.CreateOverride(zap.NewNop(), "test1", &overrideRequest)).ToNot(HaveOccurred())
+			g.Expect(rulesClient.CreateOverride(testhelpers.NewContextWithLogger(), "test1", &overrideRequest)).ToNot(HaveOccurred())
 		}
 
 		counter := &v1limiter.Counter{
@@ -131,7 +134,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 			Counters: 1,
 		}
 
-		err := countersClientLocal.IncrementCounters(zap.NewNop(), ctx, nil, counter)
+		err := countersClientLocal.IncrementCounters(testhelpers.NewContextWithLogger(), ctx, nil, counter)
 		g.Expect(err).To(HaveOccurred())
 		g.Expect(err.Message).To(Equal("Limit has already been reached for rule 'test1'"))
 	})
@@ -152,7 +155,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 					Limit:   int64(i),
 				}
 				g.Expect(createRequest.Validate()).ToNot(HaveOccurred())
-				g.Expect(rulesClient.CreateRule(zap.NewNop(), createRequest)).ToNot(HaveOccurred())
+				g.Expect(rulesClient.CreateRule(testhelpers.NewContextWithLogger(), createRequest)).ToNot(HaveOccurred())
 			}
 
 			counter := &v1limiter.Counter{
@@ -168,14 +171,14 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 
 			fakeLock := lockerclientfakes.NewMockLock(mockController)
 			fakeLock.EXPECT().Done().Times(2)
-			fakeLock.EXPECT().Release().Times(2)
+			fakeLock.EXPECT().Release(gomock.Any()).Times(2)
 
 			fakeLocker := lockerclientfakes.NewMockLockerClient(mockController)
-			fakeLocker.EXPECT().ObtainLock(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, lockRequest *v1locker.LockCreateRequest, errlog func(keyValue datatypes.KeyValues, err error)) (lockerclient.Lock, error) {
+			fakeLocker.EXPECT().ObtainLock(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, lockRequest *v1locker.LockCreateRequest, headers http.Header, errlog func(keyValue datatypes.KeyValues, err error)) (lockerclient.Lock, error) {
 				return fakeLock, nil
 			}).Times(2)
 
-			err := countersClientLocal.IncrementCounters(zap.NewNop(), ctx, fakeLocker, counter)
+			err := countersClientLocal.IncrementCounters(testhelpers.NewContextWithLogger(), ctx, fakeLocker, counter)
 			g.Expect(err).ToNot(HaveOccurred())
 		})
 
@@ -194,7 +197,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 						Limit:   int64(i),
 					}
 					g.Expect(createRequest.Validate()).ToNot(HaveOccurred())
-					g.Expect(rulesClient.CreateRule(zap.NewNop(), createRequest)).ToNot(HaveOccurred())
+					g.Expect(rulesClient.CreateRule(testhelpers.NewContextWithLogger(), createRequest)).ToNot(HaveOccurred())
 				}
 
 				counter := &v1limiter.Counter{
@@ -209,12 +212,12 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 				defer mockController.Finish()
 
 				fakeLock := lockerclientfakes.NewMockLock(mockController)
-				fakeLock.EXPECT().Release().Times(1)
+				fakeLock.EXPECT().Release(gomock.Any()).Times(1)
 				fakeLock.EXPECT().Done().MaxTimes(1)
 
 				obtainCount := 0
 				fakeLocker := lockerclientfakes.NewMockLockerClient(mockController)
-				fakeLocker.EXPECT().ObtainLock(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, lockRequest *v1locker.LockCreateRequest, errlog func(keyValue datatypes.KeyValues, err error)) (lockerclient.Lock, error) {
+				fakeLocker.EXPECT().ObtainLock(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, lockRequest *v1locker.LockCreateRequest, headers http.Header, errlog func(keyValue datatypes.KeyValues, err error)) (lockerclient.Lock, error) {
 					if obtainCount == 0 {
 						obtainCount++
 						return fakeLock, nil
@@ -225,9 +228,9 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 
 				// observe the proper error message in the logs
 				testZapCore, testLogs := observer.New(zap.InfoLevel)
-				testLgger := zap.New(testZapCore)
+				testContext := context.WithValue(context.Background(), reporting.CustomLogger, zap.New(testZapCore))
 
-				err := countersClientLocal.IncrementCounters(testLgger, ctx, fakeLocker, counter)
+				err := countersClientLocal.IncrementCounters(testContext, ctx, fakeLocker, counter)
 				g.Expect(err).To(HaveOccurred())
 				g.Expect(err).To(Equal(errors.InternalServerError))
 				g.Expect(len(testLogs.All())).To(Equal(1))
@@ -250,7 +253,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 						Limit:   int64(i),
 					}
 					g.Expect(createRequest.Validate()).ToNot(HaveOccurred())
-					g.Expect(rulesClient.CreateRule(zap.NewNop(), createRequest)).ToNot(HaveOccurred())
+					g.Expect(rulesClient.CreateRule(testhelpers.NewContextWithLogger(), createRequest)).ToNot(HaveOccurred())
 				}
 
 				counter := &v1limiter.Counter{
@@ -268,14 +271,14 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 				close(donechan)
 
 				fakeLock := lockerclientfakes.NewMockLock(mockController)
-				fakeLock.EXPECT().Release().Times(2)
+				fakeLock.EXPECT().Release(gomock.Any()).Times(2)
 				fakeLock.EXPECT().Done().DoAndReturn(func() <-chan struct{} {
 					return donechan
 				}).MaxTimes(2)
 
 				count := 0
 				fakeLocker := lockerclientfakes.NewMockLockerClient(mockController)
-				fakeLocker.EXPECT().ObtainLock(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, lockRequest *v1locker.LockCreateRequest, errlog func(keyValue datatypes.KeyValues, err error)) (lockerclient.Lock, error) {
+				fakeLocker.EXPECT().ObtainLock(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, lockRequest *v1locker.LockCreateRequest, headers http.Header, errlog func(keyValue datatypes.KeyValues, err error)) (lockerclient.Lock, error) {
 					if count == 0 {
 						count++
 					} else {
@@ -287,9 +290,9 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 
 				// observe the proper error message in the logs
 				testZapCore, testLogs := observer.New(zap.InfoLevel)
-				testLgger := zap.New(testZapCore)
+				testContext := context.WithValue(context.Background(), reporting.CustomLogger, zap.New(testZapCore))
 
-				err := countersClientLocal.IncrementCounters(testLgger, ctx, fakeLocker, counter)
+				err := countersClientLocal.IncrementCounters(testContext, ctx, fakeLocker, counter)
 				g.Expect(err).To(HaveOccurred())
 				g.Expect(err).To(Equal(errors.InternalServerError))
 				g.Expect(len(testLogs.All())).To(Equal(1))
@@ -302,11 +305,11 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 		mockController := gomock.NewController(t)
 
 		fakeLock := lockerclientfakes.NewMockLock(mockController)
-		fakeLock.EXPECT().Release().AnyTimes()
+		fakeLock.EXPECT().Release(gomock.Any()).AnyTimes()
 		fakeLock.EXPECT().Done().AnyTimes()
 
 		fakeLocker := lockerclientfakes.NewMockLockerClient(mockController)
-		fakeLocker.EXPECT().ObtainLock(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, lockRequest *v1locker.LockCreateRequest, errlog func(keyValue datatypes.KeyValues, err error)) (lockerclient.Lock, error) {
+		fakeLocker.EXPECT().ObtainLock(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, lockRequest *v1locker.LockCreateRequest, headers http.Header, errlog func(keyValue datatypes.KeyValues, err error)) (lockerclient.Lock, error) {
 			return fakeLock, nil
 		}).AnyTimes()
 
@@ -323,7 +326,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 				Limit:   5,
 			}
 			g.Expect(createRequest.Validate()).ToNot(HaveOccurred())
-			g.Expect(rulesClient.CreateRule(zap.NewNop(), createRequest)).ToNot(HaveOccurred())
+			g.Expect(rulesClient.CreateRule(testhelpers.NewContextWithLogger(), createRequest)).ToNot(HaveOccurred())
 
 			counter := &v1limiter.Counter{
 				KeyValues: datatypes.KeyValues{
@@ -335,7 +338,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 			}
 
 			// counter shuold be added
-			err := countersClientLocal.IncrementCounters(zap.NewNop(), ctx, fakeLocker, counter)
+			err := countersClientLocal.IncrementCounters(testhelpers.NewContextWithLogger(), ctx, fakeLocker, counter)
 			g.Expect(err).ToNot(HaveOccurred())
 
 			// ensure the counter was added
@@ -362,7 +365,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 				Limit:   -1,
 			}
 			g.Expect(createRequest.Validate()).ToNot(HaveOccurred())
-			g.Expect(rulesClient.CreateRule(zap.NewNop(), createRequest)).ToNot(HaveOccurred())
+			g.Expect(rulesClient.CreateRule(testhelpers.NewContextWithLogger(), createRequest)).ToNot(HaveOccurred())
 
 			counter := &v1limiter.Counter{
 				KeyValues: datatypes.KeyValues{
@@ -374,7 +377,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 			}
 
 			// counter shuold be added
-			err := countersClientLocal.IncrementCounters(zap.NewNop(), ctx, fakeLocker, counter)
+			err := countersClientLocal.IncrementCounters(testhelpers.NewContextWithLogger(), ctx, fakeLocker, counter)
 			g.Expect(err).ToNot(HaveOccurred())
 
 			// ensure the counter was added
@@ -401,7 +404,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 				Limit:   5,
 			}
 			g.Expect(createRequest.Validate()).ToNot(HaveOccurred())
-			g.Expect(rulesClient.CreateRule(zap.NewNop(), createRequest)).ToNot(HaveOccurred())
+			g.Expect(rulesClient.CreateRule(testhelpers.NewContextWithLogger(), createRequest)).ToNot(HaveOccurred())
 
 			counter := &v1limiter.Counter{
 				KeyValues: datatypes.KeyValues{
@@ -413,10 +416,10 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 			}
 
 			// counter shuold be added
-			g.Expect(countersClientLocal.IncrementCounters(zap.NewNop(), ctx, fakeLocker, counter)).ToNot(HaveOccurred())
-			g.Expect(countersClientLocal.IncrementCounters(zap.NewNop(), ctx, fakeLocker, counter)).ToNot(HaveOccurred())
-			g.Expect(countersClientLocal.IncrementCounters(zap.NewNop(), ctx, fakeLocker, counter)).ToNot(HaveOccurred())
-			g.Expect(countersClientLocal.IncrementCounters(zap.NewNop(), ctx, fakeLocker, counter)).ToNot(HaveOccurred())
+			g.Expect(countersClientLocal.IncrementCounters(testhelpers.NewContextWithLogger(), ctx, fakeLocker, counter)).ToNot(HaveOccurred())
+			g.Expect(countersClientLocal.IncrementCounters(testhelpers.NewContextWithLogger(), ctx, fakeLocker, counter)).ToNot(HaveOccurred())
+			g.Expect(countersClientLocal.IncrementCounters(testhelpers.NewContextWithLogger(), ctx, fakeLocker, counter)).ToNot(HaveOccurred())
+			g.Expect(countersClientLocal.IncrementCounters(testhelpers.NewContextWithLogger(), ctx, fakeLocker, counter)).ToNot(HaveOccurred())
 
 			// ensure the counter was added
 			count := int64(0)
@@ -442,7 +445,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 				Limit:   1,
 			}
 			g.Expect(createRequest.Validate()).ToNot(HaveOccurred())
-			g.Expect(rulesClient.CreateRule(zap.NewNop(), createRequest)).ToNot(HaveOccurred())
+			g.Expect(rulesClient.CreateRule(testhelpers.NewContextWithLogger(), createRequest)).ToNot(HaveOccurred())
 
 			counter := &v1limiter.Counter{
 				KeyValues: datatypes.KeyValues{
@@ -453,11 +456,11 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 			}
 
 			// first counter should be added
-			err := countersClientLocal.IncrementCounters(zap.NewNop(), ctx, fakeLocker, counter)
+			err := countersClientLocal.IncrementCounters(testhelpers.NewContextWithLogger(), ctx, fakeLocker, counter)
 			g.Expect(err).ToNot(HaveOccurred())
 
 			// second counter should have an error
-			err = countersClientLocal.IncrementCounters(zap.NewNop(), ctx, fakeLocker, counter)
+			err = countersClientLocal.IncrementCounters(testhelpers.NewContextWithLogger(), ctx, fakeLocker, counter)
 			g.Expect(err).To(HaveOccurred())
 			g.Expect(err.Error()).To(ContainSubstring("Limit has already been reached for rule"))
 
@@ -485,7 +488,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 				Limit:   1,
 			}
 			g.Expect(createRequest.Validate()).ToNot(HaveOccurred())
-			g.Expect(rulesClient.CreateRule(zap.NewNop(), createRequest)).ToNot(HaveOccurred())
+			g.Expect(rulesClient.CreateRule(testhelpers.NewContextWithLogger(), createRequest)).ToNot(HaveOccurred())
 
 			counter1 := &v1limiter.Counter{
 				KeyValues: datatypes.KeyValues{
@@ -505,11 +508,11 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 			}
 
 			// first counter should be added
-			err := countersClientLocal.IncrementCounters(zap.NewNop(), ctx, fakeLocker, counter1)
+			err := countersClientLocal.IncrementCounters(testhelpers.NewContextWithLogger(), ctx, fakeLocker, counter1)
 			g.Expect(err).ToNot(HaveOccurred())
 
 			// second counter should have an error
-			err = countersClientLocal.IncrementCounters(zap.NewNop(), ctx, fakeLocker, counter2)
+			err = countersClientLocal.IncrementCounters(testhelpers.NewContextWithLogger(), ctx, fakeLocker, counter2)
 			g.Expect(err).To(HaveOccurred())
 			g.Expect(err.Error()).To(ContainSubstring("Limit has already been reached for rule"))
 
@@ -542,7 +545,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 				Limit:   1,
 			}
 			g.Expect(createRequest.Validate()).ToNot(HaveOccurred())
-			g.Expect(rulesClient.CreateRule(zap.NewNop(), createRequest)).ToNot(HaveOccurred())
+			g.Expect(rulesClient.CreateRule(testhelpers.NewContextWithLogger(), createRequest)).ToNot(HaveOccurred())
 
 			// non restrictive rules
 			for i := 1; i < 5; i++ {
@@ -552,7 +555,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 					Limit:   int64(i + 10),
 				}
 				g.Expect(createRequest.Validate()).ToNot(HaveOccurred())
-				g.Expect(rulesClient.CreateRule(zap.NewNop(), createRequest)).ToNot(HaveOccurred())
+				g.Expect(rulesClient.CreateRule(testhelpers.NewContextWithLogger(), createRequest)).ToNot(HaveOccurred())
 			}
 
 			counter := &v1limiter.Counter{
@@ -566,11 +569,11 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 			}
 
 			// first counter should be added
-			err := countersClientLocal.IncrementCounters(zap.NewNop(), ctx, fakeLocker, counter)
+			err := countersClientLocal.IncrementCounters(testhelpers.NewContextWithLogger(), ctx, fakeLocker, counter)
 			g.Expect(err).ToNot(HaveOccurred())
 
 			// second counter should have an error
-			err = countersClientLocal.IncrementCounters(zap.NewNop(), ctx, fakeLocker, counter)
+			err = countersClientLocal.IncrementCounters(testhelpers.NewContextWithLogger(), ctx, fakeLocker, counter)
 			g.Expect(err).To(HaveOccurred())
 			g.Expect(err.Error()).To(ContainSubstring("Limit has already been reached for rule"))
 
@@ -598,7 +601,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 				Limit:   1,
 			}
 			g.Expect(createRequest.Validate()).ToNot(HaveOccurred())
-			g.Expect(rulesClient.CreateRule(zap.NewNop(), createRequest)).ToNot(HaveOccurred())
+			g.Expect(rulesClient.CreateRule(testhelpers.NewContextWithLogger(), createRequest)).ToNot(HaveOccurred())
 
 			// set override to allow for more values
 			override := &v1limiter.Override{
@@ -610,7 +613,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 				Limit: 5,
 			}
 			g.Expect(override.Validate()).ToNot(HaveOccurred())
-			g.Expect(rulesClient.CreateOverride(zap.NewNop(), "test0", override)).ToNot(HaveOccurred())
+			g.Expect(rulesClient.CreateOverride(testhelpers.NewContextWithLogger(), "test0", override)).ToNot(HaveOccurred())
 
 			counter := &v1limiter.Counter{
 				KeyValues: datatypes.KeyValues{
@@ -622,11 +625,11 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 			}
 
 			// first counter should be added
-			err := countersClientLocal.IncrementCounters(zap.NewNop(), ctx, fakeLocker, counter)
+			err := countersClientLocal.IncrementCounters(testhelpers.NewContextWithLogger(), ctx, fakeLocker, counter)
 			g.Expect(err).ToNot(HaveOccurred())
 
 			// second counter should be added as well
-			err = countersClientLocal.IncrementCounters(zap.NewNop(), ctx, fakeLocker, counter)
+			err = countersClientLocal.IncrementCounters(testhelpers.NewContextWithLogger(), ctx, fakeLocker, counter)
 			g.Expect(err).ToNot(HaveOccurred())
 
 			// ensure the counter was only ever incremented 1 time
@@ -655,7 +658,7 @@ func TestRulesManager_DecrementCounters(t *testing.T) {
 			Counters: 1,
 		}
 
-		err := countersClientLocal.DecrementCounters(zap.NewNop(), counter)
+		err := countersClientLocal.DecrementCounters(testhelpers.NewContextWithLogger(), counter)
 		g.Expect(err).ToNot(HaveOccurred())
 	})
 
@@ -674,10 +677,10 @@ func TestRulesManager_DecrementCounters(t *testing.T) {
 			},
 			Counters: 1,
 		}
-		g.Expect(countersClientLocal.IncrementCounters(zap.NewNop(), ctx, nil, counter)).ToNot(HaveOccurred())
-		g.Expect(countersClientLocal.IncrementCounters(zap.NewNop(), ctx, nil, counter)).ToNot(HaveOccurred())
-		g.Expect(countersClientLocal.IncrementCounters(zap.NewNop(), ctx, nil, counter)).ToNot(HaveOccurred())
-		g.Expect(countersClientLocal.IncrementCounters(zap.NewNop(), ctx, nil, counter)).ToNot(HaveOccurred())
+		g.Expect(countersClientLocal.IncrementCounters(testhelpers.NewContextWithLogger(), ctx, nil, counter)).ToNot(HaveOccurred())
+		g.Expect(countersClientLocal.IncrementCounters(testhelpers.NewContextWithLogger(), ctx, nil, counter)).ToNot(HaveOccurred())
+		g.Expect(countersClientLocal.IncrementCounters(testhelpers.NewContextWithLogger(), ctx, nil, counter)).ToNot(HaveOccurred())
+		g.Expect(countersClientLocal.IncrementCounters(testhelpers.NewContextWithLogger(), ctx, nil, counter)).ToNot(HaveOccurred())
 
 		// ensure the counter value is correct
 		count := int64(0)
@@ -698,7 +701,7 @@ func TestRulesManager_DecrementCounters(t *testing.T) {
 			},
 			Counters: -1,
 		}
-		err = countersClientLocal.DecrementCounters(zap.NewNop(), decrementCounter)
+		err = countersClientLocal.DecrementCounters(testhelpers.NewContextWithLogger(), decrementCounter)
 		g.Expect(err).ToNot(HaveOccurred())
 
 		// ensure the counter was decremented correctly
@@ -723,7 +726,7 @@ func TestRulesManager_DecrementCounters(t *testing.T) {
 			},
 			Counters: 1,
 		}
-		g.Expect(countersClientLocal.IncrementCounters(zap.NewNop(), ctx, nil, counter)).ToNot(HaveOccurred())
+		g.Expect(countersClientLocal.IncrementCounters(testhelpers.NewContextWithLogger(), ctx, nil, counter)).ToNot(HaveOccurred())
 
 		// ensure the counter value is correct
 		count := int64(0)
@@ -744,7 +747,7 @@ func TestRulesManager_DecrementCounters(t *testing.T) {
 			},
 			Counters: -1,
 		}
-		err = countersClientLocal.DecrementCounters(zap.NewNop(), decrementCounter)
+		err = countersClientLocal.DecrementCounters(testhelpers.NewContextWithLogger(), decrementCounter)
 		g.Expect(err).ToNot(HaveOccurred())
 
 		// ensure the counter was decremented correctly
@@ -775,7 +778,7 @@ func TestRulesManager_QueryCounters(t *testing.T) {
 			},
 		}
 
-		countersResponse, err := countersClientLocal.QueryCounters(zap.NewNop(), query)
+		countersResponse, err := countersClientLocal.QueryCounters(testhelpers.NewContextWithLogger(), query)
 		g.Expect(len(countersResponse)).To(Equal(0))
 		g.Expect(err).ToNot(HaveOccurred())
 	})
@@ -796,9 +799,9 @@ func TestRulesManager_QueryCounters(t *testing.T) {
 			KeyValues: keyValuesOne,
 			Counters:  1,
 		}
-		g.Expect(countersClientLocal.IncrementCounters(zap.NewNop(), ctx, nil, counter1)).ToNot(HaveOccurred())
-		g.Expect(countersClientLocal.IncrementCounters(zap.NewNop(), ctx, nil, counter1)).ToNot(HaveOccurred())
-		g.Expect(countersClientLocal.IncrementCounters(zap.NewNop(), ctx, nil, counter1)).ToNot(HaveOccurred())
+		g.Expect(countersClientLocal.IncrementCounters(testhelpers.NewContextWithLogger(), ctx, nil, counter1)).ToNot(HaveOccurred())
+		g.Expect(countersClientLocal.IncrementCounters(testhelpers.NewContextWithLogger(), ctx, nil, counter1)).ToNot(HaveOccurred())
+		g.Expect(countersClientLocal.IncrementCounters(testhelpers.NewContextWithLogger(), ctx, nil, counter1)).ToNot(HaveOccurred())
 
 		keyValuesTwo := datatypes.KeyValues{
 			"key0": datatypes.Int(0),
@@ -809,7 +812,7 @@ func TestRulesManager_QueryCounters(t *testing.T) {
 			KeyValues: keyValuesTwo,
 			Counters:  1,
 		}
-		g.Expect(countersClientLocal.IncrementCounters(zap.NewNop(), ctx, nil, counter2)).ToNot(HaveOccurred())
+		g.Expect(countersClientLocal.IncrementCounters(testhelpers.NewContextWithLogger(), ctx, nil, counter2)).ToNot(HaveOccurred())
 
 		counter3 := &v1limiter.Counter{
 			KeyValues: datatypes.KeyValues{
@@ -817,7 +820,7 @@ func TestRulesManager_QueryCounters(t *testing.T) {
 			},
 			Counters: 1,
 		}
-		g.Expect(countersClientLocal.IncrementCounters(zap.NewNop(), ctx, nil, counter3)).ToNot(HaveOccurred())
+		g.Expect(countersClientLocal.IncrementCounters(testhelpers.NewContextWithLogger(), ctx, nil, counter3)).ToNot(HaveOccurred())
 
 		counter4 := &v1limiter.Counter{
 			KeyValues: datatypes.KeyValues{
@@ -825,7 +828,7 @@ func TestRulesManager_QueryCounters(t *testing.T) {
 			},
 			Counters: 1,
 		}
-		g.Expect(countersClientLocal.IncrementCounters(zap.NewNop(), ctx, nil, counter4)).ToNot(HaveOccurred())
+		g.Expect(countersClientLocal.IncrementCounters(testhelpers.NewContextWithLogger(), ctx, nil, counter4)).ToNot(HaveOccurred())
 
 		counter5 := &v1limiter.Counter{
 			KeyValues: datatypes.KeyValues{
@@ -834,7 +837,7 @@ func TestRulesManager_QueryCounters(t *testing.T) {
 			},
 			Counters: 1,
 		}
-		g.Expect(countersClientLocal.IncrementCounters(zap.NewNop(), ctx, nil, counter5)).ToNot(HaveOccurred())
+		g.Expect(countersClientLocal.IncrementCounters(testhelpers.NewContextWithLogger(), ctx, nil, counter5)).ToNot(HaveOccurred())
 
 		// run the query
 		int0 := datatypes.Int(0)
@@ -874,7 +877,7 @@ func TestRulesManager_QueryCounters(t *testing.T) {
 			Counters:  1,
 		}
 
-		countersResponse, err := countersClientLocal.QueryCounters(zap.NewNop(), query)
+		countersResponse, err := countersClientLocal.QueryCounters(testhelpers.NewContextWithLogger(), query)
 		g.Expect(len(countersResponse)).To(Equal(2))
 		g.Expect(countersResponse).To(ConsistOf(resp1, resp2))
 		g.Expect(err).ToNot(HaveOccurred())
@@ -897,7 +900,7 @@ func TestRulesManager_SetCounter(t *testing.T) {
 			Counters:  87,
 		}
 
-		err := countersClientLocal.SetCounter(zap.NewNop(), countersSet)
+		err := countersClientLocal.SetCounter(testhelpers.NewContextWithLogger(), countersSet)
 		g.Expect(err).ToNot(HaveOccurred())
 
 		// ensure they are set properly
@@ -905,7 +908,7 @@ func TestRulesManager_SetCounter(t *testing.T) {
 			AssociatedKeyValues: datatypes.AssociatedKeyValuesQuery{}, // select all
 		}
 
-		countersResponse, err := countersClientLocal.QueryCounters(zap.NewNop(), query)
+		countersResponse, err := countersClientLocal.QueryCounters(testhelpers.NewContextWithLogger(), query)
 		g.Expect(len(countersResponse)).To(Equal(1))
 		g.Expect(countersResponse[0].KeyValues).To(Equal(kvs))
 		g.Expect(countersResponse[0].Counters).To(Equal(int64(87)))
@@ -927,7 +930,7 @@ func TestRulesManager_SetCounter(t *testing.T) {
 			KeyValues: kvs,
 			Counters:  1,
 		}
-		g.Expect(countersClientLocal.IncrementCounters(zap.NewNop(), ctx, nil, counter)).ToNot(HaveOccurred())
+		g.Expect(countersClientLocal.IncrementCounters(testhelpers.NewContextWithLogger(), ctx, nil, counter)).ToNot(HaveOccurred())
 
 		// set the counters to 0
 		countersSet := &v1limiter.Counter{
@@ -935,7 +938,7 @@ func TestRulesManager_SetCounter(t *testing.T) {
 			Counters:  0,
 		}
 
-		err := countersClientLocal.SetCounter(zap.NewNop(), countersSet)
+		err := countersClientLocal.SetCounter(testhelpers.NewContextWithLogger(), countersSet)
 		g.Expect(err).ToNot(HaveOccurred())
 
 		// ensure they are set properly
@@ -943,7 +946,7 @@ func TestRulesManager_SetCounter(t *testing.T) {
 			AssociatedKeyValues: datatypes.AssociatedKeyValuesQuery{}, // select all
 		}
 
-		countersResponse, err := countersClientLocal.QueryCounters(zap.NewNop(), query)
+		countersResponse, err := countersClientLocal.QueryCounters(testhelpers.NewContextWithLogger(), query)
 		g.Expect(len(countersResponse)).To(Equal(0))
 		g.Expect(err).ToNot(HaveOccurred())
 	})

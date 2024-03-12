@@ -16,7 +16,7 @@ type logger int
 type header int
 
 const (
-	customLogger   logger = 1
+	CustomLogger   logger = 1
 	xRequestHeader header = 1
 )
 
@@ -30,17 +30,24 @@ func SetupContextWithLoggerFromRequest(ctx context.Context, logger *zap.Logger, 
 		loggerWithRequestID = logger.With(zap.String(constTraceHeader, uuid.New().String()))
 	}
 
-	return SaveTraceHeaders(AddLogger(ctx, logger), req.Header), loggerWithRequestID
+	return SaveTraceHeaders(context.WithValue(ctx, CustomLogger, loggerWithRequestID), req.Header), loggerWithRequestID
 }
 
-// Add a logger to a context
-func AddLogger(ctx context.Context, logger *zap.Logger) context.Context {
-	return context.WithValue(ctx, customLogger, logger)
-}
+// // Add a logger to a context
+// func NamedLoggerFromContext(ctx context.Context, name string) (context.Context, *zap.Logger) {
+// 	currentLogger := ctx.Value(CustomLogger).(*zap.Logger)
+// 	newLogger := currentLogger.Named(name)
+
+// 	return context.WithValue(ctx, CustomLogger, newLogger), newLogger
+// }
 
 // Get the logger saved in the context. This will panic if the logger is nil
 func GetLogger(ctx context.Context) *zap.Logger {
-	return ctx.Value(customLogger).(*zap.Logger)
+	return ctx.Value(CustomLogger).(*zap.Logger)
+}
+
+func UpdateLogger(ctx context.Context, logger *zap.Logger) context.Context {
+	return context.WithValue(ctx, CustomLogger, logger)
 }
 
 // Save any headers from an http request that might be interesting

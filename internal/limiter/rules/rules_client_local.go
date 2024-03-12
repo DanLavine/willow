@@ -1,11 +1,13 @@
 package rules
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 
 	btreeassociated "github.com/DanLavine/willow/internal/datastructures/btree_associated"
 	"github.com/DanLavine/willow/internal/limiter/overrides"
+	"github.com/DanLavine/willow/internal/reporting"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 	"go.uber.org/zap"
 
@@ -38,15 +40,15 @@ func NewLocalRulesClient(ruleConstructor RuleConstructor, overridesClient overri
 }
 
 //	PARAMETERS:
-//	- logger - logger that will record any unrecoverable errors at this level
+//	- ctx - context that contains all the reporting tools
 //	- rule - create reuest that defines the rule
 //
 //	RETURNS:
 //	- *errors.ServerError - error response for the client if something unexpected happens
 //
 // Create new Rule
-func (rm *localRulesCient) CreateRule(logger *zap.Logger, rule *v1limiter.RuleCreateRequest) *errors.ServerError {
-	logger = logger.Named("CreateRule")
+func (rm *localRulesCient) CreateRule(ctx context.Context, rule *v1limiter.RuleCreateRequest) *errors.ServerError {
+	logger := reporting.GetLogger(ctx).Named("CreateRule")
 
 	onCreate := func() any {
 		return rm.ruleConstructor.New(rule)
@@ -80,8 +82,10 @@ func (rm *localRulesCient) CreateRule(logger *zap.Logger, rule *v1limiter.RuleCr
 }
 
 // list all group rules that match the provided key values. Can also include the overrides
-func (rm *localRulesCient) MatchRules(logger *zap.Logger, matchQuery *v1limiter.RuleMatch) (v1limiter.Rules, *errors.ServerError) {
-	logger = logger.Named("MatchRules")
+func (rm *localRulesCient) MatchRules(ctx context.Context, matchQuery *v1limiter.RuleMatch) (v1limiter.Rules, *errors.ServerError) {
+	logger := reporting.GetLogger(ctx).Named("MatchRules")
+	ctx = reporting.UpdateLogger(ctx, logger)
+
 	foundRules := v1limiter.Rules{}
 
 	var rulesErr *errors.ServerError
@@ -90,7 +94,7 @@ func (rm *localRulesCient) MatchRules(logger *zap.Logger, matchQuery *v1limiter.
 
 		var overrides v1limiter.Overrides
 		if matchQuery.OverridesToMatch != nil {
-			overrides, rulesErr = rm.overridesClient.MatchOverrides(logger, item.AssociatedID(), matchQuery.OverridesToMatch)
+			overrides, rulesErr = rm.overridesClient.MatchOverrides(ctx, item.AssociatedID(), matchQuery.OverridesToMatch)
 		}
 
 		if rulesErr != nil {
@@ -131,6 +135,7 @@ func (rm *localRulesCient) MatchRules(logger *zap.Logger, matchQuery *v1limiter.
 	}
 
 	if rulesErr != nil {
+		logger.Error("failed to lookup overrides", zap.Error(rulesErr))
 		return nil, rulesErr
 	}
 
@@ -138,7 +143,7 @@ func (rm *localRulesCient) MatchRules(logger *zap.Logger, matchQuery *v1limiter.
 }
 
 //	PARAMETERS:
-//	- logger - logger that will record any unrecoverable errors at this level
+//	- ctx - context that contains all the reporting tools
 //	- name - name of the Rule to obtain for
 //	- getQuery - query for the overrides to obtain as well
 //
@@ -146,22 +151,23 @@ func (rm *localRulesCient) MatchRules(logger *zap.Logger, matchQuery *v1limiter.
 //	- *errors.ServerError - error response for the client if something unexpected happens
 //
 // Get a Rule by name
-func (rm *localRulesCient) GetRule(logger *zap.Logger, ruleName string, getQuery *v1limiter.RuleGet) (*v1limiter.Rule, *errors.ServerError) {
-	logger = logger.Named("GetRule").With(zap.String("rule_name", ruleName))
+func (rm *localRulesCient) GetRule(ctx context.Context, ruleName string, getQuery *v1limiter.RuleGet) (*v1limiter.Rule, *errors.ServerError) {
+	logger := reporting.GetLogger(ctx).Named("GetRule").With(zap.String("rule_name", ruleName))
+	ctx = reporting.UpdateLogger(ctx, logger)
 
 	var apiRule *v1limiter.Rule
-	err := errorMissingRuleName(ruleName)
+	errorMissingRuleName := errorMissingRuleName(ruleName)
 	bTreeAssociatedOnFind := func(item btreeassociated.AssociatedKeyValues) {
 		rule := item.Value().(Rule)
 
 		if getQuery.OverridesToMatch != nil {
 			// match overrides as well
-			overrides, overridesErr := rm.overridesClient.MatchOverrides(logger, ruleName, getQuery.OverridesToMatch)
+			overrides, overridesErr := rm.overridesClient.MatchOverrides(ctx, ruleName, getQuery.OverridesToMatch)
 
 			if overridesErr != nil {
-				err = overridesErr
+				errorMissingRuleName = overridesErr
 			} else {
-				err = nil
+				errorMissingRuleName = nil
 				apiRule = &v1limiter.Rule{
 					Name:      ruleName,
 					GroupBy:   item.KeyValues().Keys(),
@@ -171,7 +177,7 @@ func (rm *localRulesCient) GetRule(logger *zap.Logger, ruleName string, getQuery
 			}
 		} else {
 			// don't query any overrides
-			err = nil
+			errorMissingRuleName = nil
 			apiRule = &v1limiter.Rule{
 				Name:      ruleName,
 				GroupBy:   item.KeyValues().Keys(),
@@ -192,15 +198,15 @@ func (rm *localRulesCient) GetRule(logger *zap.Logger, ruleName string, getQuery
 		}
 	}
 
-	if err == nil {
-		logger.Error("failed to get rule", zap.Error(err))
+	if errorMissingRuleName != nil {
+		logger.Warn("failed to get rule", zap.Error(errorMissingRuleName))
 	}
 
-	return apiRule, err
+	return apiRule, errorMissingRuleName
 }
 
 //	PARAMETERS:
-//	- logger - logger that will record any unrecoverable errors at this level
+//	- ctx - context that contains all the reporting tools
 //	- ruleName - name of the rule that is going to be updated
 //	- update - update reuest that defines the new values
 //
@@ -208,8 +214,8 @@ func (rm *localRulesCient) GetRule(logger *zap.Logger, ruleName string, getQuery
 //	- *errors.ServerError - error response for the client if something unexpected happens
 //
 // Create new Rule
-func (rm *localRulesCient) UpdateRule(logger *zap.Logger, ruleName string, update *v1limiter.RuleUpdateRquest) *errors.ServerError {
-	logger = logger.Named("Update").With(zap.String("rule_name", ruleName))
+func (rm *localRulesCient) UpdateRule(ctx context.Context, ruleName string, update *v1limiter.RuleUpdateRquest) *errors.ServerError {
+	logger := reporting.GetLogger(ctx).Named("UpdateRule").With(zap.String("rule_name", ruleName))
 
 	updateErr := errorMissingRuleName(ruleName)
 	bTreeAssociatedOnIterate := func(item btreeassociated.AssociatedKeyValues) bool {
@@ -240,20 +246,21 @@ func (rm *localRulesCient) UpdateRule(logger *zap.Logger, ruleName string, updat
 	}
 
 	if updateErr != nil {
-		logger.Error("failed to update rule by AssociatedID", zap.Error(updateErr))
+		logger.Warn("failed to update rule by id", zap.Error(updateErr))
 	}
 
 	return updateErr
 }
 
 // Delete a rule by name
-func (rm *localRulesCient) DeleteRule(logger *zap.Logger, ruleName string) *errors.ServerError {
-	logger = logger.Named("DeleteRule").With(zap.String("rule_name", ruleName))
+func (rm *localRulesCient) DeleteRule(ctx context.Context, ruleName string) *errors.ServerError {
+	logger := reporting.GetLogger(ctx).Named("DeleteRule").With(zap.String("rule_name", ruleName))
+	ctx = reporting.UpdateLogger(ctx, logger)
 
 	ruleErr := errorMissingRuleName(ruleName)
 	bTreeAssociatedOnCanDelete := func(item btreeassociated.AssociatedKeyValues) bool {
 		// 1. First before deleting the rule, we need to delete all overrides for the rule
-		if ruleErr = rm.overridesClient.DestroyOverrides(logger, ruleName); ruleErr != nil {
+		if ruleErr = rm.overridesClient.DestroyOverrides(ctx, ruleName); ruleErr != nil {
 			return false
 		}
 
@@ -286,8 +293,9 @@ func (rm *localRulesCient) DeleteRule(logger *zap.Logger, ruleName string) *erro
 }
 
 // Create an override for a rule by name
-func (rm *localRulesCient) CreateOverride(logger *zap.Logger, ruleName string, override *v1limiter.Override) *errors.ServerError {
-	logger = logger.Named("CreateOverride").With(zap.String("rule_name", ruleName))
+func (rm *localRulesCient) CreateOverride(ctx context.Context, ruleName string, override *v1limiter.Override) *errors.ServerError {
+	logger := reporting.GetLogger(ctx).Named("CreateOverride").With(zap.String("rule_name", ruleName))
+	ctx = reporting.UpdateLogger(ctx, logger)
 
 	overrideErr := errorMissingRuleName(ruleName)
 	bTreeAssociatedOnFind := func(item btreeassociated.AssociatedKeyValues) {
@@ -300,7 +308,7 @@ func (rm *localRulesCient) CreateOverride(logger *zap.Logger, ruleName string, o
 		}
 
 		// 2. create the override
-		overrideErr = rm.overridesClient.CreateOverride(logger, ruleName, override)
+		overrideErr = rm.overridesClient.CreateOverride(ctx, ruleName, override)
 	}
 
 	if err := rm.rules.FindByAssociatedID(ruleName, bTreeAssociatedOnFind); err != nil {
@@ -322,13 +330,14 @@ func (rm *localRulesCient) CreateOverride(logger *zap.Logger, ruleName string, o
 }
 
 // match all overrides for a given Rule
-func (rm *localRulesCient) MatchOverrides(logger *zap.Logger, ruleName string, matchQuery *v1common.MatchQuery) (v1limiter.Overrides, *errors.ServerError) {
-	logger = logger.Named("MatchOverrides").With(zap.String("rule_name", ruleName))
+func (rm *localRulesCient) MatchOverrides(ctx context.Context, ruleName string, matchQuery *v1common.MatchQuery) (v1limiter.Overrides, *errors.ServerError) {
+	logger := reporting.GetLogger(ctx).Named("MatchOverrides").With(zap.String("rule_name", ruleName))
+	ctx = reporting.UpdateLogger(ctx, logger)
 
 	var overrides v1limiter.Overrides
 	overridesErr := errorMissingRuleName(ruleName)
 	bTreeAssociatedOnFind := func(item btreeassociated.AssociatedKeyValues) {
-		overrides, overridesErr = rm.overridesClient.MatchOverrides(logger, ruleName, matchQuery)
+		overrides, overridesErr = rm.overridesClient.MatchOverrides(ctx, ruleName, matchQuery)
 	}
 
 	if err := rm.rules.FindByAssociatedID(ruleName, bTreeAssociatedOnFind); err != nil {
@@ -351,13 +360,14 @@ func (rm *localRulesCient) MatchOverrides(logger *zap.Logger, ruleName string, m
 }
 
 // get a single override by name
-func (rm *localRulesCient) GetOverride(logger *zap.Logger, ruleName string, overrideName string) (*v1limiter.Override, *errors.ServerError) {
-	logger = logger.Named("GetOveride").With(zap.String("rule_name", ruleName))
+func (rm *localRulesCient) GetOverride(ctx context.Context, ruleName string, overrideName string) (*v1limiter.Override, *errors.ServerError) {
+	logger := reporting.GetLogger(ctx).Named("GetOverride").With(zap.String("rule_name", ruleName))
+	ctx = reporting.UpdateLogger(ctx, logger)
 
 	var override *v1limiter.Override
 	overrideErr := errorMissingRuleName(ruleName)
 	bTreeAssociatedOnFind := func(item btreeassociated.AssociatedKeyValues) {
-		override, overrideErr = rm.overridesClient.GetOverride(logger, ruleName, overrideName)
+		override, overrideErr = rm.overridesClient.GetOverride(ctx, ruleName, overrideName)
 	}
 
 	if err := rm.rules.FindByAssociatedID(ruleName, bTreeAssociatedOnFind); err != nil {
@@ -379,12 +389,13 @@ func (rm *localRulesCient) GetOverride(logger *zap.Logger, ruleName string, over
 }
 
 // Update an override by its name
-func (rm *localRulesCient) UpdateOverride(logger *zap.Logger, ruleName string, overrideName string, override *v1limiter.OverrideUpdate) *errors.ServerError {
-	logger = logger.Named("UpdateOverride").With(zap.String("rule_name", ruleName))
+func (rm *localRulesCient) UpdateOverride(ctx context.Context, ruleName string, overrideName string, override *v1limiter.OverrideUpdate) *errors.ServerError {
+	logger := reporting.GetLogger(ctx).Named("UpdateOverried").With(zap.String("rule_name", ruleName))
+	ctx = reporting.UpdateLogger(ctx, logger)
 
 	overrideErr := errorMissingRuleName(ruleName)
 	bTreeAssociatedOnFind := func(item btreeassociated.AssociatedKeyValues) {
-		overrideErr = rm.overridesClient.UpdateOverride(logger, ruleName, overrideName, override)
+		overrideErr = rm.overridesClient.UpdateOverride(ctx, ruleName, overrideName, override)
 	}
 
 	if err := rm.rules.FindByAssociatedID(ruleName, bTreeAssociatedOnFind); err != nil {
@@ -406,12 +417,13 @@ func (rm *localRulesCient) UpdateOverride(logger *zap.Logger, ruleName string, o
 }
 
 // Delete an override
-func (rm *localRulesCient) DeleteOverride(logger *zap.Logger, ruleName string, overrideName string) *errors.ServerError {
-	logger = logger.Named("DeleteOverride").With(zap.String("rule_name", ruleName))
+func (rm *localRulesCient) DeleteOverride(ctx context.Context, ruleName string, overrideName string) *errors.ServerError {
+	logger := reporting.GetLogger(ctx).Named("DeleteOverride").With(zap.String("rule_name", ruleName))
+	ctx = reporting.UpdateLogger(ctx, logger)
 
 	overrideErr := errorMissingRuleName(ruleName)
 	bTreeAssociatedOnFind := func(item btreeassociated.AssociatedKeyValues) {
-		overrideErr = rm.overridesClient.DestroyOverride(logger, ruleName, overrideName)
+		overrideErr = rm.overridesClient.DestroyOverride(ctx, ruleName, overrideName)
 	}
 
 	if err := rm.rules.FindByAssociatedID(ruleName, bTreeAssociatedOnFind); err != nil {
@@ -433,15 +445,16 @@ func (rm *localRulesCient) DeleteOverride(logger *zap.Logger, ruleName string, o
 }
 
 // Find the limits for each rule and the overrides for a give key values
-func (rm localRulesCient) FindLimits(logger *zap.Logger, keyValue datatypes.KeyValues) (v1limiter.Rules, *errors.ServerError) {
-	logger = logger.Named("FindLimits")
+func (rm localRulesCient) FindLimits(ctx context.Context, keyValue datatypes.KeyValues) (v1limiter.Rules, *errors.ServerError) {
+	logger := reporting.GetLogger(ctx).Named("FindLimits")
+	ctx = reporting.UpdateLogger(ctx, logger)
 
 	rules := v1limiter.Rules{}
 	var limitErr *errors.ServerError
 
 	bTreeAssociatedOnIterate := func(item btreeassociated.AssociatedKeyValues) bool {
 		// 1. find all the overrides for the rule
-		overrides, err := rm.overridesClient.FindOverrideLimits(logger, item.AssociatedID(), keyValue)
+		overrides, err := rm.overridesClient.FindOverrideLimits(ctx, item.AssociatedID(), keyValue)
 		if err != nil {
 			limitErr = err
 			return false
@@ -470,7 +483,7 @@ func (rm localRulesCient) FindLimits(logger *zap.Logger, keyValue datatypes.KeyV
 		return true
 	}
 
-	// special match logic. we alwys need to look for empty strings as a 'match' operation
+	// special match logic. we always need to look for empty strings as a 'match' operation
 	ruleKeyValues := datatypes.KeyValues{}
 	for key, _ := range keyValue {
 		ruleKeyValues[key] = datatypes.String("")

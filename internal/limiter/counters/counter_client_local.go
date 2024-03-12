@@ -8,6 +8,7 @@ import (
 
 	"github.com/DanLavine/channelops"
 	"github.com/DanLavine/willow/internal/limiter/rules"
+	"github.com/DanLavine/willow/internal/reporting"
 	lockerclient "github.com/DanLavine/willow/pkg/clients/locker_client"
 	"github.com/DanLavine/willow/pkg/models/api/common/errors"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
@@ -39,8 +40,8 @@ func NewCountersClientLocal(constructor CounterConstructor, rulesClient rules.Ru
 }
 
 // List a all counters that match the query
-func (cm *counterClientLocal) QueryCounters(logger *zap.Logger, query *v1common.AssociatedQuery) (v1limiter.Counters, *errors.ServerError) {
-	logger = logger.Named("ListCounters")
+func (cm *counterClientLocal) QueryCounters(ctx context.Context, query *v1common.AssociatedQuery) (v1limiter.Counters, *errors.ServerError) {
+	logger := reporting.GetLogger(ctx).Named("QueryCounters")
 
 	countersResponse := v1limiter.Counters{}
 	bTreeAssociatedOnIterate := func(item btreeassociated.AssociatedKeyValues) bool {
@@ -63,11 +64,12 @@ func (cm *counterClientLocal) QueryCounters(logger *zap.Logger, query *v1common.
 	return countersResponse, nil
 }
 
-func (cm *counterClientLocal) IncrementCounters(logger *zap.Logger, requestContext context.Context, lockerClient lockerclient.LockerClient, counter *v1limiter.Counter) *errors.ServerError {
-	logger = logger.Named("IncrementCounters")
+func (cm *counterClientLocal) IncrementCounters(ctx context.Context, requestContext context.Context, lockerClient lockerclient.LockerClient, counter *v1limiter.Counter) *errors.ServerError {
+	logger := reporting.GetLogger(ctx).Named("IncrementCounters")
+	ctx = reporting.UpdateLogger(ctx, logger)
 
 	// 1. Find the Rules /w Overrides limts that match the counter's key values
-	rules, limitErrors := cm.rulesClient.FindLimits(logger, counter.KeyValues)
+	rules, limitErrors := cm.rulesClient.FindLimits(ctx, counter.KeyValues)
 	if limitErrors != nil {
 		return limitErrors
 	}
@@ -111,8 +113,7 @@ func (cm *counterClientLocal) IncrementCounters(logger *zap.Logger, requestConte
 
 		if !unlimited {
 			// forward the headers for the logger
-			//headers := http.Header{}
-			headers.Add("x_request_id", "")
+			headers := reporting.GetTraceHeaders(ctx)
 
 			// 5. grab a lock for each key value to ensure that we are the only operation enforcing the rules for such values
 			lockerLocks := []lockerclient.Lock{}
@@ -189,7 +190,7 @@ func (cm *counterClientLocal) IncrementCounters(logger *zap.Logger, requestConte
 					}
 
 					// 3. check the limits
-					if counterErr := cm.checkCounters(logger, rule.Name, keyValues, rule.Limit); counterErr != nil {
+					if counterErr := cm.checkCounters(ctx, rule.Name, keyValues, rule.Limit); counterErr != nil {
 						return counterErr
 					}
 				} else {
@@ -200,7 +201,7 @@ func (cm *counterClientLocal) IncrementCounters(logger *zap.Logger, requestConte
 						}
 
 						// 2. check the limt
-						if counterErr := cm.checkCounters(logger, rule.Name, override.KeyValues, override.Limit); counterErr != nil {
+						if counterErr := cm.checkCounters(ctx, rule.Name, override.KeyValues, override.Limit); counterErr != nil {
 							return counterErr
 						}
 					}
@@ -226,8 +227,8 @@ func (cm *counterClientLocal) IncrementCounters(logger *zap.Logger, requestConte
 	return nil
 }
 
-func (cm *counterClientLocal) checkCounters(logger *zap.Logger, ruleName string, keyValues datatypes.KeyValues, limit int64) *errors.ServerError {
-	logger = logger.Named("checkCounters")
+func (cm *counterClientLocal) checkCounters(ctx context.Context, ruleName string, keyValues datatypes.KeyValues, limit int64) *errors.ServerError {
+	logger := reporting.GetLogger(ctx).Named("checkCounters")
 
 	// empty query that needs to be filled
 	query := datatypes.AssociatedKeyValuesQuery{
@@ -268,8 +269,8 @@ func (cm *counterClientLocal) checkCounters(logger *zap.Logger, ruleName string,
 //
 // Decrement is muuch easier than increment because we don't need to ensure any rules validation. So no locks are required
 // and we can just decrement the key values directly
-func (cm *counterClientLocal) DecrementCounters(logger *zap.Logger, counter *v1limiter.Counter) *errors.ServerError {
-	logger = logger.Named("DecrementCounters")
+func (cm *counterClientLocal) DecrementCounters(ctx context.Context, counter *v1limiter.Counter) *errors.ServerError {
+	logger := reporting.GetLogger(ctx).Named("DecrementCounters")
 
 	bTreeAssociatedCanDelete := func(item btreeassociated.AssociatedKeyValues) bool {
 		return item.Value().(Counter).Update(counter.Counters) <= 0
@@ -283,8 +284,8 @@ func (cm *counterClientLocal) DecrementCounters(logger *zap.Logger, counter *v1l
 	return nil
 }
 
-func (cm *counterClientLocal) SetCounter(logger *zap.Logger, counter *v1limiter.Counter) *errors.ServerError {
-	logger = logger.Named("SetCounters")
+func (cm *counterClientLocal) SetCounter(ctx context.Context, counter *v1limiter.Counter) *errors.ServerError {
+	logger := reporting.GetLogger(ctx).Named("SetCounters")
 
 	if counter.Counters <= 0 {
 		// need to remove the key values

@@ -6,6 +6,7 @@ package lockerclientfakes
 
 import (
 	context "context"
+	http "net/http"
 	reflect "reflect"
 
 	lockerclient "github.com/DanLavine/willow/pkg/clients/locker_client"
@@ -52,16 +53,16 @@ func (mr *MockLockerClientMockRecorder) Healthy() *gomock.Call {
 }
 
 // ObtainLock mocks base method.
-func (m *MockLockerClient) ObtainLock(arg0 context.Context, arg1 *v1.LockCreateRequest, arg2 func(datatypes.KeyValues, error)) (lockerclient.Lock, error) {
+func (m *MockLockerClient) ObtainLock(arg0 context.Context, arg1 *v1.LockCreateRequest, arg2 http.Header, arg3 func(datatypes.KeyValues, error)) (lockerclient.Lock, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ObtainLock", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "ObtainLock", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(lockerclient.Lock)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ObtainLock indicates an expected call of ObtainLock.
-func (mr *MockLockerClientMockRecorder) ObtainLock(arg0, arg1, arg2 interface{}) *gomock.Call {
+func (mr *MockLockerClientMockRecorder) ObtainLock(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ObtainLock", reflect.TypeOf((*MockLockerClient)(nil).ObtainLock), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ObtainLock", reflect.TypeOf((*MockLockerClient)(nil).ObtainLock), arg0, arg1, arg2, arg3)
 }

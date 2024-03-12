@@ -5,6 +5,7 @@
 package lockerclientfakes
 
 import (
+	http "net/http"
 	reflect "reflect"
 
 	gomock "go.uber.org/mock/gomock"
@@ -48,15 +49,15 @@ func (mr *MockLockMockRecorder) Done() *gomock.Call {
 }
 
 // Release mocks base method.
-func (m *MockLock) Release() error {
+func (m *MockLock) Release(arg0 http.Header) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Release")
+	ret := m.ctrl.Call(m, "Release", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Release indicates an expected call of Release.
-func (mr *MockLockMockRecorder) Release() *gomock.Call {
+func (mr *MockLockMockRecorder) Release(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Release", reflect.TypeOf((*MockLock)(nil).Release))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Release", reflect.TypeOf((*MockLock)(nil).Release), arg0)
 }
