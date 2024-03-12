@@ -44,18 +44,18 @@ drawbacks and limitations.
 
 1. Consistent hashing for `Key Values pairs` to know which node a resource belongs to
 
-      **Pros**:
-      1. Routing is somewhat easy to maintain as everything is consistent
+   **Pros**:
+   1. Routing is somewhat easy to maintain as everything is consistent
 
     
-      **Cons**:
-      1. If there are many "bad actor" Resources on a particular node, then they cannot be moved to a new isolated node.
-      2. Scaling the system is hard as each resource meeds to be moved in some sort of automated fashion to the proper node
-         and a thin routing layer has no knowledge if a resource has been moved or not.
-         1. Possible solution: The "Nodes" would need to forward the request to the previous node in the consisten hash chain.
-         2. Possible solution: The new node would need to wait to process a request untill a rebalance is comoplete
-      3. Querys for `Order By` keys are very hard and slow as they need to reach out to each node and then perform an inital lookup for values
-         currently exist. Then perform single actions on resource for specifically sorted `Key Value pairs`.
+   **Cons**:
+   1. If there are many "bad actor" Resources on a particular node, then they cannot be moved to a new isolated node.
+   2. Scaling the system is hard as each resource meeds to be moved in some sort of automated fashion to the proper node
+      and a thin routing layer has no knowledge if a resource has been moved or not.
+      1. Possible solution: The "Nodes" would need to forward the request to the previous node in the consisten hash chain.
+      2. Possible solution: The new node would need to wait to process a request untill a rebalance is comoplete
+   3. Querys for `Order By` keys are very hard and slow as they need to reach out to each node and then perform an inital lookup for values
+      currently exist. Then perform single actions on resource for specifically sorted `Key Value pairs`.
 
 ### Horizontaly scalable node selection for a resource
 
