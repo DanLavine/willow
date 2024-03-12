@@ -36,7 +36,7 @@ func Test_Limiter_Overrides_Create(t *testing.T) {
 			Limit:   5,
 		}
 
-		err := limiterClient.CreateRule(rule)
+		err := limiterClient.CreateRule(rule, nil)
 		g.Expect(err).ToNot(HaveOccurred())
 
 		// create override
@@ -50,7 +50,7 @@ func Test_Limiter_Overrides_Create(t *testing.T) {
 			},
 		}
 
-		err = limiterClient.CreateOverride("rule1", override)
+		err = limiterClient.CreateOverride("rule1", override, nil)
 		g.Expect(err).ToNot(HaveOccurred())
 	})
 }
@@ -79,7 +79,7 @@ func Test_Limiter_Overrides_Get(t *testing.T) {
 			Limit:   5,
 		}
 
-		err := limiterClient.CreateRule(rule)
+		err := limiterClient.CreateRule(rule, nil)
 		g.Expect(err).ToNot(HaveOccurred())
 
 		// create a few override
@@ -94,12 +94,12 @@ func Test_Limiter_Overrides_Get(t *testing.T) {
 				},
 			}
 
-			err = limiterClient.CreateOverride("rule1", override)
+			err = limiterClient.CreateOverride("rule1", override, nil)
 			g.Expect(err).ToNot(HaveOccurred())
 		}
 
 		// get an overrid by name
-		foundOverride, err := limiterClient.GetOverride("rule1", "override12")
+		foundOverride, err := limiterClient.GetOverride("rule1", "override12", nil)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(foundOverride).ToNot(BeNil())
 		g.Expect(foundOverride.Name).To(Equal("override12"))
@@ -136,7 +136,7 @@ func Test_Limiter_Overrides_Update(t *testing.T) {
 			Limit:   5,
 		}
 
-		err := limiterClient.CreateRule(rule)
+		err := limiterClient.CreateRule(rule, nil)
 		g.Expect(err).ToNot(HaveOccurred())
 
 		// create override
@@ -149,18 +149,18 @@ func Test_Limiter_Overrides_Update(t *testing.T) {
 				"other": datatypes.Float32(32),
 			},
 		}
-		err = limiterClient.CreateOverride("rule1", override)
+		err = limiterClient.CreateOverride("rule1", override, nil)
 		g.Expect(err).ToNot(HaveOccurred())
 
 		// update override
 		overrideUpdate := &v1.OverrideUpdate{
 			Limit: 18,
 		}
-		err = limiterClient.UpdateOverride("rule1", "override1", overrideUpdate)
+		err = limiterClient.UpdateOverride("rule1", "override1", overrideUpdate, nil)
 		g.Expect(err).ToNot(HaveOccurred())
 
 		// check the overrid
-		foundOverride, err := limiterClient.GetOverride("rule1", "override1")
+		foundOverride, err := limiterClient.GetOverride("rule1", "override1", nil)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(foundOverride).ToNot(BeNil())
 		g.Expect(foundOverride.Limit).To(Equal(int64(18)))
@@ -190,7 +190,7 @@ func Test_Limiter_Overrides_Delete(t *testing.T) {
 			GroupBy: []string{"key1", "key2"},
 			Limit:   5,
 		}
-		g.Expect(limiterClient.CreateRule(rule)).ToNot(HaveOccurred())
+		g.Expect(limiterClient.CreateRule(rule, nil)).ToNot(HaveOccurred())
 
 		// create override
 		override := &v1.Override{
@@ -202,14 +202,14 @@ func Test_Limiter_Overrides_Delete(t *testing.T) {
 				"other": datatypes.Float32(32),
 			},
 		}
-		g.Expect(limiterClient.CreateOverride("rule1", override)).ToNot(HaveOccurred())
+		g.Expect(limiterClient.CreateOverride("rule1", override, nil)).ToNot(HaveOccurred())
 
 		// delete override
-		err := limiterClient.DeleteOverride("rule1", "override1")
+		err := limiterClient.DeleteOverride("rule1", "override1", nil)
 		g.Expect(err).ToNot(HaveOccurred())
 
 		// get the rule with overrides to ensure it is deleted
-		overrideResp, err := limiterClient.GetOverride("rule1", "override1")
+		overrideResp, err := limiterClient.GetOverride("rule1", "override1", nil)
 
 		g.Expect(err).To(HaveOccurred())
 		g.Expect(err.Error()).To(Equal("Override 'override1' not found"))
@@ -241,7 +241,7 @@ func Test_Limiter_Overrides_Match(t *testing.T) {
 			Limit:   5,
 		}
 
-		err := limiterClient.CreateRule(rule)
+		err := limiterClient.CreateRule(rule, nil)
 		g.Expect(err).ToNot(HaveOccurred())
 
 		// create overrides
@@ -254,7 +254,7 @@ func Test_Limiter_Overrides_Match(t *testing.T) {
 				"other": datatypes.Float32(32),
 			},
 		}
-		g.Expect(limiterClient.CreateOverride("rule1", override1)).ToNot(HaveOccurred())
+		g.Expect(limiterClient.CreateOverride("rule1", override1, nil)).ToNot(HaveOccurred())
 
 		override2 := &v1.Override{
 			Name:  "override2",
@@ -265,7 +265,7 @@ func Test_Limiter_Overrides_Match(t *testing.T) {
 				"other": datatypes.Float32(32),
 			},
 		}
-		g.Expect(limiterClient.CreateOverride("rule1", override2)).ToNot(HaveOccurred())
+		g.Expect(limiterClient.CreateOverride("rule1", override2, nil)).ToNot(HaveOccurred())
 
 		// query
 		query := &v1common.MatchQuery{
@@ -277,7 +277,7 @@ func Test_Limiter_Overrides_Match(t *testing.T) {
 			},
 		}
 
-		overrides, err := limiterClient.MatchOverrides("rule1", query)
+		overrides, err := limiterClient.MatchOverrides("rule1", query, nil)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(len(overrides)).To(Equal(1))
 	})

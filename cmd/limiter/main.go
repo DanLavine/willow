@@ -15,7 +15,7 @@ import (
 	"github.com/DanLavine/willow/internal/limiter/counters"
 	"github.com/DanLavine/willow/internal/limiter/overrides"
 	"github.com/DanLavine/willow/internal/limiter/rules"
-	"github.com/DanLavine/willow/internal/logger"
+	"github.com/DanLavine/willow/internal/reporting"
 	"github.com/DanLavine/willow/pkg/clients"
 	lockerclient "github.com/DanLavine/willow/pkg/clients/locker_client"
 	"go.uber.org/zap"
@@ -31,7 +31,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	logger := logger.NewZapLogger(cfg)
+	logger := reporting.NewZapLogger(cfg)
 	defer logger.Sync()
 
 	// setup shutdown signal

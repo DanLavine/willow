@@ -32,10 +32,10 @@ func init() {
 	}
 
 	// create limiter
-	// limiterPath, err = gexec.Build("github.com/DanLavine/willow/cmd/limiter", "--race")
-	// if err != nil {
-	// 	panic(err)
-	// }
+	limiterPath, err = gexec.Build("github.com/DanLavine/willow/cmd/limiter", "--race")
+	if err != nil {
+		panic(err)
+	}
 
 	// // create willow
 	// willowPath, err = gexec.Build("github.com/DanLavine/willow/cmd/willow", "--race")

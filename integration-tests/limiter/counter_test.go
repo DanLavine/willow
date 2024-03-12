@@ -27,7 +27,7 @@ func Test_Limiter_Counters_Update(t *testing.T) {
 			Limit:   5,
 		}
 
-		err := limiterClient.CreateRule(rule)
+		err := limiterClient.CreateRule(rule, nil)
 		g.Expect(err).ToNot(HaveOccurred())
 	}
 
@@ -58,7 +58,7 @@ func Test_Limiter_Counters_Update(t *testing.T) {
 					Counters: 1,
 				}
 
-				g.Expect(limiterClient.UpdateCounter(counter)).ToNot(HaveOccurred(), fmt.Sprintf("failed on counter %d", i))
+				g.Expect(limiterClient.UpdateCounter(counter, nil)).ToNot(HaveOccurred(), fmt.Sprintf("failed on counter %d", i))
 			}
 
 			// the 6th value should be an error
@@ -69,7 +69,7 @@ func Test_Limiter_Counters_Update(t *testing.T) {
 				},
 				Counters: 1,
 			}
-			err := limiterClient.UpdateCounter(counter)
+			err := limiterClient.UpdateCounter(counter, nil)
 			g.Expect(err).To(HaveOccurred())
 			g.Expect(err.Error()).To(ContainSubstring("Limit has already been reached for rule 'rule1'"))
 		})
@@ -96,7 +96,7 @@ func Test_Limiter_Counters_Update(t *testing.T) {
 				},
 				Counters: -1,
 			}
-			err := limiterClient.UpdateCounter(counter)
+			err := limiterClient.UpdateCounter(counter, nil)
 			g.Expect(err).ToNot(HaveOccurred())
 		})
 
@@ -126,7 +126,7 @@ func Test_Limiter_Counters_Update(t *testing.T) {
 					Counters: 1,
 				}
 
-				g.Expect(limiterClient.UpdateCounter(counter)).ToNot(HaveOccurred(), fmt.Sprintf("failed on counter %d", i))
+				g.Expect(limiterClient.UpdateCounter(counter, nil)).ToNot(HaveOccurred(), fmt.Sprintf("failed on counter %d", i))
 			}
 
 			// the try incrementing a vlue that already exists
@@ -137,7 +137,7 @@ func Test_Limiter_Counters_Update(t *testing.T) {
 				},
 				Counters: 1,
 			}
-			err := limiterClient.UpdateCounter(incrementCounter)
+			err := limiterClient.UpdateCounter(incrementCounter, nil)
 			g.Expect(err).To(HaveOccurred())
 			g.Expect(err.Error()).To(ContainSubstring("Limit has already been reached for rule 'rule1'"))
 
@@ -149,11 +149,11 @@ func Test_Limiter_Counters_Update(t *testing.T) {
 				},
 				Counters: -1,
 			}
-			err = limiterClient.UpdateCounter(decrementCounter)
+			err = limiterClient.UpdateCounter(decrementCounter, nil)
 			g.Expect(err).ToNot(HaveOccurred())
 
 			// increment should now pass again
-			err = limiterClient.UpdateCounter(incrementCounter)
+			err = limiterClient.UpdateCounter(incrementCounter, nil)
 			g.Expect(err).ToNot(HaveOccurred())
 		})
 	})
@@ -186,7 +186,7 @@ func Test_Limiter_Counters_Query(t *testing.T) {
 			KeyValues: kv1,
 			Counters:  1,
 		}
-		g.Expect(limiterClient.UpdateCounter(counter1)).ToNot(HaveOccurred())
+		g.Expect(limiterClient.UpdateCounter(counter1, nil)).ToNot(HaveOccurred())
 
 		kv2 := datatypes.KeyValues{
 			"key0": datatypes.String("0"),
@@ -197,8 +197,8 @@ func Test_Limiter_Counters_Query(t *testing.T) {
 			KeyValues: kv2,
 			Counters:  1,
 		}
-		g.Expect(limiterClient.UpdateCounter(counter2)).ToNot(HaveOccurred())
-		g.Expect(limiterClient.UpdateCounter(counter2)).ToNot(HaveOccurred())
+		g.Expect(limiterClient.UpdateCounter(counter2, nil)).ToNot(HaveOccurred())
+		g.Expect(limiterClient.UpdateCounter(counter2, nil)).ToNot(HaveOccurred())
 
 		counter3 := &v1.Counter{
 			KeyValues: datatypes.KeyValues{
@@ -206,7 +206,7 @@ func Test_Limiter_Counters_Query(t *testing.T) {
 			},
 			Counters: 1,
 		}
-		g.Expect(limiterClient.UpdateCounter(counter3)).ToNot(HaveOccurred())
+		g.Expect(limiterClient.UpdateCounter(counter3, nil)).ToNot(HaveOccurred())
 
 		counter4 := &v1.Counter{
 			KeyValues: datatypes.KeyValues{
@@ -214,7 +214,7 @@ func Test_Limiter_Counters_Query(t *testing.T) {
 			},
 			Counters: 1,
 		}
-		g.Expect(limiterClient.UpdateCounter(counter4)).ToNot(HaveOccurred())
+		g.Expect(limiterClient.UpdateCounter(counter4, nil)).ToNot(HaveOccurred())
 
 		// query the counters
 		trueCheck := true
@@ -237,7 +237,7 @@ func Test_Limiter_Counters_Query(t *testing.T) {
 			Counters:  2,
 		}
 
-		counters, err := limiterClient.QueryCounters(query)
+		counters, err := limiterClient.QueryCounters(query, nil)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(len(counters)).To(Equal(2))
 		g.Expect(counters).To(ContainElements(counterResp1, countersResp2))
@@ -267,7 +267,7 @@ func Test_Limiter_Counters_Set(t *testing.T) {
 			GroupBy: []string{"key1", "key2"},
 			Limit:   5,
 		}
-		g.Expect(limiterClient.CreateRule(rule)).ToNot(HaveOccurred())
+		g.Expect(limiterClient.CreateRule(rule, nil)).ToNot(HaveOccurred())
 
 		// set a counter for the rule thats above the count
 		kv1 := datatypes.KeyValues{
@@ -279,7 +279,7 @@ func Test_Limiter_Counters_Set(t *testing.T) {
 			KeyValues: kv1,
 			Counters:  32,
 		}
-		g.Expect(limiterClient.SetCounters(counter1)).ToNot(HaveOccurred())
+		g.Expect(limiterClient.SetCounters(counter1, nil)).ToNot(HaveOccurred())
 
 		// query the counters
 		trueCheck := true
@@ -298,7 +298,7 @@ func Test_Limiter_Counters_Set(t *testing.T) {
 			Counters:  32,
 		}
 
-		counters, err := limiterClient.QueryCounters(query)
+		counters, err := limiterClient.QueryCounters(query, nil)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(len(counters)).To(Equal(1))
 		g.Expect(counters).To(ContainElements(countersResp1))
@@ -322,7 +322,7 @@ func Test_Limiter_Counters_Set(t *testing.T) {
 			GroupBy: []string{"key1", "key2"},
 			Limit:   5,
 		}
-		g.Expect(limiterClient.CreateRule(rule)).ToNot(HaveOccurred())
+		g.Expect(limiterClient.CreateRule(rule, nil)).ToNot(HaveOccurred())
 
 		// set a counter for the rule thats above the count
 		kv1 := datatypes.KeyValues{
@@ -334,21 +334,21 @@ func Test_Limiter_Counters_Set(t *testing.T) {
 			KeyValues: kv1,
 			Counters:  32,
 		}
-		g.Expect(limiterClient.SetCounters(counter1)).ToNot(HaveOccurred())
+		g.Expect(limiterClient.SetCounters(counter1, nil)).ToNot(HaveOccurred())
 
 		// reset the counters to 0 to remove the item
 		counter3 := &v1.Counter{
 			KeyValues: kv1,
 			Counters:  0,
 		}
-		g.Expect(limiterClient.SetCounters(counter3)).ToNot(HaveOccurred())
+		g.Expect(limiterClient.SetCounters(counter3, nil)).ToNot(HaveOccurred())
 
 		// query the counters to ensure it is removed
 		query := &v1common.AssociatedQuery{
 			AssociatedKeyValues: datatypes.AssociatedKeyValuesQuery{},
 		}
 
-		counters, err := limiterClient.QueryCounters(query)
+		counters, err := limiterClient.QueryCounters(query, nil)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(len(counters)).To(Equal(0))
 	})
