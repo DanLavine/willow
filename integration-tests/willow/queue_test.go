@@ -79,7 +79,7 @@ func Test_Queue_Create(t *testing.T) {
 			QueueMaxSize: 5,
 		}
 
-		err := willowClient.CreateQueue(createQueue)
+		err := willowClient.CreateQueue(createQueue, nil)
 
 		g.Expect(err).ToNot(HaveOccurred())
 	})
@@ -103,7 +103,7 @@ func Test_Queue_Create(t *testing.T) {
 				QueueMaxSize: 5,
 			}
 
-			err := willowClient.CreateQueue(createQueue)
+			err := willowClient.CreateQueue(createQueue, nil)
 			g.Expect(err).ToNot(HaveOccurred())
 		}
 	})
@@ -134,11 +134,11 @@ func Test_Queue_List(t *testing.T) {
 				QueueMaxSize: 5,
 			}
 
-			err := willowClient.CreateQueue(createQueue)
+			err := willowClient.CreateQueue(createQueue, nil)
 			g.Expect(err).ToNot(HaveOccurred())
 		}
 
-		queues, err := willowClient.ListQueues()
+		queues, err := willowClient.ListQueues(nil)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(len(queues)).To(Equal(5))
 	})
@@ -166,9 +166,9 @@ func Test_Queue_Get(t *testing.T) {
 			Name:         "test queue",
 			QueueMaxSize: 5,
 		}
-		g.Expect(willowClient.CreateQueue(createQueue)).ToNot(HaveOccurred())
+		g.Expect(willowClient.CreateQueue(createQueue, nil)).ToNot(HaveOccurred())
 
-		queue, err := willowClient.GetQueue("test queue", &v1common.AssociatedQuery{})
+		queue, err := willowClient.GetQueue("test queue", &v1common.AssociatedQuery{}, nil)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(queue.Name).To(Equal("test queue"))
 		g.Expect(queue.QueueMaxSize).To(Equal(int64(5)))
@@ -204,17 +204,17 @@ func Test_Queue_Update(t *testing.T) {
 			Name:         "test queue",
 			QueueMaxSize: 5,
 		}
-		g.Expect(willowClient.CreateQueue(createQueue)).ToNot(HaveOccurred())
+		g.Expect(willowClient.CreateQueue(createQueue, nil)).ToNot(HaveOccurred())
 
 		// update
 		updateQueue := &v1willow.QueueUpdate{
 			QueueMaxSize: 12,
 		}
-		err := willowClient.UpdateQueue("test queue", updateQueue)
+		err := willowClient.UpdateQueue("test queue", updateQueue, nil)
 		g.Expect(err).ToNot(HaveOccurred())
 
 		// get
-		queue, err := willowClient.GetQueue("test queue", &v1common.AssociatedQuery{})
+		queue, err := willowClient.GetQueue("test queue", &v1common.AssociatedQuery{}, nil)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(queue.Name).To(Equal("test queue"))
 		g.Expect(queue.QueueMaxSize).To(Equal(int64(12)))
@@ -247,26 +247,26 @@ func Test_Queue_Delete(t *testing.T) {
 			Name:         "test queue",
 			QueueMaxSize: 5,
 		}
-		g.Expect(willowClient.CreateQueue(createQueue)).ToNot(HaveOccurred())
+		g.Expect(willowClient.CreateQueue(createQueue, nil)).ToNot(HaveOccurred())
 
 		// ensure the override exists before deletion
-		rule, err := limiterClient.GetRule("_willow_queue_enqueued_limits", &v1limiter.RuleGet{OverridesToMatch: &v1common.MatchQuery{}})
+		rule, err := limiterClient.GetRule("_willow_queue_enqueued_limits", &v1limiter.RuleGet{OverridesToMatch: &v1common.MatchQuery{}}, nil)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(len(rule.Overrides)).To(Equal(1))
 
 		// delete
-		err = willowClient.DeleteQueue("test queue")
+		err = willowClient.DeleteQueue("test queue", nil)
 		g.Expect(err).ToNot(HaveOccurred())
 
 		fmt.Println(willowTestConstruct.ServerStdout.String())
 		// get
-		queue, err := willowClient.GetQueue("test queue", &v1common.AssociatedQuery{})
+		queue, err := willowClient.GetQueue("test queue", &v1common.AssociatedQuery{}, nil)
 		g.Expect(queue).To(BeNil())
 		g.Expect(err).To(HaveOccurred())
 		g.Expect(err.Error()).To(ContainSubstring("failed to find queue 'test queue' by name"))
 
 		// ensure the override is deleted
-		rule, err = limiterClient.GetRule("_willow_queue_enqueued_limits", &v1limiter.RuleGet{OverridesToMatch: &v1common.MatchQuery{}})
+		rule, err = limiterClient.GetRule("_willow_queue_enqueued_limits", &v1limiter.RuleGet{OverridesToMatch: &v1common.MatchQuery{}}, nil)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(len(rule.Overrides)).To(Equal(0))
 	})
@@ -287,7 +287,7 @@ func Test_Queue_Delete(t *testing.T) {
 		limiterClient := setupLimitterClient(g, limiterTestConstruct.ServerURL)
 
 		// ensure the counters are in a clean state to start
-		counters, err := limiterClient.QueryCounters(&v1common.AssociatedQuery{})
+		counters, err := limiterClient.QueryCounters(&v1common.AssociatedQuery{}, nil)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(len(counters)).To(Equal(0))
 
@@ -296,7 +296,7 @@ func Test_Queue_Delete(t *testing.T) {
 			Name:         "test queue",
 			QueueMaxSize: 5,
 		}
-		g.Expect(willowClient.CreateQueue(createQueue)).ToNot(HaveOccurred())
+		g.Expect(willowClient.CreateQueue(createQueue, nil)).ToNot(HaveOccurred())
 
 		// enqueue multiple item
 		enqueueQueueItem1 := &v1willow.EnqueueQueueItem{
@@ -309,7 +309,7 @@ func Test_Queue_Delete(t *testing.T) {
 			RetryPosition:   "front",
 			TimeoutDuration: 5 * time.Second,
 		}
-		g.Expect(willowClient.EnqueueQueueItem("test queue", enqueueQueueItem1)).ToNot(HaveOccurred())
+		g.Expect(willowClient.EnqueueQueueItem("test queue", enqueueQueueItem1, nil)).ToNot(HaveOccurred())
 
 		enqueueQueueItem2 := &v1willow.EnqueueQueueItem{ // updates the previous item
 			Item: []byte(`data for second item`),
@@ -321,7 +321,7 @@ func Test_Queue_Delete(t *testing.T) {
 			RetryPosition:   "front",
 			TimeoutDuration: 5 * time.Second,
 		}
-		g.Expect(willowClient.EnqueueQueueItem("test queue", enqueueQueueItem2)).ToNot(HaveOccurred())
+		g.Expect(willowClient.EnqueueQueueItem("test queue", enqueueQueueItem2, nil)).ToNot(HaveOccurred())
 
 		enqueueQueueItem3 := &v1willow.EnqueueQueueItem{
 			Item: []byte(`data for third item`),
@@ -334,7 +334,7 @@ func Test_Queue_Delete(t *testing.T) {
 			RetryPosition:   "front",
 			TimeoutDuration: 5 * time.Second,
 		}
-		g.Expect(willowClient.EnqueueQueueItem("test queue", enqueueQueueItem3)).ToNot(HaveOccurred())
+		g.Expect(willowClient.EnqueueQueueItem("test queue", enqueueQueueItem3, nil)).ToNot(HaveOccurred())
 
 		enqueueQueueItem4 := &v1willow.EnqueueQueueItem{
 			Item: []byte(`data for fourth item`),
@@ -348,7 +348,7 @@ func Test_Queue_Delete(t *testing.T) {
 			RetryPosition:   "front",
 			TimeoutDuration: 5 * time.Second,
 		}
-		g.Expect(willowClient.EnqueueQueueItem("test queue", enqueueQueueItem4)).ToNot(HaveOccurred())
+		g.Expect(willowClient.EnqueueQueueItem("test queue", enqueueQueueItem4, nil)).ToNot(HaveOccurred())
 
 		enqueueQueueItem5 := &v1willow.EnqueueQueueItem{
 			Item: []byte(`data for fifth item`),
@@ -362,14 +362,14 @@ func Test_Queue_Delete(t *testing.T) {
 			RetryPosition:   "front",
 			TimeoutDuration: 5 * time.Second,
 		}
-		g.Expect(willowClient.EnqueueQueueItem("test queue", enqueueQueueItem5)).ToNot(HaveOccurred())
+		g.Expect(willowClient.EnqueueQueueItem("test queue", enqueueQueueItem5, nil)).ToNot(HaveOccurred())
 
 		// delete a channel
-		err = willowClient.DeleteQueue("test queue")
+		err = willowClient.DeleteQueue("test queue", nil)
 		g.Expect(err).ToNot(HaveOccurred())
 
 		// ensure the counters are destroyed properly
-		counters, err = limiterClient.QueryCounters(&v1common.AssociatedQuery{})
+		counters, err = limiterClient.QueryCounters(&v1common.AssociatedQuery{}, nil)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(len(counters)).To(Equal(0))
 	})

@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/DanLavine/willow/internal/willow/brokers/queue_channels/memory"
-	"go.uber.org/zap"
 
 	"github.com/DanLavine/willow/pkg/models/api/common/errors"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
@@ -20,17 +19,17 @@ type QueueChannel interface {
 	Delete() bool
 
 	// used for API calls when deleting a channel, to force the deletion
-	ForceDelete(logger *zap.Logger)
+	ForceDelete(ctx context.Context)
 
 	Execute(ctx context.Context) error
 
-	Enqueue(logger *zap.Logger, enqueueItem *v1willow.EnqueueQueueItem) *errors.ServerError
+	Enqueue(ctx context.Context, enqueueItem *v1willow.EnqueueQueueItem) *errors.ServerError
 
-	Dequeue() <-chan func(logger *zap.Logger) (*v1willow.DequeueQueueItem, func(), func())
+	Dequeue() <-chan func(ctx context.Context) (*v1willow.DequeueQueueItem, func(), func())
 
-	ACK(zapLogger *zap.Logger, ack *v1willow.ACK) (bool, *errors.ServerError)
+	ACK(ctx context.Context, ack *v1willow.ACK) (bool, *errors.ServerError)
 
-	Heartbeat(zapLogger *zap.Logger, heartbeat *v1willow.Heartbeat) *errors.ServerError
+	Heartbeat(ctx context.Context, heartbeat *v1willow.Heartbeat) *errors.ServerError
 }
 
 //go:generate mockgen -destination=constructorfakes/queue_channel_constructor_mock.go -package=constructorfakes github.com/DanLavine/willow/internal/willow/brokers/queue_channels/constructor QueueChannelsConstrutor

@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	"github.com/DanLavine/urlrouter"
-	"github.com/DanLavine/willow/internal/logger"
+	"github.com/DanLavine/willow/internal/reporting"
 	"github.com/DanLavine/willow/pkg/models/api"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 	"go.uber.org/zap"
@@ -14,19 +14,19 @@ import (
 )
 
 func (qh queueHandler) ChannelEnqueue(w http.ResponseWriter, r *http.Request) {
-	logger := logger.AddRequestID(qh.logger.Named("ChannelEnqueue"), r)
+	ctx, logger := reporting.SetupContextWithLoggerFromRequest(r.Context(), qh.logger.Named("ChannelEnqueue"), r)
 	logger.Debug("starting request")
 	defer logger.Debug("processed request")
 
 	// parse the enueue item
 	queueItem := &v1willow.EnqueueQueueItem{}
 	if err := api.DecodeAndValidateHttpRequest(r, queueItem); err != nil {
-		logger.Error("failed to decode enqueue item request", zap.Error(err))
+		logger.Warn("failed to decode and validate request", zap.Error(err))
 		_, _ = api.EncodeAndSendHttpResponse(r.Header, w, err.StatusCode, err)
 		return
 	}
 
-	if err := qh.queueClient.Enqueue(logger, urlrouter.GetNamedParamters(r.Context())["queue_name"], queueItem); err != nil {
+	if err := qh.queueClient.Enqueue(ctx, urlrouter.GetNamedParamters(r.Context())["queue_name"], queueItem); err != nil {
 		_, _ = api.EncodeAndSendHttpResponse(r.Header, w, err.StatusCode, err)
 		return
 	}
@@ -35,19 +35,19 @@ func (qh queueHandler) ChannelEnqueue(w http.ResponseWriter, r *http.Request) {
 }
 
 func (qh queueHandler) ChannelDequeue(w http.ResponseWriter, r *http.Request) {
-	logger := logger.AddRequestID(qh.logger.Named("ChannelDequeue"), r)
+	ctx, logger := reporting.SetupContextWithLoggerFromRequest(r.Context(), qh.logger.Named("ChannelDequeue"), r)
 	logger.Debug("starting request")
 	defer logger.Debug("processed request")
 
 	// parse the enueue item
 	query := &v1common.AssociatedQuery{}
 	if err := api.DecodeAndValidateHttpRequest(r, query); err != nil {
-		logger.Error("failed to decode enqueue item request", zap.Error(err))
+		logger.Warn("failed to decode and validate request", zap.Error(err))
 		_, _ = api.EncodeAndSendHttpResponse(r.Header, w, err.StatusCode, err)
 		return
 	}
 
-	dequeueItem, successCallback, failureCallback, err := qh.queueClient.Dequeue(logger, r.Context(), urlrouter.GetNamedParamters(r.Context())["queue_name"], query.AssociatedKeyValues)
+	dequeueItem, successCallback, failureCallback, err := qh.queueClient.Dequeue(ctx, urlrouter.GetNamedParamters(r.Context())["queue_name"], query.AssociatedKeyValues)
 	if err != nil {
 		_, _ = api.EncodeAndSendHttpResponse(r.Header, w, err.StatusCode, err)
 		return
@@ -62,19 +62,19 @@ func (qh queueHandler) ChannelDequeue(w http.ResponseWriter, r *http.Request) {
 }
 
 func (qh queueHandler) ChannelDelete(w http.ResponseWriter, r *http.Request) {
-	logger := logger.AddRequestID(qh.logger.Named("ChannelDelete"), r)
+	ctx, logger := reporting.SetupContextWithLoggerFromRequest(r.Context(), qh.logger.Named("ChannelDelete"), r)
 	logger.Debug("starting request")
 	defer logger.Debug("processed request")
 
 	// parse the delte request
 	keyValues := &datatypes.KeyValues{}
 	if err := api.DecodeAndValidateHttpRequest(r, keyValues); err != nil {
-		logger.Error("failed to decode enqueue item request", zap.Error(err))
+		logger.Warn("failed to decode and validate request", zap.Error(err))
 		_, _ = api.EncodeAndSendHttpResponse(r.Header, w, err.StatusCode, err)
 		return
 	}
 
-	if err := qh.queueClient.DeleteChannel(logger, urlrouter.GetNamedParamters(r.Context())["queue_name"], *keyValues); err != nil {
+	if err := qh.queueClient.DeleteChannel(ctx, urlrouter.GetNamedParamters(r.Context())["queue_name"], *keyValues); err != nil {
 		_, _ = api.EncodeAndSendHttpResponse(r.Header, w, err.StatusCode, err)
 		return
 	}

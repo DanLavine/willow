@@ -11,7 +11,7 @@ import (
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 	"go.uber.org/zap"
 
-	"github.com/DanLavine/willow/internal/logger"
+	"github.com/DanLavine/willow/internal/reporting"
 	"github.com/DanLavine/willow/internal/willow/brokers/queue_channels/constructor"
 
 	btreeonetomany "github.com/DanLavine/willow/internal/datastructures/btree_one_to_many"
@@ -25,7 +25,7 @@ type clientWaiting struct {
 	// query is used to match any channels against to see if they can provide values for the client
 	query datatypes.AssociatedKeyValuesQuery
 	// channelOPS is the collection of channels attempting to be read
-	channelOPS channelops.RepeatableMergeReadChannelOperator[func(logger *zap.Logger) (*v1willow.DequeueQueueItem, func(), func())]
+	channelOPS channelops.RepeatableMergeReadChannelOperator[func(ctx context.Context) (*v1willow.DequeueQueueItem, func(), func())]
 }
 
 type queueChannelsClientLocal struct {
@@ -82,12 +82,13 @@ func (qccl *queueChannelsClientLocal) Execute(ctx context.Context) error {
 	return nil
 }
 
-func (qccl *queueChannelsClientLocal) DestroyChannelsForQueue(logger *zap.Logger, queueName string) *errors.ServerError {
-	logger = logger.Named("DestroyChannelsForQueue").With(zap.String("queue_name", queueName))
+func (qccl *queueChannelsClientLocal) DestroyChannelsForQueue(ctx context.Context, queueName string) *errors.ServerError {
+	logger := reporting.GetLogger(ctx).Named("DestroyChannelsForQueue")
+	ctx = reporting.UpdateLogger(ctx, logger)
 
 	deleteChannel := func(oneToManyItem btreeonetomany.OneToManyItem) bool {
 		queueChannel := oneToManyItem.Value().(constructor.QueueChannel)
-		queueChannel.ForceDelete(logger)
+		queueChannel.ForceDelete(ctx)
 
 		return true
 	}
@@ -105,13 +106,14 @@ func (qccl *queueChannelsClientLocal) DestroyChannelsForQueue(logger *zap.Logger
 	return nil
 }
 
-func (qccl *queueChannelsClientLocal) DeleteChannel(logger *zap.Logger, queueName string, channelKeyValues datatypes.KeyValues) *errors.ServerError {
-	logger = logger.Named("DeleteChannel").With(zap.String("queue_name", queueName), zap.Any("channel_key_values", channelKeyValues))
+func (qccl *queueChannelsClientLocal) DeleteChannel(ctx context.Context, queueName string, channelKeyValues datatypes.KeyValues) *errors.ServerError {
+	logger := reporting.GetLogger(ctx).Named("DeleteChannel").With(zap.String("queue_name", queueName), zap.Any("channel_key_values", channelKeyValues))
+	ctx = reporting.UpdateLogger(ctx, logger)
 
 	// delete a channel only if there are no enqueued items
 	deleteChannel := func(oneToManyItem btreeonetomany.OneToManyItem) bool {
 		queueChannel := oneToManyItem.Value().(constructor.QueueChannel)
-		queueChannel.ForceDelete(logger)
+		queueChannel.ForceDelete(ctx)
 
 		return true
 	}
@@ -130,7 +132,7 @@ func (qccl *queueChannelsClientLocal) DeleteChannel(logger *zap.Logger, queueNam
 }
 
 func (qccl *queueChannelsClientLocal) attemptDeleteChannel(logger *zap.Logger, queueName string, channelKeyValues datatypes.KeyValues) {
-	logger = logger.Named("DeleteChannel").With(zap.String("queue_name", queueName), zap.Any("channel_key_values", channelKeyValues))
+	logger = logger.Named("attemptDeleteChannel").With(zap.String("queue_name", queueName), zap.Any("channel_key_values", channelKeyValues))
 
 	// delete a channel only if there are no enqueued items
 	deleteChannel := func(oneToManyItem btreeonetomany.OneToManyItem) bool {
@@ -148,19 +150,20 @@ func (qccl *queueChannelsClientLocal) attemptDeleteChannel(logger *zap.Logger, q
 	}
 }
 
-func (qccl *queueChannelsClientLocal) EnqueueQueueItem(zapLogger *zap.Logger, queueName string, enqueueItem *v1willow.EnqueueQueueItem) *errors.ServerError {
-	zapLogger = zapLogger.Named("EnqueueQueueItem").With(zap.String("queue_name", queueName))
+func (qccl *queueChannelsClientLocal) EnqueueQueueItem(ctx context.Context, queueName string, enqueueItem *v1willow.EnqueueQueueItem) *errors.ServerError {
+	logger := reporting.GetLogger(ctx).Named("EnqueueQueueItem").With(zap.String("queue_name", queueName), zap.Any("channel_key_values", enqueueItem.KeyValues))
+	ctx = reporting.UpdateLogger(ctx, logger)
 	var enqueueError *errors.ServerError
 
 	//create a new channel to enqueue items to
 	bTreeOneToManyOnCreate := func() any {
 		destroyCallback := func() {
 			// on a timeout we can attempt to delete the channel
-			qccl.attemptDeleteChannel(logger.BaseLogger, queueName, enqueueItem.KeyValues)
+			qccl.attemptDeleteChannel(reporting.BaseLogger(logger), queueName, enqueueItem.KeyValues)
 		}
 
 		queueChannel := qccl.queueChannelsConstructor.New(destroyCallback, queueName, enqueueItem.KeyValues)
-		enqueueError = queueChannel.Enqueue(zapLogger, enqueueItem)
+		enqueueError = queueChannel.Enqueue(ctx, enqueueItem)
 
 		// break early because we failed to enqueue the item and return nil because nothing was saved
 		if enqueueError != nil {
@@ -180,7 +183,7 @@ func (qccl *queueChannelsClientLocal) EnqueueQueueItem(zapLogger *zap.Logger, qu
 	// enqueue an item to an already existing channel
 	bTreeOneToManyOnFind := func(item btreeonetomany.OneToManyItem) {
 		queueChannel := item.Value().(constructor.QueueChannel)
-		enqueueError = queueChannel.Enqueue(zapLogger, enqueueItem)
+		enqueueError = queueChannel.Enqueue(ctx, enqueueItem)
 	}
 
 	if _, err := qccl.queueChannels.CreateOrFind(queueName, enqueueItem.KeyValues, bTreeOneToManyOnCreate, bTreeOneToManyOnFind); err != nil {
@@ -188,7 +191,7 @@ func (qccl *queueChannelsClientLocal) EnqueueQueueItem(zapLogger *zap.Logger, qu
 		//case btreeonetomany.ErrorOneIDDestroying:
 		// This shouldn't happen as the 'Queue' should ensure these don't process once it starts destroying
 		default:
-			zapLogger.Error("failed to create or find the queue channels", zap.Error(err))
+			logger.Error("failed to create or find the queue channels", zap.Error(err))
 			return errors.InternalServerError
 		}
 	}
@@ -210,8 +213,9 @@ func (qccl *queueChannelsClientLocal) EnqueueQueueItem(zapLogger *zap.Logger, qu
 //
 // Dequeue an item from the queue. This is a blocking operation until an item is found that matches the query. This will also start a heartbeating
 // operation for any succeffully dequeued items
-func (qccl *queueChannelsClientLocal) DequeueQueueItem(logger *zap.Logger, cancelContext context.Context, queueName string, dequeueQuery datatypes.AssociatedKeyValuesQuery) (*v1willow.DequeueQueueItem, func(), func(), *errors.ServerError) {
-	logger = logger.Named("DequeueQueueItem").With(zap.String("queue_name", queueName))
+func (qccl *queueChannelsClientLocal) DequeueQueueItem(ctx context.Context, queueName string, dequeueQuery datatypes.AssociatedKeyValuesQuery) (*v1willow.DequeueQueueItem, func(), func(), *errors.ServerError) {
+	logger := reporting.GetLogger(ctx).Named("DequeueQueueItem").With(zap.String("queue_name", queueName))
+	ctx = reporting.UpdateLogger(ctx, logger)
 
 	// var of the return values
 	var dequeueItem *v1willow.DequeueQueueItem
@@ -221,7 +225,7 @@ func (qccl *queueChannelsClientLocal) DequeueQueueItem(logger *zap.Logger, cance
 	// setup our client so that any possible channels created after these calls are automatically added.
 	// this is important to do before we traverse the queues so we don't miss any duplicate channels.
 	// Duplicate channels added the the channelops will be dropped
-	channelOperations, reader := channelops.NewRepeatableMergeRead[func(logger *zap.Logger) (*v1willow.DequeueQueueItem, func(), func())](false, cancelContext, qccl.shutdownCtx)
+	channelOperations, reader := channelops.NewRepeatableMergeRead[func(ctx context.Context) (*v1willow.DequeueQueueItem, func(), func())](false, ctx, qccl.shutdownCtx)
 	qccl.addClientWaiting(queueName, dequeueQuery, channelOperations)
 	defer qccl.removeClientWaiting(channelOperations)
 
@@ -254,7 +258,7 @@ func (qccl *queueChannelsClientLocal) DequeueQueueItem(logger *zap.Logger, cance
 	defer logger.Debug("found available item")
 
 	for repeatableReader := range reader {
-		dequeueItem, successCallback, failureCallback = repeatableReader.Value(logger)
+		dequeueItem, successCallback, failureCallback = repeatableReader.Value(ctx)
 		if dequeueItem != nil {
 			// pulled something from the queue
 			repeatableReader.Stop()
@@ -268,7 +272,7 @@ func (qccl *queueChannelsClientLocal) DequeueQueueItem(logger *zap.Logger, cance
 
 	// reader was closed. Must have been canceled by the client or server shutdown
 	select {
-	case <-cancelContext.Done():
+	case <-ctx.Done():
 		// client was closed, but still attempt to return something?
 		return nil, nil, nil, &errors.ServerError{Message: "Client closed", StatusCode: http.StatusConflict}
 	default:
@@ -278,14 +282,16 @@ func (qccl *queueChannelsClientLocal) DequeueQueueItem(logger *zap.Logger, cance
 }
 
 // ACK the item in a channel
-func (qccl *queueChannelsClientLocal) ACK(logger *zap.Logger, queueName string, ack *v1willow.ACK) *errors.ServerError {
-	logger = logger.Named("ACK").With(zap.String("queue_name", queueName), zap.String("item_id", ack.ItemID))
+func (qccl *queueChannelsClientLocal) ACK(ctx context.Context, queueName string, ack *v1willow.ACK) *errors.ServerError {
+	logger := reporting.GetLogger(ctx).Named("ACK").With(zap.String("queue_name", queueName), zap.Any("item_id", ack.ItemID))
+	ctx = reporting.UpdateLogger(ctx, logger)
+
 	ackErr := &errors.ServerError{Message: "Failed to find channel by key values ", StatusCode: http.StatusNotFound}
 
 	tryDelete := false
 	performAck := func(oneToManyItem btreeonetomany.OneToManyItem) bool {
 		queueChannel := oneToManyItem.Value().(constructor.QueueChannel)
-		tryDelete, ackErr = queueChannel.ACK(logger, ack)
+		tryDelete, ackErr = queueChannel.ACK(ctx, ack)
 
 		return false
 	}
@@ -328,13 +334,14 @@ func (qccl *queueChannelsClientLocal) ACK(logger *zap.Logger, queueName string, 
 }
 
 // Heartbeat an item that has been pulled from the queue
-func (qccl *queueChannelsClientLocal) Heartbeat(logger *zap.Logger, queueName string, heartbeat *v1willow.Heartbeat) *errors.ServerError {
-	logger = logger.Named("Heartbeat")
+func (qccl *queueChannelsClientLocal) Heartbeat(ctx context.Context, queueName string, heartbeat *v1willow.Heartbeat) *errors.ServerError {
+	logger := reporting.GetLogger(ctx).Named("Heartbeat").With(zap.String("queue_name", queueName), zap.Any("item_id", heartbeat.ItemID))
+	ctx = reporting.UpdateLogger(ctx, logger)
 	heartbeatErr := &errors.ServerError{Message: "Failed to find channel for item by key values", StatusCode: http.StatusNotFound}
 
 	performHeartbeat := func(oneToManyItem btreeonetomany.OneToManyItem) bool {
 		queueChannel := oneToManyItem.Value().(constructor.QueueChannel)
-		heartbeatErr = queueChannel.Heartbeat(logger, heartbeat)
+		heartbeatErr = queueChannel.Heartbeat(ctx, heartbeat)
 
 		return false
 	}
@@ -360,7 +367,7 @@ func (qccl *queueChannelsClientLocal) Heartbeat(logger *zap.Logger, queueName st
 }
 
 // on dequeue, we add a client waiting to capture any newly created channels
-func (qccl *queueChannelsClientLocal) addClientWaiting(queueName string, channelQuery datatypes.AssociatedKeyValuesQuery, channelOps *channelops.RepeatableMergeReadChannelOps[func(logger *zap.Logger) (*v1willow.DequeueQueueItem, func(), func())]) {
+func (qccl *queueChannelsClientLocal) addClientWaiting(queueName string, channelQuery datatypes.AssociatedKeyValuesQuery, channelOps *channelops.RepeatableMergeReadChannelOps[func(ctx context.Context) (*v1willow.DequeueQueueItem, func(), func())]) {
 	qccl.clientsWaitingLock.Lock()
 	defer qccl.clientsWaitingLock.Unlock()
 
@@ -368,7 +375,7 @@ func (qccl *queueChannelsClientLocal) addClientWaiting(queueName string, channel
 }
 
 // when a client finishes dequeue, it removes itself from the clients waiting to process an item
-func (qccl *queueChannelsClientLocal) removeClientWaiting(channelOps *channelops.RepeatableMergeReadChannelOps[func(logger *zap.Logger) (*v1willow.DequeueQueueItem, func(), func())]) {
+func (qccl *queueChannelsClientLocal) removeClientWaiting(channelOps *channelops.RepeatableMergeReadChannelOps[func(ctx context.Context) (*v1willow.DequeueQueueItem, func(), func())]) {
 	qccl.clientsWaitingLock.Lock()
 	defer qccl.clientsWaitingLock.Unlock()
 
@@ -382,7 +389,7 @@ func (qccl *queueChannelsClientLocal) removeClientWaiting(channelOps *channelops
 }
 
 // when a new channel is created, check any clients currently waiting that might be interested in the channel
-func (qccl *queueChannelsClientLocal) updateClientsWaiting(queueName string, channelTags datatypes.KeyValues, channel <-chan func(logger *zap.Logger) (*v1willow.DequeueQueueItem, func(), func())) {
+func (qccl *queueChannelsClientLocal) updateClientsWaiting(queueName string, channelTags datatypes.KeyValues, channel <-chan func(ctx context.Context) (*v1willow.DequeueQueueItem, func(), func())) {
 	qccl.clientsWaitingLock.Lock()
 	defer qccl.clientsWaitingLock.Unlock()
 
@@ -396,12 +403,11 @@ func (qccl *queueChannelsClientLocal) updateClientsWaiting(queueName string, cha
 }
 
 // read operration for the channel
-func (qccl *queueChannelsClientLocal) Channels(logger *zap.Logger, queueName string, query v1common.AssociatedQuery) v1willow.Channels {
-	logger = logger.Named("Channels").With(zap.String("queue_name", queueName))
+func (qccl *queueChannelsClientLocal) Channels(ctx context.Context, queueName string, query v1common.AssociatedQuery) v1willow.Channels {
+	logger := reporting.GetLogger(ctx).Named("Channels").With(zap.String("queue_name", queueName))
 	channels := v1willow.Channels{}
 
 	queryChannels := func(oneToManyItem btreeonetomany.OneToManyItem) bool {
-		//queueChannel := oneToManyItem.Value().(constructor.QueueChannel)
 		channels = append(channels, &v1willow.Channel{
 			KeyValues:     oneToManyItem.ManyKeyValues(),
 			EnqueuedItems: -1,

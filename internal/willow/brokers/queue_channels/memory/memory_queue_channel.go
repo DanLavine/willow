@@ -11,7 +11,7 @@ import (
 	"github.com/DanLavine/gonotify"
 	"github.com/DanLavine/willow/internal/datastructures/btree"
 	"github.com/DanLavine/willow/internal/idgenerator"
-	"github.com/DanLavine/willow/internal/logger"
+	"github.com/DanLavine/willow/internal/reporting"
 	"github.com/DanLavine/willow/pkg/models/api/common/errors"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 	"go.uber.org/zap"
@@ -44,8 +44,8 @@ type memoryQueueChannel struct {
 	notifier *gonotify.Notify
 
 	// channel all items will be dequeued from
-	dequeueChan         chan func(logger *zap.Logger) (*v1willow.DequeueQueueItem, func(), func()) // func() (*v1willow.DequeueQueueItem, func(), func())
-	dequeueResponseChan chan bool                                                                  // indicates if there is an issue with the limiter on the last request. need to wait for this to be lower
+	dequeueChan         chan func(ctx context.Context) (*v1willow.DequeueQueueItem, func(), func()) // func() (*v1willow.DequeueQueueItem, func(), func())
+	dequeueResponseChan chan bool                                                                   // indicates if there is an issue with the limiter on the last request. need to wait for this to be lower
 
 	// all the saved items are a QueueItem
 	idGenerator idgenerator.UniqueIDs
@@ -77,7 +77,7 @@ func New(limiterClient limiterclient.LimiterClient, deleteCallback func(), queue
 
 		limiterClient:       limiterClient,
 		notifier:            gonotify.New(),
-		dequeueChan:         make(chan func(logger *zap.Logger) (*v1willow.DequeueQueueItem, func(), func())),
+		dequeueChan:         make(chan func(ctx context.Context) (*v1willow.DequeueQueueItem, func(), func())),
 		dequeueResponseChan: make(chan bool),
 
 		idGenerator: idgenerator.UUID(),
@@ -103,8 +103,9 @@ func (mqc *memoryQueueChannel) Delete() bool {
 
 // force delete is used when a channel is being destroyed and we do not care about the channel being empty.
 // in this case, the channel should always just be destroyed
-func (mqc *memoryQueueChannel) ForceDelete(zapLogger *zap.Logger) {
-	zapLogger = zapLogger.Named("ForceDelete")
+func (mqc *memoryQueueChannel) ForceDelete(ctx context.Context) {
+	logger := reporting.GetLogger(ctx).Named("ForceDelete")
+	ctx = reporting.UpdateLogger(ctx, logger)
 
 	// stop processing on this channel
 	mqc.deleteOnce.Do(func() {
@@ -112,12 +113,12 @@ func (mqc *memoryQueueChannel) ForceDelete(zapLogger *zap.Logger) {
 	})
 
 	// delete the running and enqueued counters
-	if err := mqc.setLimiterEnqueuedValue(zapLogger); err != nil {
-		zapLogger.Fatal("TODO fix this panic error with a queue of Limiter values to retry", zap.Error(err))
+	if err := mqc.setLimiterEnqueuedValue(ctx); err != nil {
+		logger.Fatal("TODO fix this panic error with a queue of Limiter values to retry", zap.Error(err))
 	}
 
-	if err := mqc.setLimterRunningValue(zapLogger); err != nil {
-		zapLogger.Fatal("TODO fix this panic error with a queue of Limiter values to retry", zap.Error(err))
+	if err := mqc.setLimterRunningValue(ctx); err != nil {
+		logger.Fatal("TODO fix this panic error with a queue of Limiter values to retry", zap.Error(err))
 	}
 
 	canDelete := func(key datatypes.EncapsulatedValue, treeItem any) bool {
@@ -194,7 +195,7 @@ func (mqc *memoryQueueChannel) Execute(ctx context.Context) error {
 						OverridesToMatch: &v1common.MatchQuery{
 							KeyValues: &erroredKeyValues,
 						},
-					})
+					}, nil)
 
 					if err != nil {
 						panic(err)
@@ -231,7 +232,7 @@ func (mqc *memoryQueueChannel) Execute(ctx context.Context) error {
 								query.AssociatedKeyValues.KeyValueSelection.KeyValues[key] = datatypes.Value{Value: &tmpValue, ValueComparison: datatypes.EqualsPtr()}
 							}
 
-							counters, err := mqc.limiterClient.QueryCounters(query)
+							counters, err := mqc.limiterClient.QueryCounters(query, nil)
 							if err != nil {
 								panic(err)
 							}
@@ -273,7 +274,7 @@ func (mqc *memoryQueueChannel) Execute(ctx context.Context) error {
 									query.AssociatedKeyValues.KeyValueSelection.KeyValues[key] = datatypes.Value{Value: &tmpValue, ValueComparison: datatypes.EqualsPtr()}
 								}
 
-								counters, err := mqc.limiterClient.QueryCounters(query)
+								counters, err := mqc.limiterClient.QueryCounters(query, nil)
 								if err != nil {
 									panic(err)
 								}
@@ -328,7 +329,10 @@ BREAK_DEQUEUE:
 }
 
 // Try to Enqueue an item and record on the limiter what is being saved
-func (mqc *memoryQueueChannel) Enqueue(zapLogger *zap.Logger, enqueueItem *v1willow.EnqueueQueueItem) *errors.ServerError {
+func (mqc *memoryQueueChannel) Enqueue(ctx context.Context, enqueueItem *v1willow.EnqueueQueueItem) *errors.ServerError {
+	logger := reporting.GetLogger(ctx).Named("Enqueue").With(zap.Any("channel_key_values", enqueueItem.KeyValues))
+	ctx = reporting.UpdateLogger(ctx, logger)
+
 	mqc.itemsLock.Lock() // need this lock so multiple enqueue requests can all be squashed into 1
 	defer mqc.itemsLock.Unlock()
 
@@ -369,7 +373,7 @@ func (mqc *memoryQueueChannel) Enqueue(zapLogger *zap.Logger, enqueueItem *v1wil
 	// need to create the new item and append it to the list
 
 	// ensure the limits are not reached
-	if err := mqc.limiterUpdateEnqueuedValue(zapLogger.Named("Enqueue"), 1); err != nil {
+	if err := mqc.limiterUpdateEnqueuedValue(ctx, 1); err != nil {
 		return err
 	}
 
@@ -409,8 +413,9 @@ func (mqc *memoryQueueChannel) Enqueue(zapLogger *zap.Logger, enqueueItem *v1wil
 // ACK an item. On successful, the item is removed entierly. On a failure, the itemwill try to be requeued.
 //
 // NOTE: Write locked from the queue_channel_client
-func (mqc *memoryQueueChannel) ACK(zapLogger *zap.Logger, ack *v1willow.ACK) (bool, *errors.ServerError) {
-	zapLogger = zapLogger.Named("ACK").With(zap.String("item_id", ack.ItemID))
+func (mqc *memoryQueueChannel) ACK(ctx context.Context, ack *v1willow.ACK) (bool, *errors.ServerError) {
+	logger := reporting.GetLogger(ctx).Named("ACK").With(zap.Any("channel_key_values", ack.KeyValues), zap.String("item_id", ack.ItemID))
+	ctx = reporting.UpdateLogger(ctx, logger)
 	ackErr := &errors.ServerError{Message: "failed to find processing item by id", StatusCode: http.StatusNotFound}
 
 	switch ack.Passed {
@@ -421,32 +426,32 @@ func (mqc *memoryQueueChannel) ACK(zapLogger *zap.Logger, ack *v1willow.ACK) (bo
 			// if the queue item was stopped here, then we know there was no async timeout processed for this item
 			if queueItem.StopHeartbeater() {
 				// 2. always update counters that the item is no loger running
-				if err := mqc.limterUpdateRunningValue(zapLogger, -1); err != nil {
+				if err := mqc.limterUpdateRunningValue(ctx, -1); err != nil {
 					// what should be the actual course of action here?
 					panic(err)
 				}
 
 				// 3. update counters that an enqueued item completed
-				if err := mqc.limiterUpdateEnqueuedValue(zapLogger, -1); err != nil {
+				if err := mqc.limiterUpdateEnqueuedValue(ctx, -1); err != nil {
 					// what should we really do here? the limiter would be out of sync in this case
 					panic(err)
 				}
 
-				zapLogger.Debug("removed item from the channel")
+				logger.Debug("removed item from the channel")
 				ackErr = nil
 				return true
 			}
 
-			zapLogger.Debug("failed to remove the item since it is not processing")
+			logger.Debug("failed to remove the item since it is not processing")
 			return false
 		}
 
 		if err := mqc.items.Delete(datatypes.String(ack.ItemID), canDelete); err != nil {
-			zapLogger.Error("failed to ack delete an item", zap.Error(err))
+			logger.Error("failed to ack delete an item", zap.Error(err))
 			panic(err)
 		}
 	default:
-		if mqc.failItem(zapLogger, ack.ItemID, false) {
+		if mqc.failItem(ctx, ack.ItemID, false) {
 			ackErr = nil
 		}
 	}
@@ -454,7 +459,10 @@ func (mqc *memoryQueueChannel) ACK(zapLogger *zap.Logger, ack *v1willow.ACK) (bo
 	return mqc.items.Empty(), ackErr
 }
 
-func (mqc *memoryQueueChannel) failItem(zapLogger *zap.Logger, itemID string, timedOut bool) bool {
+func (mqc *memoryQueueChannel) failItem(ctx context.Context, itemID string, timedOut bool) bool {
+	logger := reporting.GetLogger(ctx).Named("failItem")
+	ctx = reporting.UpdateLogger(ctx, logger)
+
 	mqc.itemsLock.Lock()
 	defer mqc.itemsLock.Unlock()
 
@@ -473,7 +481,7 @@ func (mqc *memoryQueueChannel) failItem(zapLogger *zap.Logger, itemID string, ti
 		// if the queue item was stopped here, then we know there was no async timeout processed for this item
 		if timedOut || queueItem.StopHeartbeater() {
 			// always update counters that the item is no longer running
-			if err := mqc.limterUpdateRunningValue(zapLogger, -1); err != nil {
+			if err := mqc.limterUpdateRunningValue(ctx, -1); err != nil {
 				// what should be the actual course of action here?
 				panic(err)
 			}
@@ -487,7 +495,7 @@ func (mqc *memoryQueueChannel) failItem(zapLogger *zap.Logger, itemID string, ti
 			// hit the max retry attempts for the queue item, so remove the item from the queue
 			if queueItemToDelete.retryCount > queueItemToDelete.maxRetryAttempts {
 				// when removing an item. we need to delete the total number of enqueued item
-				if err := mqc.limiterUpdateEnqueuedValue(zapLogger, -1); err != nil {
+				if err := mqc.limiterUpdateEnqueuedValue(ctx, -1); err != nil {
 					// what should we really do here? the limiter would be out of sync in this case
 					panic(err)
 				}
@@ -566,15 +574,18 @@ func (mqc *memoryQueueChannel) failItem(zapLogger *zap.Logger, itemID string, ti
 //
 // The callback functions are used to ensure that the item being processed is gurranted to at least once be sent
 // to a client
-func (mqc *memoryQueueChannel) Dequeue() <-chan func(logger *zap.Logger) (*v1willow.DequeueQueueItem, func(), func()) {
+func (mqc *memoryQueueChannel) Dequeue() <-chan func(ctx context.Context) (*v1willow.DequeueQueueItem, func(), func()) {
 	return mqc.dequeueChan
 }
 
 // callback passed to the 'dequeueChan' when there is something to dequeue
-func (mqc *memoryQueueChannel) dequeue(zapLogger *zap.Logger) (*v1willow.DequeueQueueItem, func(), func()) {
+func (mqc *memoryQueueChannel) dequeue(ctx context.Context) (*v1willow.DequeueQueueItem, func(), func()) {
+	logger := reporting.GetLogger(ctx).Named("dequeue")
+	ctx = reporting.UpdateLogger(ctx, logger)
+
 	// 1. ensure that the item can be dequeued when running. This just forwards the key values that define the channel
-	if err := mqc.limterUpdateRunningValue(zapLogger, 1); err != nil {
-		zapLogger.Error("failed to update the counter for the queue item", zap.Error(err))
+	if err := mqc.limterUpdateRunningValue(ctx, 1); err != nil {
+		logger.Error("failed to update the counter for the queue item", zap.Error(err))
 
 		// re-add to the notifier since we failed to process this item properly
 		_ = mqc.notifier.Add()
@@ -609,7 +620,7 @@ func (mqc *memoryQueueChannel) dequeue(zapLogger *zap.Logger) (*v1willow.Dequeue
 
 		// The timeout function is the same behavior as a failed ACK operation + the parent callback to try and destroy this queue channel
 		onTimeout := func() {
-			_ = mqc.failItem(logger.BaseLogger.Named("TimeoutCallback"), dequeueItem.ItemID, true)
+			_ = mqc.failItem(reporting.StripedContext(logger), dequeueItem.ItemID, true)
 
 			// if this times out, call the client to try and delete this channel
 			mqc.deleteCallback()
@@ -626,12 +637,14 @@ func (mqc *memoryQueueChannel) dequeue(zapLogger *zap.Logger) (*v1willow.Dequeue
 		panic(err)
 	}
 
-	return dequeueItem, mqc.successfulDequeue(zapLogger, firtItemID), mqc.failedDequeue(zapLogger, firtItemID)
+	return dequeueItem, mqc.successfulDequeue(ctx, firtItemID), mqc.failedDequeue(ctx, firtItemID)
 }
 
 // callback passed to the 'dequeueChan' and called when the client successfully recieved the item
-func (mqc *memoryQueueChannel) successfulDequeue(logger *zap.Logger, itemID string) func() {
+func (mqc *memoryQueueChannel) successfulDequeue(ctx context.Context, itemID string) func() {
 	return func() {
+		logger := reporting.GetLogger(ctx).Named("successfulDequeue")
+
 		// start the heartbeater process
 		onfindBTree := func(treeItem any) {
 			queueItem := treeItem.(*item)
@@ -654,10 +667,13 @@ func (mqc *memoryQueueChannel) successfulDequeue(logger *zap.Logger, itemID stri
 }
 
 // callback passed to the 'dequeueChan' and called wheh the client failed to send the dequeue response to the client
-func (mqc *memoryQueueChannel) failedDequeue(logger *zap.Logger, itemID string) func() {
+func (mqc *memoryQueueChannel) failedDequeue(ctx context.Context, itemID string) func() {
 	return func() {
+		logger := reporting.GetLogger(ctx).Named("failedDequeue")
+		ctx = reporting.UpdateLogger(ctx, logger)
+
 		// update the running counter that we are no longer processing since we failed to dequeue to the remote client
-		if err := mqc.limterUpdateRunningValue(logger, -1); err != nil {
+		if err := mqc.limterUpdateRunningValue(ctx, -1); err != nil {
 			panic(err)
 		}
 
@@ -678,7 +694,7 @@ func (mqc *memoryQueueChannel) failedDequeue(logger *zap.Logger, itemID string) 
 				if queueItem.updateable {
 					if len(mqc.itemIDsEnqueued) >= 1 {
 						// in this case there is something else in the queue that would have updated the item. so just toss this item away
-						if err := mqc.limiterUpdateEnqueuedValue(logger, -1); err != nil {
+						if err := mqc.limiterUpdateEnqueuedValue(ctx, -1); err != nil {
 							panic(err)
 						}
 
@@ -706,8 +722,9 @@ func (mqc *memoryQueueChannel) failedDequeue(logger *zap.Logger, itemID string) 
 	}
 }
 
-func (mqc *memoryQueueChannel) Heartbeat(zapLogger *zap.Logger, heartbeat *v1willow.Heartbeat) *errors.ServerError {
-	zapLogger = zapLogger.Named("Heartbeat").With(zap.String("item_id", heartbeat.ItemID))
+func (mqc *memoryQueueChannel) Heartbeat(ctx context.Context, heartbeat *v1willow.Heartbeat) *errors.ServerError {
+	logger := reporting.GetLogger(ctx).Named("Heartbeat").With(zap.String("item_id", heartbeat.ItemID))
+	ctx = reporting.UpdateLogger(ctx, logger)
 	heartbeatErr := &errors.ServerError{Message: "failed to find processing item by id", StatusCode: http.StatusNotFound}
 
 	onFind := func(treeItem any) {
@@ -719,7 +736,7 @@ func (mqc *memoryQueueChannel) Heartbeat(zapLogger *zap.Logger, heartbeat *v1wil
 	}
 
 	if err := mqc.items.Find(datatypes.String(heartbeat.ItemID), onFind); err != nil {
-		zapLogger.Fatal("failed to lookup item to heartbeat", zap.Error(err))
+		logger.Fatal("failed to lookup item to heartbeat", zap.Error(err))
 	}
 
 	// at this point, if this is an error, there should be a debug log that this timed out previously
@@ -728,7 +745,9 @@ func (mqc *memoryQueueChannel) Heartbeat(zapLogger *zap.Logger, heartbeat *v1wil
 
 // limiterUpdateEnqueuedValue is used when an item is enqueued or removed from the channel. This keeps track
 // of the total 'enqueued' items for a queue and rejects when to many items are being added to the queue
-func (mqc *memoryQueueChannel) limiterUpdateEnqueuedValue(logger *zap.Logger, counterUpdate int64) *errors.ServerError {
+func (mqc *memoryQueueChannel) limiterUpdateEnqueuedValue(ctx context.Context, counterUpdate int64) *errors.ServerError {
+	logger := reporting.GetLogger(ctx).Named("limiterUpdateEnqueuedValue")
+
 	enqueueKeyValues := datatypes.KeyValues{
 		"_willow_queue_name": datatypes.String(mqc.queueName),
 		"_willow_enqueued":   datatypes.String("true"),
@@ -740,7 +759,7 @@ func (mqc *memoryQueueChannel) limiterUpdateEnqueuedValue(logger *zap.Logger, co
 	err := mqc.limiterClient.UpdateCounter(&v1limiter.Counter{
 		KeyValues: enqueueKeyValues,
 		Counters:  counterUpdate,
-	})
+	}, reporting.GetTraceHeaders(ctx))
 
 	if err != nil {
 		logger.Warn("hit a limit with the total number of enqued items", zap.Error(err))
@@ -752,7 +771,9 @@ func (mqc *memoryQueueChannel) limiterUpdateEnqueuedValue(logger *zap.Logger, co
 
 // limterUpdateRunningValue is used when an item is dequeued channel. This keeps track
 // of the total 'running' items for a queue and rejects when a 3rd paarty rule has reached the limit setup from a user
-func (mqc *memoryQueueChannel) limterUpdateRunningValue(logger *zap.Logger, counterUpdate int64) error {
+func (mqc *memoryQueueChannel) limterUpdateRunningValue(ctx context.Context, counterUpdate int64) error {
+	logger := reporting.GetLogger(ctx).Named("limiterUpdateRunningValue")
+
 	counterKeyValues := datatypes.KeyValues{
 		"_willow_queue_name": datatypes.String(mqc.queueName),
 		"_willow_running":    datatypes.String("true"),
@@ -766,7 +787,7 @@ func (mqc *memoryQueueChannel) limterUpdateRunningValue(logger *zap.Logger, coun
 		Counters:  counterUpdate,
 	}
 
-	if err := mqc.limiterClient.UpdateCounter(counter); err != nil {
+	if err := mqc.limiterClient.UpdateCounter(counter, reporting.GetTraceHeaders(ctx)); err != nil {
 		logger.Warn("hit a limit for the total number of runnable items", zap.Error(err))
 		return err
 	}
@@ -774,7 +795,9 @@ func (mqc *memoryQueueChannel) limterUpdateRunningValue(logger *zap.Logger, coun
 	return nil
 }
 
-func (mqc *memoryQueueChannel) setLimiterEnqueuedValue(logger *zap.Logger) *errors.ServerError {
+func (mqc *memoryQueueChannel) setLimiterEnqueuedValue(ctx context.Context) *errors.ServerError {
+	logger := reporting.GetLogger(ctx).Named("setLimiterEnqueuedValue")
+
 	enqueueKeyValues := datatypes.KeyValues{
 		"_willow_queue_name": datatypes.String(mqc.queueName),
 		"_willow_enqueued":   datatypes.String("true"),
@@ -786,7 +809,7 @@ func (mqc *memoryQueueChannel) setLimiterEnqueuedValue(logger *zap.Logger) *erro
 	err := mqc.limiterClient.SetCounters(&v1limiter.Counter{
 		KeyValues: enqueueKeyValues,
 		Counters:  0,
-	})
+	}, reporting.GetTraceHeaders(ctx))
 
 	if err != nil {
 		logger.Warn("failed to remove the enqueued counters values", zap.Error(err))
@@ -796,7 +819,9 @@ func (mqc *memoryQueueChannel) setLimiterEnqueuedValue(logger *zap.Logger) *erro
 	return nil
 }
 
-func (mqc *memoryQueueChannel) setLimterRunningValue(logger *zap.Logger) error {
+func (mqc *memoryQueueChannel) setLimterRunningValue(ctx context.Context) error {
+	logger := reporting.GetLogger(ctx).Named("setLimiterRunningValue")
+
 	counterKeyValues := datatypes.KeyValues{
 		"_willow_queue_name": datatypes.String(mqc.queueName),
 		"_willow_running":    datatypes.String("true"),
@@ -810,7 +835,7 @@ func (mqc *memoryQueueChannel) setLimterRunningValue(logger *zap.Logger) error {
 		Counters:  0,
 	}
 
-	if err := mqc.limiterClient.SetCounters(counter); err != nil {
+	if err := mqc.limiterClient.SetCounters(counter, reporting.GetTraceHeaders(ctx)); err != nil {
 		logger.Warn("hit a limit for the total number of runnable items", zap.Error(err))
 		return &errors.ServerError{Message: "Failed to set the counters properly for running channel", StatusCode: http.StatusInternalServerError}
 	}

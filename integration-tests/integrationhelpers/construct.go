@@ -38,10 +38,10 @@ func init() {
 	}
 
 	// // create willow
-	// willowPath, err = gexec.Build("github.com/DanLavine/willow/cmd/willow", "--race")
-	// if err != nil {
-	// 	panic(err)
-	// }
+	willowPath, err = gexec.Build("github.com/DanLavine/willow/cmd/willow", "--race")
+	if err != nil {
+		panic(err)
+	}
 }
 
 type IntegrationTestConstruct struct {

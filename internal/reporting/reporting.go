@@ -72,3 +72,8 @@ func GetTraceHeaders(ctx context.Context) http.Header {
 
 	return headers
 }
+
+// obtain a base context with a base logger. This has no trace headeers
+func StripedContext(logger *zap.Logger) context.Context {
+	return context.WithValue(context.Background(), CustomLogger, zap.New(logger.Core()))
+}

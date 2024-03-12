@@ -66,7 +66,7 @@ func (wc *WillowClient) EnqueueQueueItem(queueName string, item *v1willow.Enqueu
 // DequeueQueueItem retrieves a particular item that matches the dequeue query
 func (wc *WillowClient) DequeueQueueItem(cancelContext context.Context, queueName string, query *v1common.AssociatedQuery, headers http.Header) (*Item, error) {
 	// setup and make the request
-	req, err := wc.client.EncodedRequest("GET", fmt.Sprintf("%s/v1/queues/%s/channels", wc.url, queueName), query)
+	req, err := wc.client.EncodedRequestWithCancel(cancelContext, "GET", fmt.Sprintf("%s/v1/queues/%s/channels", wc.url, queueName), query)
 	if err != nil {
 		return nil, err
 	}
