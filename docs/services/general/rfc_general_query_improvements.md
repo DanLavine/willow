@@ -86,3 +86,8 @@ drawbacks and limitations in a horazontally scaled system.
    what happens now when using the `KeyLimits` to enforce specific length of items we are searching for. Does the
    `_willow_queue_name` Key count against the Max Keys limit?) This will require some investigation on a pattern
    that can easily be described and makes sense
+2. Another major use case I had in mind when designing Willow was a replacement for K8S's internal queue for processing
+   deployments. Has the exact same feature set of processing only 1 deployment at a time, where each is defined by
+   the "kind, namespace, label (name)". So that matches the current arbitrary key value tagging system, but what has yet
+   to be accounted for is the Taints and Tolerations. That can be thought of "metadata" for the queue as key value pairs,
+   but those are save on the "channel" itself and can be updated without applying to the key values that define the channel.
