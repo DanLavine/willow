@@ -7,23 +7,6 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-// test struct To satisfy the CheckLess interface
-type customTest struct {
-	value string
-}
-
-func (at customTest) Less(item any) bool {
-	return at.value < item.(customTest).value
-}
-
-func (at customTest) Encode() []byte {
-	return nil
-}
-
-func (at customTest) Decode(b []byte) (any, error) {
-	return nil, nil
-}
-
 func TestEncapsulatedValue_Less(t *testing.T) {
 	g := NewGomegaWithT(t)
 
@@ -47,6 +30,9 @@ func TestEncapsulatedValue_Less(t *testing.T) {
 
 	// string
 	tString := String("a")
+
+	// any
+	tAny := Any()
 
 	t.Run("keys of the same values are always equal", func(t *testing.T) {
 		// ints
@@ -94,6 +80,10 @@ func TestEncapsulatedValue_Less(t *testing.T) {
 		// string
 		g.Expect(tString.Less(String("a"))).To(BeFalse())
 		g.Expect(String("a").Less(tString)).To(BeFalse())
+
+		// any
+		g.Expect(tAny.Less(Any())).To(BeFalse())
+		g.Expect(Any().Less(tAny)).To(BeFalse())
 	})
 
 	t.Run("keys of the same type have proper Less than values", func(t *testing.T) {
@@ -129,6 +119,9 @@ func TestEncapsulatedValue_Less(t *testing.T) {
 
 		// string
 		g.Expect(tString.Less(String("b"))).To(BeTrue())
+
+		// any
+		g.Expect(tAny.Less(Any())).To(BeFalse())
 	})
 
 	t.Run("keys of the same type respect greater than values", func(t *testing.T) {
@@ -164,14 +157,14 @@ func TestEncapsulatedValue_Less(t *testing.T) {
 
 		// string
 		g.Expect(tString.Less(String("0"))).To(BeFalse())
+
+		// any
+		g.Expect(Any().Less(tAny)).To(BeFalse())
 	})
 }
 
 func TestEncapsulatedValue_LessType(t *testing.T) {
 	g := NewGomegaWithT(t)
-
-	// custom
-	//tCustom := Custom(customTest{value: "custom"})
 
 	// ints
 	tInt := Int(1)
@@ -193,6 +186,9 @@ func TestEncapsulatedValue_LessType(t *testing.T) {
 
 	// string
 	tString := String("a")
+
+	// any
+	tAny := Any()
 
 	t.Run("type of the same values are always equal", func(t *testing.T) {
 		// ints
@@ -240,14 +236,15 @@ func TestEncapsulatedValue_LessType(t *testing.T) {
 		// string
 		g.Expect(tString.LessType(String("a"))).To(BeFalse())
 		g.Expect(String("a").LessType(tString)).To(BeFalse())
+
+		// any
+		g.Expect(tAny.LessType(Any())).To(BeFalse())
+		g.Expect(Any().LessType(tAny)).To(BeFalse())
 	})
 }
 
 func TestEncapsulatedValue_LessValue(t *testing.T) {
 	g := NewGomegaWithT(t)
-
-	// custom
-	//tCustom := Custom(customTest{value: "custom"})
 
 	// ints
 	tInt := Int(1)
@@ -269,6 +266,9 @@ func TestEncapsulatedValue_LessValue(t *testing.T) {
 
 	// string
 	tString := String("a")
+
+	// any
+	tAny := Any()
 
 	t.Run("panics if they types are not the same", func(t *testing.T) {
 		// ints
@@ -351,6 +351,10 @@ func TestEncapsulatedValue_LessValue(t *testing.T) {
 		// string
 		g.Expect(tString.LessValue(String("a"))).To(BeFalse())
 		g.Expect(String("a").LessValue(tString)).To(BeFalse())
+
+		// any
+		g.Expect(tAny.LessValue(Any())).To(BeFalse())
+		g.Expect(Any().LessValue(tAny)).To(BeFalse())
 	})
 }
 

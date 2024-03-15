@@ -10,7 +10,6 @@ import (
 
 	"github.com/DanLavine/urlrouter"
 	"github.com/DanLavine/willow/internal/config"
-	"github.com/DanLavine/willow/internal/datastructures/btree"
 	"go.uber.org/zap"
 	"golang.org/x/net/http2"
 )
@@ -23,22 +22,14 @@ type LockerTCP struct {
 	server *http.Server
 
 	mux *urlrouter.Router
-
-	connTracker btree.BTree
 }
 
 func NewLockerTCP(logger *zap.Logger, config *config.LockerConfig, mux *urlrouter.Router) *LockerTCP {
-	tree, err := btree.NewThreadSafe(2)
-	if err != nil {
-		panic(err)
-	}
-
 	return &LockerTCP{
-		closed:      false,
-		logger:      logger.Named("LockerTCP_server"),
-		config:      config,
-		mux:         mux,
-		connTracker: tree,
+		closed: false,
+		logger: logger.Named("LockerTCP_server"),
+		config: config,
+		mux:    mux,
 	}
 }
 

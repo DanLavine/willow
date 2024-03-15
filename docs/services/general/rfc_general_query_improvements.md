@@ -63,8 +63,8 @@ drawbacks and limitations in a horazontally scaled system.
    more managable as it is a thin data layer with no actual logic.
 
    **Pros**:
-   1. Scaling the cluster can be easier as the "DB" layer could provide additional resource operations as a "deleting"/"scaling"/etc
-      state for the "thin" api to quickly respond in those scenarios
+   1. Scaling the cluster can be easier as the "DB" layer could provide additional resource operations as
+      a "deleting"/"scaling" etc state for the "thin" api to quickly respond in those scenarios
    2. Querys can be much faster as they need to now:
       1. Interact with the DB state which can prioritize fast execution
       2. Based on what is returrned, perform some sort of operation
@@ -90,4 +90,4 @@ drawbacks and limitations in a horazontally scaled system.
    deployments. Has the exact same feature set of processing only 1 deployment at a time, where each is defined by
    the "kind, namespace, label (name)". So that matches the current arbitrary key value tagging system, but what has yet
    to be accounted for is the Taints and Tolerations. That can be thought of "metadata" for the queue as key value pairs,
-   but those are save on the "channel" itself and can be updated without applying to the key values that define the channel.
+   but those are saved on the `channel` itself and can be updated without applying to the key values that define the `channel`

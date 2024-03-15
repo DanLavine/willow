@@ -34,6 +34,7 @@ var (
 	T_float32 DataType = 11
 	T_float64 DataType = 12
 	T_string  DataType = 13
+	T_any     DataType = 1024
 )
 
 // EncapsulatedValue provides validation for all datatypes from uint8 to string.
@@ -98,6 +99,8 @@ func (edv EncapsulatedValue) LessValue(comparableObj EncapsulatedValue) bool {
 		return edv.Data.(float64) < comparableObj.Value().(float64)
 	case T_string:
 		return edv.Data.(string) < comparableObj.Value().(string)
+	case T_any:
+		return false
 	default:
 		panic(fmt.Sprintf("Unexpected type %d", edv.Type))
 	}
@@ -105,67 +108,76 @@ func (edv EncapsulatedValue) LessValue(comparableObj EncapsulatedValue) bool {
 
 // Validate all Encpasulated data types inclusing custom
 func (edv EncapsulatedValue) Validate() error {
-	if edv.Data == nil {
-		return &EncapsulatedValueErr{err: fmt.Errorf("EncapsulatedValue has a nil data Value")}
-	}
-
-	kind := reflect.ValueOf(edv.Data).Kind()
-
 	switch edv.Type {
-	case T_uint8:
-		if kind != reflect.Uint8 {
-			return &EncapsulatedValueErr{err: fmt.Errorf("EncapsulatedValue has a uint8 data type, but the Value is a: %s", kind.String())}
+	case T_any:
+		// special case for any as we expect the data to be nil
+		if edv.Data != nil {
+			return &EncapsulatedValueErr{err: fmt.Errorf("EncapsulatedValue T_any requires nil data")}
 		}
-	case T_uint16:
-		if kind != reflect.Uint16 {
-			return &EncapsulatedValueErr{err: fmt.Errorf("EncapsulatedValue has a uint16 data type, but the Value is a: %s", kind.String())}
-		}
-	case T_uint32:
-		if kind != reflect.Uint32 {
-			return &EncapsulatedValueErr{err: fmt.Errorf("EncapsulatedValue has a uint32 data type, but the Value is a: %s", kind.String())}
-		}
-	case T_uint64:
-		if kind != reflect.Uint64 {
-			return &EncapsulatedValueErr{err: fmt.Errorf("EncapsulatedValue has a uint64 data type, but the Value is a: %s", kind.String())}
-		}
-	case T_uint:
-		if kind != reflect.Uint {
-			return &EncapsulatedValueErr{err: fmt.Errorf("EncapsulatedValue has a uint data type, but the Value is a: %s", kind.String())}
-		}
-	case T_int8:
-		if kind != reflect.Int8 {
-			return &EncapsulatedValueErr{err: fmt.Errorf("EncapsulatedValue has an int8 data type, but the Value is a: %s", kind.String())}
-		}
-	case T_int16:
-		if kind != reflect.Int16 {
-			return &EncapsulatedValueErr{err: fmt.Errorf("EncapsulatedValue has an int16 data type, but the Value is a: %s", kind.String())}
-		}
-	case T_int32:
-		if kind != reflect.Int32 {
-			return &EncapsulatedValueErr{err: fmt.Errorf("EncapsulatedValue has an int32 data type, but the Value is a: %s", kind.String())}
-		}
-	case T_int64:
-		if kind != reflect.Int64 {
-			return &EncapsulatedValueErr{err: fmt.Errorf("EncapsulatedValue has an int64 data type, but the Value is a: %s", kind.String())}
-		}
-	case T_int:
-		if kind != reflect.Int {
-			return &EncapsulatedValueErr{err: fmt.Errorf("EncapsulatedValue has an int data type, but the Value is a: %s", kind.String())}
-		}
-	case T_float32:
-		if kind != reflect.Float32 {
-			return &EncapsulatedValueErr{err: fmt.Errorf("EncapsulatedValue has a float32 data type, but the Value is a: %s", kind.String())}
-		}
-	case T_float64:
-		if kind != reflect.Float64 {
-			return &EncapsulatedValueErr{err: fmt.Errorf("EncapsulatedValue has a float64 data type, but the Value is a: %s", kind.String())}
-		}
-	case T_string:
-		if kind != reflect.String {
-			return &EncapsulatedValueErr{err: fmt.Errorf("EncapsulatedValue has a string data type, but the Value is a: %s", kind.String())}
-		}
+
+		return nil
 	default:
-		return &EncapsulatedValueErr{err: fmt.Errorf("EncapsulatedValue has an unkown data type: %d", edv.Type)}
+		if edv.Data == nil {
+			return &EncapsulatedValueErr{err: fmt.Errorf("EncapsulatedValue has a nil data Value")}
+		}
+		kind := reflect.ValueOf(edv.Data).Kind()
+
+		switch edv.Type {
+		case T_uint8:
+			if kind != reflect.Uint8 {
+				return &EncapsulatedValueErr{err: fmt.Errorf("EncapsulatedValue has a uint8 data type, but the Value is a: %s", kind.String())}
+			}
+		case T_uint16:
+			if kind != reflect.Uint16 {
+				return &EncapsulatedValueErr{err: fmt.Errorf("EncapsulatedValue has a uint16 data type, but the Value is a: %s", kind.String())}
+			}
+		case T_uint32:
+			if kind != reflect.Uint32 {
+				return &EncapsulatedValueErr{err: fmt.Errorf("EncapsulatedValue has a uint32 data type, but the Value is a: %s", kind.String())}
+			}
+		case T_uint64:
+			if kind != reflect.Uint64 {
+				return &EncapsulatedValueErr{err: fmt.Errorf("EncapsulatedValue has a uint64 data type, but the Value is a: %s", kind.String())}
+			}
+		case T_uint:
+			if kind != reflect.Uint {
+				return &EncapsulatedValueErr{err: fmt.Errorf("EncapsulatedValue has a uint data type, but the Value is a: %s", kind.String())}
+			}
+		case T_int8:
+			if kind != reflect.Int8 {
+				return &EncapsulatedValueErr{err: fmt.Errorf("EncapsulatedValue has an int8 data type, but the Value is a: %s", kind.String())}
+			}
+		case T_int16:
+			if kind != reflect.Int16 {
+				return &EncapsulatedValueErr{err: fmt.Errorf("EncapsulatedValue has an int16 data type, but the Value is a: %s", kind.String())}
+			}
+		case T_int32:
+			if kind != reflect.Int32 {
+				return &EncapsulatedValueErr{err: fmt.Errorf("EncapsulatedValue has an int32 data type, but the Value is a: %s", kind.String())}
+			}
+		case T_int64:
+			if kind != reflect.Int64 {
+				return &EncapsulatedValueErr{err: fmt.Errorf("EncapsulatedValue has an int64 data type, but the Value is a: %s", kind.String())}
+			}
+		case T_int:
+			if kind != reflect.Int {
+				return &EncapsulatedValueErr{err: fmt.Errorf("EncapsulatedValue has an int data type, but the Value is a: %s", kind.String())}
+			}
+		case T_float32:
+			if kind != reflect.Float32 {
+				return &EncapsulatedValueErr{err: fmt.Errorf("EncapsulatedValue has a float32 data type, but the Value is a: %s", kind.String())}
+			}
+		case T_float64:
+			if kind != reflect.Float64 {
+				return &EncapsulatedValueErr{err: fmt.Errorf("EncapsulatedValue has a float64 data type, but the Value is a: %s", kind.String())}
+			}
+		case T_string:
+			if kind != reflect.String {
+				return &EncapsulatedValueErr{err: fmt.Errorf("EncapsulatedValue has a string data type, but the Value is a: %s", kind.String())}
+			}
+		default:
+			return &EncapsulatedValueErr{err: fmt.Errorf("EncapsulatedValue has an unkown data type: %d", edv.Type)}
+		}
 	}
 
 	return nil
@@ -263,5 +275,13 @@ func String(value string) EncapsulatedValue {
 	return EncapsulatedValue{
 		Type: T_string,
 		Data: value,
+	}
+}
+
+// ANY types
+func Any() EncapsulatedValue {
+	return EncapsulatedValue{
+		Type: T_any,
+		Data: nil,
 	}
 }
