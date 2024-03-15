@@ -61,6 +61,11 @@ func (s *set[T]) Clear() {
 func (s *set[T]) Intersection(values []T) {
 	newValues := map[T]struct{}{}
 
+	if len(values) == 0 {
+		s.values = newValues
+		return
+	}
+
 	for _, value := range values {
 		if _, ok := s.values[value]; ok {
 			newValues[value] = struct{}{}

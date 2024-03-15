@@ -11,7 +11,8 @@ import (
 	"go.uber.org/mock/gomock"
 
 	fakelimiterclient "github.com/DanLavine/willow/pkg/clients/limiter_client/limiterclientfakes"
-	v1common "github.com/DanLavine/willow/pkg/models/api/common/v1"
+	queryassociatedaction "github.com/DanLavine/willow/pkg/models/api/common/v1/query_associated_action"
+	querymatchaction "github.com/DanLavine/willow/pkg/models/api/common/v1/query_match_action"
 	v1limiter "github.com/DanLavine/willow/pkg/models/api/limiter/v1"
 	v1willow "github.com/DanLavine/willow/pkg/models/api/willow/v1"
 	"github.com/DanLavine/willow/testhelpers"
@@ -26,7 +27,7 @@ func defaultKeyValues(g *GomegaWithT) datatypes.KeyValues {
 		"one": datatypes.Int(1),
 	}
 
-	g.Expect(keyValues.Validate()).ToNot(HaveOccurred())
+	g.Expect(keyValues.Validate(datatypes.MinDataType, datatypes.MaxDataType)).ToNot(HaveOccurred())
 	return keyValues
 }
 
@@ -497,19 +498,25 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 			}).Times(2)
 
 			ruleCount := 0
-			fakeLimiterClient.EXPECT().MatchRules(gomock.Any(), gomock.Any()).DoAndReturn(func(_ *v1limiter.RuleMatch, _ http.Header) (v1limiter.Rules, error) {
+			fakeLimiterClient.EXPECT().MatchRules(gomock.Any(), gomock.Any()).DoAndReturn(func(_ *querymatchaction.MatchActionQuery, _ http.Header) (v1limiter.Rules, error) {
 				if ruleCount == 0 {
 					ruleCount++
 
 					return v1limiter.Rules{
 						&v1limiter.Rule{
-							Name:    "block rule",
-							GroupBy: []string{"one"},
-							Limit:   0,
+							Name: "block rule",
+							GroupByKeyValues: datatypes.KeyValues{
+								"one": datatypes.Any(),
+							},
+							Limit: 0,
 						},
 					}, nil
 				}
 
+				return nil, nil
+			}).Times(1)
+
+			fakeLimiterClient.EXPECT().MatchOverrides(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ string, _ *querymatchaction.MatchActionQuery, _ http.Header) (v1limiter.Overrides, error) {
 				return nil, nil
 			}).Times(1)
 
@@ -539,7 +546,6 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 			g.Expect(err).ToNot(HaveOccurred())
 
 			// grab the first dequeu channel
-
 			dequeueChan := memeoryQueueChannel.Dequeue()
 			select {
 			case dequeueFunc := <-dequeueChan:
@@ -575,19 +581,25 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 			}).Times(2)
 
 			ruleCount := 0
-			fakeLimiterClient.EXPECT().MatchRules(gomock.Any(), gomock.Any()).DoAndReturn(func(_ *v1limiter.RuleMatch, _ http.Header) (v1limiter.Rules, error) {
+			fakeLimiterClient.EXPECT().MatchRules(gomock.Any(), gomock.Any()).DoAndReturn(func(_ *querymatchaction.MatchActionQuery, _ http.Header) (v1limiter.Rules, error) {
 				if ruleCount == 0 {
 					ruleCount++
 
 					return v1limiter.Rules{
 						&v1limiter.Rule{
-							Name:    "block rule",
-							GroupBy: []string{"one"},
-							Limit:   0,
+							Name: "block rule",
+							GroupByKeyValues: datatypes.KeyValues{
+								"one": datatypes.Any(),
+							},
+							Limit: 0,
 						},
 					}, nil
 				}
 
+				return nil, nil
+			}).Times(1)
+
+			fakeLimiterClient.EXPECT().MatchOverrides(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ string, _ *querymatchaction.MatchActionQuery, _ http.Header) (v1limiter.Overrides, error) {
 				return nil, nil
 			}).Times(1)
 
@@ -649,21 +661,27 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 				}).Times(3)
 
 				ruleCount := 0
-				fakeLimiterClient.EXPECT().MatchRules(gomock.Any(), gomock.Any()).DoAndReturn(func(_ *v1limiter.RuleMatch, _ http.Header) (v1limiter.Rules, error) {
+				fakeLimiterClient.EXPECT().MatchRules(gomock.Any(), gomock.Any()).DoAndReturn(func(_ *querymatchaction.MatchActionQuery, _ http.Header) (v1limiter.Rules, error) {
 					if ruleCount == 0 {
 						ruleCount++
 
 						return v1limiter.Rules{
 							&v1limiter.Rule{
-								Name:    "block rule",
-								GroupBy: []string{"one"},
-								Limit:   0,
+								Name: "block rule",
+								GroupByKeyValues: datatypes.KeyValues{
+									"one": datatypes.Any(),
+								},
+								Limit: 0,
 							},
 						}, nil
 					}
 
 					return nil, nil
 				}).Times(2)
+
+				fakeLimiterClient.EXPECT().MatchOverrides(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ string, _ *querymatchaction.MatchActionQuery, _ http.Header) (v1limiter.Overrides, error) {
+					return nil, nil
+				}).Times(1)
 
 				// create queue channel
 				memeoryQueueChannel := New(fakeLimiterClient, func() {}, "test", defaultKeyValues(g))
@@ -737,20 +755,29 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 					return fmt.Errorf("error, limit has been reached")
 				}).Times(2)
 
-				fakeLimiterClient.EXPECT().MatchRules(gomock.Any(), gomock.Any()).DoAndReturn(func(_ *v1limiter.RuleMatch, _ http.Header) (v1limiter.Rules, error) {
+				fakeLimiterClient.EXPECT().MatchRules(gomock.Any(), gomock.Any()).DoAndReturn(func(_ *querymatchaction.MatchActionQuery, _ http.Header) (v1limiter.Rules, error) {
 					return v1limiter.Rules{
 						&v1limiter.Rule{
-							Name:    "rule1",
-							GroupBy: []string{"one"},
-							Limit:   -1,
+							Name: "rule1",
+							GroupByKeyValues: datatypes.KeyValues{
+								"one": datatypes.Any(),
+							},
+							Limit: -1,
 						},
 						&v1limiter.Rule{
-							Name:    "rule2",
-							GroupBy: []string{"one", "two"},
-							Limit:   -1,
+							Name: "rule2",
+							GroupByKeyValues: datatypes.KeyValues{
+								"one": datatypes.Any(),
+								"two": datatypes.Any(),
+							},
+							Limit: -1,
 						},
 					}, nil
 				}).Times(1)
+
+				fakeLimiterClient.EXPECT().MatchOverrides(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ string, _ *querymatchaction.MatchActionQuery, _ http.Header) (v1limiter.Overrides, error) {
+					return nil, nil
+				}).Times(2)
 
 				// create queue channel
 				memeoryQueueChannel := New(fakeLimiterClient, func() {}, "test", defaultKeyValues(g))
@@ -810,34 +837,47 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 					return fmt.Errorf("error, limit has been reached")
 				}).Times(2)
 
-				fakeLimiterClient.EXPECT().MatchRules(gomock.Any(), gomock.Any()).DoAndReturn(func(_ *v1limiter.RuleMatch, _ http.Header) (v1limiter.Rules, error) {
+				fakeLimiterClient.EXPECT().MatchRules(gomock.Any(), gomock.Any()).DoAndReturn(func(_ *querymatchaction.MatchActionQuery, _ http.Header) (v1limiter.Rules, error) {
 					return v1limiter.Rules{
 						&v1limiter.Rule{
-							Name:    "rule1",
-							GroupBy: []string{"one"},
-							Limit:   1,
-							Overrides: v1limiter.Overrides{
-								&v1limiter.Override{
-									Name:      "override1",
-									KeyValues: datatypes.KeyValues{"one": datatypes.Int(1)},
-									Limit:     -1,
-								},
+							Name: "rule1",
+							GroupByKeyValues: datatypes.KeyValues{
+								"one": datatypes.Any(),
 							},
+							Limit: 1,
 						},
 						&v1limiter.Rule{
-							Name:    "rule2",
-							GroupBy: []string{"one", "two"},
-							Limit:   0,
-							Overrides: v1limiter.Overrides{
-								&v1limiter.Override{
-									Name:      "override2",
-									KeyValues: datatypes.KeyValues{"one": datatypes.Int(1), "two": datatypes.Int(2)},
-									Limit:     -1,
-								},
+							Name: "rule2",
+							GroupByKeyValues: datatypes.KeyValues{
+								"one": datatypes.Any(),
+								"two": datatypes.Any(),
 							},
+							Limit: 0,
 						},
 					}, nil
 				}).Times(1)
+
+				overrideCounter := 0
+				fakeLimiterClient.EXPECT().MatchOverrides(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ string, _ *querymatchaction.MatchActionQuery, _ http.Header) (v1limiter.Overrides, error) {
+					if overrideCounter == 0 {
+						overrideCounter++
+						return v1limiter.Overrides{
+							&v1limiter.Override{
+								Name:      "override1",
+								KeyValues: datatypes.KeyValues{"one": datatypes.Int(1)},
+								Limit:     -1,
+							},
+						}, nil
+					}
+
+					return v1limiter.Overrides{
+						&v1limiter.Override{
+							Name:      "override2",
+							KeyValues: datatypes.KeyValues{"one": datatypes.Int(1), "two": datatypes.Int(2)},
+							Limit:     -1,
+						},
+					}, nil
+				}).Times(2)
 
 				// create queue channel
 				memeoryQueueChannel := New(fakeLimiterClient, func() {}, "test", defaultKeyValues(g))
@@ -897,22 +937,31 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 					return fmt.Errorf("error, limit has been reached")
 				}).Times(2)
 
-				fakeLimiterClient.EXPECT().MatchRules(gomock.Any(), gomock.Any()).DoAndReturn(func(_ *v1limiter.RuleMatch, _ http.Header) (v1limiter.Rules, error) {
+				fakeLimiterClient.EXPECT().MatchRules(gomock.Any(), gomock.Any()).DoAndReturn(func(_ *querymatchaction.MatchActionQuery, _ http.Header) (v1limiter.Rules, error) {
 					return v1limiter.Rules{
 						&v1limiter.Rule{
-							Name:    "rule1",
-							GroupBy: []string{"one"},
-							Limit:   8,
+							Name: "rule1",
+							GroupByKeyValues: datatypes.KeyValues{
+								"one": datatypes.Any(),
+							},
+							Limit: 8,
 						},
 						&v1limiter.Rule{
-							Name:    "rule2",
-							GroupBy: []string{"one", "two"},
-							Limit:   12,
+							Name: "rule2",
+							GroupByKeyValues: datatypes.KeyValues{
+								"one": datatypes.Any(),
+								"two": datatypes.Any(),
+							},
+							Limit: 12,
 						},
 					}, nil
 				}).Times(1)
 
-				fakeLimiterClient.EXPECT().QueryCounters(gomock.Any(), gomock.Any()).DoAndReturn(func(_ *v1common.AssociatedQuery, _ http.Header) (v1limiter.Counters, error) {
+				fakeLimiterClient.EXPECT().MatchOverrides(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ string, _ *querymatchaction.MatchActionQuery, _ http.Header) (v1limiter.Overrides, error) {
+					return nil, nil
+				}).Times(2)
+
+				fakeLimiterClient.EXPECT().QueryCounters(gomock.Any(), gomock.Any()).DoAndReturn(func(_ *queryassociatedaction.AssociatedActionQuery, _ http.Header) (v1limiter.Counters, error) {
 					return v1limiter.Counters{
 						&v1limiter.Counter{
 							Counters:  3,
@@ -984,41 +1033,55 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 					return fmt.Errorf("error, limit has been reached")
 				}).Times(2)
 
-				fakeLimiterClient.EXPECT().MatchRules(gomock.Any(), gomock.Any()).DoAndReturn(func(_ *v1limiter.RuleMatch, _ http.Header) (v1limiter.Rules, error) {
+				fakeLimiterClient.EXPECT().MatchRules(gomock.Any(), gomock.Any()).DoAndReturn(func(_ *querymatchaction.MatchActionQuery, _ http.Header) (v1limiter.Rules, error) {
 					return v1limiter.Rules{
 						&v1limiter.Rule{
-							Name:    "rule1",
-							GroupBy: []string{"one"},
-							Limit:   1,
-							Overrides: v1limiter.Overrides{
-								&v1limiter.Override{
-									Name:      "override1",
-									KeyValues: datatypes.KeyValues{"one": datatypes.Int(1)},
-									Limit:     8,
-								},
+							Name: "rule1",
+							GroupByKeyValues: datatypes.KeyValues{
+								"one": datatypes.Any(),
 							},
+							Limit: 1,
 						},
 						&v1limiter.Rule{
-							Name:    "rule2",
-							GroupBy: []string{"one", "two"},
-							Limit:   0,
-							Overrides: v1limiter.Overrides{
-								&v1limiter.Override{
-									Name:      "override2",
-									KeyValues: datatypes.KeyValues{"one": datatypes.Int(1), "two": datatypes.Int(2)},
-									Limit:     12,
-								},
-								&v1limiter.Override{
-									Name:      "override3",
-									KeyValues: datatypes.KeyValues{"one": datatypes.Int(1), "two": datatypes.Int(2), "zone": datatypes.String("west")},
-									Limit:     9,
-								},
+							Name: "rule2",
+							GroupByKeyValues: datatypes.KeyValues{
+								"one": datatypes.Any(),
+								"two": datatypes.Any(),
 							},
+							Limit: 0,
 						},
 					}, nil
 				}).Times(1)
 
-				fakeLimiterClient.EXPECT().QueryCounters(gomock.Any(), gomock.Any()).DoAndReturn(func(_ *v1common.AssociatedQuery, _ http.Header) (v1limiter.Counters, error) {
+				overrideCounter := 0
+				fakeLimiterClient.EXPECT().MatchOverrides(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ string, _ *querymatchaction.MatchActionQuery, _ http.Header) (v1limiter.Overrides, error) {
+					if overrideCounter == 0 {
+						overrideCounter++
+
+						return v1limiter.Overrides{
+							&v1limiter.Override{
+								Name:      "override1",
+								KeyValues: datatypes.KeyValues{"one": datatypes.Int(1)},
+								Limit:     8,
+							},
+						}, nil
+					}
+
+					return v1limiter.Overrides{
+						&v1limiter.Override{
+							Name:      "override2",
+							KeyValues: datatypes.KeyValues{"one": datatypes.Int(1), "two": datatypes.Int(2)},
+							Limit:     12,
+						},
+						&v1limiter.Override{
+							Name:      "override3",
+							KeyValues: datatypes.KeyValues{"one": datatypes.Int(1), "two": datatypes.Int(2), "zone": datatypes.String("west")},
+							Limit:     9,
+						},
+					}, nil
+				}).Times(2)
+
+				fakeLimiterClient.EXPECT().QueryCounters(gomock.Any(), gomock.Any()).DoAndReturn(func(_ *queryassociatedaction.AssociatedActionQuery, _ http.Header) (v1limiter.Counters, error) {
 					return v1limiter.Counters{
 						&v1limiter.Counter{
 							Counters:  3,

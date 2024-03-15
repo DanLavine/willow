@@ -2,11 +2,36 @@ package api
 
 import (
 	"fmt"
-	"io"
 	"net/http"
 
+	"github.com/DanLavine/willow/pkg/encoding"
 	"github.com/DanLavine/willow/pkg/models/api/common/errors"
 )
+
+//	PARAMETERS:
+//	- r - httpRequest to parse the model and relevant headers out of
+//	- obj - api object that data will be parsed into
+//
+//	RETURNS:
+//	- *errors.ServerError - any error encoutered when reading the request or validating the model
+//
+// DecodeAndValidateHttpRequest is the server side logic used to read and decode any http request into the provided APIObject
+func DecodeHttpRequest(r *http.Request, obj any) *errors.ServerError {
+	if obj == nil {
+		return errors.ServerErrorNoAPIModel()
+	}
+
+	encoder, err := encoding.NewEncoder(r.Header.Get(encoding.ContentType))
+	if err != nil {
+		return &errors.ServerError{Message: err.Error(), StatusCode: http.StatusBadRequest}
+	}
+
+	if err := encoder.Decode(r.Body, obj); err != nil {
+		return errors.ServerErrorDecodeingJson(err)
+	}
+
+	return nil
+}
 
 //	PARAMETERS:
 //	- r - httpRequest to parse the model and relevant headers out of
@@ -21,23 +46,13 @@ func DecodeAndValidateHttpRequest(r *http.Request, obj APIObject) *errors.Server
 		return errors.ServerErrorNoAPIModel()
 	}
 
-	// can always attempt to read the http response since we want to decode something.
-	// if the data is empty, it still means we want to use whatever the decode object returns
-	data, err := io.ReadAll(r.Body)
+	encoder, err := encoding.NewEncoder(r.Header.Get(encoding.ContentType))
 	if err != nil {
-		return errors.ServerErrorReadingRequestBody(err)
+		return &errors.ServerError{Message: err.Error(), StatusCode: http.StatusBadRequest}
 	}
 
-	contentType := ContentTypeHeader(r.Header)
-	switch contentType {
-	case ContentTypeJSON:
-		if data != nil {
-			if err := obj.DecodeJSON(data); err != nil {
-				return errors.ServerErrorDecodeingJson(err)
-			}
-		}
-	default:
-		return errors.ServerUnknownContentType(contentType)
+	if err := encoder.Decode(r.Body, obj); err != nil {
+		return errors.ServerErrorDecodeingJson(err)
 	}
 
 	if err := obj.Validate(); err != nil {
@@ -72,28 +87,28 @@ func EncodeAndSendHttpResponse(headers http.Header, w http.ResponseWriter, statu
 			return 0, fmt.Errorf("failed to validate response object: %w", err)
 		}
 
-		contentType := ContentTypeHeader(headers)
-		switch contentType {
-		case ContentTypeJSON:
-			// encode the object
-			data, err := obj.EncodeJSON()
-			if err != nil {
-				w.WriteHeader(http.StatusInternalServerError)
-				return 0, fmt.Errorf("failed to encode the response object: %w", err)
-			}
-
-			// every request needs to set this header so the client knows how to process the response
-			w.Header().Set("Content-Type", contentType)
-			w.WriteHeader(statuscode)
-			n, err := w.Write(data)
-			if err != nil {
-				return 0, fmt.Errorf("failed to write the respoonse to the client. Closed unexpectedly: %w", err)
-			}
-
-			return n, nil
-		default:
+		// encode the response
+		encoder, err := encoding.NewEncoder(headers.Get(encoding.ContentType))
+		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			return 0, fmt.Errorf("unknown content type to send back to the client: %s", contentType)
+			return 0, err
 		}
+
+		data, err := encoder.Encode(obj)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return 0, fmt.Errorf("failed to encode the response object: %w", err)
+		}
+
+		// write the reponse to the same encoder that we received it in
+		w.Header().Set(encoding.ContentType, headers.Get("Content-Type"))
+		w.WriteHeader(statuscode)
+
+		n, writeErr := w.Write(data)
+		if writeErr != nil {
+			return n, fmt.Errorf("failed to write the response to the client. Closed unexpectedly: %w", writeErr)
+		}
+
+		return n, nil
 	}
 }

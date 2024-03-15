@@ -9,8 +9,9 @@ import (
 	btreeassociated "github.com/DanLavine/willow/internal/datastructures/btree_associated"
 	"github.com/DanLavine/willow/internal/reporting"
 	"github.com/DanLavine/willow/pkg/models/api/common/errors"
-	v1common "github.com/DanLavine/willow/pkg/models/api/common/v1"
+	queryassociatedaction "github.com/DanLavine/willow/pkg/models/api/common/v1/query_associated_action"
 	v1locker "github.com/DanLavine/willow/pkg/models/api/locker/v1"
+
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 	"go.uber.org/zap"
 )
@@ -23,7 +24,7 @@ type ExcluiveLocker interface {
 	Heartbeat(ctx context.Context, lockID string, lockClaim *v1locker.LockClaim) *errors.ServerError
 
 	// Find all locks currently held in the tree
-	LocksQuery(ctx context.Context, query *v1common.AssociatedQuery) v1locker.Locks
+	LocksQuery(ctx context.Context, query *queryassociatedaction.AssociatedActionQuery) v1locker.Locks
 
 	// Release or delete a specific lock
 	Release(ctx context.Context, lockID string, lockClaim *v1locker.LockClaim) *errors.ServerError
@@ -57,14 +58,14 @@ func (exclusiveLocker *exclusiveLocker) Execute(ctx context.Context) error {
 }
 
 // Helper to find all the currently held locks and the number of clients also wanting to obtain the locks.
-func (exclusiveLocker *exclusiveLocker) LocksQuery(ctx context.Context, query *v1common.AssociatedQuery) v1locker.Locks {
+func (exclusiveLocker *exclusiveLocker) LocksQuery(ctx context.Context, query *queryassociatedaction.AssociatedActionQuery) v1locker.Locks {
 	logger := reporting.GetLogger(ctx).Named("LocksQuery")
 	logger.Debug("querying locks")
 	defer logger.Debug("done querying lock")
 
 	locks := v1locker.Locks{}
 
-	exclusiveLocker.exclusiveLocks.Query(query.AssociatedKeyValues, func(associatedKeyValues btreeassociated.AssociatedKeyValues) bool {
+	exclusiveLocker.exclusiveLocks.QueryAction(query, func(associatedKeyValues btreeassociated.AssociatedKeyValues) bool {
 		exclusiveLock := associatedKeyValues.Value().(*exclusiveLock)
 
 		var expireTime time.Duration
@@ -163,9 +164,16 @@ func (exclusiveLocker *exclusiveLocker) Heartbeat(ctx context.Context, lockID st
 
 	heartbeaterErr := &errors.ServerError{Message: "LockID could not be found", StatusCode: http.StatusNotFound}
 
-	exclusiveLocker.exclusiveLocks.FindByAssociatedID(lockID, func(associatedKeyValues btreeassociated.AssociatedKeyValues) {
+	idQuery := &queryassociatedaction.AssociatedActionQuery{
+		Selection: &queryassociatedaction.Selection{
+			IDs: []string{lockID},
+		},
+	}
+
+	_ = exclusiveLocker.exclusiveLocks.QueryAction(idQuery, func(associatedKeyValues btreeassociated.AssociatedKeyValues) bool {
 		exclusiveLock := associatedKeyValues.Value().(*exclusiveLock)
 		heartbeaterErr = exclusiveLock.Heartbeat(claim)
+		return false
 	})
 
 	if heartbeaterErr == nil {

@@ -9,7 +9,8 @@ import (
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 	"go.uber.org/zap"
 
-	v1common "github.com/DanLavine/willow/pkg/models/api/common/v1"
+	"github.com/DanLavine/willow/pkg/models/api/common/errors"
+	queryassociatedaction "github.com/DanLavine/willow/pkg/models/api/common/v1/query_associated_action"
 	v1willow "github.com/DanLavine/willow/pkg/models/api/willow/v1"
 )
 
@@ -40,14 +41,14 @@ func (qh queueHandler) ChannelDequeue(w http.ResponseWriter, r *http.Request) {
 	defer logger.Debug("processed request")
 
 	// parse the enueue item
-	query := &v1common.AssociatedQuery{}
+	query := &queryassociatedaction.AssociatedActionQuery{}
 	if err := api.DecodeAndValidateHttpRequest(r, query); err != nil {
 		logger.Warn("failed to decode and validate request", zap.Error(err))
 		_, _ = api.EncodeAndSendHttpResponse(r.Header, w, err.StatusCode, err)
 		return
 	}
 
-	dequeueItem, successCallback, failureCallback, err := qh.queueClient.Dequeue(ctx, urlrouter.GetNamedParamters(r.Context())["queue_name"], query.AssociatedKeyValues)
+	dequeueItem, successCallback, failureCallback, err := qh.queueClient.Dequeue(ctx, urlrouter.GetNamedParamters(r.Context())["queue_name"], query)
 	if err != nil {
 		_, _ = api.EncodeAndSendHttpResponse(r.Header, w, err.StatusCode, err)
 		return
@@ -67,14 +68,20 @@ func (qh queueHandler) ChannelDelete(w http.ResponseWriter, r *http.Request) {
 	defer logger.Debug("processed request")
 
 	// parse the delte request
-	keyValues := &datatypes.KeyValues{}
-	if err := api.DecodeAndValidateHttpRequest(r, keyValues); err != nil {
-		logger.Warn("failed to decode and validate request", zap.Error(err))
+	keyValues := datatypes.KeyValues{}
+	if err := api.DecodeHttpRequest(r, &keyValues); err != nil {
+		logger.Warn("failed to decode request", zap.Error(err))
 		_, _ = api.EncodeAndSendHttpResponse(r.Header, w, err.StatusCode, err)
 		return
 	}
 
-	if err := qh.queueClient.DeleteChannel(ctx, urlrouter.GetNamedParamters(r.Context())["queue_name"], *keyValues); err != nil {
+	if err := keyValues.Validate(datatypes.MinDataType, datatypes.MaxWithoutAnyDataType); err != nil {
+		logger.Warn("failed to validated request", zap.Error(err))
+		_, _ = api.EncodeAndSendHttpResponse(r.Header, w, http.StatusBadRequest, errors.ServerErrorModelRequestValidation(err))
+		return
+	}
+
+	if err := qh.queueClient.DeleteChannel(ctx, urlrouter.GetNamedParamters(r.Context())["queue_name"], keyValues); err != nil {
 		_, _ = api.EncodeAndSendHttpResponse(r.Header, w, err.StatusCode, err)
 		return
 	}

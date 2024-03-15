@@ -3,6 +3,7 @@ package btreeonetomany
 import (
 	"github.com/DanLavine/willow/internal/datastructures/btree"
 	btreeassociated "github.com/DanLavine/willow/internal/datastructures/btree_associated"
+	v1 "github.com/DanLavine/willow/pkg/models/api/common/v1"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 )
 
@@ -89,7 +90,7 @@ func (tree *threadsafeOneToManyTree) DestroyOneOfManyByID(oneID string, manyID s
 	}
 
 	var destroyErr error
-	bTreeOnFindOne := func(item any) {
+	bTreeOnFindOne := func(key datatypes.EncapsulatedValue, item any) bool {
 		threadsafeValuesNode := item.(*threadsafeValuesNode)
 
 		if err := threadsafeValuesNode.associaedTree.DestroyByAssociatedID(manyID, bTreeAssociatedDestoyMany); err != nil {
@@ -101,9 +102,11 @@ func (tree *threadsafeOneToManyTree) DestroyOneOfManyByID(oneID string, manyID s
 				panic(err)
 			}
 		}
+
+		return false
 	}
 
-	if err := tree.oneKeys.Find(datatypes.String(oneID), bTreeOnFindOne); err != nil {
+	if err := tree.oneKeys.Find(datatypes.String(oneID), v1.TypeRestrictions{MinDataType: datatypes.T_string, MaxDataType: datatypes.T_string}, bTreeOnFindOne); err != nil {
 		switch err {
 		case btree.ErrorKeyDestroying:
 			// the tree is already destroying

@@ -162,7 +162,7 @@ func TestLockerClient_ObtainLock(t *testing.T) {
 
 			lock, err := lockerClient.ObtainLock(ctx, &v1locker.LockCreateRequest{KeyValues: datatypes.KeyValues{"one": datatypes.Float32(3.4)}}, nil, nil)
 			g.Expect(err).To(HaveOccurred())
-			g.Expect(err.Error()).To(ContainSubstring("failed to read http response body"))
+			g.Expect(err.Error()).To(ContainSubstring("failed to decode response: unexpected EOF"))
 			g.Expect(lock).To(BeNil())
 		})
 

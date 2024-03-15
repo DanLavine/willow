@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"testing"
 
+	queryassociatedaction "github.com/DanLavine/willow/pkg/models/api/common/v1/query_associated_action"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
+	"github.com/DanLavine/willow/testhelpers/testmodels"
 
 	btreeassociated "github.com/DanLavine/willow/internal/datastructures/btree_associated"
 
@@ -27,7 +29,7 @@ func TestOneToManyTree_DeleteOneOfManyByKeyValues(t *testing.T) {
 
 			err := tree.DeleteOneOfManyByKeyValues("one id", nil, nil)
 			g.Expect(err).To(HaveOccurred())
-			g.Expect(err.Error()).To(Equal("KeyValues cannot be empty"))
+			g.Expect(err.Error()).To(Equal("recieved no KeyValues, but requires a length of at least 1"))
 		})
 	})
 
@@ -50,11 +52,11 @@ func TestOneToManyTree_DeleteOneOfManyByKeyValues(t *testing.T) {
 		}
 		onFind := func(_ datatypes.EncapsulatedValue, item any) bool {
 			threadsafeValuesNode := item.(*threadsafeValuesNode)
-			g.Expect(threadsafeValuesNode.associaedTree.Query(datatypes.AssociatedKeyValuesQuery{}, onPaginate)).ToNot(HaveOccurred())
+			g.Expect(threadsafeValuesNode.associaedTree.QueryAction(&queryassociatedaction.AssociatedActionQuery{}, onPaginate)).ToNot(HaveOccurred())
 
 			return true
 		}
-		g.Expect(tree.oneKeys.Iterate(onFind)).ToNot(HaveOccurred())
+		g.Expect(tree.oneKeys.Find(datatypes.Any(), testmodels.NoTypeRestrictions(g), onFind)).ToNot(HaveOccurred())
 		g.Expect(manyRelations).To(Equal(50))
 	})
 
@@ -77,11 +79,11 @@ func TestOneToManyTree_DeleteOneOfManyByKeyValues(t *testing.T) {
 		}
 		onFind := func(_ datatypes.EncapsulatedValue, item any) bool {
 			threadsafeValuesNode := item.(*threadsafeValuesNode)
-			g.Expect(threadsafeValuesNode.associaedTree.Query(datatypes.AssociatedKeyValuesQuery{}, onPaginate)).ToNot(HaveOccurred())
+			g.Expect(threadsafeValuesNode.associaedTree.QueryAction(&queryassociatedaction.AssociatedActionQuery{}, onPaginate)).ToNot(HaveOccurred())
 
 			return true
 		}
-		g.Expect(tree.oneKeys.Iterate(onFind)).ToNot(HaveOccurred())
+		g.Expect(tree.oneKeys.Find(datatypes.Any(), testmodels.NoTypeRestrictions(g), onFind)).ToNot(HaveOccurred())
 		g.Expect(manyRelations).To(Equal(50))
 	})
 
@@ -104,11 +106,11 @@ func TestOneToManyTree_DeleteOneOfManyByKeyValues(t *testing.T) {
 		}
 		onFind := func(_ datatypes.EncapsulatedValue, item any) bool {
 			threadsafeValuesNode := item.(*threadsafeValuesNode)
-			g.Expect(threadsafeValuesNode.associaedTree.Query(datatypes.AssociatedKeyValuesQuery{}, onPaginate)).ToNot(HaveOccurred())
+			g.Expect(threadsafeValuesNode.associaedTree.QueryAction(&queryassociatedaction.AssociatedActionQuery{}, onPaginate)).ToNot(HaveOccurred())
 
 			return true
 		}
-		g.Expect(tree.oneKeys.Iterate(onFind)).ToNot(HaveOccurred())
+		g.Expect(tree.oneKeys.Find(datatypes.Any(), testmodels.NoTypeRestrictions(g), onFind)).ToNot(HaveOccurred())
 		g.Expect(manyRelations).To(Equal(49))
 	})
 
@@ -131,11 +133,11 @@ func TestOneToManyTree_DeleteOneOfManyByKeyValues(t *testing.T) {
 		}
 		onFind := func(_ datatypes.EncapsulatedValue, item any) bool {
 			threadsafeValuesNode := item.(*threadsafeValuesNode)
-			g.Expect(threadsafeValuesNode.associaedTree.Query(datatypes.AssociatedKeyValuesQuery{}, onPaginate)).ToNot(HaveOccurred())
+			g.Expect(threadsafeValuesNode.associaedTree.QueryAction(&queryassociatedaction.AssociatedActionQuery{}, onPaginate)).ToNot(HaveOccurred())
 
 			return true
 		}
-		g.Expect(tree.oneKeys.Iterate(onFind)).ToNot(HaveOccurred())
+		g.Expect(tree.oneKeys.Find(datatypes.Any(), testmodels.NoTypeRestrictions(g), onFind)).ToNot(HaveOccurred())
 		g.Expect(manyRelations).To(Equal(49))
 	})
 
@@ -158,11 +160,11 @@ func TestOneToManyTree_DeleteOneOfManyByKeyValues(t *testing.T) {
 		}
 		onFind := func(_ datatypes.EncapsulatedValue, item any) bool {
 			threadsafeValuesNode := item.(*threadsafeValuesNode)
-			g.Expect(threadsafeValuesNode.associaedTree.Query(datatypes.AssociatedKeyValuesQuery{}, onPaginate)).ToNot(HaveOccurred())
+			g.Expect(threadsafeValuesNode.associaedTree.QueryAction(&queryassociatedaction.AssociatedActionQuery{}, onPaginate)).ToNot(HaveOccurred())
 
 			return true
 		}
-		g.Expect(tree.oneKeys.Iterate(onFind)).ToNot(HaveOccurred())
+		g.Expect(tree.oneKeys.Find(datatypes.Any(), testmodels.NoTypeRestrictions(g), onFind)).ToNot(HaveOccurred())
 		g.Expect(manyRelations).To(Equal(50))
 	})
 

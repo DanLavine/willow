@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/DanLavine/willow/pkg/models/api"
+	"github.com/DanLavine/willow/pkg/encoding"
 )
 
 type Config struct {
@@ -44,11 +44,11 @@ func (cfg *Config) Validate() error {
 	}
 
 	switch cfg.ContentEncoding {
-	case api.ContentTypeJSON:
+	case encoding.ContentTypeJSON:
 		// these are all valid
 	default:
 		if cfg.ContentEncoding == "" {
-			cfg.ContentEncoding = api.ContentTypeJSON
+			cfg.ContentEncoding = encoding.ContentTypeJSON
 		} else {
 			return fmt.Errorf("unknown content type: %s", cfg.ContentEncoding)
 		}

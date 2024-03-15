@@ -18,11 +18,11 @@ import (
 	"github.com/DanLavine/willow/internal/reporting"
 	"github.com/DanLavine/willow/pkg/clients"
 	lockerclient "github.com/DanLavine/willow/pkg/clients/locker_client"
+	"github.com/DanLavine/willow/pkg/encoding"
 	"go.uber.org/zap"
 
 	v1handlers "github.com/DanLavine/willow/internal/limiter/api/v1/handlers"
 	"github.com/DanLavine/willow/internal/limiter/api/v1/router"
-	commonapi "github.com/DanLavine/willow/pkg/models/api"
 )
 
 func main() {
@@ -41,7 +41,7 @@ func main() {
 	// setup locker client config and validate it
 	clientConfig := &clients.Config{
 		URL:             *cfg.LockerURL,
-		ContentEncoding: commonapi.ContentTypeJSON,
+		ContentEncoding: encoding.ContentTypeJSON,
 		CAFile:          *cfg.LockerClientCA,
 		ClientKeyFile:   *cfg.LockerClientKey,
 		ClientCRTFile:   *cfg.LockerClientCRT,

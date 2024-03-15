@@ -1,7 +1,6 @@
 package lockerclient
 
 import (
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"sync/atomic"
@@ -38,7 +37,7 @@ func setupLock(server *httptest.Server) (*lock, *atomic.Int64, *atomic.Int64, *[
 		panic(err)
 	}
 
-	lock := newLock(&v1.LockCreateResponse{LockID: "someID", SessionID: "sessionID", LockTimeout: 200 * time.Millisecond}, server.URL, client, api.ContentTypeJSON, heartbeatErrorCallback, lockLostCallback)
+	lock := newLock(&v1.LockCreateResponse{LockID: "someID", SessionID: "sessionID", LockTimeout: 200 * time.Millisecond}, server.URL, client, heartbeatErrorCallback, lockLostCallback)
 
 	return lock, lostLockCallbackCounter, heartbeatErrorCallbackCounter, &heartbeatErrorCallbackError
 }
@@ -82,7 +81,6 @@ func TestLock_heartbeat_operations(t *testing.T) {
 		// check the errors
 		for i := int64(0); i < hertbeatErrorCounter.Load(); i++ {
 			if i == hertbeatErrorCounter.Load()-1 {
-				fmt.Println(heartbeatErr)
 				g.Expect((*heartbeatErr)[i].Error()).To(ContainSubstring("could not heartbeat successfuly since the timeout. Releasing the local Lock since remote is unreachable"))
 			} else {
 				g.Expect((*heartbeatErr)[i].Error()).To(ContainSubstring("failed to heartbeat"))
@@ -173,7 +171,7 @@ func TestLock_heartbeat_operations(t *testing.T) {
 				_, _, hertbeatErrorCounter, heartbeatErrs := setupLock(server)
 
 				g.Eventually(hertbeatErrorCounter.Load).Should(BeNumerically(">=", int64(1)))
-				g.Expect((*heartbeatErrs)[0].Error()).To(ContainSubstring("failed to read http response body: unexpected EOF"))
+				g.Expect((*heartbeatErrs)[0].Error()).To(ContainSubstring("failed to decode response: unexpected EOF"))
 			})
 		})
 
@@ -192,7 +190,7 @@ func TestLock_heartbeat_operations(t *testing.T) {
 				defer lock.Release(nil)
 
 				g.Eventually(hertbeatErrorCounter.Load).Should(BeNumerically(">=", int64(1)))
-				g.Expect((*heartbeatErrs)[0].Error()).To(ContainSubstring("failed to decode api error response"))
+				g.Expect((*heartbeatErrs)[0].Error()).To(ContainSubstring("failed to decode response"))
 			})
 		})
 

@@ -6,7 +6,8 @@ import (
 	"github.com/DanLavine/willow/pkg/models/api/common/errors"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 
-	v1common "github.com/DanLavine/willow/pkg/models/api/common/v1"
+	queryassociatedaction "github.com/DanLavine/willow/pkg/models/api/common/v1/query_associated_action"
+
 	v1willow "github.com/DanLavine/willow/pkg/models/api/willow/v1"
 )
 
@@ -15,9 +16,9 @@ type QueueChannelsClient interface {
 	Execute(ctx context.Context) error
 
 	// channel operations
-	Channels(ctx context.Context, queueName string, channelQuery v1common.AssociatedQuery) v1willow.Channels
+	Channels(ctx context.Context, queueName string, channelQuery *queryassociatedaction.AssociatedActionQuery) v1willow.Channels
 	EnqueueQueueItem(ctx context.Context, queueName string, enqueueItem *v1willow.EnqueueQueueItem) *errors.ServerError
-	DequeueQueueItem(ctx context.Context, queueName string, dequeueQuery datatypes.AssociatedKeyValuesQuery) (*v1willow.DequeueQueueItem, func(), func(), *errors.ServerError)
+	DequeueQueueItem(ctx context.Context, queueName string, dequeueQuery *queryassociatedaction.AssociatedActionQuery) (*v1willow.DequeueQueueItem, func(), func(), *errors.ServerError)
 	DestroyChannelsForQueue(ctx context.Context, queueName string) *errors.ServerError
 	DeleteChannel(ctx context.Context, queueName string, channelKeyValues datatypes.KeyValues) *errors.ServerError
 

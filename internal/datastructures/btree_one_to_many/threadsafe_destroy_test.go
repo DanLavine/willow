@@ -5,7 +5,9 @@ import (
 	"testing"
 
 	btreeassociated "github.com/DanLavine/willow/internal/datastructures/btree_associated"
+	queryassociatedaction "github.com/DanLavine/willow/pkg/models/api/common/v1/query_associated_action"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
+	"github.com/DanLavine/willow/testhelpers/testmodels"
 
 	. "github.com/onsi/gomega"
 )
@@ -40,7 +42,7 @@ func TestOneToManyTree_DestroyOne(t *testing.T) {
 			return false
 		}
 
-		g.Expect(tree.oneKeys.Iterate(onFind)).ToNot(HaveOccurred())
+		g.Expect(tree.oneKeys.Find(datatypes.Any(), testmodels.NoTypeRestrictions(g), onFind)).ToNot(HaveOccurred())
 		g.Expect(found).To(BeFalse())
 	})
 
@@ -62,7 +64,7 @@ func TestOneToManyTree_DestroyOne(t *testing.T) {
 			return false
 		}
 
-		g.Expect(tree.oneKeys.Iterate(onFind)).ToNot(HaveOccurred())
+		g.Expect(tree.oneKeys.Find(datatypes.Any(), testmodels.NoTypeRestrictions(g), onFind)).ToNot(HaveOccurred())
 		g.Expect(found).To(BeFalse())
 	})
 
@@ -94,11 +96,11 @@ func TestOneToManyTree_DestroyOne(t *testing.T) {
 		}
 		onFind := func(_ datatypes.EncapsulatedValue, item any) bool {
 			threadsafeValuesNode := item.(*threadsafeValuesNode)
-			g.Expect(threadsafeValuesNode.associaedTree.Query(datatypes.AssociatedKeyValuesQuery{}, onPaginate)).ToNot(HaveOccurred())
+			g.Expect(threadsafeValuesNode.associaedTree.QueryAction(&queryassociatedaction.AssociatedActionQuery{}, onPaginate)).ToNot(HaveOccurred())
 
 			return true
 		}
-		g.Expect(tree.oneKeys.Iterate(onFind)).ToNot(HaveOccurred())
+		g.Expect(tree.oneKeys.Find(datatypes.Any(), testmodels.NoTypeRestrictions(g), onFind)).ToNot(HaveOccurred())
 		g.Expect(manyRelations).To(Equal(25))
 	})
 
@@ -175,7 +177,7 @@ func TestOneToManyTree_DestroyOne(t *testing.T) {
 				return false
 			}
 
-			g.Expect(tree.oneKeys.Iterate(onFind)).ToNot(HaveOccurred())
+			g.Expect(tree.oneKeys.Find(datatypes.Any(), testmodels.NoTypeRestrictions(g), onFind)).ToNot(HaveOccurred())
 			g.Expect(found).To(BeFalse())
 		})
 	})
@@ -219,11 +221,11 @@ func TestOneToManyTree_DestroyOneOfManyByID(t *testing.T) {
 		}
 		onFind := func(_ datatypes.EncapsulatedValue, item any) bool {
 			threadsafeValuesNode := item.(*threadsafeValuesNode)
-			g.Expect(threadsafeValuesNode.associaedTree.Query(datatypes.AssociatedKeyValuesQuery{}, onPaginate)).ToNot(HaveOccurred())
+			g.Expect(threadsafeValuesNode.associaedTree.QueryAction(&queryassociatedaction.AssociatedActionQuery{}, onPaginate)).ToNot(HaveOccurred())
 
 			return true
 		}
-		g.Expect(tree.oneKeys.Iterate(onFind)).ToNot(HaveOccurred())
+		g.Expect(tree.oneKeys.Find(datatypes.Any(), testmodels.NoTypeRestrictions(g), onFind)).ToNot(HaveOccurred())
 		g.Expect(manyRelations).To(Equal(50))
 	})
 
@@ -246,11 +248,11 @@ func TestOneToManyTree_DestroyOneOfManyByID(t *testing.T) {
 		}
 		onFind := func(_ datatypes.EncapsulatedValue, item any) bool {
 			threadsafeValuesNode := item.(*threadsafeValuesNode)
-			g.Expect(threadsafeValuesNode.associaedTree.Query(datatypes.AssociatedKeyValuesQuery{}, onPaginate)).ToNot(HaveOccurred())
+			g.Expect(threadsafeValuesNode.associaedTree.QueryAction(&queryassociatedaction.AssociatedActionQuery{}, onPaginate)).ToNot(HaveOccurred())
 
 			return true
 		}
-		g.Expect(tree.oneKeys.Iterate(onFind)).ToNot(HaveOccurred())
+		g.Expect(tree.oneKeys.Find(datatypes.Any(), testmodels.NoTypeRestrictions(g), onFind)).ToNot(HaveOccurred())
 		g.Expect(manyRelations).To(Equal(50))
 	})
 
@@ -273,11 +275,11 @@ func TestOneToManyTree_DestroyOneOfManyByID(t *testing.T) {
 		}
 		onFind := func(_ datatypes.EncapsulatedValue, item any) bool {
 			threadsafeValuesNode := item.(*threadsafeValuesNode)
-			g.Expect(threadsafeValuesNode.associaedTree.Query(datatypes.AssociatedKeyValuesQuery{}, onPaginate)).ToNot(HaveOccurred())
+			g.Expect(threadsafeValuesNode.associaedTree.QueryAction(&queryassociatedaction.AssociatedActionQuery{}, onPaginate)).ToNot(HaveOccurred())
 
 			return true
 		}
-		g.Expect(tree.oneKeys.Iterate(onFind)).ToNot(HaveOccurred())
+		g.Expect(tree.oneKeys.Find(datatypes.Any(), testmodels.NoTypeRestrictions(g), onFind)).ToNot(HaveOccurred())
 		g.Expect(manyRelations).To(Equal(49))
 	})
 
@@ -300,11 +302,11 @@ func TestOneToManyTree_DestroyOneOfManyByID(t *testing.T) {
 		}
 		onFind := func(_ datatypes.EncapsulatedValue, item any) bool {
 			threadsafeValuesNode := item.(*threadsafeValuesNode)
-			g.Expect(threadsafeValuesNode.associaedTree.Query(datatypes.AssociatedKeyValuesQuery{}, onPaginate)).ToNot(HaveOccurred())
+			g.Expect(threadsafeValuesNode.associaedTree.QueryAction(&queryassociatedaction.AssociatedActionQuery{}, onPaginate)).ToNot(HaveOccurred())
 
 			return true
 		}
-		g.Expect(tree.oneKeys.Iterate(onFind)).ToNot(HaveOccurred())
+		g.Expect(tree.oneKeys.Find(datatypes.Any(), testmodels.NoTypeRestrictions(g), onFind)).ToNot(HaveOccurred())
 		g.Expect(manyRelations).To(Equal(49))
 	})
 
@@ -327,11 +329,11 @@ func TestOneToManyTree_DestroyOneOfManyByID(t *testing.T) {
 		}
 		onFind := func(_ datatypes.EncapsulatedValue, item any) bool {
 			threadsafeValuesNode := item.(*threadsafeValuesNode)
-			g.Expect(threadsafeValuesNode.associaedTree.Query(datatypes.AssociatedKeyValuesQuery{}, onPaginate)).ToNot(HaveOccurred())
+			g.Expect(threadsafeValuesNode.associaedTree.QueryAction(&queryassociatedaction.AssociatedActionQuery{}, onPaginate)).ToNot(HaveOccurred())
 
 			return true
 		}
-		g.Expect(tree.oneKeys.Iterate(onFind)).ToNot(HaveOccurred())
+		g.Expect(tree.oneKeys.Find(datatypes.Any(), testmodels.NoTypeRestrictions(g), onFind)).ToNot(HaveOccurred())
 		g.Expect(manyRelations).To(Equal(50))
 	})
 

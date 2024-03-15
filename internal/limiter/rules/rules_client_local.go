@@ -12,7 +12,8 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/DanLavine/willow/pkg/models/api/common/errors"
-	v1common "github.com/DanLavine/willow/pkg/models/api/common/v1"
+	queryassociatedaction "github.com/DanLavine/willow/pkg/models/api/common/v1/query_associated_action"
+	querymatchaction "github.com/DanLavine/willow/pkg/models/api/common/v1/query_match_action"
 	v1limiter "github.com/DanLavine/willow/pkg/models/api/limiter/v1"
 )
 
@@ -47,21 +48,15 @@ func NewLocalRulesClient(ruleConstructor RuleConstructor, overridesClient overri
 //	- *errors.ServerError - error response for the client if something unexpected happens
 //
 // Create new Rule
-func (rm *localRulesCient) CreateRule(ctx context.Context, rule *v1limiter.RuleCreateRequest) *errors.ServerError {
+func (rm *localRulesCient) CreateRule(ctx context.Context, rule *v1limiter.Rule) *errors.ServerError {
 	logger := reporting.GetLogger(ctx).Named("CreateRule")
 
 	onCreate := func() any {
 		return rm.ruleConstructor.New(rule)
 	}
 
-	// record all GroupBy keys as empty strings in the associated tree
-	keyValues := datatypes.KeyValues{}
-	for _, groupByName := range rule.GroupBy {
-		keyValues[groupByName] = datatypes.String("")
-	}
-
 	// create the rule only if the name is free
-	if err := rm.rules.CreateWithID(rule.Name, keyValues, onCreate); err != nil {
+	if err := rm.rules.CreateWithID(rule.Name, rule.GroupByKeyValues, onCreate); err != nil {
 		switch err {
 		case btreeassociated.ErrorTreeItemDestroying:
 			logger.Warn("failed to create rule. rule is currently being destroy")
@@ -81,62 +76,53 @@ func (rm *localRulesCient) CreateRule(ctx context.Context, rule *v1limiter.RuleC
 	return nil
 }
 
-// list all group rules that match the provided key values. Can also include the overrides
-func (rm *localRulesCient) MatchRules(ctx context.Context, matchQuery *v1limiter.RuleMatch) (v1limiter.Rules, *errors.ServerError) {
+// list all group rules that the query matches
+func (rm *localRulesCient) QueryRules(ctx context.Context, ruleQuery *queryassociatedaction.AssociatedActionQuery) (v1limiter.Rules, *errors.ServerError) {
 	logger := reporting.GetLogger(ctx).Named("MatchRules")
-	ctx = reporting.UpdateLogger(ctx, logger)
 
 	foundRules := v1limiter.Rules{}
 
-	var rulesErr *errors.ServerError
-	bTreeAssociatedOnIterate := func(item btreeassociated.AssociatedKeyValues) bool {
-		rule := item.Value().(Rule)
-
-		var overrides v1limiter.Overrides
-		if matchQuery.OverridesToMatch != nil {
-			overrides, rulesErr = rm.overridesClient.MatchOverrides(ctx, item.AssociatedID(), matchQuery.OverridesToMatch)
-		}
-
-		if rulesErr != nil {
-			// found an error matchin overrides. stop paginating through all the rules
-			return false
-		}
+	bTreeAssociatedOnIterate := func(associatedKeyValues btreeassociated.AssociatedKeyValues) bool {
+		rule := associatedKeyValues.Value().(Rule)
 
 		foundRules = append(foundRules, &v1limiter.Rule{
-			Name:      item.AssociatedID(),
-			GroupBy:   item.KeyValues().Keys(),
-			Limit:     rule.Limit(),
-			Overrides: overrides,
+			Name:             associatedKeyValues.AssociatedID(),
+			GroupByKeyValues: associatedKeyValues.KeyValues(),
+			Limit:            rule.Limit(),
 		})
 
 		return true
 	}
 
-	var selectError error
-	switch matchQuery.RulesToMatch.KeyValues {
-	case nil: // select all
-		selectError = rm.rules.Query(datatypes.AssociatedKeyValuesQuery{}, bTreeAssociatedOnIterate)
-	default: // select specific values
-		// special match logic. we alwys need to look for empty strings as a 'match' operation
-		keyValues := datatypes.KeyValues{}
-		for key, _ := range *matchQuery.RulesToMatch.KeyValues {
-			keyValues[key] = datatypes.String("")
-		}
-
-		selectError = rm.rules.MatchPermutations(keyValues, bTreeAssociatedOnIterate)
-	}
-
-	switch selectError {
-	case nil:
-		// nothing to do here
-	default:
-		logger.Error("failed to lookup rule.", zap.Error(selectError))
+	if err := rm.rules.QueryAction(ruleQuery, bTreeAssociatedOnIterate); err != nil {
+		logger.Error("failed to query rules", zap.Error(err))
 		return nil, errors.InternalServerError
 	}
 
-	if rulesErr != nil {
-		logger.Error("failed to lookup overrides", zap.Error(rulesErr))
-		return nil, rulesErr
+	return foundRules, nil
+}
+
+// list all group rules that match the provided key values
+func (rm *localRulesCient) MatchRules(ctx context.Context, ruleMatch *querymatchaction.MatchActionQuery) (v1limiter.Rules, *errors.ServerError) {
+	logger := reporting.GetLogger(ctx).Named("MatchRules")
+
+	foundRules := v1limiter.Rules{}
+
+	bTreeAssociatedOnIterate := func(associatedKeyValues btreeassociated.AssociatedKeyValues) bool {
+		rule := associatedKeyValues.Value().(Rule)
+
+		foundRules = append(foundRules, &v1limiter.Rule{
+			Name:             associatedKeyValues.AssociatedID(),
+			GroupByKeyValues: associatedKeyValues.KeyValues(),
+			Limit:            rule.Limit(),
+		})
+
+		return true
+	}
+
+	if err := rm.rules.MatchAction(ruleMatch, bTreeAssociatedOnIterate); err != nil {
+		logger.Error("failed to query rules", zap.Error(err))
+		return nil, errors.InternalServerError
 	}
 
 	return foundRules, nil
@@ -145,57 +131,33 @@ func (rm *localRulesCient) MatchRules(ctx context.Context, matchQuery *v1limiter
 //	PARAMETERS:
 //	- ctx - context that contains all the reporting tools
 //	- name - name of the Rule to obtain for
-//	- getQuery - query for the overrides to obtain as well
 //
 //	RETURNS:
 //	- *errors.ServerError - error response for the client if something unexpected happens
 //
 // Get a Rule by name
-func (rm *localRulesCient) GetRule(ctx context.Context, ruleName string, getQuery *v1limiter.RuleGet) (*v1limiter.Rule, *errors.ServerError) {
+func (rm *localRulesCient) GetRule(ctx context.Context, ruleName string) (*v1limiter.Rule, *errors.ServerError) {
 	logger := reporting.GetLogger(ctx).Named("GetRule").With(zap.String("rule_name", ruleName))
-	ctx = reporting.UpdateLogger(ctx, logger)
 
 	var apiRule *v1limiter.Rule
 	errorMissingRuleName := errorMissingRuleName(ruleName)
-	bTreeAssociatedOnFind := func(item btreeassociated.AssociatedKeyValues) {
-		rule := item.Value().(Rule)
 
-		if getQuery.OverridesToMatch != nil {
-			// match overrides as well
-			overrides, overridesErr := rm.overridesClient.MatchOverrides(ctx, ruleName, getQuery.OverridesToMatch)
+	bTreeAssociatedOnIterate := func(associatedKeyValues btreeassociated.AssociatedKeyValues) bool {
+		rule := associatedKeyValues.Value().(Rule)
+		errorMissingRuleName = nil
 
-			if overridesErr != nil {
-				errorMissingRuleName = overridesErr
-			} else {
-				errorMissingRuleName = nil
-				apiRule = &v1limiter.Rule{
-					Name:      ruleName,
-					GroupBy:   item.KeyValues().Keys(),
-					Limit:     rule.Limit(),
-					Overrides: overrides,
-				}
-			}
-		} else {
-			// don't query any overrides
-			errorMissingRuleName = nil
-			apiRule = &v1limiter.Rule{
-				Name:      ruleName,
-				GroupBy:   item.KeyValues().Keys(),
-				Limit:     rule.Limit(),
-				Overrides: v1limiter.Overrides{},
-			}
+		apiRule = &v1limiter.Rule{
+			Name:             associatedKeyValues.AssociatedID(),
+			GroupByKeyValues: associatedKeyValues.KeyValues(),
+			Limit:            rule.Limit(),
 		}
+
+		return true
 	}
 
-	if err := rm.rules.FindByAssociatedID(ruleName, bTreeAssociatedOnFind); err != nil {
-		switch err {
-		case btreeassociated.ErrorTreeItemDestroying:
-			logger.Warn("failed to get rule. rule is currently being destroy")
-			return nil, &errors.ServerError{Message: "failed to get rule. Previous rule is still in the process of destroying", StatusCode: http.StatusConflict}
-		default:
-			logger.Error("failed to lookup rule.", zap.Error(err))
-			return nil, errors.InternalServerError
-		}
+	if err := rm.rules.QueryAction(queryassociatedaction.StringToAssociatedActionQuery(ruleName), bTreeAssociatedOnIterate); err != nil {
+		logger.Error("failed to query rules", zap.Error(err))
+		return nil, errors.InternalServerError
 	}
 
 	if errorMissingRuleName != nil {
@@ -225,16 +187,7 @@ func (rm *localRulesCient) UpdateRule(ctx context.Context, ruleName string, upda
 		return false
 	}
 
-	idValue := datatypes.String(ruleName)
-	query := datatypes.AssociatedKeyValuesQuery{
-		KeyValueSelection: &datatypes.KeyValueSelection{
-			KeyValues: map[string]datatypes.Value{
-				btreeassociated.ReservedID: datatypes.Value{Value: &idValue, ValueComparison: datatypes.EqualsPtr()},
-			},
-		},
-	}
-
-	if err := rm.rules.Query(query, bTreeAssociatedOnIterate); err != nil {
+	if err := rm.rules.QueryAction(queryassociatedaction.StringToAssociatedActionQuery(ruleName), bTreeAssociatedOnIterate); err != nil {
 		switch err {
 		case btreeassociated.ErrorTreeItemDestroying:
 			logger.Warn("failed to update rule. Rule is currently being destroy")
@@ -298,20 +251,22 @@ func (rm *localRulesCient) CreateOverride(ctx context.Context, ruleName string, 
 	ctx = reporting.UpdateLogger(ctx, logger)
 
 	overrideErr := errorMissingRuleName(ruleName)
-	bTreeAssociatedOnFind := func(item btreeassociated.AssociatedKeyValues) {
+	bTreeAssociatedOnFind := func(item btreeassociated.AssociatedKeyValues) bool {
 		// 1.  ensure that the override has all the group by keys
 		for key, _ := range item.KeyValues() {
 			if _, ok := override.KeyValues[key]; !ok {
 				overrideErr = &errors.ServerError{Message: fmt.Sprintf("Missing Rule's GroubBy keys in the override: %s", key), StatusCode: http.StatusBadRequest}
-				return
+				return false
 			}
 		}
 
 		// 2. create the override
 		overrideErr = rm.overridesClient.CreateOverride(ctx, ruleName, override)
+
+		return false
 	}
 
-	if err := rm.rules.FindByAssociatedID(ruleName, bTreeAssociatedOnFind); err != nil {
+	if err := rm.rules.QueryAction(queryassociatedaction.StringToAssociatedActionQuery(ruleName), bTreeAssociatedOnFind); err != nil {
 		switch err {
 		case btreeassociated.ErrorTreeItemDestroying:
 			logger.Warn("failed to create override. Rule is being destroy")
@@ -329,18 +284,52 @@ func (rm *localRulesCient) CreateOverride(ctx context.Context, ruleName string, 
 	return overrideErr
 }
 
-// match all overrides for a given Rule
-func (rm *localRulesCient) MatchOverrides(ctx context.Context, ruleName string, matchQuery *v1common.MatchQuery) (v1limiter.Overrides, *errors.ServerError) {
-	logger := reporting.GetLogger(ctx).Named("MatchOverrides").With(zap.String("rule_name", ruleName))
+// query all overrides for a given Rule
+func (rm *localRulesCient) QueryOverrides(ctx context.Context, ruleName string, overrideQuery *queryassociatedaction.AssociatedActionQuery) (v1limiter.Overrides, *errors.ServerError) {
+	logger := reporting.GetLogger(ctx).Named("ListOverrides").With(zap.String("rule_name", ruleName))
 	ctx = reporting.UpdateLogger(ctx, logger)
 
 	var overrides v1limiter.Overrides
 	overridesErr := errorMissingRuleName(ruleName)
-	bTreeAssociatedOnFind := func(item btreeassociated.AssociatedKeyValues) {
-		overrides, overridesErr = rm.overridesClient.MatchOverrides(ctx, ruleName, matchQuery)
+
+	bTreeAssociatedOnFind := func(item btreeassociated.AssociatedKeyValues) bool {
+		overrides, overridesErr = rm.overridesClient.QueryOverrides(ctx, ruleName, overrideQuery)
+		return overridesErr == nil
 	}
 
-	if err := rm.rules.FindByAssociatedID(ruleName, bTreeAssociatedOnFind); err != nil {
+	if err := rm.rules.QueryAction(queryassociatedaction.StringToAssociatedActionQuery(ruleName), bTreeAssociatedOnFind); err != nil {
+		switch err {
+		case btreeassociated.ErrorTreeItemDestroying:
+			logger.Warn("failed to match overrides. Rule is currently being destroy")
+			return nil, &errors.ServerError{Message: "failed to match overrides. Rule is being destroying", StatusCode: http.StatusConflict}
+		default:
+			logger.Error("failed to find rule by associatedid", zap.Error(err))
+			return nil, errorMissingRuleName(ruleName)
+		}
+	}
+
+	if overridesErr != nil {
+		logger.Error("failed to match overrides", zap.Error(overridesErr))
+		return nil, overridesErr
+	}
+
+	return overrides, nil
+}
+
+// match all overrides for a given Rule
+func (rm *localRulesCient) MatchOverrides(ctx context.Context, ruleName string, overrideMatch *querymatchaction.MatchActionQuery) (v1limiter.Overrides, *errors.ServerError) {
+	logger := reporting.GetLogger(ctx).Named("ListOverrides").With(zap.String("rule_name", ruleName))
+	ctx = reporting.UpdateLogger(ctx, logger)
+
+	var overrides v1limiter.Overrides
+	overridesErr := errorMissingRuleName(ruleName)
+
+	bTreeAssociatedOnFind := func(item btreeassociated.AssociatedKeyValues) bool {
+		overrides, overridesErr = rm.overridesClient.MatchOverrides(ctx, ruleName, overrideMatch)
+		return overridesErr == nil
+	}
+
+	if err := rm.rules.QueryAction(queryassociatedaction.StringToAssociatedActionQuery(ruleName), bTreeAssociatedOnFind); err != nil {
 		switch err {
 		case btreeassociated.ErrorTreeItemDestroying:
 			logger.Warn("failed to match overrides. Rule is currently being destroy")
@@ -366,11 +355,17 @@ func (rm *localRulesCient) GetOverride(ctx context.Context, ruleName string, ove
 
 	var override *v1limiter.Override
 	overrideErr := errorMissingRuleName(ruleName)
-	bTreeAssociatedOnFind := func(item btreeassociated.AssociatedKeyValues) {
+	bTreeAssociatedOnFind := func(item btreeassociated.AssociatedKeyValues) bool {
 		override, overrideErr = rm.overridesClient.GetOverride(ctx, ruleName, overrideName)
+
+		if overrideErr != nil {
+			return false
+		}
+
+		return true
 	}
 
-	if err := rm.rules.FindByAssociatedID(ruleName, bTreeAssociatedOnFind); err != nil {
+	if err := rm.rules.QueryAction(queryassociatedaction.StringToAssociatedActionQuery(ruleName), bTreeAssociatedOnFind); err != nil {
 		switch err {
 		case btreeassociated.ErrorTreeItemDestroying:
 			logger.Warn("failed to get rule. rule is currently being destroy")
@@ -394,11 +389,16 @@ func (rm *localRulesCient) UpdateOverride(ctx context.Context, ruleName string, 
 	ctx = reporting.UpdateLogger(ctx, logger)
 
 	overrideErr := errorMissingRuleName(ruleName)
-	bTreeAssociatedOnFind := func(item btreeassociated.AssociatedKeyValues) {
+	bTreeAssociatedOnFind := func(item btreeassociated.AssociatedKeyValues) bool {
 		overrideErr = rm.overridesClient.UpdateOverride(ctx, ruleName, overrideName, override)
+		if overrideErr != nil {
+			return false
+		}
+
+		return true
 	}
 
-	if err := rm.rules.FindByAssociatedID(ruleName, bTreeAssociatedOnFind); err != nil {
+	if err := rm.rules.QueryAction(queryassociatedaction.StringToAssociatedActionQuery(ruleName), bTreeAssociatedOnFind); err != nil {
 		switch err {
 		case btreeassociated.ErrorTreeItemDestroying:
 			logger.Warn("failed to update override. Rule is being destroyed")
@@ -422,11 +422,12 @@ func (rm *localRulesCient) DeleteOverride(ctx context.Context, ruleName string, 
 	ctx = reporting.UpdateLogger(ctx, logger)
 
 	overrideErr := errorMissingRuleName(ruleName)
-	bTreeAssociatedOnFind := func(item btreeassociated.AssociatedKeyValues) {
+	bTreeAssociatedOnFind := func(item btreeassociated.AssociatedKeyValues) bool {
 		overrideErr = rm.overridesClient.DestroyOverride(ctx, ruleName, overrideName)
+		return false
 	}
 
-	if err := rm.rules.FindByAssociatedID(ruleName, bTreeAssociatedOnFind); err != nil {
+	if err := rm.rules.QueryAction(queryassociatedaction.StringToAssociatedActionQuery(ruleName), bTreeAssociatedOnFind); err != nil {
 		switch err {
 		case btreeassociated.ErrorTreeItemDestroying:
 			logger.Warn("refusing to destroy override. Rule is already being destroy")
@@ -445,7 +446,7 @@ func (rm *localRulesCient) DeleteOverride(ctx context.Context, ruleName string, 
 }
 
 // Find the limits for each rule and the overrides for a give key values
-func (rm localRulesCient) FindLimits(ctx context.Context, keyValue datatypes.KeyValues) (v1limiter.Rules, *errors.ServerError) {
+func (rm localRulesCient) FindLimits(ctx context.Context, keyValues datatypes.KeyValues) (v1limiter.Rules, *errors.ServerError) {
 	logger := reporting.GetLogger(ctx).Named("FindLimits")
 	ctx = reporting.UpdateLogger(ctx, logger)
 
@@ -454,7 +455,7 @@ func (rm localRulesCient) FindLimits(ctx context.Context, keyValue datatypes.Key
 
 	bTreeAssociatedOnIterate := func(item btreeassociated.AssociatedKeyValues) bool {
 		// 1. find all the overrides for the rule
-		overrides, err := rm.overridesClient.FindOverrideLimits(ctx, item.AssociatedID(), keyValue)
+		overrides, err := rm.overridesClient.FindOverrideLimits(ctx, item.AssociatedID(), keyValues)
 		if err != nil {
 			limitErr = err
 			return false
@@ -462,10 +463,10 @@ func (rm localRulesCient) FindLimits(ctx context.Context, keyValue datatypes.Key
 
 		// 2. append the rule
 		newRule := &v1limiter.Rule{
-			Name:      item.AssociatedID(),
-			GroupBy:   item.KeyValues().Keys(),
-			Limit:     item.Value().(Rule).Limit(),
-			Overrides: overrides,
+			Name:             item.AssociatedID(),
+			GroupByKeyValues: item.KeyValues(),
+			Limit:            item.Value().(Rule).Limit(),
+			Overrides:        overrides,
 		}
 		rules = append(rules, newRule)
 
@@ -483,13 +484,7 @@ func (rm localRulesCient) FindLimits(ctx context.Context, keyValue datatypes.Key
 		return true
 	}
 
-	// special match logic. we always need to look for empty strings as a 'match' operation
-	ruleKeyValues := datatypes.KeyValues{}
-	for key, _ := range keyValue {
-		ruleKeyValues[key] = datatypes.String("")
-	}
-
-	if err := rm.rules.MatchPermutations(ruleKeyValues, bTreeAssociatedOnIterate); err != nil {
+	if err := rm.rules.MatchAction(querymatchaction.KeyValuesToAnyMatchActionQuery(keyValues), bTreeAssociatedOnIterate); err != nil {
 		switch err {
 		default:
 			logger.Error("failed to match rule permutations", zap.Error(err))

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sync"
 
+	v1common "github.com/DanLavine/willow/pkg/models/api/common/v1"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 )
 
@@ -23,7 +24,7 @@ import (
 //	          5. ErrorTreeDestroying
 func (btree *threadSafeBTree) Create(key datatypes.EncapsulatedValue, onCreate BTreeOnCreate) error {
 	// parameter checks
-	if err := key.Validate(); err != nil {
+	if err := key.Validate(datatypes.MinDataType, datatypes.MaxDataType); err != nil {
 		return fmt.Errorf("key is invalid: %w", err)
 	}
 	if onCreate == nil {
@@ -116,9 +117,9 @@ func (bn *threadSafeBNode) create(releaseParentLock func(), key datatypes.Encaps
 		for index = 0; index < bn.numberOfValues; index++ {
 			keyValue := bn.keyValues[index]
 
-			if !keyValue.key.Less(key) {
+			if !keyValue.key.LessMatchType(key) {
 				// value already exists, return an error
-				if !key.Less(keyValue.key) {
+				if !key.LessMatchType(keyValue.key) {
 					return nil, ErrorKeyAlreadyExists
 				}
 
@@ -167,7 +168,7 @@ func (bn *threadSafeBNode) create(releaseParentLock func(), key datatypes.Encaps
 //	          6. ErrorTreeDestroying
 func (btree *threadSafeBTree) CreateOrFind(key datatypes.EncapsulatedValue, onCreate BTreeOnCreate, onFind BTreeOnFind) error {
 	// parameter checks
-	if err := key.Validate(); err != nil {
+	if err := key.Validate(datatypes.MinDataType, datatypes.MaxDataType); err != nil {
 		return fmt.Errorf("key is invalid: %w", err)
 	}
 	if onCreate == nil {
@@ -189,11 +190,14 @@ func (btree *threadSafeBTree) CreateOrFind(key datatypes.EncapsulatedValue, onCr
 	// reads can happen at once, but an Insert or Delete will then lock the tree structure
 	// down to the nodes that need an update
 	found := false
-	findAlreadyCreated := func(item any) {
+	findAlreadyCreated := func(_ datatypes.EncapsulatedValue, item any) bool {
 		found = true
 		onFind(item)
+		return false
 	}
-	if _ = btree.Find(key, findAlreadyCreated); found {
+
+	// #TODO: If this returns a destroying err, do we have to do anything?
+	if _ = btree.Find(key, v1common.TypeRestrictions{MinDataType: key.Type, MaxDataType: key.Type}, findAlreadyCreated); found {
 		return nil
 	}
 
@@ -262,9 +266,9 @@ func (bn *threadSafeBNode) createOrFind(releaseParentLock func(), key datatypes.
 		for index = 0; index < bn.numberOfValues; index++ {
 			keyValue := bn.keyValues[index]
 
-			if !keyValue.key.Less(key) {
+			if !keyValue.key.LessMatchType(key) {
 				// value already exists, return the original keyValue
-				if !key.Less(keyValue.key) {
+				if !key.LessMatchType(keyValue.key) {
 					onFind(bn.keyValues[index].value)
 					return nil
 				}
@@ -298,9 +302,9 @@ func (bn *threadSafeBNode) createTreeItem(key datatypes.EncapsulatedValue, onCre
 	for index = 0; index < bn.numberOfValues; index++ {
 		keyValue := bn.keyValues[index]
 
-		if !keyValue.key.Less(key) {
+		if !keyValue.key.LessMatchType(key) {
 			// value already exists, return an error
-			if !key.Less(keyValue.key) {
+			if !key.LessMatchType(keyValue.key) {
 				return ErrorKeyAlreadyExists
 			}
 
@@ -331,9 +335,9 @@ func (bn *threadSafeBNode) createOrFindTreeItem(key datatypes.EncapsulatedValue,
 	for index = 0; index < bn.numberOfValues; index++ {
 		keyValue := bn.keyValues[index]
 
-		if !keyValue.key.Less(key) {
+		if !keyValue.key.LessMatchType(key) {
 			// value already exists, return the original keyValue
-			if !key.Less(keyValue.key) {
+			if !key.LessMatchType(keyValue.key) {
 				onFind(keyValue.value)
 				return
 			}

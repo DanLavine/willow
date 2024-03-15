@@ -80,7 +80,7 @@ func newItem(url string, client clients.HttpClient, queueName string, dequeueIte
 				req, err := client.EncodedRequest(
 					"POST",
 					fmt.Sprintf("%s/v1/queues/%s/channels/items/heartbeat", item.url, item.queueName),
-					&v1willow.Heartbeat{
+					v1willow.Heartbeat{
 						ItemID:    item.itemID,
 						KeyValues: item.keyValues,
 					},
@@ -163,7 +163,7 @@ func (item *Item) ACK(passed bool, headers http.Header) error {
 	req, err := item.client.EncodedRequest(
 		"POST",
 		fmt.Sprintf("%s/v1/queues/%s/channels/items/ack", item.url, item.queueName),
-		&v1willow.ACK{
+		v1willow.ACK{
 			ItemID:    item.itemID,
 			KeyValues: item.keyValues,
 			Passed:    passed,

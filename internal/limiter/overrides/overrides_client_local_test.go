@@ -7,8 +7,10 @@ import (
 	"github.com/DanLavine/willow/internal/datastructures/btree_one_to_many/btreeonetomanyfakes"
 	"github.com/DanLavine/willow/pkg/models/api/common/errors"
 	v1common "github.com/DanLavine/willow/pkg/models/api/common/v1"
+	queryassociatedaction "github.com/DanLavine/willow/pkg/models/api/common/v1/query_associated_action"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 	"github.com/DanLavine/willow/testhelpers"
+	"github.com/DanLavine/willow/testhelpers/testmodels"
 	. "github.com/onsi/gomega"
 	"go.uber.org/mock/gomock"
 
@@ -184,7 +186,7 @@ func Test_OverrideClientLocal_GetOverride(t *testing.T) {
 		mockBTreeOneToMany := btreeonetomanyfakes.NewMockBTreeOneToMany(mockController)
 		defer mockController.Finish()
 
-		mockBTreeOneToMany.EXPECT().Query(gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("nope")).Times(1)
+		mockBTreeOneToMany.EXPECT().QueryAction(gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("nope")).Times(1)
 
 		overrideClient := NewOverridesClientLocal(mockBTreeOneToMany, constructor)
 
@@ -248,7 +250,7 @@ func Test_OverrideClientLocal_UpdateOverride(t *testing.T) {
 		mockBTreeOneToMany := btreeonetomanyfakes.NewMockBTreeOneToMany(mockController)
 		defer mockController.Finish()
 
-		mockBTreeOneToMany.EXPECT().Query(gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("nope")).Times(1)
+		mockBTreeOneToMany.EXPECT().QueryAction(gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("nope")).Times(1)
 
 		updateReq := &v1limiter.OverrideUpdate{
 			Limit: 17,
@@ -261,7 +263,7 @@ func Test_OverrideClientLocal_UpdateOverride(t *testing.T) {
 	})
 }
 
-func Test_OverrideClientLocal_MatchOverrides(t *testing.T) {
+func Test_OverrideClientLocal_QueryOverrides(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	constructor, err := NewOverrideConstructor("memory")
@@ -292,10 +294,10 @@ func Test_OverrideClientLocal_MatchOverrides(t *testing.T) {
 	t.Run("It returns empty overrides if there are no found items", func(t *testing.T) {
 		overrideClient := NewDefaultOverridesClientLocal(constructor)
 
-		matchQuery := &v1common.MatchQuery{} // match all
-		g.Expect(matchQuery.Validate()).ToNot(HaveOccurred())
+		query := &queryassociatedaction.AssociatedActionQuery{} // match all
+		g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-		overrides, err := overrideClient.MatchOverrides(testhelpers.NewContextWithLogger(), "test rule", matchQuery)
+		overrides, err := overrideClient.QueryOverrides(testhelpers.NewContextWithLogger(), "test rule", query)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(overrides).ToNot(BeNil())
 		g.Expect(len(overrides)).To(Equal(0))
@@ -305,10 +307,10 @@ func Test_OverrideClientLocal_MatchOverrides(t *testing.T) {
 		t.Run("It reutnrs all overrides", func(t *testing.T) {
 			overrideClient := setupTree(g)
 
-			matchQuery := &v1common.MatchQuery{} // match all
-			g.Expect(matchQuery.Validate()).ToNot(HaveOccurred())
+			query := &queryassociatedaction.AssociatedActionQuery{} // match all
+			g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-			overrides, err := overrideClient.MatchOverrides(testhelpers.NewContextWithLogger(), "test rule", matchQuery)
+			overrides, err := overrideClient.QueryOverrides(testhelpers.NewContextWithLogger(), "test rule", query)
 			g.Expect(err).ToNot(HaveOccurred())
 			g.Expect(len(overrides)).To(Equal(50))
 		})
@@ -318,34 +320,38 @@ func Test_OverrideClientLocal_MatchOverrides(t *testing.T) {
 			mockBTreeOneToMany := btreeonetomanyfakes.NewMockBTreeOneToMany(mockController)
 			defer mockController.Finish()
 
-			mockBTreeOneToMany.EXPECT().Query(gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("nope")).Times(1)
+			mockBTreeOneToMany.EXPECT().QueryAction(gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("nope")).Times(1)
 
-			matchQuery := &v1common.MatchQuery{} // match all
-			g.Expect(matchQuery.Validate()).ToNot(HaveOccurred())
+			query := &queryassociatedaction.AssociatedActionQuery{} // match all
+			g.Expect(query.Validate()).ToNot(HaveOccurred())
 
 			overrideClient := NewOverridesClientLocal(mockBTreeOneToMany, constructor)
-			overrides, err := overrideClient.MatchOverrides(testhelpers.NewContextWithLogger(), "test rule", matchQuery)
+			overrides, err := overrideClient.QueryOverrides(testhelpers.NewContextWithLogger(), "test rule", query)
 			g.Expect(err).To(Equal(errors.InternalServerError))
 			g.Expect(len(overrides)).To(Equal(0))
 		})
 	})
 
-	t.Run("Context MatchPermutations", func(t *testing.T) {
-		t.Run("It reutnrs all overrides", func(t *testing.T) {
+	t.Run("Context Query", func(t *testing.T) {
+		t.Run("It reutnrs any overrides for the query", func(t *testing.T) {
 			overrideClient := setupTree(g)
 
-			matchQuery := &v1common.MatchQuery{
-				KeyValues: &datatypes.KeyValues{
-					"key0":  datatypes.Int(0),
-					"key17": datatypes.Int(17),
-					"key18": datatypes.Int(18),
+			query := &queryassociatedaction.AssociatedActionQuery{
+				Selection: &queryassociatedaction.Selection{
+					KeyValues: queryassociatedaction.SelectionKeyValues{
+						"key0": {
+							Value:            datatypes.Int(0),
+							Comparison:       v1common.Equals,
+							TypeRestrictions: testmodels.NoTypeRestrictions(g),
+						},
+					},
 				},
 			}
-			g.Expect(matchQuery.Validate()).ToNot(HaveOccurred())
+			g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-			overrides, err := overrideClient.MatchOverrides(testhelpers.NewContextWithLogger(), "test rule", matchQuery)
+			overrides, err := overrideClient.QueryOverrides(testhelpers.NewContextWithLogger(), "test rule", query)
 			g.Expect(err).ToNot(HaveOccurred())
-			g.Expect(len(overrides)).To(Equal(3)) // pairs of groups{ {0}, {17, 18}, {18}}
+			g.Expect(len(overrides)).To(Equal(1)) // pairs of groups{ {0} }
 		})
 
 		t.Run("It returns an internal server error if the tree returns an error", func(t *testing.T) {
@@ -353,19 +359,13 @@ func Test_OverrideClientLocal_MatchOverrides(t *testing.T) {
 			mockBTreeOneToMany := btreeonetomanyfakes.NewMockBTreeOneToMany(mockController)
 			defer mockController.Finish()
 
-			mockBTreeOneToMany.EXPECT().MatchPermutations(gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("nope")).Times(1)
+			mockBTreeOneToMany.EXPECT().QueryAction(gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("nope")).Times(1)
 
-			matchQuery := &v1common.MatchQuery{
-				KeyValues: &datatypes.KeyValues{
-					"key0":  datatypes.Int(0),
-					"key17": datatypes.Int(17),
-					"key18": datatypes.Int(18),
-				},
-			}
-			g.Expect(matchQuery.Validate()).ToNot(HaveOccurred())
+			query := &queryassociatedaction.AssociatedActionQuery{}
+			g.Expect(query.Validate()).ToNot(HaveOccurred())
 
 			overrideClient := NewOverridesClientLocal(mockBTreeOneToMany, constructor)
-			overrides, err := overrideClient.MatchOverrides(testhelpers.NewContextWithLogger(), "test rule", matchQuery)
+			overrides, err := overrideClient.QueryOverrides(testhelpers.NewContextWithLogger(), "test rule", query)
 			g.Expect(err).To(Equal(errors.InternalServerError))
 			g.Expect(len(overrides)).To(Equal(0))
 		})
@@ -467,10 +467,10 @@ func Test_OverrideClientLocal_DestroyOverrides(t *testing.T) {
 		g.Expect(err).ToNot(HaveOccurred())
 
 		// check all overrides are deleted
-		matchQuery := &v1common.MatchQuery{} // match all
-		g.Expect(matchQuery.Validate()).ToNot(HaveOccurred())
+		query := &queryassociatedaction.AssociatedActionQuery{} // match all
+		g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-		overrides, err := overrideClient.MatchOverrides(testhelpers.NewContextWithLogger(), "test rule", matchQuery)
+		overrides, err := overrideClient.QueryOverrides(testhelpers.NewContextWithLogger(), "test rule", query)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(len(overrides)).To(Equal(0))
 	})
@@ -523,7 +523,7 @@ func Test_OverrideClientLocal_FindOverrideLimits(t *testing.T) {
 			"key1": datatypes.Int(1),
 			"key2": datatypes.Int(2),
 		}
-		g.Expect(keyValues.Validate()).ToNot(HaveOccurred())
+		g.Expect(keyValues.Validate(datatypes.MinDataType, datatypes.MaxDataType)).ToNot(HaveOccurred())
 
 		overrides, err := overrideClient.FindOverrideLimits(testhelpers.NewContextWithLogger(), "test rule", keyValues)
 		g.Expect(err).ToNot(HaveOccurred())
@@ -538,13 +538,13 @@ func Test_OverrideClientLocal_FindOverrideLimits(t *testing.T) {
 			"key1": datatypes.Int(1),
 			"key2": datatypes.Int(2),
 			"key3": datatypes.Int(3),
+			"key4": datatypes.Int(4),
 		}
-		g.Expect(keyValues.Validate()).ToNot(HaveOccurred())
+		g.Expect(keyValues.Validate(datatypes.MinDataType, datatypes.MaxDataType)).ToNot(HaveOccurred())
 
 		overrides, err := overrideClient.FindOverrideLimits(testhelpers.NewContextWithLogger(), "test rule", keyValues)
-		fmt.Printf("%#v\n", overrides[0])
 		g.Expect(err).ToNot(HaveOccurred())
-		g.Expect(len(overrides)).To(Equal(2)) // pairs of groups{ {1, 2}, {2} }
+		g.Expect(len(overrides)).To(Equal(4)) // pairs of groups{ {2}, {4}, {1, 2}, {3, 4} }
 	})
 
 	t.Run("It stops processing overrides if the limit is 0 for a found override", func(t *testing.T) {
@@ -555,7 +555,7 @@ func Test_OverrideClientLocal_FindOverrideLimits(t *testing.T) {
 			"key1": datatypes.Int(1),
 			"key2": datatypes.Int(2),
 		}
-		g.Expect(keyValues.Validate()).ToNot(HaveOccurred())
+		g.Expect(keyValues.Validate(datatypes.MinDataType, datatypes.MaxDataType)).ToNot(HaveOccurred())
 
 		overrides, err := overrideClient.FindOverrideLimits(testhelpers.NewContextWithLogger(), "test rule", keyValues)
 		g.Expect(err).ToNot(HaveOccurred())
@@ -568,14 +568,14 @@ func Test_OverrideClientLocal_FindOverrideLimits(t *testing.T) {
 		mockBTreeOneToMany := btreeonetomanyfakes.NewMockBTreeOneToMany(mockController)
 		defer mockController.Finish()
 
-		mockBTreeOneToMany.EXPECT().MatchPermutations(gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("nope")).Times(1)
+		mockBTreeOneToMany.EXPECT().MatchAction(gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("nope")).Times(1)
 
 		keyValues := &datatypes.KeyValues{
 			"key0":  datatypes.Int(0),
 			"key17": datatypes.Int(17),
 			"key18": datatypes.Int(18),
 		}
-		g.Expect(keyValues.Validate()).ToNot(HaveOccurred())
+		g.Expect(keyValues.Validate(datatypes.MinDataType, datatypes.MaxDataType)).ToNot(HaveOccurred())
 
 		overrideClient := NewOverridesClientLocal(mockBTreeOneToMany, constructor)
 		overrides, err := overrideClient.FindOverrideLimits(testhelpers.NewContextWithLogger(), "test rule", *keyValues)

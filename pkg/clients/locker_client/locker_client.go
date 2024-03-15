@@ -51,9 +51,8 @@ type LockerClient interface {
 // The MockLockerClient can be used in tests to satisfy the LockerClient interface
 type LockClient struct {
 	// client to connect with the remote Locker service
-	url         string
-	client      clients.HttpClient
-	contentType string
+	url    string
+	client clients.HttpClient
 
 	// each item in the locks tree's value is a lock
 	locks btreeassociated.BTreeAssociated
@@ -75,10 +74,9 @@ func NewLockClient(cfg *clients.Config) (*LockClient, error) {
 	}
 
 	lockerClient := &LockClient{
-		url:         cfg.URL,
-		client:      httpClient,
-		contentType: cfg.ContentEncoding,
-		locks:       btreeassociated.NewThreadSafe(),
+		url:    cfg.URL,
+		client: httpClient,
+		locks:  btreeassociated.NewThreadSafe(),
 	}
 
 	return lockerClient, nil
@@ -180,9 +178,9 @@ func (lc *LockClient) ObtainLock(ctx context.Context, lockRequest *v1locker.Lock
 					errCallback := func(err error) {
 						heartbeatErrorCallback(lockRequest.KeyValues, err)
 					}
-					returnLock = newLock(createLockResponse, lc.url, lc.client, lc.contentType, errCallback, lostLockWrapper)
+					returnLock = newLock(createLockResponse, lc.url, lc.client, errCallback, lostLockWrapper)
 				} else {
-					returnLock = newLock(createLockResponse, lc.url, lc.client, lc.contentType, nil, lostLockWrapper)
+					returnLock = newLock(createLockResponse, lc.url, lc.client, nil, lostLockWrapper)
 				}
 
 				return returnLock

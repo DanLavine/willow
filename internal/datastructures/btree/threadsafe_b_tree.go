@@ -9,18 +9,20 @@ import (
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 )
 
+// As part of the "any" work. I believe that this would need a field to capture the
+// "any" operation. Or we have to know to search for the greatest value (max right side)
+// This will break the associated logic though...
+//
 // threadSafeBTree is a shareable thread safe BTree object.
 type threadSafeBTree struct {
 	// number of items that can be in a node at any given time
 	nodeSize int
 
 	// destroying specific key operations
-	// TODO: These need to be checked for the Create/Find/Delete operations and reeturn an error
 	destroyingKeysLock *sync.RWMutex
 	destroyingKeys     []datatypes.EncapsulatedValue
 
 	// destroying whole tree operations
-	// TODO: these are next to implement and ensure
 	readWriteWG *sync.WaitGroup // operations to take place before destroy
 	destroying  *atomic.Bool    // destroying the whole tree
 

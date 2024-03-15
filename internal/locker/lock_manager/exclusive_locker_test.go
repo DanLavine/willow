@@ -10,7 +10,7 @@ import (
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 	"github.com/DanLavine/willow/testhelpers"
 
-	v1 "github.com/DanLavine/willow/pkg/models/api/common/v1"
+	queryassociatedaction "github.com/DanLavine/willow/pkg/models/api/common/v1/query_associated_action"
 	v1locker "github.com/DanLavine/willow/pkg/models/api/locker/v1"
 
 	. "github.com/onsi/gomega"
@@ -314,10 +314,10 @@ func TestExclusiveLocker_LocksQuery(t *testing.T) {
 		lock2 := exclusiveLocker.ObtainLock(testhelpers.NewContextWithLogger(), overlapOneKeyValue())
 		g.Expect(lock2).ToNot(BeNil())
 
-		query := datatypes.AssociatedKeyValuesQuery{}
+		query := &queryassociatedaction.AssociatedActionQuery{}
 		g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-		locks := exclusiveLocker.LocksQuery(testhelpers.NewContextWithLogger(), &v1.AssociatedQuery{AssociatedKeyValues: query})
+		locks := exclusiveLocker.LocksQuery(testhelpers.NewContextWithLogger(), query)
 		g.Expect(len(locks)).To(Equal(2))
 
 		if locks[0].SessionID == lock2.SessionID {
@@ -351,9 +351,8 @@ func TestExclusiveLocker_LocksQuery(t *testing.T) {
 func TestExclusiveLocker_Heartbeat(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	query := datatypes.AssociatedKeyValuesQuery{}
+	query := &queryassociatedaction.AssociatedActionQuery{}
 	g.Expect(query.Validate()).ToNot(HaveOccurred())
-	generalQuery := &v1.AssociatedQuery{AssociatedKeyValues: query}
 
 	t.Run("It returns an error if the LockID does not exist", func(t *testing.T) {
 		ctx, cancel := context.WithCancel(testhelpers.NewContextWithLogger())
@@ -420,7 +419,7 @@ func TestExclusiveLocker_Heartbeat(t *testing.T) {
 			g.Expect(exclusiveLocker.Heartbeat(testhelpers.NewContextWithLogger(), lockResp.LockID, claim)).To(BeNil())
 		}
 
-		locks := exclusiveLocker.LocksQuery(testhelpers.NewContextWithLogger(), generalQuery)
+		locks := exclusiveLocker.LocksQuery(testhelpers.NewContextWithLogger(), query)
 		g.Expect(len(locks)).To(Equal(1))
 	})
 
@@ -441,7 +440,7 @@ func TestExclusiveLocker_Heartbeat(t *testing.T) {
 		g.Expect(lockResp).ToNot(BeNil())
 
 		g.Eventually(func() int {
-			return len(exclusiveLocker.LocksQuery(testhelpers.NewContextWithLogger(), generalQuery))
+			return len(exclusiveLocker.LocksQuery(testhelpers.NewContextWithLogger(), query))
 		}).Should(Equal(0))
 
 		t.Run("It allows another client to claim the lock if no heartbeats are recieved", func(t *testing.T) {
@@ -473,7 +472,7 @@ func TestExclusiveLocker_Heartbeat(t *testing.T) {
 			}
 
 			g.Eventually(func() int {
-				return len(exclusiveLocker.LocksQuery(testhelpers.NewContextWithLogger(), generalQuery))
+				return len(exclusiveLocker.LocksQuery(testhelpers.NewContextWithLogger(), query))
 			}).Should(Equal(0))
 		})
 	})
@@ -482,7 +481,7 @@ func TestExclusiveLocker_Heartbeat(t *testing.T) {
 func TestExclusiveLocker_Release(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	query := datatypes.AssociatedKeyValuesQuery{}
+	query := &queryassociatedaction.AssociatedActionQuery{}
 	g.Expect(query.Validate()).ToNot(HaveOccurred())
 
 	t.Run("It returns an error if the LockID does not exist", func(t *testing.T) {
@@ -604,7 +603,7 @@ func TestExclusiveLocker_async(t *testing.T) {
 		}
 
 		g.Eventually(func() int {
-			locks := exclusiveLocker.LocksQuery(testhelpers.NewContextWithLogger(), &v1.AssociatedQuery{AssociatedKeyValues: datatypes.AssociatedKeyValuesQuery{}})
+			locks := exclusiveLocker.LocksQuery(testhelpers.NewContextWithLogger(), &queryassociatedaction.AssociatedActionQuery{})
 			return len(locks)
 		}, 3*time.Second).Should(Equal(0)) // race detection can be a bit slow on the check here. so allow for 3 seconds
 	})

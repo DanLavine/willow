@@ -10,7 +10,7 @@ import (
 	"go.uber.org/zap"
 
 	lockerclient "github.com/DanLavine/willow/pkg/clients/locker_client"
-	v1common "github.com/DanLavine/willow/pkg/models/api/common/v1"
+	queryassociatedaction "github.com/DanLavine/willow/pkg/models/api/common/v1/query_associated_action"
 	v1limiter "github.com/DanLavine/willow/pkg/models/api/limiter/v1"
 )
 
@@ -65,7 +65,7 @@ func (grh *groupRuleHandler) QueryCounters(w http.ResponseWriter, r *http.Reques
 	defer logger.Debug("processed request")
 
 	// parse the query from the counters
-	query := &v1common.AssociatedQuery{}
+	query := &queryassociatedaction.AssociatedActionQuery{}
 	if err := api.DecodeAndValidateHttpRequest(r, query); err != nil {
 		logger.Warn("failed to decode and validate request", zap.Error(err))
 		_, _ = api.EncodeAndSendHttpResponse(r.Header, w, err.StatusCode, err)

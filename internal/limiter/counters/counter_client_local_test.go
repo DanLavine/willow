@@ -12,8 +12,10 @@ import (
 	"github.com/DanLavine/willow/internal/reporting"
 	"github.com/DanLavine/willow/pkg/clients/locker_client/lockerclientfakes"
 	"github.com/DanLavine/willow/pkg/models/api/common/errors"
+	queryassociatedaction "github.com/DanLavine/willow/pkg/models/api/common/v1/query_associated_action"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 	"github.com/DanLavine/willow/testhelpers"
+	"github.com/DanLavine/willow/testhelpers/testmodels"
 	"go.uber.org/mock/gomock"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
@@ -71,10 +73,10 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 
 		for i := 0; i < 5; i++ {
 			// single instance rule group by
-			createRequest := &v1limiter.RuleCreateRequest{
-				Name:    fmt.Sprintf("test%d", i),
-				GroupBy: []string{fmt.Sprintf("key%d", i)},
-				Limit:   int64(i),
+			createRequest := &v1limiter.Rule{
+				Name:             fmt.Sprintf("test%d", i),
+				GroupByKeyValues: datatypes.KeyValues{fmt.Sprintf("key%d", i): datatypes.Any()},
+				Limit:            int64(i),
 			}
 			g.Expect(createRequest.Validate()).ToNot(HaveOccurred())
 			g.Expect(rulesClient.CreateRule(testhelpers.NewContextWithLogger(), createRequest)).ToNot(HaveOccurred())
@@ -101,10 +103,10 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 		defer cancel()
 
 		// single instance rule group by
-		createRequest := &v1limiter.RuleCreateRequest{
-			Name:    "test1",
-			GroupBy: []string{"key1"},
-			Limit:   15,
+		createRequest := &v1limiter.Rule{
+			Name:             "test1",
+			GroupByKeyValues: datatypes.KeyValues{"key1": datatypes.Any()},
+			Limit:            15,
 		}
 		g.Expect(createRequest.Validate()).ToNot(HaveOccurred())
 		g.Expect(rulesClient.CreateRule(testhelpers.NewContextWithLogger(), createRequest)).ToNot(HaveOccurred())
@@ -149,10 +151,10 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 			//setup rules
 			for i := 0; i < 5; i++ {
 				// single instance rule group by
-				createRequest := &v1limiter.RuleCreateRequest{
-					Name:    fmt.Sprintf("test%d", i),
-					GroupBy: []string{fmt.Sprintf("key%d", i)},
-					Limit:   int64(i),
+				createRequest := &v1limiter.Rule{
+					Name:             fmt.Sprintf("test%d", i),
+					GroupByKeyValues: datatypes.KeyValues{fmt.Sprintf("key%d", i): datatypes.Any()},
+					Limit:            int64(i),
 				}
 				g.Expect(createRequest.Validate()).ToNot(HaveOccurred())
 				g.Expect(rulesClient.CreateRule(testhelpers.NewContextWithLogger(), createRequest)).ToNot(HaveOccurred())
@@ -191,10 +193,10 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 
 				for i := 0; i < 5; i++ {
 					// single instance rule group by
-					createRequest := &v1limiter.RuleCreateRequest{
-						Name:    fmt.Sprintf("test%d", i),
-						GroupBy: []string{fmt.Sprintf("key%d", i)},
-						Limit:   int64(i),
+					createRequest := &v1limiter.Rule{
+						Name:             fmt.Sprintf("test%d", i),
+						GroupByKeyValues: datatypes.KeyValues{fmt.Sprintf("key%d", i): datatypes.Any()},
+						Limit:            int64(i),
 					}
 					g.Expect(createRequest.Validate()).ToNot(HaveOccurred())
 					g.Expect(rulesClient.CreateRule(testhelpers.NewContextWithLogger(), createRequest)).ToNot(HaveOccurred())
@@ -247,10 +249,10 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 
 				for i := 0; i < 5; i++ {
 					// single instance rule group by
-					createRequest := &v1limiter.RuleCreateRequest{
-						Name:    fmt.Sprintf("test%d", i),
-						GroupBy: []string{fmt.Sprintf("key%d", i)},
-						Limit:   int64(i),
+					createRequest := &v1limiter.Rule{
+						Name:             fmt.Sprintf("test%d", i),
+						GroupByKeyValues: datatypes.KeyValues{fmt.Sprintf("key%d", i): datatypes.Any()},
+						Limit:            int64(i),
 					}
 					g.Expect(createRequest.Validate()).ToNot(HaveOccurred())
 					g.Expect(rulesClient.CreateRule(testhelpers.NewContextWithLogger(), createRequest)).ToNot(HaveOccurred())
@@ -320,10 +322,10 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 			defer cancel()
 
 			// single instance rule group by
-			createRequest := &v1limiter.RuleCreateRequest{
-				Name:    "test0",
-				GroupBy: []string{"key0", "key1"},
-				Limit:   5,
+			createRequest := &v1limiter.Rule{
+				Name:             "test0",
+				GroupByKeyValues: datatypes.KeyValues{"key0": datatypes.Any(), "key1": datatypes.Any()},
+				Limit:            5,
 			}
 			g.Expect(createRequest.Validate()).ToNot(HaveOccurred())
 			g.Expect(rulesClient.CreateRule(testhelpers.NewContextWithLogger(), createRequest)).ToNot(HaveOccurred())
@@ -342,14 +344,15 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 			g.Expect(err).ToNot(HaveOccurred())
 
 			// ensure the counter was added
-			found := false
-			onFind := func(item btreeassociated.AssociatedKeyValues) {
-				found = true
+			counterCount := 0
+			onFind := func(item btreeassociated.AssociatedKeyValues) bool {
+				counterCount++
+				return true
 			}
 
-			counterErr := countersClientLocal.counters.Find(counter.KeyValues, onFind)
+			counterErr := countersClientLocal.counters.QueryAction(&queryassociatedaction.AssociatedActionQuery{}, onFind)
 			g.Expect(counterErr).ToNot(HaveOccurred())
-			g.Expect(found).To(BeTrue())
+			g.Expect(counterCount).To(Equal(1))
 		})
 
 		t.Run("It respects the unlimited rules", func(t *testing.T) {
@@ -359,10 +362,10 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 			defer cancel()
 
 			// single instance rule group by
-			createRequest := &v1limiter.RuleCreateRequest{
-				Name:    "test0",
-				GroupBy: []string{"key0", "key1"},
-				Limit:   -1,
+			createRequest := &v1limiter.Rule{
+				Name:             "test0",
+				GroupByKeyValues: datatypes.KeyValues{"key0": datatypes.Any(), "key1": datatypes.Any()},
+				Limit:            -1,
 			}
 			g.Expect(createRequest.Validate()).ToNot(HaveOccurred())
 			g.Expect(rulesClient.CreateRule(testhelpers.NewContextWithLogger(), createRequest)).ToNot(HaveOccurred())
@@ -381,14 +384,15 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 			g.Expect(err).ToNot(HaveOccurred())
 
 			// ensure the counter was added
-			found := false
-			onFind := func(item btreeassociated.AssociatedKeyValues) {
-				found = true
+			counters := 0
+			onFind := func(item btreeassociated.AssociatedKeyValues) bool {
+				counters++
+				return true
 			}
 
-			counterErr := countersClientLocal.counters.Find(counter.KeyValues, onFind)
+			counterErr := countersClientLocal.counters.QueryAction(&queryassociatedaction.AssociatedActionQuery{}, onFind)
 			g.Expect(counterErr).ToNot(HaveOccurred())
-			g.Expect(found).To(BeTrue())
+			g.Expect(counters).To(Equal(1))
 		})
 
 		t.Run("It can update the limit for counters that are below all the rules", func(t *testing.T) {
@@ -398,10 +402,10 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 			defer cancel()
 
 			// single instance rule group by
-			createRequest := &v1limiter.RuleCreateRequest{
-				Name:    "test0",
-				GroupBy: []string{"key0", "key1"},
-				Limit:   5,
+			createRequest := &v1limiter.Rule{
+				Name:             "test0",
+				GroupByKeyValues: datatypes.KeyValues{"key0": datatypes.Any(), "key1": datatypes.Any()},
+				Limit:            5,
 			}
 			g.Expect(createRequest.Validate()).ToNot(HaveOccurred())
 			g.Expect(rulesClient.CreateRule(testhelpers.NewContextWithLogger(), createRequest)).ToNot(HaveOccurred())
@@ -423,11 +427,12 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 
 			// ensure the counter was added
 			count := int64(0)
-			onFind := func(item btreeassociated.AssociatedKeyValues) {
+			onFind := func(item btreeassociated.AssociatedKeyValues) bool {
 				count = item.Value().(Counter).Load()
+				return true
 			}
 
-			counterErr := countersClientLocal.counters.Find(counter.KeyValues, onFind)
+			counterErr := countersClientLocal.counters.QueryAction(&queryassociatedaction.AssociatedActionQuery{}, onFind)
 			g.Expect(counterErr).ToNot(HaveOccurred())
 			g.Expect(count).To(Equal(int64(4)))
 		})
@@ -439,10 +444,10 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 			defer cancel()
 
 			// single instance rule group by
-			createRequest := &v1limiter.RuleCreateRequest{
-				Name:    "test0",
-				GroupBy: []string{"key0", "key1"},
-				Limit:   1,
+			createRequest := &v1limiter.Rule{
+				Name:             "test0",
+				GroupByKeyValues: datatypes.KeyValues{"key0": datatypes.Any(), "key1": datatypes.Any()},
+				Limit:            1,
 			}
 			g.Expect(createRequest.Validate()).ToNot(HaveOccurred())
 			g.Expect(rulesClient.CreateRule(testhelpers.NewContextWithLogger(), createRequest)).ToNot(HaveOccurred())
@@ -466,11 +471,12 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 
 			// ensure the counter was only ever incremented 1 time
 			count := int64(0)
-			onFind := func(item btreeassociated.AssociatedKeyValues) {
+			onFind := func(item btreeassociated.AssociatedKeyValues) bool {
 				count = item.Value().(Counter).Load()
+				return true
 			}
 
-			counterErr := countersClientLocal.counters.Find(counter.KeyValues, onFind)
+			counterErr := countersClientLocal.counters.QueryAction(&queryassociatedaction.AssociatedActionQuery{}, onFind)
 			g.Expect(counterErr).ToNot(HaveOccurred())
 			g.Expect(count).To(Equal(int64(1)))
 		})
@@ -482,10 +488,10 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 			defer cancel()
 
 			// single instance rule group by
-			createRequest := &v1limiter.RuleCreateRequest{
-				Name:    "test0",
-				GroupBy: []string{"key0", "key1"},
-				Limit:   1,
+			createRequest := &v1limiter.Rule{
+				Name:             "test0",
+				GroupByKeyValues: datatypes.KeyValues{"key0": datatypes.Any(), "key1": datatypes.Any()},
+				Limit:            1,
 			}
 			g.Expect(createRequest.Validate()).ToNot(HaveOccurred())
 			g.Expect(rulesClient.CreateRule(testhelpers.NewContextWithLogger(), createRequest)).ToNot(HaveOccurred())
@@ -518,16 +524,19 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 
 			// ensure the counter was only ever incremented 1 time
 			count := int64(0)
-			onFind := func(item btreeassociated.AssociatedKeyValues) {
+			onFind := func(item btreeassociated.AssociatedKeyValues) bool {
 				count = item.Value().(Counter).Load()
+				return true
 			}
 
-			counterErr := countersClientLocal.counters.Find(counter1.KeyValues, onFind)
+			query1 := queryassociatedaction.KeyValuesToExactAssociatedActionQuery(counter1.KeyValues)
+			counterErr := countersClientLocal.counters.QueryAction(query1, onFind)
 			g.Expect(counterErr).ToNot(HaveOccurred())
 			g.Expect(count).To(Equal(int64(1)))
 
 			count = 0 // reset the counter
-			counterErr = countersClientLocal.counters.Find(counter2.KeyValues, onFind)
+			query2 := queryassociatedaction.KeyValuesToExactAssociatedActionQuery(counter2.KeyValues)
+			counterErr = countersClientLocal.counters.QueryAction(query2, onFind)
 			g.Expect(counterErr).ToNot(HaveOccurred())
 			g.Expect(count).To(Equal(int64(0)))
 		})
@@ -539,20 +548,20 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 			defer cancel()
 
 			// restrictive rule
-			createRequest := &v1limiter.RuleCreateRequest{
-				Name:    "test0",
-				GroupBy: []string{"key0", "key1"},
-				Limit:   1,
+			createRequest := &v1limiter.Rule{
+				Name:             "test0",
+				GroupByKeyValues: datatypes.KeyValues{"key0": datatypes.Any(), "key1": datatypes.Any()},
+				Limit:            1,
 			}
 			g.Expect(createRequest.Validate()).ToNot(HaveOccurred())
 			g.Expect(rulesClient.CreateRule(testhelpers.NewContextWithLogger(), createRequest)).ToNot(HaveOccurred())
 
 			// non restrictive rules
 			for i := 1; i < 5; i++ {
-				createRequest := &v1limiter.RuleCreateRequest{
-					Name:    fmt.Sprintf("test%d", i),
-					GroupBy: []string{fmt.Sprintf("key%d", i), fmt.Sprintf("key%d", i+1)},
-					Limit:   int64(i + 10),
+				createRequest := &v1limiter.Rule{
+					Name:             fmt.Sprintf("test%d", i),
+					GroupByKeyValues: datatypes.KeyValues{fmt.Sprintf("key%d", i): datatypes.Any(), fmt.Sprintf("key%d", i+1): datatypes.Any()},
+					Limit:            int64(i + 10),
 				}
 				g.Expect(createRequest.Validate()).ToNot(HaveOccurred())
 				g.Expect(rulesClient.CreateRule(testhelpers.NewContextWithLogger(), createRequest)).ToNot(HaveOccurred())
@@ -568,22 +577,26 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 				Counters: 1,
 			}
 
+			// TODO: permutations are not grabing the proper rules/overrides
+
 			// first counter should be added
+			fmt.Println("incrementing the counters now")
 			err := countersClientLocal.IncrementCounters(testhelpers.NewContextWithLogger(), ctx, fakeLocker, counter)
 			g.Expect(err).ToNot(HaveOccurred())
 
 			// second counter should have an error
 			err = countersClientLocal.IncrementCounters(testhelpers.NewContextWithLogger(), ctx, fakeLocker, counter)
 			g.Expect(err).To(HaveOccurred())
-			g.Expect(err.Error()).To(ContainSubstring("Limit has already been reached for rule"))
+			g.Expect(err.Error()).To(ContainSubstring("Limit has already been reached for rule 'test0'"))
 
 			// ensure the counter was only ever incremented 1 time
 			count := int64(0)
-			onFind := func(item btreeassociated.AssociatedKeyValues) {
+			onFind := func(item btreeassociated.AssociatedKeyValues) bool {
 				count = item.Value().(Counter).Load()
+				return true
 			}
 
-			counterErr := countersClientLocal.counters.Find(counter.KeyValues, onFind)
+			counterErr := countersClientLocal.counters.QueryAction(&queryassociatedaction.AssociatedActionQuery{}, onFind)
 			g.Expect(counterErr).ToNot(HaveOccurred())
 			g.Expect(count).To(Equal(int64(1)))
 		})
@@ -595,10 +608,10 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 			defer cancel()
 
 			// restrictive rule
-			createRequest := &v1limiter.RuleCreateRequest{
-				Name:    "test0",
-				GroupBy: []string{"key0", "key1"},
-				Limit:   1,
+			createRequest := &v1limiter.Rule{
+				Name:             "test0",
+				GroupByKeyValues: datatypes.KeyValues{"key0": datatypes.Any(), "key1": datatypes.Any()},
+				Limit:            1,
 			}
 			g.Expect(createRequest.Validate()).ToNot(HaveOccurred())
 			g.Expect(rulesClient.CreateRule(testhelpers.NewContextWithLogger(), createRequest)).ToNot(HaveOccurred())
@@ -634,11 +647,12 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 
 			// ensure the counter was only ever incremented 1 time
 			count := int64(0)
-			onFind := func(item btreeassociated.AssociatedKeyValues) {
+			onFind := func(item btreeassociated.AssociatedKeyValues) bool {
 				count = item.Value().(Counter).Load()
+				return true
 			}
 
-			counterErr := countersClientLocal.counters.Find(counter.KeyValues, onFind)
+			counterErr := countersClientLocal.counters.QueryAction(&queryassociatedaction.AssociatedActionQuery{}, onFind)
 			g.Expect(counterErr).ToNot(HaveOccurred())
 			g.Expect(count).To(Equal(int64(2)))
 		})
@@ -684,11 +698,12 @@ func TestRulesManager_DecrementCounters(t *testing.T) {
 
 		// ensure the counter value is correct
 		count := int64(0)
-		onFind := func(item btreeassociated.AssociatedKeyValues) {
+		onFind := func(item btreeassociated.AssociatedKeyValues) bool {
 			count = item.Value().(Counter).Load()
+			return true
 		}
 
-		err := countersClientLocal.counters.Find(counter.KeyValues, onFind)
+		err := countersClientLocal.counters.QueryAction(&queryassociatedaction.AssociatedActionQuery{}, onFind)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(count).To(Equal(int64(4)))
 
@@ -706,7 +721,7 @@ func TestRulesManager_DecrementCounters(t *testing.T) {
 
 		// ensure the counter was decremented correctly
 		count = int64(0)
-		err = countersClientLocal.counters.Find(counter.KeyValues, onFind)
+		err = countersClientLocal.counters.QueryAction(&queryassociatedaction.AssociatedActionQuery{}, onFind)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(count).To(Equal(int64(3)))
 	})
@@ -730,11 +745,12 @@ func TestRulesManager_DecrementCounters(t *testing.T) {
 
 		// ensure the counter value is correct
 		count := int64(0)
-		onFind := func(item btreeassociated.AssociatedKeyValues) {
+		onFind := func(item btreeassociated.AssociatedKeyValues) bool {
 			count = item.Value().(Counter).Load()
+			return true
 		}
 
-		err := countersClientLocal.counters.Find(counter.KeyValues, onFind)
+		err := countersClientLocal.counters.QueryAction(&queryassociatedaction.AssociatedActionQuery{}, onFind)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(count).To(Equal(int64(1)))
 
@@ -752,7 +768,7 @@ func TestRulesManager_DecrementCounters(t *testing.T) {
 
 		// ensure the counter was decremented correctly
 		count = int64(0)
-		err = countersClientLocal.counters.Find(counter.KeyValues, onFind)
+		err = countersClientLocal.counters.QueryAction(&queryassociatedaction.AssociatedActionQuery{}, onFind)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(count).To(Equal(int64(0)))
 	})
@@ -761,18 +777,16 @@ func TestRulesManager_DecrementCounters(t *testing.T) {
 func TestRulesManager_QueryCounters(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	exists := true
-
 	t.Run("It returns empty list if there are no counters that match the query", func(t *testing.T) {
 		countersClientLocal, _ := setupLocalClient(g)
 
-		query := &v1common.AssociatedQuery{
-			AssociatedKeyValues: datatypes.AssociatedKeyValuesQuery{
-				KeyValueSelection: &datatypes.KeyValueSelection{
-					KeyValues: map[string]datatypes.Value{
-						"not found": datatypes.Value{
-							Exists: &exists,
-						},
+		query := &queryassociatedaction.AssociatedActionQuery{
+			Selection: &queryassociatedaction.Selection{
+				KeyValues: queryassociatedaction.SelectionKeyValues{
+					"not found": {
+						Value:            datatypes.Any(),
+						Comparison:       v1common.Equals,
+						TypeRestrictions: testmodels.NoTypeRestrictions(g),
 					},
 				},
 			},
@@ -840,27 +854,34 @@ func TestRulesManager_QueryCounters(t *testing.T) {
 		g.Expect(countersClientLocal.IncrementCounters(testhelpers.NewContextWithLogger(), ctx, nil, counter5)).ToNot(HaveOccurred())
 
 		// run the query
-		int0 := datatypes.Int(0)
-		int1 := datatypes.Int(1)
-		int2 := datatypes.Int(2)
-
-		query := &v1common.AssociatedQuery{
-			AssociatedKeyValues: datatypes.AssociatedKeyValuesQuery{
-				KeyValueSelection: &datatypes.KeyValueSelection{
-					KeyValues: map[string]datatypes.Value{
-						"key0": datatypes.Value{ // values 1
-							Exists:     &exists,
-							ExistsType: &datatypes.T_string,
-						},
+		query := &queryassociatedaction.AssociatedActionQuery{
+			Selection: &queryassociatedaction.Selection{
+				KeyValues: queryassociatedaction.SelectionKeyValues{
+					"key0": {
+						Value:            datatypes.Any(),
+						Comparison:       v1common.Equals,
+						TypeRestrictions: testmodels.TypeRestrictions(g, datatypes.T_string, datatypes.T_string),
 					},
 				},
-				Or: []datatypes.AssociatedKeyValuesQuery{ // values 2
-					datatypes.AssociatedKeyValuesQuery{
-						KeyValueSelection: &datatypes.KeyValueSelection{
-							KeyValues: map[string]datatypes.Value{
-								"key0": datatypes.Value{Value: &int0, ValueComparison: datatypes.EqualsPtr()},
-								"key1": datatypes.Value{Value: &int1, ValueComparison: datatypes.EqualsPtr()},
-								"key2": datatypes.Value{Value: &int2, ValueComparison: datatypes.EqualsPtr()},
+			},
+			Or: []*queryassociatedaction.AssociatedActionQuery{
+				&queryassociatedaction.AssociatedActionQuery{
+					Selection: &queryassociatedaction.Selection{
+						KeyValues: queryassociatedaction.SelectionKeyValues{
+							"key0": {
+								Value:            datatypes.Int(0),
+								Comparison:       v1common.Equals,
+								TypeRestrictions: testmodels.TypeRestrictions(g, datatypes.T_int, datatypes.T_int),
+							},
+							"key1": {
+								Value:            datatypes.Int(1),
+								Comparison:       v1common.Equals,
+								TypeRestrictions: testmodels.TypeRestrictions(g, datatypes.T_int, datatypes.T_int),
+							},
+							"key2": {
+								Value:            datatypes.Int(2),
+								Comparison:       v1common.Equals,
+								TypeRestrictions: testmodels.TypeRestrictions(g, datatypes.T_int, datatypes.T_int),
 							},
 						},
 					},
@@ -904,9 +925,7 @@ func TestRulesManager_SetCounter(t *testing.T) {
 		g.Expect(err).ToNot(HaveOccurred())
 
 		// ensure they are set properly
-		query := &v1common.AssociatedQuery{
-			AssociatedKeyValues: datatypes.AssociatedKeyValuesQuery{}, // select all
-		}
+		query := &queryassociatedaction.AssociatedActionQuery{} // select all
 
 		countersResponse, err := countersClientLocal.QueryCounters(testhelpers.NewContextWithLogger(), query)
 		g.Expect(len(countersResponse)).To(Equal(1))
@@ -942,9 +961,7 @@ func TestRulesManager_SetCounter(t *testing.T) {
 		g.Expect(err).ToNot(HaveOccurred())
 
 		// ensure they are set properly
-		query := &v1common.AssociatedQuery{
-			AssociatedKeyValues: datatypes.AssociatedKeyValuesQuery{}, // select all
-		}
+		query := &queryassociatedaction.AssociatedActionQuery{} // select all
 
 		countersResponse, err := countersClientLocal.QueryCounters(testhelpers.NewContextWithLogger(), query)
 		g.Expect(len(countersResponse)).To(Equal(0))

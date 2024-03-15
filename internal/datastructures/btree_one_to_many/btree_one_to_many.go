@@ -3,6 +3,8 @@ package btreeonetomany
 import (
 	"fmt"
 
+	queryassociatedaction "github.com/DanLavine/willow/pkg/models/api/common/v1/query_associated_action"
+	querymatchaction "github.com/DanLavine/willow/pkg/models/api/common/v1/query_match_action"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 )
 
@@ -69,7 +71,7 @@ type OneToManyTreeRemove func(oneToManyItem OneToManyItem) bool
 //	- bool - if true, will continue iterating thrrough the tree. If this ever returns false then the pagination is halted
 type OneToManyTreeIterate func(oneToManyItem OneToManyItem) bool
 
-//go:generate mockgen -destination=btreeonetomanyfakes/one_to_many_mock.go -package=btreeonetomanyfakes github.com/DanLavine/willow/internal/datastructures/btree_one_to_many BTreeOneToMany
+//go:generate mockgen -imports v1common="github.com/DanLavine/willow/pkg/models/api/common/v1" -destination=btreeonetomanyfakes/one_to_many_mock.go -package=btreeonetomanyfakes github.com/DanLavine/willow/internal/datastructures/btree_one_to_many BTreeOneToMany
 type BTreeOneToMany interface {
 	// create a new entry in the BTReeOneToMany
 	//
@@ -133,7 +135,7 @@ type BTreeOneToMany interface {
 	//
 	// Open quesstion as well. should this return an error if the oneID is not found? to be able to distinguish
 	// if there is an issue with finding the OneID or the Query item?
-	Query(oneID string, query datatypes.AssociatedKeyValuesQuery, onIterate OneToManyTreeIterate) error
+	QueryAction(oneID string, query *queryassociatedaction.AssociatedActionQuery, onIterate OneToManyTreeIterate) error
 
 	//	RETURNS:
 	//	- error - error with the parameters or the tree is already being destroyed
@@ -147,7 +149,7 @@ type BTreeOneToMany interface {
 	// TODO: I believe that this should be changed to just a match request and the oneID should be removed.
 	// but there is some unkown around how do pagination properly. Becase this doesn't affect services api
 	// right now, goint to do the easy match operation, but need to revist this once Willow is up and running
-	MatchPermutations(oneID string, match datatypes.KeyValues, onPagination OneToManyTreeIterate) error
+	MatchAction(oneID string, matchActionQuery *querymatchaction.MatchActionQuery, onIterate OneToManyTreeIterate) error
 
 	//	PARAMETERS:
 	//	- oneID - name of the entire relation tree to destroy

@@ -57,7 +57,7 @@ import (
 //	        3. ErrorTreeDestroying
 func (btree *threadSafeBTree) Delete(key datatypes.EncapsulatedValue, canDelete BTreeRemove) error {
 	// parameter checks
-	if err := key.Validate(); err != nil {
+	if err := key.Validate(datatypes.MinDataType, datatypes.MaxDataType); err != nil {
 		return fmt.Errorf("key is invalid: %w", err)
 	}
 
@@ -75,6 +75,7 @@ func (btree *threadSafeBTree) Delete(key datatypes.EncapsulatedValue, canDelete 
 // shared top level delete logic
 func (btree *threadSafeBTree) delete(key datatypes.EncapsulatedValue, canDelete BTreeRemove) error {
 	btree.lock.Lock()
+
 	once := new(sync.Once)
 	unlock := func() { once.Do(func() { btree.lock.Unlock() }) }
 	defer func() { unlock() }()
@@ -111,14 +112,15 @@ func (bn *threadSafeBNode) remove(releaseParentLock func(), nodeSize int, keyToD
 	// since we won't cause a rebalance. So we can release all locks above this node
 	if bn.numberOfValues-1 >= bn.minValues() {
 		releaseParentLock()
+		recurseUnlock = func() { unlock() }
 	}
 
 	// find the currrent or child index to recurse down
 	var index int
 	for index = 0; index < bn.numberOfValues; index++ {
 		// found the index to delete
-		if !bn.keyValues[index].key.Less(keyToDelete) {
-			if !keyToDelete.Less(bn.keyValues[index].key) {
+		if !bn.keyValues[index].key.LessMatchType(keyToDelete) {
+			if !keyToDelete.LessMatchType(bn.keyValues[index].key) {
 				// foundthe key in this node
 
 				// return on the leaf. there are no further actions to take other than remove
@@ -128,8 +130,8 @@ func (bn *threadSafeBNode) remove(releaseParentLock func(), nodeSize int, keyToD
 
 				// try and delete the value if we can
 				if canDelete == nil || canDelete(bn.keyValues[index].key, bn.keyValues[index].value) {
-					if bn.removeNodeItem(recurseUnlock, keyToDelete.DataType(), index) {
-						return bn.rebalance(releaseParentLock, keyToDelete.DataType(), index)
+					if bn.removeNodeItem(recurseUnlock, keyToDelete.Type, index) {
+						return bn.rebalance(releaseParentLock, index)
 					}
 				}
 
@@ -155,7 +157,7 @@ func (bn *threadSafeBNode) remove(releaseParentLock func(), nodeSize int, keyToD
 	switch bn.children[index].remove(recurseUnlock, nodeSize, keyToDelete, canDelete) {
 	case true:
 		// need to rebalance
-		return bn.rebalance(releaseParentLock, keyToDelete.Value(), index)
+		return bn.rebalance(releaseParentLock, index)
 	default:
 		// no more need to rebalance
 		return false
@@ -257,7 +259,7 @@ func (bn *threadSafeBNode) swap(releaseParentLock func(), key any, swapNode *thr
 	switch bn.children[childIndex].swap(recurseUnlock, key, swapNode, swapIndex) {
 	case true:
 		// perform rebaance
-		return bn.rebalance(releaseParentLock, key, childIndex)
+		return bn.rebalance(releaseParentLock, childIndex)
 	default:
 		// nothing needs to be rebalanced, the leaf must have had space or already rebalanced
 		return false
@@ -265,7 +267,7 @@ func (bn *threadSafeBNode) swap(releaseParentLock func(), key any, swapNode *thr
 }
 
 // rebalance is used to chek if a node needs to be rebalanced after removing an index
-func (bn *threadSafeBNode) rebalance(releaseParentLock func(), key any, childIndex int) bool {
+func (bn *threadSafeBNode) rebalance(releaseParentLock func(), childIndex int) bool {
 	switch childIndex {
 	case 0: // can only rotate a right child into the left child that needs an additional value
 		bn.children[childIndex].lock.Lock()

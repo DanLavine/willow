@@ -30,6 +30,13 @@ func ServerErrorReadingRequestBody(err error) *ServerError {
 	}
 }
 
+func ServerErrorEncodingJson(err error) *ServerError {
+	return &ServerError{
+		Message:    fmt.Sprintf("failed to encode request: %s", err.Error()),
+		StatusCode: http.StatusInternalServerError,
+	}
+}
+
 func ServerErrorDecodeingJson(err error) *ServerError {
 	return &ServerError{
 		Message:    fmt.Sprintf("failed to decode request: %s", err.Error()),

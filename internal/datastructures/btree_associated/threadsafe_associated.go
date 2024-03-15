@@ -6,14 +6,14 @@ import (
 
 	"github.com/DanLavine/willow/internal/datastructures/btree"
 	"github.com/DanLavine/willow/internal/idgenerator"
+	"github.com/DanLavine/willow/pkg/async"
 )
 
 type threadsafeAssociatedTree struct {
 	// these keep track to know if a tree is being deleted entierly.
 	// the DeleteAll(...) operation waits until no other requests are running
 	// before processing a delete
-	readWriteWG *sync.WaitGroup
-	destroying  *atomic.Bool
+	destroySyncer async.DestroySyncer
 
 	// associated ids
 	// each value here is an *AssociatedKeyValues
@@ -56,8 +56,7 @@ func NewThreadSafe() *threadsafeAssociatedTree {
 	}
 
 	return &threadsafeAssociatedTree{
-		readWriteWG:   new(sync.WaitGroup),
-		destroying:    new(atomic.Bool),
+		destroySyncer: async.NewDestroySync(),
 		associatedIDs: associatedIDs,
 		idGenerator:   idgenerator.UUID(),
 		keys:          keys,

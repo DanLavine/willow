@@ -11,6 +11,7 @@ import (
 	"github.com/DanLavine/willow/internal/reporting"
 	lockerclient "github.com/DanLavine/willow/pkg/clients/locker_client"
 	"github.com/DanLavine/willow/pkg/models/api/common/errors"
+	queryassociatedaction "github.com/DanLavine/willow/pkg/models/api/common/v1/query_associated_action"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 	"go.uber.org/zap"
 
@@ -40,7 +41,7 @@ func NewCountersClientLocal(constructor CounterConstructor, rulesClient rules.Ru
 }
 
 // List a all counters that match the query
-func (cm *counterClientLocal) QueryCounters(ctx context.Context, query *v1common.AssociatedQuery) (v1limiter.Counters, *errors.ServerError) {
+func (cm *counterClientLocal) QueryCounters(ctx context.Context, query *queryassociatedaction.AssociatedActionQuery) (v1limiter.Counters, *errors.ServerError) {
 	logger := reporting.GetLogger(ctx).Named("QueryCounters")
 
 	countersResponse := v1limiter.Counters{}
@@ -53,7 +54,7 @@ func (cm *counterClientLocal) QueryCounters(ctx context.Context, query *v1common
 		return true
 	}
 
-	if err := cm.counters.Query(query.AssociatedKeyValues, bTreeAssociatedOnIterate); err != nil {
+	if err := cm.counters.QueryAction(query, bTreeAssociatedOnIterate); err != nil {
 		switch err {
 		default:
 			logger.Error("Failed to query counters", zap.Error(err))
@@ -118,7 +119,6 @@ func (cm *counterClientLocal) IncrementCounters(ctx context.Context, requestCont
 			// 5. grab a lock for each key value to ensure that we are the only operation enforcing the rules for such values
 			lockerLocks := []lockerclient.Lock{}
 			defer func() {
-
 				// release all locks when the function exits
 				for _, lock := range lockerLocks {
 					if err := lock.Release(headers); err != nil {
@@ -184,13 +184,17 @@ func (cm *counterClientLocal) IncrementCounters(ctx context.Context, requestCont
 					}
 
 					// 2. setup the key values to searh for
-					keyValues := datatypes.KeyValues{}
-					for _, key := range rule.GroupBy {
-						keyValues[key] = counter.KeyValues[key]
-					}
+					// keyValues := datatypes.KeyValues{}
+					// for _, key := range rule.GroupBy {
+					// 	keyValues[key] = counter.KeyValues[key]
+					// }
 
-					// 3. check the limits
-					if counterErr := cm.checkCounters(ctx, rule.Name, keyValues, rule.Limit); counterErr != nil {
+					// // 3. check the limits
+					// if counterErr := cm.checkCounters(ctx, rule.Name, keyValues, rule.Limit); counterErr != nil {
+					// 	return counterErr
+					// }
+
+					if counterErr := cm.checkCounters(ctx, rule.Name, rule.GroupByKeyValues.Keys(), counter.KeyValues, rule.Limit); counterErr != nil {
 						return counterErr
 					}
 				} else {
@@ -201,7 +205,7 @@ func (cm *counterClientLocal) IncrementCounters(ctx context.Context, requestCont
 						}
 
 						// 2. check the limt
-						if counterErr := cm.checkCounters(ctx, rule.Name, override.KeyValues, override.Limit); counterErr != nil {
+						if counterErr := cm.checkCounters(ctx, rule.Name, override.KeyValues.Keys(), counter.KeyValues, override.Limit); counterErr != nil {
 							return counterErr
 						}
 					}
@@ -227,21 +231,25 @@ func (cm *counterClientLocal) IncrementCounters(ctx context.Context, requestCont
 	return nil
 }
 
-func (cm *counterClientLocal) checkCounters(ctx context.Context, ruleName string, keyValues datatypes.KeyValues, limit int64) *errors.ServerError {
+func (cm *counterClientLocal) checkCounters(ctx context.Context, ruleName string, ruleKeys []string, counteKeyValyes datatypes.KeyValues, limit int64) *errors.ServerError {
 	logger := reporting.GetLogger(ctx).Named("checkCounters")
 
-	// empty query that needs to be filled
-	query := datatypes.AssociatedKeyValuesQuery{
-		KeyValueSelection: &datatypes.KeyValueSelection{
-			KeyValues: map[string]datatypes.Value{},
+	// construct the query for all possible rules that need to be found
+	query := &queryassociatedaction.AssociatedActionQuery{
+		Selection: &queryassociatedaction.Selection{
+			KeyValues: queryassociatedaction.SelectionKeyValues{},
 		},
 	}
 
-	// construct the query so any possible counters that have the fields we are searching for are returned
-	for key, value := range keyValues {
-		// This is spuer important to use, otherwise the address of value is used. so everything will point to the same value which is wrong!
-		tmp := value
-		query.KeyValueSelection.KeyValues[key] = datatypes.Value{Value: &tmp, ValueComparison: datatypes.EqualsPtr()}
+	for _, ruleKey := range ruleKeys {
+		query.Selection.KeyValues[ruleKey] = queryassociatedaction.ValueQuery{
+			Value:      counteKeyValyes[ruleKey],
+			Comparison: v1common.Equals,
+			TypeRestrictions: v1common.TypeRestrictions{
+				MinDataType: counteKeyValyes[ruleKey].Type,
+				MaxDataType: counteKeyValyes[ruleKey].Type,
+			},
+		}
 	}
 
 	counter := int64(0)
@@ -250,7 +258,7 @@ func (cm *counterClientLocal) checkCounters(ctx context.Context, ruleName string
 		return counter < limit // check to exit query early if this fails
 	}
 
-	if err := cm.counters.Query(query, bTreeAssociatedOnIterate); err != nil {
+	if err := cm.counters.QueryAction(query, bTreeAssociatedOnIterate); err != nil {
 		logger.Error("Failed to query the current counters", zap.Error(err))
 		return errors.InternalServerError
 	}

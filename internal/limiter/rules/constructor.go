@@ -24,7 +24,7 @@ type Rule interface {
 
 //go:generate mockgen -destination=rulesfakes/rule_constructor_mock.go -package=rulesfakes github.com/DanLavine/willow/internal/limiter/rules RuleConstructor
 type RuleConstructor interface {
-	New(rule *v1limiter.RuleCreateRequest) Rule
+	New(rule *v1limiter.Rule) Rule
 }
 
 func NewRuleConstructor(constructorType string) (RuleConstructor, error) {
@@ -38,6 +38,6 @@ func NewRuleConstructor(constructorType string) (RuleConstructor, error) {
 
 type memoryConstrutor struct{}
 
-func (mc *memoryConstrutor) New(createRequest *v1limiter.RuleCreateRequest) Rule {
-	return memory.New(createRequest)
+func (mc *memoryConstrutor) New(rule *v1limiter.Rule) Rule {
+	return memory.New(rule)
 }

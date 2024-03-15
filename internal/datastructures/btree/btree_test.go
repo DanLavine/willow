@@ -66,6 +66,12 @@ func OnFindTest(item any) {
 	atomic.AddInt64(&btt.onFindCount, 1)
 }
 
+func OnIterateTest(key datatypes.EncapsulatedValue, item any) bool {
+	btt := item.(*BTreeTester)
+	atomic.AddInt64(&btt.onFindCount, 1)
+	return true
+}
+
 func (btt *BTreeTester) OnFindCount() int64 {
 	return atomic.LoadInt64(&btt.onFindCount)
 }

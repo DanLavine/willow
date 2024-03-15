@@ -2,10 +2,6 @@ package btreeassociated
 
 import "github.com/DanLavine/willow/pkg/models/datatypes"
 
-const (
-	ReservedID = "_associated_id"
-)
-
 type AssociatedKeyValues interface {
 	// obtain the original value for the item in the tree
 	Value() any
@@ -19,6 +15,9 @@ type AssociatedKeyValues interface {
 
 // associatedKeyValues reocrds all the key values that were saved to create the associated grouping.
 type associatedKeyValues struct {
+	// the ID of the item saved in the tree
+	associatedID string
+
 	// key value pairs that make up the item
 	// need to change this now.
 	keyValues datatypes.KeyValues // This is the best I can come up with at this time.
@@ -36,9 +35,7 @@ func (associatedKeyValues *associatedKeyValues) Value() any {
 func (associatedKeyValues *associatedKeyValues) KeyValues() datatypes.KeyValues {
 	newKeyValues := datatypes.KeyValues{}
 	for key, value := range associatedKeyValues.keyValues {
-		if key != ReservedID {
-			newKeyValues[key] = value
-		}
+		newKeyValues[key] = value
 	}
 
 	return newKeyValues
@@ -46,5 +43,5 @@ func (associatedKeyValues *associatedKeyValues) KeyValues() datatypes.KeyValues 
 
 // get the AssociatedID for the item
 func (associatedKeyValues *associatedKeyValues) AssociatedID() string {
-	return associatedKeyValues.keyValues[ReservedID].Value().(string)
+	return associatedKeyValues.associatedID
 }

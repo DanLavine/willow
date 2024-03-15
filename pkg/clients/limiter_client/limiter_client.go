@@ -5,7 +5,8 @@ import (
 	"net/http"
 
 	"github.com/DanLavine/willow/pkg/clients"
-	v1common "github.com/DanLavine/willow/pkg/models/api/common/v1"
+	queryassociatedaction "github.com/DanLavine/willow/pkg/models/api/common/v1/query_associated_action"
+	querymatchaction "github.com/DanLavine/willow/pkg/models/api/common/v1/query_match_action"
 	v1limiter "github.com/DanLavine/willow/pkg/models/api/limiter/v1"
 )
 
@@ -18,11 +19,13 @@ type LimiterClient interface {
 
 	// Rule operations
 	// Create a new Rule
-	CreateRule(rule *v1limiter.RuleCreateRequest, headers http.Header) error
+	CreateRule(rule *v1limiter.Rule, headers http.Header) error
 	// Get a spcific rule by name and query the possible overrides
-	GetRule(ruleName string, query *v1limiter.RuleGet, headers http.Header) (*v1limiter.Rule, error)
-	// MAtch Rules and possible Overrides for a specific KeyValues group
-	MatchRules(query *v1limiter.RuleMatch, headers http.Header) (v1limiter.Rules, error)
+	GetRule(ruleName string, headers http.Header) (*v1limiter.Rule, error)
+	// Query Rules for specific key values
+	QueryRules(query *queryassociatedaction.AssociatedActionQuery, headers http.Header) (v1limiter.Rules, error)
+	// Match any Rules for the provided key values
+	MatchRules(match *querymatchaction.MatchActionQuery, headers http.Header) (v1limiter.Rules, error)
 	// Update a Rule by name
 	UpdateRule(ruleName string, ruleUpdate *v1limiter.RuleUpdateRquest, headers http.Header) error
 	// Delete a Rule by name
@@ -33,8 +36,10 @@ type LimiterClient interface {
 	CreateOverride(ruleName string, override *v1limiter.Override, headers http.Header) error
 	// Get an Override for a particular Rule
 	GetOverride(ruleName string, overrideName string, headers http.Header) (*v1limiter.Override, error)
+	// Query Overrides
+	QueryOverrides(ruleName string, query *queryassociatedaction.AssociatedActionQuery, headers http.Header) (v1limiter.Overrides, error)
 	// Match Overrides
-	MatchOverrides(ruleName string, query *v1common.MatchQuery, headers http.Header) (v1limiter.Overrides, error)
+	MatchOverrides(ruleName string, match *querymatchaction.MatchActionQuery, headers http.Header) (v1limiter.Overrides, error)
 	// Update a particular Override
 	UpdateOverride(ruleName string, overrideName string, overrideUpdate *v1limiter.OverrideUpdate, headers http.Header) error
 	// Delete an Override for a particual Rule
@@ -44,7 +49,7 @@ type LimiterClient interface {
 	// Increment Or Decrement a particual Counter
 	UpdateCounter(counter *v1limiter.Counter, headers http.Header) error
 	// Query Counters
-	QueryCounters(query *v1common.AssociatedQuery, headers http.Header) (v1limiter.Counters, error)
+	QueryCounters(query *queryassociatedaction.AssociatedActionQuery, headers http.Header) (v1limiter.Counters, error)
 	// Forcefully set the Counter without enforcing any rules
 	SetCounters(counters *v1limiter.Counter, headers http.Header) error
 }

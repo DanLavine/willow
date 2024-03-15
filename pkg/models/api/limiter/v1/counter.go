@@ -1,7 +1,7 @@
 package v1
 
 import (
-	"encoding/json"
+	"fmt"
 
 	"github.com/DanLavine/willow/pkg/models/api/common/errors"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
@@ -21,35 +21,15 @@ type Counter struct {
 //
 // Validate ensures the Lock has all required fields set
 func (counter *Counter) Validate() error {
+	if counter == nil {
+		return fmt.Errorf("'Counter' can not be nil")
+	}
+
 	if len(counter.KeyValues) == 0 {
 		return errors.KeyValuesLenghtInvalid
 	}
 
-	if err := counter.KeyValues.Validate(); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-//	RETURNS:
-//	- []byte - encoded JSON byte array for the Counter
-//	- error - error encoding to JSON
-//
-// EncodeJSON encodes the model to a valid JSON format
-func (counter *Counter) EncodeJSON() ([]byte, error) {
-	return json.Marshal(counter)
-}
-
-//	PARAMETERS:
-//	- data - encoded JSON data to parse Counter from
-//
-//	RETURNS:
-//	- error - any error encoutered when reading or parsing the data
-//
-// Decode can convertes the encoded byte array into the Object Decode was called on
-func (counter *Counter) DecodeJSON(data []byte) error {
-	if err := json.Unmarshal(data, counter); err != nil {
+	if err := counter.KeyValues.Validate(datatypes.MinDataType, datatypes.MaxWithoutAnyDataType); err != nil {
 		return err
 	}
 

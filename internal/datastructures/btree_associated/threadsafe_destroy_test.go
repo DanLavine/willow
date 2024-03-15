@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"testing"
 
+	queryassociatedaction "github.com/DanLavine/willow/pkg/models/api/common/v1/query_associated_action"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
+	"github.com/DanLavine/willow/testhelpers/testmodels"
 
 	. "github.com/onsi/gomega"
 )
@@ -85,16 +87,16 @@ func TestAssociatedTree_DestroyByAssociatedID(t *testing.T) {
 			associatedIDs = append(associatedIDs, associatedTree.AssociatedID())
 			return true
 		}
-		g.Expect(associatedTree.Query(datatypes.AssociatedKeyValuesQuery{}, queryAll)).ToNot(HaveOccurred())
+		g.Expect(associatedTree.QueryAction(&queryassociatedaction.AssociatedActionQuery{}, queryAll)).ToNot(HaveOccurred())
 		g.Expect(len(associatedIDs)).To(Equal(99))
 		g.Expect(associatedIDs).ToNot(ContainElement("17"))
 
 		// ensure that the idnodes are in a valid state
 		identifiers := map[string][]int{}
-		associatedTree.keys.Iterate(func(_ datatypes.EncapsulatedValue, item any) bool {
+		associatedTree.keys.Find(datatypes.Any(), testmodels.NoTypeRestrictions(g), func(_ datatypes.EncapsulatedValue, item any) bool {
 			valueNode := item.(*threadsafeValuesNode)
 
-			valueNode.values.Iterate(func(_ datatypes.EncapsulatedValue, item any) bool {
+			valueNode.values.Find(datatypes.Any(), testmodels.NoTypeRestrictions(g), func(_ datatypes.EncapsulatedValue, item any) bool {
 				idNode := item.(*threadsafeIDNode)
 
 				for index, ids := range idNode.ids {
@@ -145,16 +147,16 @@ func TestAssociatedTree_DestroyByAssociatedID(t *testing.T) {
 			associatedIDs = append(associatedIDs, associatedTree.AssociatedID())
 			return true
 		}
-		g.Expect(associatedTree.Query(datatypes.AssociatedKeyValuesQuery{}, queryAll)).ToNot(HaveOccurred())
+		g.Expect(associatedTree.QueryAction(&queryassociatedaction.AssociatedActionQuery{}, queryAll)).ToNot(HaveOccurred())
 		g.Expect(len(associatedIDs)).To(Equal(99))
 		g.Expect(associatedIDs).ToNot(ContainElement("17"))
 
 		// ensure that the idnodes are in a valid state
 		identifiers := map[string][]int{}
-		associatedTree.keys.Iterate(func(_ datatypes.EncapsulatedValue, item any) bool {
+		associatedTree.keys.Find(datatypes.Any(), testmodels.NoTypeRestrictions(g), func(_ datatypes.EncapsulatedValue, item any) bool {
 			valueNode := item.(*threadsafeValuesNode)
 
-			valueNode.values.Iterate(func(_ datatypes.EncapsulatedValue, item any) bool {
+			valueNode.values.Find(datatypes.Any(), testmodels.NoTypeRestrictions(g), func(_ datatypes.EncapsulatedValue, item any) bool {
 				idNode := item.(*threadsafeIDNode)
 
 				for index, ids := range idNode.ids {
@@ -206,16 +208,16 @@ func TestAssociatedTree_DestroyByAssociatedID(t *testing.T) {
 				associatedIDs = append(associatedIDs, associatedTree.AssociatedID())
 				return true
 			}
-			g.Expect(associatedTree.Query(datatypes.AssociatedKeyValuesQuery{}, queryAll)).ToNot(HaveOccurred())
+			g.Expect(associatedTree.QueryAction(&queryassociatedaction.AssociatedActionQuery{}, queryAll)).ToNot(HaveOccurred())
 			g.Expect(len(associatedIDs)).To(Equal(100))
 			g.Expect(associatedIDs).To(ContainElement("17"))
 
 			// ensure that the idnodes are in a valid state
 			identifiers := map[string][]int{}
-			associatedTree.keys.Iterate(func(_ datatypes.EncapsulatedValue, item any) bool {
+			associatedTree.keys.Find(datatypes.Any(), testmodels.NoTypeRestrictions(g), func(_ datatypes.EncapsulatedValue, item any) bool {
 				valueNode := item.(*threadsafeValuesNode)
 
-				valueNode.values.Iterate(func(_ datatypes.EncapsulatedValue, item any) bool {
+				valueNode.values.Find(datatypes.Any(), testmodels.NoTypeRestrictions(g), func(_ datatypes.EncapsulatedValue, item any) bool {
 					idNode := item.(*threadsafeIDNode)
 
 					for index, ids := range idNode.ids {
@@ -345,10 +347,10 @@ func TestAssociatedTree_DestroyTree(t *testing.T) {
 
 			// ensure that the idnodes are in a valid state
 			identifiers := map[string][]int{}
-			associatedTree.keys.Iterate(func(_ datatypes.EncapsulatedValue, item any) bool {
+			associatedTree.keys.Find(datatypes.Any(), testmodels.NoTypeRestrictions(g), func(_ datatypes.EncapsulatedValue, item any) bool {
 				valueNode := item.(*threadsafeValuesNode)
 
-				valueNode.values.Iterate(func(_ datatypes.EncapsulatedValue, item any) bool {
+				valueNode.values.Find(datatypes.Any(), testmodels.NoTypeRestrictions(g), func(_ datatypes.EncapsulatedValue, item any) bool {
 					idNode := item.(*threadsafeIDNode)
 
 					for index, ids := range idNode.ids {

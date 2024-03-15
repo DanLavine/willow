@@ -2,12 +2,12 @@ package api
 
 import (
 	"bytes"
-	"fmt"
 	"io"
 	"net/http"
 	"testing"
 	"time"
 
+	"github.com/DanLavine/willow/pkg/encoding"
 	v1locker "github.com/DanLavine/willow/pkg/models/api/locker/v1"
 
 	. "github.com/onsi/gomega"
@@ -19,7 +19,10 @@ func setupBody(g *GomegaWithT) io.ReadCloser {
 		LockTimeout: time.Second,
 	}
 
-	data, err := lockCreateResponse.EncodeJSON()
+	encoder, err := encoding.NewEncoder(encoding.ContentTypeJSON)
+	g.Expect(err).ToNot(HaveOccurred())
+
+	data, err := encoder.Encode(lockCreateResponse)
 	g.Expect(err).ToNot(HaveOccurred())
 
 	return io.NopCloser(bytes.NewBuffer(data))
@@ -45,7 +48,7 @@ func Test_DecodeAndValidateHttpResponse(t *testing.T) {
 
 		// check the server response
 		g.Expect(clientErr).To(HaveOccurred())
-		g.Expect(clientErr.Error()).To(Equal("failed to read http response body: test read error"))
+		g.Expect(clientErr.Error()).To(Equal("failed to decode response: test read error"))
 	})
 
 	t.Run("Context Content-Type headers", func(t *testing.T) {
@@ -61,7 +64,7 @@ func Test_DecodeAndValidateHttpResponse(t *testing.T) {
 
 			// check the server response
 			g.Expect(clientErr).To(HaveOccurred())
-			g.Expect(clientErr.Error()).To(Equal("unkown content type recieved from service: bad type"))
+			g.Expect(clientErr.Error()).To(Equal("unkown content type recieved from service 'bad type'. Unable to decode the response"))
 		})
 
 		t.Run("Context JSON", func(t *testing.T) {
@@ -124,8 +127,7 @@ func Test_DecodeAndValidateHttpResponse(t *testing.T) {
 
 			// check the server response
 			g.Expect(clientErr).To(HaveOccurred())
-			fmt.Println(clientErr.Error())
-			g.Expect(clientErr.Error()).To(Equal("failed validation for api response: 'SessionID' is the empty string"))
+			g.Expect(clientErr.Error()).To(ContainSubstring("failed validation for api response: SessionID: received an empty string"))
 		})
 	})
 }

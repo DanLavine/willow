@@ -5,9 +5,12 @@ import (
 	"math"
 	"testing"
 
+	v1common "github.com/DanLavine/willow/pkg/models/api/common/v1"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 	. "github.com/onsi/gomega"
 )
+
+var noTypesRestriction = v1common.TypeRestrictions{MinDataType: datatypes.T_uint8, MaxDataType: datatypes.T_any}
 
 func validateThreadSafeTree(g *GomegaWithT, bNode *threadSafeBNode) {
 	// root must be nil
@@ -19,7 +22,7 @@ func validateThreadSafeTree(g *GomegaWithT, bNode *threadSafeBNode) {
 	for index = 0; index < bNode.numberOfValues; index++ {
 		// check current value is less than the next index
 		if index < bNode.numberOfValues-1 {
-			g.Expect(bNode.keyValues[index].key.Less(bNode.keyValues[index+1].key)).To(BeTrue())
+			g.Expect(bNode.keyValues[index].key.LessMatchType(bNode.keyValues[index+1].key)).To(BeTrue())
 		}
 
 		// check all less than children
@@ -43,15 +46,15 @@ func validateThreadSafeNode(g *GomegaWithT, bNode *threadSafeBNode, parentKey da
 	for index = 0; index < bNode.numberOfValues; index++ {
 		if less {
 			// ensure parent key is greater
-			g.Expect(bNode.keyValues[index].key.Less(parentKey)).To(BeTrue())
+			g.Expect(bNode.keyValues[index].key.LessMatchType(parentKey)).To(BeTrue())
 		} else {
 			// ensure parent key is less
-			g.Expect(bNode.keyValues[index].key.Less(parentKey)).To(BeFalse())
+			g.Expect(bNode.keyValues[index].key.LessMatchType(parentKey)).To(BeFalse())
 		}
 
 		// check current value is less than the next index
 		if index < bNode.numberOfValues-1 {
-			g.Expect(bNode.keyValues[index].key.Less(bNode.keyValues[index+1].key)).To(BeTrue())
+			g.Expect(bNode.keyValues[index].key.LessMatchType(bNode.keyValues[index+1].key)).To(BeTrue())
 		}
 
 		// check all less than children

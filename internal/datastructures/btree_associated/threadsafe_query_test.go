@@ -5,1752 +5,1468 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/DanLavine/willow/internal/helpers"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
+	"github.com/DanLavine/willow/testhelpers/testmodels"
+
+	v1common "github.com/DanLavine/willow/pkg/models/api/common/v1"
+	queryassociatedaction "github.com/DanLavine/willow/pkg/models/api/common/v1/query_associated_action"
+
 	. "github.com/onsi/gomega"
 )
 
 func TestAssociatedTree_Query_ParamCheck(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	validSelection := datatypes.AssociatedKeyValuesQuery{}
-	invalidSelection := datatypes.AssociatedKeyValuesQuery{KeyValueSelection: &datatypes.KeyValueSelection{}}
+	validSelection := &queryassociatedaction.AssociatedActionQuery{}
+	invalidSelection := &queryassociatedaction.AssociatedActionQuery{Selection: &queryassociatedaction.Selection{}}
 	onFindPagination := func(value AssociatedKeyValues) bool { return true }
 
 	t.Run("it returns an error if the select query is invalid", func(t *testing.T) {
 		associatedTree := NewThreadSafe()
 
-		err := associatedTree.Query(invalidSelection, onFindPagination)
+		err := associatedTree.QueryAction(invalidSelection, onFindPagination)
 		g.Expect(err).To(HaveOccurred())
-		g.Expect(err.Error()).To(ContainSubstring("requires KeyValues or Limits parameters"))
+		g.Expect(err.Error()).To(ContainSubstring("Selection: requires 'IDs', 'KeyValues', 'MinNumberOfKeyValues' or 'MaxNumberOfKeyValues' to be specified, but received nothing"))
 	})
 
 	t.Run("it returns an error with nil onFindPagination", func(t *testing.T) {
 		associatedTree := NewThreadSafe()
 
-		err := associatedTree.Query(validSelection, nil)
+		err := associatedTree.QueryAction(validSelection, nil)
 		g.Expect(err).To(Equal(ErrorsOnIterateNil))
+	})
+}
+
+func setupTestQueryTree(g *GomegaWithT) ([]string, *threadsafeAssociatedTree) {
+	associatedTree := NewThreadSafe()
+	ids := make([]string, 39)
+
+	noOpOnFind := func(item AssociatedKeyValues) { panic("shouldn't find me during creation") }
+
+	// create a number of entries in the associated tree
+
+	// int values
+	keyValues0 := datatypes.KeyValues{"1": datatypes.Int(1)}
+	keyValues1 := datatypes.KeyValues{"2": datatypes.Int(2)}
+	keyValues2 := datatypes.KeyValues{"3": datatypes.Int(3)}
+
+	// string values
+	keyValues3 := datatypes.KeyValues{"1": datatypes.String("1")}
+	keyValues4 := datatypes.KeyValues{"2": datatypes.String("2")}
+	keyValues5 := datatypes.KeyValues{"3": datatypes.String("3")}
+
+	// any values
+	keyValues6 := datatypes.KeyValues{"1": datatypes.Any()}
+	keyValues7 := datatypes.KeyValues{"2": datatypes.Any()}
+	keyValues8 := datatypes.KeyValues{"3": datatypes.Any()}
+
+	// combination of the key and string values starting at 1
+	//// 1 as int
+	keyValues9 := datatypes.KeyValues{"1": datatypes.Int(1), "2": datatypes.Int(2)}
+	keyValues10 := datatypes.KeyValues{"1": datatypes.Int(1), "2": datatypes.String("2")}
+	keyValues11 := datatypes.KeyValues{"1": datatypes.Int(1), "2": datatypes.Any()}
+	keyValues12 := datatypes.KeyValues{"1": datatypes.Int(1), "3": datatypes.Int(3)}
+	keyValues13 := datatypes.KeyValues{"1": datatypes.Int(1), "3": datatypes.String("3")}
+	keyValues14 := datatypes.KeyValues{"1": datatypes.Int(1), "3": datatypes.Any()}
+	//// 1 as string
+	keyValues15 := datatypes.KeyValues{"1": datatypes.String("1"), "2": datatypes.Int(2)}
+	keyValues16 := datatypes.KeyValues{"1": datatypes.String("1"), "2": datatypes.String("2")}
+	keyValues17 := datatypes.KeyValues{"1": datatypes.String("1"), "2": datatypes.Any()}
+	keyValues18 := datatypes.KeyValues{"1": datatypes.String("1"), "3": datatypes.Int(3)}
+	keyValues19 := datatypes.KeyValues{"1": datatypes.String("1"), "3": datatypes.String("3")}
+	keyValues20 := datatypes.KeyValues{"1": datatypes.String("1"), "3": datatypes.Any()}
+	//// 1 as any
+	keyValues21 := datatypes.KeyValues{"1": datatypes.Any(), "2": datatypes.Int(2)}
+	keyValues22 := datatypes.KeyValues{"1": datatypes.Any(), "2": datatypes.String("2")}
+	keyValues23 := datatypes.KeyValues{"1": datatypes.Any(), "2": datatypes.Any()}
+	keyValues24 := datatypes.KeyValues{"1": datatypes.Any(), "3": datatypes.Int(3)}
+	keyValues25 := datatypes.KeyValues{"1": datatypes.Any(), "3": datatypes.String("3")}
+	keyValues26 := datatypes.KeyValues{"1": datatypes.Any(), "3": datatypes.Any()}
+
+	// combination of the key and string values starting at 2
+	//// 2 as int
+	keyValues27 := datatypes.KeyValues{"2": datatypes.Int(2), "3": datatypes.Int(3)}
+	keyValues28 := datatypes.KeyValues{"2": datatypes.Int(2), "3": datatypes.String("3")}
+	keyValues29 := datatypes.KeyValues{"2": datatypes.Int(2), "3": datatypes.Any()}
+	//// 2 as string
+	keyValues30 := datatypes.KeyValues{"2": datatypes.String("2"), "3": datatypes.Int(3)}
+	keyValues31 := datatypes.KeyValues{"2": datatypes.String("2"), "3": datatypes.String("3")}
+	keyValues32 := datatypes.KeyValues{"2": datatypes.String("2"), "3": datatypes.Any()}
+	//Any()
+	keyValues33 := datatypes.KeyValues{"2": datatypes.Any(), "3": datatypes.Int(3)}
+	keyValues34 := datatypes.KeyValues{"2": datatypes.Any(), "3": datatypes.String("3")}
+	keyValues35 := datatypes.KeyValues{"2": datatypes.Any(), "3": datatypes.Any()}
+
+	// combination of all pure types for now. can maybe add all combinations, but think what I currently
+	// have can test all queries
+	keyValues36 := datatypes.KeyValues{"1": datatypes.Int(1), "2": datatypes.Int(2), "3": datatypes.Int(3)}
+	keyValues37 := datatypes.KeyValues{"1": datatypes.String("1"), "2": datatypes.String("2"), "3": datatypes.String("3")}
+	keyValues38 := datatypes.KeyValues{"1": datatypes.Any(), "2": datatypes.Any(), "3": datatypes.Any()}
+
+	// create all the values and save the IDs. Don't need to check any errors here as those should be tested in the creation
+	// tests to ensure everything is working properly
+	ids[0], _ = associatedTree.CreateOrFind(keyValues0, func() any { return "0" }, noOpOnFind)
+	ids[1], _ = associatedTree.CreateOrFind(keyValues1, func() any { return "1" }, noOpOnFind)
+	ids[2], _ = associatedTree.CreateOrFind(keyValues2, func() any { return "2" }, noOpOnFind)
+	ids[3], _ = associatedTree.CreateOrFind(keyValues3, func() any { return "3" }, noOpOnFind)
+	ids[4], _ = associatedTree.CreateOrFind(keyValues4, func() any { return "4" }, noOpOnFind)
+	ids[5], _ = associatedTree.CreateOrFind(keyValues5, func() any { return "5" }, noOpOnFind)
+	ids[6], _ = associatedTree.CreateOrFind(keyValues6, func() any { return "6" }, noOpOnFind)
+	ids[7], _ = associatedTree.CreateOrFind(keyValues7, func() any { return "7" }, noOpOnFind)
+	ids[8], _ = associatedTree.CreateOrFind(keyValues8, func() any { return "8" }, noOpOnFind)
+	ids[9], _ = associatedTree.CreateOrFind(keyValues9, func() any { return "9" }, noOpOnFind)
+	ids[10], _ = associatedTree.CreateOrFind(keyValues10, func() any { return "10" }, noOpOnFind)
+	ids[11], _ = associatedTree.CreateOrFind(keyValues11, func() any { return "11" }, noOpOnFind)
+	ids[12], _ = associatedTree.CreateOrFind(keyValues12, func() any { return "12" }, noOpOnFind)
+	ids[13], _ = associatedTree.CreateOrFind(keyValues13, func() any { return "13" }, noOpOnFind)
+	ids[14], _ = associatedTree.CreateOrFind(keyValues14, func() any { return "14" }, noOpOnFind)
+	ids[15], _ = associatedTree.CreateOrFind(keyValues15, func() any { return "15" }, noOpOnFind)
+	ids[16], _ = associatedTree.CreateOrFind(keyValues16, func() any { return "16" }, noOpOnFind)
+	ids[17], _ = associatedTree.CreateOrFind(keyValues17, func() any { return "17" }, noOpOnFind)
+	ids[18], _ = associatedTree.CreateOrFind(keyValues18, func() any { return "18" }, noOpOnFind)
+	ids[19], _ = associatedTree.CreateOrFind(keyValues19, func() any { return "19" }, noOpOnFind)
+	ids[20], _ = associatedTree.CreateOrFind(keyValues20, func() any { return "20" }, noOpOnFind)
+	ids[21], _ = associatedTree.CreateOrFind(keyValues21, func() any { return "21" }, noOpOnFind)
+	ids[22], _ = associatedTree.CreateOrFind(keyValues22, func() any { return "22" }, noOpOnFind)
+	ids[23], _ = associatedTree.CreateOrFind(keyValues23, func() any { return "23" }, noOpOnFind)
+	ids[24], _ = associatedTree.CreateOrFind(keyValues24, func() any { return "24" }, noOpOnFind)
+	ids[25], _ = associatedTree.CreateOrFind(keyValues25, func() any { return "25" }, noOpOnFind)
+	ids[26], _ = associatedTree.CreateOrFind(keyValues26, func() any { return "26" }, noOpOnFind)
+	ids[27], _ = associatedTree.CreateOrFind(keyValues27, func() any { return "27" }, noOpOnFind)
+	ids[28], _ = associatedTree.CreateOrFind(keyValues28, func() any { return "28" }, noOpOnFind)
+	ids[29], _ = associatedTree.CreateOrFind(keyValues29, func() any { return "29" }, noOpOnFind)
+	ids[30], _ = associatedTree.CreateOrFind(keyValues30, func() any { return "30" }, noOpOnFind)
+	ids[31], _ = associatedTree.CreateOrFind(keyValues31, func() any { return "31" }, noOpOnFind)
+	ids[32], _ = associatedTree.CreateOrFind(keyValues32, func() any { return "32" }, noOpOnFind)
+	ids[33], _ = associatedTree.CreateOrFind(keyValues33, func() any { return "33" }, noOpOnFind)
+	ids[34], _ = associatedTree.CreateOrFind(keyValues34, func() any { return "34" }, noOpOnFind)
+	ids[35], _ = associatedTree.CreateOrFind(keyValues35, func() any { return "35" }, noOpOnFind)
+	ids[36], _ = associatedTree.CreateOrFind(keyValues36, func() any { return "36" }, noOpOnFind)
+	ids[37], _ = associatedTree.CreateOrFind(keyValues37, func() any { return "37" }, noOpOnFind)
+	ids[38], _ = associatedTree.CreateOrFind(keyValues38, func() any { return "38" }, noOpOnFind)
+
+	return ids, associatedTree
+}
+
+func TestAssociatedTree_Query_SelectAll(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	t.Run("It runs select all if each AssociatedQuery field is nil", func(t *testing.T) {
+		_, tree := setupTestQueryTree(g)
+
+		query := queryassociatedaction.AssociatedActionQuery{}
+		g.Expect(query.Validate()).ToNot(HaveOccurred())
+
+		foundValues := []string{}
+		expectedValues := []string{"0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24", "25", "26", "27", "28", "29", "30", "31", "32", "33", "34", "35", "36", "37", "38"}
+		onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
+			foundValues = append(foundValues, associatedKeyValues.Value().(string))
+			return true
+		}
+
+		g.Expect(tree.QueryAction(&query, onFindPagination)).ToNot(HaveOccurred())
+		g.Expect(len(foundValues)).To(Equal(len(expectedValues)))
+		for _, expectedValue := range expectedValues {
+			g.Expect(foundValues).To(ContainElement(expectedValue))
+		}
+	})
+
+	t.Run("It stops pagination if the callback stop", func(t *testing.T) {
+		_, tree := setupTestQueryTree(g)
+
+		query := queryassociatedaction.AssociatedActionQuery{}
+		g.Expect(query.Validate()).ToNot(HaveOccurred())
+
+		count := 0
+		onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
+			count++
+			return false
+		}
+
+		g.Expect(tree.QueryAction(&query, onFindPagination)).ToNot(HaveOccurred())
+		g.Expect(count).To(Equal(1))
 	})
 }
 
 func TestAssociatedTree_Query_Basic(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	ids := make([]string, 6)
-	existsTrue := true
-	existsFalse := false
-	noOpOnFind := func(item AssociatedKeyValues) {}
+	t.Run("It does not run the callback if there are no keys that match a single query", func(t *testing.T) {
+		_, tree := setupTestQueryTree(g)
 
-	setupQuery := func(g *GomegaWithT) *threadsafeAssociatedTree {
-		associatedTree := NewThreadSafe()
+		query := queryassociatedaction.AssociatedActionQuery{
+			Selection: &queryassociatedaction.Selection{
+				KeyValues: map[string]queryassociatedaction.ValueQuery{
+					"not found": {
+						Value:            datatypes.Any(),
+						Comparison:       v1common.Equals,
+						TypeRestrictions: testmodels.NoTypeRestrictions(g),
+					},
+				},
+			},
+		}
+		g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-		// create a number of entries in the associated tree
-		keyValues1 := datatypes.KeyValues{"1": datatypes.Int(1)}
-		keyValues2 := datatypes.KeyValues{"2": datatypes.String("2")}
-		keyValues3 := datatypes.KeyValues{"1": datatypes.Int8(1), "2": datatypes.Float32(3.4)}
-		keyValues4 := datatypes.KeyValues{"1": datatypes.String("1"), "2": datatypes.String("2"), "3": datatypes.Float64(3.4)}
-		keyValues5 := datatypes.KeyValues{"3": datatypes.Int32(1), "4": datatypes.Float64(3.4)}
-		keyValues6 := datatypes.KeyValues{"1": datatypes.Int8(4), "2": datatypes.Float32(3.4)}
-		id, err := associatedTree.CreateOrFind(keyValues1, func() any { return "1" }, noOpOnFind)
-		g.Expect(err).ToNot(HaveOccurred())
-		ids[0] = id
-		ids[1], err = associatedTree.CreateOrFind(keyValues2, func() any { return "2" }, noOpOnFind)
-		g.Expect(err).ToNot(HaveOccurred())
-		ids[2], err = associatedTree.CreateOrFind(keyValues3, func() any { return "3" }, noOpOnFind)
-		g.Expect(err).ToNot(HaveOccurred())
-		ids[3], err = associatedTree.CreateOrFind(keyValues4, func() any { return "4" }, noOpOnFind)
-		g.Expect(err).ToNot(HaveOccurred())
-		ids[4], err = associatedTree.CreateOrFind(keyValues5, func() any { return "5" }, noOpOnFind)
-		g.Expect(err).ToNot(HaveOccurred())
-		ids[5], err = associatedTree.CreateOrFind(keyValues6, func() any { return "6" }, noOpOnFind)
-		g.Expect(err).ToNot(HaveOccurred())
+		count := 0
+		onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
+			count++
+			return true
+		}
 
-		return associatedTree
-	}
+		g.Expect(tree.QueryAction(&query, onFindPagination)).ToNot(HaveOccurred())
+		g.Expect(count).To(Equal(0))
+	})
 
-	t.Run("Describe _associated_id special key query", func(t *testing.T) {
-		t.Run("It returns any value saved in the associated tree", func(t *testing.T) {
-			associatedTree := setupQuery(g)
+	t.Run("It stops pagination if the callback stop", func(t *testing.T) {
+		_, tree := setupTestQueryTree(g)
 
-			var foundItem AssociatedKeyValues
-			onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
-				foundItem = associatedKeyValues
-				return true
-			}
+		query := queryassociatedaction.AssociatedActionQuery{
+			Selection: &queryassociatedaction.Selection{
+				MinNumberOfKeyValues: helpers.PointerOf(3),
+				KeyValues: map[string]queryassociatedaction.ValueQuery{
+					"1": {
+						Value:            datatypes.Int(1),
+						Comparison:       v1common.Equals,
+						TypeRestrictions: testmodels.NoTypeRestrictions(g),
+					},
+					"2": {
+						Value:            datatypes.Int(2),
+						Comparison:       v1common.Equals,
+						TypeRestrictions: testmodels.NoTypeRestrictions(g),
+					},
+				},
+			},
+		}
+		g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-			idString := datatypes.String(ids[0])
-			query := datatypes.AssociatedKeyValuesQuery{
-				KeyValueSelection: &datatypes.KeyValueSelection{
-					KeyValues: map[string]datatypes.Value{
-						"_associated_id": datatypes.Value{Value: &idString, ValueComparison: datatypes.EqualsPtr()},
+		count := 0
+		onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
+			count++
+			return false
+		}
+
+		g.Expect(tree.QueryAction(&query, onFindPagination)).ToNot(HaveOccurred())
+		g.Expect(count).To(Equal(1))
+	})
+
+	t.Run("It respects the limits.MinNumberOfKeyValues if they are provided", func(t *testing.T) {
+		_, tree := setupTestQueryTree(g)
+
+		query := queryassociatedaction.AssociatedActionQuery{
+			Selection: &queryassociatedaction.Selection{
+				MinNumberOfKeyValues: helpers.PointerOf(3),
+				KeyValues: map[string]queryassociatedaction.ValueQuery{
+					"1": {
+						Value:            datatypes.Int(1),
+						Comparison:       v1common.Equals,
+						TypeRestrictions: testmodels.NoTypeRestrictions(g),
+					},
+					"2": {
+						Value:            datatypes.Int(2),
+						Comparison:       v1common.Equals,
+						TypeRestrictions: testmodels.NoTypeRestrictions(g),
+					},
+				},
+			},
+		}
+		g.Expect(query.Validate()).ToNot(HaveOccurred())
+
+		expectedValues := []string{"36", "38"}
+		foundValues := []string{}
+		onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
+			foundValues = append(foundValues, associatedKeyValues.Value().(string))
+			return true
+		}
+
+		g.Expect(tree.QueryAction(&query, onFindPagination)).ToNot(HaveOccurred())
+		g.Expect(len(foundValues)).To(Equal(len(expectedValues)))
+		for _, expectedValue := range expectedValues {
+			g.Expect(foundValues).To(ContainElement(expectedValue))
+		}
+	})
+
+	t.Run("It respects the limits.MaxNumberOfKeyValues if they are provided", func(t *testing.T) {
+		_, tree := setupTestQueryTree(g)
+
+		query := queryassociatedaction.AssociatedActionQuery{
+			Selection: &queryassociatedaction.Selection{
+				MaxNumberOfKeyValues: helpers.PointerOf(2),
+				KeyValues: map[string]queryassociatedaction.ValueQuery{
+					"1": {
+						Value:            datatypes.Int(1),
+						Comparison:       v1common.Equals,
+						TypeRestrictions: testmodels.NoTypeRestrictions(g),
+					},
+					"2": {
+						Value:            datatypes.Int(2),
+						Comparison:       v1common.Equals,
+						TypeRestrictions: testmodels.NoTypeRestrictions(g),
+					},
+				},
+			},
+		}
+		g.Expect(query.Validate()).ToNot(HaveOccurred())
+
+		expectedValues := []string{"9", "11", "21", "23"}
+		foundValues := []string{}
+		onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
+			foundValues = append(foundValues, associatedKeyValues.Value().(string))
+			return true
+		}
+
+		g.Expect(tree.QueryAction(&query, onFindPagination)).ToNot(HaveOccurred())
+		g.Expect(len(foundValues)).To(Equal(len(expectedValues)))
+		for _, expectedValue := range expectedValues {
+			g.Expect(foundValues).To(ContainElement(expectedValue))
+		}
+	})
+
+	t.Run("Describe EQUALS queries", func(t *testing.T) {
+		t.Run("It can find all fields with a single KeyValue", func(t *testing.T) {
+			_, tree := setupTestQueryTree(g)
+
+			query := queryassociatedaction.AssociatedActionQuery{
+				Selection: &queryassociatedaction.Selection{
+					KeyValues: map[string]queryassociatedaction.ValueQuery{
+						"1": {
+							Value:            datatypes.Int(1),
+							Comparison:       v1common.Equals,
+							TypeRestrictions: testmodels.NoTypeRestrictions(g),
+						},
 					},
 				},
 			}
 			g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-			err := associatedTree.Query(query, onFindPagination)
-			g.Expect(err).ToNot(HaveOccurred())
-			g.Expect(foundItem).ToNot(BeNil())
-			g.Expect(foundItem.KeyValues()["1"]).To(Equal(datatypes.Int(1)))
-			g.Expect(foundItem.AssociatedID()).To(Equal(ids[0]))
-		})
-
-		t.Run("It adds the id if the Limits are below the selected values", func(t *testing.T) {
-			associatedTree := setupQuery(g)
-
-			var foundItem AssociatedKeyValues
+			expectedValues := []string{"0", "6", "9", "10", "11", "12", "13", "14", "21", "22", "23", "24", "25", "26", "36", "38"}
+			foundValues := []string{}
 			onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
-				foundItem = associatedKeyValues
+				foundValues = append(foundValues, associatedKeyValues.Value().(string))
 				return true
 			}
 
-			keyLimits := 32
-			idString := datatypes.String(ids[3])
-			query := datatypes.AssociatedKeyValuesQuery{
-				KeyValueSelection: &datatypes.KeyValueSelection{
-					KeyValues: map[string]datatypes.Value{
-						"_associated_id": datatypes.Value{Value: &idString, ValueComparison: datatypes.EqualsPtr()},
-					},
-					Limits: &datatypes.KeyLimits{
-						NumberOfKeys: &keyLimits,
+			g.Expect(tree.QueryAction(&query, onFindPagination)).ToNot(HaveOccurred())
+			g.Expect(len(foundValues)).To(Equal(len(expectedValues)))
+			for _, expectedValue := range expectedValues {
+				g.Expect(foundValues).To(ContainElement(expectedValue))
+			}
+		})
+
+		t.Run("It can find all fileds with multiple KeyValues", func(t *testing.T) {
+			_, tree := setupTestQueryTree(g)
+
+			query := queryassociatedaction.AssociatedActionQuery{
+				Selection: &queryassociatedaction.Selection{
+					KeyValues: map[string]queryassociatedaction.ValueQuery{
+						"1": {
+							Value:            datatypes.Int(1),
+							Comparison:       v1common.Equals,
+							TypeRestrictions: testmodels.NoTypeRestrictions(g),
+						},
+						"2": {
+							Value:            datatypes.Int(2),
+							Comparison:       v1common.Equals,
+							TypeRestrictions: testmodels.NoTypeRestrictions(g),
+						},
 					},
 				},
 			}
 			g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-			err := associatedTree.Query(query, onFindPagination)
-			g.Expect(err).ToNot(HaveOccurred())
-			g.Expect(foundItem).ToNot(BeNil())
-			g.Expect(foundItem.AssociatedID()).To(Equal(ids[3]))
-		})
-
-		t.Run("It does not add the id if the Limits have to many values", func(t *testing.T) {
-			associatedTree := setupQuery(g)
-
-			var foundItem AssociatedKeyValues
+			expectedValues := []string{"9", "11", "21", "23", "36", "38"}
+			foundValues := []string{}
 			onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
-				foundItem = associatedKeyValues
+				foundValues = append(foundValues, associatedKeyValues.Value().(string))
 				return true
 			}
 
-			keyLimits := 1
-			idString := datatypes.String(ids[3])
-			query := datatypes.AssociatedKeyValuesQuery{
-				KeyValueSelection: &datatypes.KeyValueSelection{
-					KeyValues: map[string]datatypes.Value{
-						"_associated_id": datatypes.Value{Value: &idString, ValueComparison: datatypes.EqualsPtr()},
-					},
-					Limits: &datatypes.KeyLimits{
-						NumberOfKeys: &keyLimits,
+			g.Expect(tree.QueryAction(&query, onFindPagination)).ToNot(HaveOccurred())
+			g.Expect(len(foundValues)).To(Equal(len(expectedValues)))
+			for _, expectedValue := range expectedValues {
+				g.Expect(foundValues).To(ContainElement(expectedValue))
+			}
+		})
+
+		t.Run("It respects the type restrictions", func(t *testing.T) {
+			_, tree := setupTestQueryTree(g)
+
+			query := queryassociatedaction.AssociatedActionQuery{
+				Selection: &queryassociatedaction.Selection{
+					KeyValues: map[string]queryassociatedaction.ValueQuery{
+						"1": {
+							Value:            datatypes.Int(1),
+							Comparison:       v1common.Equals,
+							TypeRestrictions: testmodels.TypeRestrictions(g, datatypes.T_int, datatypes.T_int),
+						},
+						"2": {
+							Value:            datatypes.Int(2),
+							Comparison:       v1common.Equals,
+							TypeRestrictions: testmodels.TypeRestrictions(g, datatypes.T_int, datatypes.T_int),
+						},
 					},
 				},
 			}
 			g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-			err := associatedTree.Query(query, onFindPagination)
-			g.Expect(err).ToNot(HaveOccurred())
-			g.Expect(foundItem).To(BeNil())
-		})
-
-		t.Run("Context when there are additional keys to check", func(t *testing.T) {
-			t.Run("It an add the _associated_id first", func(t *testing.T) {
-				associatedTree := setupQuery(g)
-
-				var foundItem AssociatedKeyValues
-				onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
-					foundItem = associatedKeyValues
-					return true
-				}
-
-				idString := datatypes.String(ids[3])
-				oneString := datatypes.String("1")
-				query := datatypes.AssociatedKeyValuesQuery{
-					KeyValueSelection: &datatypes.KeyValueSelection{
-						KeyValues: map[string]datatypes.Value{
-							"_associated_id": datatypes.Value{Value: &idString, ValueComparison: datatypes.EqualsPtr()},
-							"1":              datatypes.Value{Value: &oneString, ValueComparison: datatypes.EqualsPtr()},
-						},
-					},
-				}
-				g.Expect(query.Validate()).ToNot(HaveOccurred())
-
-				err := associatedTree.Query(query, onFindPagination)
-				g.Expect(err).ToNot(HaveOccurred())
-				g.Expect(foundItem).ToNot(BeNil())
-				g.Expect(foundItem.KeyValues()["1"]).To(Equal(datatypes.String("1")))
-				g.Expect(foundItem.KeyValues()["2"]).To(Equal(datatypes.String("2")))
-				g.Expect(foundItem.KeyValues()["3"]).To(Equal(datatypes.Float64(3.4)))
-				g.Expect(foundItem.AssociatedID()).To(Equal(ids[3]))
-			})
-
-			t.Run("It an add the _associated_id second", func(t *testing.T) {
-				associatedTree := setupQuery(g)
-
-				int8_4 := datatypes.Int8(4)
-				newKeyValues := datatypes.KeyValues{"a": int8_4}
-				newID, err := associatedTree.CreateOrFind(newKeyValues, func() any { return "1" }, noOpOnFind)
-				g.Expect(err).ToNot(HaveOccurred())
-
-				var foundItem AssociatedKeyValues
-				onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
-					foundItem = associatedKeyValues
-					return true
-				}
-
-				idString := datatypes.String(newID)
-				query := datatypes.AssociatedKeyValuesQuery{
-					KeyValueSelection: &datatypes.KeyValueSelection{
-						KeyValues: map[string]datatypes.Value{
-							"a":              datatypes.Value{Value: &int8_4, ValueComparison: datatypes.EqualsPtr()},
-							"_associated_id": datatypes.Value{Value: &idString, ValueComparison: datatypes.EqualsPtr()},
-						},
-					},
-				}
-				g.Expect(query.Validate()).ToNot(HaveOccurred())
-
-				err = associatedTree.Query(query, onFindPagination)
-				g.Expect(err).ToNot(HaveOccurred())
-				g.Expect(foundItem).ToNot(BeNil())
-				g.Expect(foundItem.KeyValues()["a"]).To(Equal(datatypes.Int8(4)))
-				g.Expect(foundItem.AssociatedID()).To(Equal(newID))
-			})
-
-			t.Run("It an add the _associated_id second if it is under the Limits", func(t *testing.T) {
-				associatedTree := setupQuery(g)
-
-				int8_4 := datatypes.Int8(4)
-				newKeyValues := datatypes.KeyValues{"a": int8_4}
-				newID, err := associatedTree.CreateOrFind(newKeyValues, func() any { return "1" }, noOpOnFind)
-				g.Expect(err).ToNot(HaveOccurred())
-
-				var foundItem AssociatedKeyValues
-				onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
-					foundItem = associatedKeyValues
-					return true
-				}
-
-				keyLimits := 32
-				idString := datatypes.String(newID)
-				query := datatypes.AssociatedKeyValuesQuery{
-					KeyValueSelection: &datatypes.KeyValueSelection{
-						KeyValues: map[string]datatypes.Value{
-							"a":              datatypes.Value{Value: &int8_4, ValueComparison: datatypes.EqualsPtr()},
-							"_associated_id": datatypes.Value{Value: &idString, ValueComparison: datatypes.EqualsPtr()},
-						},
-						Limits: &datatypes.KeyLimits{
-							NumberOfKeys: &keyLimits,
-						},
-					},
-				}
-				g.Expect(query.Validate()).ToNot(HaveOccurred())
-
-				err = associatedTree.Query(query, onFindPagination)
-				g.Expect(err).ToNot(HaveOccurred())
-				g.Expect(foundItem).ToNot(BeNil())
-				g.Expect(foundItem.KeyValues()["a"]).To(Equal(datatypes.Int8(4)))
-				g.Expect(foundItem.AssociatedID()).To(Equal(newID))
-			})
-
-			t.Run("It does not add the _associated_id second if it is over the Limits", func(t *testing.T) {
-				associatedTree := setupQuery(g)
-
-				int8_4 := datatypes.Int8(4)
-				newKeyValues := datatypes.KeyValues{"a": int8_4, "b": int8_4}
-				newID, err := associatedTree.CreateOrFind(newKeyValues, func() any { return "1" }, noOpOnFind)
-				g.Expect(err).ToNot(HaveOccurred())
-
-				var foundItem AssociatedKeyValues
-				onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
-					foundItem = associatedKeyValues
-					return true
-				}
-
-				keyLimits := 1
-				idString := datatypes.String(newID)
-				query := datatypes.AssociatedKeyValuesQuery{
-					KeyValueSelection: &datatypes.KeyValueSelection{
-						KeyValues: map[string]datatypes.Value{
-							"a":              datatypes.Value{Value: &int8_4, ValueComparison: datatypes.EqualsPtr()},
-							"_associated_id": datatypes.Value{Value: &idString, ValueComparison: datatypes.EqualsPtr()},
-						},
-						Limits: &datatypes.KeyLimits{
-							NumberOfKeys: &keyLimits,
-						},
-					},
-				}
-				g.Expect(query.Validate()).ToNot(HaveOccurred())
-
-				err = associatedTree.Query(query, onFindPagination)
-				g.Expect(err).ToNot(HaveOccurred())
-				g.Expect(foundItem).To(BeNil())
-			})
-
-			t.Run("It filters out the item if the key values pairs do not match", func(t *testing.T) {
-				associatedTree := setupQuery(g)
-
-				var foundItem AssociatedKeyValues
-				onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
-					foundItem = associatedKeyValues
-					return true
-				}
-
-				int8_4 := datatypes.Int8(4)
-				idString := datatypes.String(ids[2])
-				query := datatypes.AssociatedKeyValuesQuery{
-					KeyValueSelection: &datatypes.KeyValueSelection{
-						KeyValues: map[string]datatypes.Value{
-							"3":              datatypes.Value{Value: &int8_4, ValueComparison: datatypes.EqualsPtr()},
-							"_associated_id": datatypes.Value{Value: &idString, ValueComparison: datatypes.EqualsPtr()},
-						},
-					},
-				}
-				g.Expect(query.Validate()).ToNot(HaveOccurred())
-
-				err := associatedTree.Query(query, onFindPagination)
-				g.Expect(err).ToNot(HaveOccurred())
-				g.Expect(foundItem).To(BeNil())
-			})
-		})
-	})
-
-	t.Run("Describe Select ALL query", func(t *testing.T) {
-		t.Run("It returns the value saved in the associated tree when found", func(t *testing.T) {
-			associatedTree := setupQuery(g)
-
-			var foundItems []any
+			expectedValues := []string{"9", "36"}
+			foundValues := []string{}
 			onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
-				foundItems = append(foundItems, associatedKeyValues.Value())
+				foundValues = append(foundValues, associatedKeyValues.Value().(string))
 				return true
 			}
 
-			query := datatypes.AssociatedKeyValuesQuery{}
-			g.Expect(query.Validate()).ToNot(HaveOccurred())
-
-			err := associatedTree.Query(query, onFindPagination)
-			g.Expect(err).ToNot(HaveOccurred())
-			g.Expect(foundItems).To(ContainElements("1", "2", "3", "4", "5", "6"))
+			g.Expect(tree.QueryAction(&query, onFindPagination)).ToNot(HaveOccurred())
+			g.Expect(len(foundValues)).To(Equal(len(expectedValues)))
+			for _, expectedValue := range expectedValues {
+				g.Expect(foundValues).To(ContainElement(expectedValue))
+			}
 		})
 
-		t.Run("It can break the query quickly if the pagination callback returns false", func(t *testing.T) {
-			associatedTree := setupQuery(g)
+		t.Run("Context when the query uses T_any", func(t *testing.T) {
+			t.Run("It respects the type restrictions", func(t *testing.T) {
+				_, tree := setupTestQueryTree(g)
 
-			var foundItems []any
+				query := queryassociatedaction.AssociatedActionQuery{
+					Selection: &queryassociatedaction.Selection{
+						KeyValues: map[string]queryassociatedaction.ValueQuery{
+							"1": {
+								Value:            datatypes.Any(),
+								Comparison:       v1common.Equals,
+								TypeRestrictions: testmodels.TypeRestrictions(g, datatypes.T_int, datatypes.T_int),
+							},
+							"2": {
+								Value:            datatypes.Any(),
+								Comparison:       v1common.Equals,
+								TypeRestrictions: testmodels.TypeRestrictions(g, datatypes.T_int, datatypes.T_int),
+							},
+						},
+					},
+				}
+				g.Expect(query.Validate()).ToNot(HaveOccurred())
+
+				expectedValues := []string{"9", "36"}
+				foundValues := []string{}
+				onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
+					foundValues = append(foundValues, associatedKeyValues.Value().(string))
+					return true
+				}
+
+				g.Expect(tree.QueryAction(&query, onFindPagination)).ToNot(HaveOccurred())
+				g.Expect(len(foundValues)).To(Equal(len(expectedValues)))
+				for _, expectedValue := range expectedValues {
+					g.Expect(foundValues).To(ContainElement(expectedValue))
+				}
+			})
+
+			t.Run("It allows for all values if there are no type restrictions", func(t *testing.T) {
+				_, tree := setupTestQueryTree(g)
+
+				query := queryassociatedaction.AssociatedActionQuery{
+					Selection: &queryassociatedaction.Selection{
+						KeyValues: map[string]queryassociatedaction.ValueQuery{
+							"1": {
+								Value:            datatypes.Any(),
+								Comparison:       v1common.Equals,
+								TypeRestrictions: testmodels.NoTypeRestrictions(g),
+							},
+							"2": {
+								Value:            datatypes.Any(),
+								Comparison:       v1common.Equals,
+								TypeRestrictions: testmodels.NoTypeRestrictions(g),
+							},
+						},
+					},
+				}
+				g.Expect(query.Validate()).ToNot(HaveOccurred())
+
+				expectedValues := []string{"9", "10", "11", "15", "16", "17", "21", "22", "23", "36", "37", "38"}
+				foundValues := []string{}
+				onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
+					foundValues = append(foundValues, associatedKeyValues.Value().(string))
+					return true
+				}
+
+				g.Expect(tree.QueryAction(&query, onFindPagination)).ToNot(HaveOccurred())
+				g.Expect(len(foundValues)).To(Equal(len(expectedValues)))
+				for _, expectedValue := range expectedValues {
+					g.Expect(foundValues).To(ContainElement(expectedValue))
+				}
+			})
+		})
+	})
+
+	t.Run("Describe NOT EQUALS queries", func(t *testing.T) {
+		t.Run("It can find all fields that do not contain a single KeyValue", func(t *testing.T) {
+			_, tree := setupTestQueryTree(g)
+
+			query := queryassociatedaction.AssociatedActionQuery{
+				Selection: &queryassociatedaction.Selection{
+					KeyValues: map[string]queryassociatedaction.ValueQuery{
+						"1": {
+							Value:            datatypes.Int(1),
+							Comparison:       v1common.NotEquals,
+							TypeRestrictions: testmodels.NoTypeRestrictions(g),
+						},
+					},
+				},
+			}
+			g.Expect(query.Validate()).ToNot(HaveOccurred())
+
+			expectedValues := []string{"1", "2", "3", "4", "5", "7", "8", "15", "16", "17", "18", "19", "20", "27", "28", "29", "30", "31", "32", "33", "34", "35", "37"}
+			foundValues := []string{}
 			onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
-				foundItems = append(foundItems, associatedKeyValues.Value())
-				return false
+				foundValues = append(foundValues, associatedKeyValues.Value().(string))
+				return true
 			}
 
-			query := datatypes.AssociatedKeyValuesQuery{}
+			g.Expect(tree.QueryAction(&query, onFindPagination)).ToNot(HaveOccurred())
+			g.Expect(len(foundValues)).To(Equal(len(expectedValues)))
+			for _, expectedValue := range expectedValues {
+				g.Expect(foundValues).To(ContainElement(expectedValue))
+			}
+		})
+
+		t.Run("It can find all fileds not containing multiple KeyValues", func(t *testing.T) {
+			_, tree := setupTestQueryTree(g)
+
+			query := queryassociatedaction.AssociatedActionQuery{
+				Selection: &queryassociatedaction.Selection{
+					KeyValues: map[string]queryassociatedaction.ValueQuery{
+						"1": {
+							Value:            datatypes.Int(1),
+							Comparison:       v1common.NotEquals,
+							TypeRestrictions: testmodels.NoTypeRestrictions(g),
+						},
+						"2": {
+							Value:            datatypes.Int(2),
+							Comparison:       v1common.NotEquals,
+							TypeRestrictions: testmodels.NoTypeRestrictions(g),
+						},
+					},
+				},
+			}
 			g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-			err := associatedTree.Query(query, onFindPagination)
-			g.Expect(err).ToNot(HaveOccurred())
-			g.Expect(len(foundItems)).To(Equal(1))
-		})
-	})
+			expectedValues := []string{"0", "1", "2", "3", "4", "5", "6", "7", "8", "10", "12", "13", "14", "15", "16", "17", "18", "19", "20", "22", "24", "25", "26", "27", "28", "29", "30", "31", "32", "33", "34", "35", "37"}
+			foundValues := []string{}
+			onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
+				foundValues = append(foundValues, associatedKeyValues.Value().(string))
+				return true
+			}
 
-	t.Run("Describe Select WHERE.Exists query", func(t *testing.T) {
-		t.Run("Context when ExistsType is nil", func(t *testing.T) {
-			t.Run("Context when Exists == True", func(t *testing.T) {
-				t.Run("It returns any value saved in the associated tree", func(t *testing.T) {
-					associatedTree := setupQuery(g)
-
-					var foundItems []any
-					onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
-						foundItems = append(foundItems, associatedKeyValues.Value())
-						return true
-					}
-
-					query := datatypes.AssociatedKeyValuesQuery{
-						KeyValueSelection: &datatypes.KeyValueSelection{
-							KeyValues: map[string]datatypes.Value{
-								"1": {Exists: &existsTrue},
-							},
-						},
-					}
-					g.Expect(query.Validate()).ToNot(HaveOccurred())
-
-					err := associatedTree.Query(query, onFindPagination)
-					g.Expect(err).ToNot(HaveOccurred())
-					g.Expect(len(foundItems)).To(Equal(4))
-					g.Expect(foundItems).To(ContainElements("1", "3", "4", "6"))
-				})
-
-				t.Run("It can break the finds early when pagination returns false", func(t *testing.T) {
-					associatedTree := setupQuery(g)
-
-					var foundItems []any
-					onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
-						foundItems = append(foundItems, associatedKeyValues.Value())
-						return false
-					}
-
-					query := datatypes.AssociatedKeyValuesQuery{
-						KeyValueSelection: &datatypes.KeyValueSelection{
-							KeyValues: map[string]datatypes.Value{
-								"1": {Exists: &existsTrue},
-							},
-						},
-					}
-					g.Expect(query.Validate()).ToNot(HaveOccurred())
-
-					err := associatedTree.Query(query, onFindPagination)
-					g.Expect(err).ToNot(HaveOccurred())
-					g.Expect(len(foundItems)).To(Equal(1))
-				})
-
-				t.Run("Context when also setting LIMITS", func(t *testing.T) {
-					t.Run("It respects the max key legth", func(t *testing.T) {
-						associatedTree := setupQuery(g)
-
-						one := 1
-						var foundItems []any
-						onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
-							foundItems = append(foundItems, associatedKeyValues.Value())
-							return true
-						}
-
-						query := datatypes.AssociatedKeyValuesQuery{
-							KeyValueSelection: &datatypes.KeyValueSelection{
-								KeyValues: map[string]datatypes.Value{
-									"1": {Exists: &existsTrue},
-								},
-								Limits: &datatypes.KeyLimits{
-									NumberOfKeys: &one,
-								},
-							},
-						}
-						g.Expect(query.Validate()).ToNot(HaveOccurred())
-
-						err := associatedTree.Query(query, onFindPagination)
-						g.Expect(err).ToNot(HaveOccurred())
-						g.Expect(len(foundItems)).To(Equal(1))
-						g.Expect(foundItems).To(ContainElements("1"))
-					})
-				})
-
-				t.Run("Context when there are multiple TRUE statements", func(t *testing.T) {
-					t.Run("It joins them with AND returns any values in the associated tree", func(t *testing.T) {
-						associatedTree := setupQuery(g)
-
-						var foundItems []any
-						onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
-							foundItems = append(foundItems, associatedKeyValues.Value())
-							return true
-						}
-
-						query := datatypes.AssociatedKeyValuesQuery{
-							KeyValueSelection: &datatypes.KeyValueSelection{
-								KeyValues: map[string]datatypes.Value{
-									"1": {Exists: &existsTrue},
-									"2": {Exists: &existsTrue},
-								},
-							},
-						}
-						g.Expect(query.Validate()).ToNot(HaveOccurred())
-
-						err := associatedTree.Query(query, onFindPagination)
-						g.Expect(err).ToNot(HaveOccurred())
-						g.Expect(len(foundItems)).To(Equal(3))
-						g.Expect(foundItems).To(ContainElements("3", "4", "6"))
-					})
-
-					t.Run("It doesn't run the callback if no values are found", func(t *testing.T) {
-						associatedTree := setupQuery(g)
-
-						var foundItems []any
-						onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
-							foundItems = append(foundItems, associatedKeyValues.Value())
-							return true
-						}
-
-						query := datatypes.AssociatedKeyValuesQuery{
-							KeyValueSelection: &datatypes.KeyValueSelection{
-								KeyValues: map[string]datatypes.Value{
-									"1": {Exists: &existsTrue},
-									"4": {Exists: &existsTrue},
-								},
-							},
-						}
-						g.Expect(query.Validate()).ToNot(HaveOccurred())
-
-						err := associatedTree.Query(query, onFindPagination)
-						g.Expect(err).ToNot(HaveOccurred())
-						g.Expect(len(foundItems)).To(Equal(0))
-					})
-				})
-			})
-
-			t.Run("Context when Exists == False", func(t *testing.T) {
-				t.Run("It returns any value saved in the associated tree", func(t *testing.T) {
-					associatedTree := setupQuery(g)
-
-					var foundItems []any
-					onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
-						foundItems = append(foundItems, associatedKeyValues.Value())
-						return true
-					}
-
-					query := datatypes.AssociatedKeyValuesQuery{
-						KeyValueSelection: &datatypes.KeyValueSelection{
-							KeyValues: map[string]datatypes.Value{
-								"1": {Exists: &existsFalse},
-							},
-						},
-					}
-					g.Expect(query.Validate()).ToNot(HaveOccurred())
-
-					err := associatedTree.Query(query, onFindPagination)
-					g.Expect(err).ToNot(HaveOccurred())
-					g.Expect(len(foundItems)).To(Equal(2))
-					g.Expect(foundItems).To(ContainElements("2", "5"))
-				})
-
-				t.Run("Context when also setting LIMITS", func(t *testing.T) {
-					t.Run("It respects the max key legth", func(t *testing.T) {
-						associatedTree := setupQuery(g)
-
-						one := 1
-						var foundItems []any
-						onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
-							foundItems = append(foundItems, associatedKeyValues.Value())
-							return true
-						}
-
-						query := datatypes.AssociatedKeyValuesQuery{
-							KeyValueSelection: &datatypes.KeyValueSelection{
-								KeyValues: map[string]datatypes.Value{
-									"1": {Exists: &existsFalse},
-								},
-								Limits: &datatypes.KeyLimits{
-									NumberOfKeys: &one,
-								},
-							},
-						}
-						g.Expect(query.Validate()).ToNot(HaveOccurred())
-
-						err := associatedTree.Query(query, onFindPagination)
-						g.Expect(err).ToNot(HaveOccurred())
-						g.Expect(len(foundItems)).To(Equal(1))
-						g.Expect(foundItems).To(ContainElements("2"))
-					})
-				})
-
-				t.Run("Context when there are multiple false statements", func(t *testing.T) {
-					t.Run("It joins them with AND returns any values in the associated tree", func(t *testing.T) {
-						associatedTree := setupQuery(g)
-
-						var foundItems []any
-						onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
-							foundItems = append(foundItems, associatedKeyValues.Value())
-							return true
-						}
-
-						query := datatypes.AssociatedKeyValuesQuery{
-							KeyValueSelection: &datatypes.KeyValueSelection{
-								KeyValues: map[string]datatypes.Value{
-									"1": {Exists: &existsFalse},
-									"2": {Exists: &existsFalse},
-								},
-							},
-						}
-						g.Expect(query.Validate()).ToNot(HaveOccurred())
-
-						err := associatedTree.Query(query, onFindPagination)
-						g.Expect(err).ToNot(HaveOccurred())
-						g.Expect(len(foundItems)).To(Equal(3))
-						g.Expect(foundItems).To(ContainElements("1", "2", "5"))
-					})
-
-					t.Run("It doesn't run the callback if no values are found", func(t *testing.T) {
-						associatedTree := NewThreadSafe()
-
-						// create a number of entries in the associated tree
-						keyValues1 := datatypes.KeyValues{"1": datatypes.Int(1)}
-						keyValues2 := datatypes.KeyValues{"1": datatypes.Int8(1), "2": datatypes.Float32(3.4)}
-						keyValues3 := datatypes.KeyValues{"1": datatypes.String("1"), "2": datatypes.Int16(1), "3": datatypes.Float64(3.4)}
-						associatedTree.CreateOrFind(keyValues1, func() any { return "1" }, noOpOnFind)
-						associatedTree.CreateOrFind(keyValues2, func() any { return "2" }, noOpOnFind)
-						associatedTree.CreateOrFind(keyValues3, func() any { return "2" }, noOpOnFind)
-
-						var foundItems []any
-						onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
-							foundItems = append(foundItems, associatedKeyValues.Value())
-							return true
-						}
-
-						query := datatypes.AssociatedKeyValuesQuery{
-							KeyValueSelection: &datatypes.KeyValueSelection{
-								KeyValues: map[string]datatypes.Value{
-									"1": {Exists: &existsFalse},
-								},
-							},
-						}
-						g.Expect(query.Validate()).ToNot(HaveOccurred())
-
-						err := associatedTree.Query(query, onFindPagination)
-						g.Expect(err).ToNot(HaveOccurred())
-						g.Expect(len(foundItems)).To(Equal(0))
-					})
-				})
-			})
+			g.Expect(tree.QueryAction(&query, onFindPagination)).ToNot(HaveOccurred())
+			g.Expect(len(foundValues)).To(Equal(len(expectedValues)))
+			for _, expectedValue := range expectedValues {
+				g.Expect(foundValues).To(ContainElement(expectedValue))
+			}
 		})
 
-		t.Run("Context when ExistsType is set", func(t *testing.T) {
-			t.Run("Context when Exists == True", func(t *testing.T) {
-				t.Run("It returns any value saved in the associated tree where the types match", func(t *testing.T) {
-					associatedTree := setupQuery(g)
+		t.Run("It respects the type restrictions", func(t *testing.T) {
+			_, tree := setupTestQueryTree(g)
 
-					var foundItems []any
-					onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
-						foundItems = append(foundItems, associatedKeyValues.Value())
-						return true
-					}
-
-					query := datatypes.AssociatedKeyValuesQuery{
-						KeyValueSelection: &datatypes.KeyValueSelection{
-							KeyValues: map[string]datatypes.Value{
-								"1": {Exists: &existsTrue, ExistsType: &datatypes.T_int},
-							},
+			query := queryassociatedaction.AssociatedActionQuery{
+				Selection: &queryassociatedaction.Selection{
+					KeyValues: map[string]queryassociatedaction.ValueQuery{
+						"1": {
+							Value:            datatypes.Int(1),
+							Comparison:       v1common.NotEquals,
+							TypeRestrictions: testmodels.TypeRestrictions(g, datatypes.T_int, datatypes.T_int),
 						},
-					}
-					g.Expect(query.Validate()).ToNot(HaveOccurred())
-
-					err := associatedTree.Query(query, onFindPagination)
-					g.Expect(err).ToNot(HaveOccurred())
-					g.Expect(len(foundItems)).To(Equal(1))
-					g.Expect(foundItems).To(ContainElements("1"))
-				})
-
-				t.Run("Context when also setting LIMITS", func(t *testing.T) {
-					t.Run("It respects the max key legth where the types match", func(t *testing.T) {
-						associatedTree := setupQuery(g)
-
-						one := 1
-						var foundItems []any
-						onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
-							foundItems = append(foundItems, associatedKeyValues.Value())
-							return true
-						}
-
-						query := datatypes.AssociatedKeyValuesQuery{
-							KeyValueSelection: &datatypes.KeyValueSelection{
-								KeyValues: map[string]datatypes.Value{
-									"2": {Exists: &existsTrue, ExistsType: &datatypes.T_string},
-								},
-								Limits: &datatypes.KeyLimits{
-									NumberOfKeys: &one,
-								},
-							},
-						}
-						g.Expect(query.Validate()).ToNot(HaveOccurred())
-
-						err := associatedTree.Query(query, onFindPagination)
-						g.Expect(err).ToNot(HaveOccurred())
-						g.Expect(len(foundItems)).To(Equal(1))
-						g.Expect(foundItems).To(ContainElements("2"))
-					})
-				})
-
-				t.Run("Context when there are multiple TRUE statements", func(t *testing.T) {
-					t.Run("It joins them with AND returns any values in the associated tree where the types match", func(t *testing.T) {
-						associatedTree := setupQuery(g)
-
-						var foundItems []any
-						onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
-							foundItems = append(foundItems, associatedKeyValues.Value())
-							return true
-						}
-
-						query := datatypes.AssociatedKeyValuesQuery{
-							KeyValueSelection: &datatypes.KeyValueSelection{
-								KeyValues: map[string]datatypes.Value{
-									"1": {Exists: &existsTrue, ExistsType: &datatypes.T_int8},
-									"2": {Exists: &existsTrue, ExistsType: &datatypes.T_float32},
-								},
-							},
-						}
-						g.Expect(query.Validate()).ToNot(HaveOccurred())
-
-						err := associatedTree.Query(query, onFindPagination)
-						g.Expect(err).ToNot(HaveOccurred())
-						g.Expect(len(foundItems)).To(Equal(2))
-						g.Expect(foundItems).To(ContainElements("3", "6"))
-					})
-
-					t.Run("It doesn't run the callback if no values are found", func(t *testing.T) {
-						associatedTree := setupQuery(g)
-
-						var foundItems []any
-						onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
-							foundItems = append(foundItems, associatedKeyValues.Value())
-							return true
-						}
-
-						query := datatypes.AssociatedKeyValuesQuery{
-							KeyValueSelection: &datatypes.KeyValueSelection{
-								KeyValues: map[string]datatypes.Value{
-									"1": {Exists: &existsTrue, ExistsType: &datatypes.T_int8},
-									"2": {Exists: &existsTrue, ExistsType: &datatypes.T_float64},
-								},
-							},
-						}
-						g.Expect(query.Validate()).ToNot(HaveOccurred())
-
-						err := associatedTree.Query(query, onFindPagination)
-						g.Expect(err).ToNot(HaveOccurred())
-						g.Expect(len(foundItems)).To(Equal(0))
-					})
-				})
-			})
-
-			t.Run("Context when Exists == False", func(t *testing.T) {
-				t.Run("It returns any value saved in the associated tree where the types match", func(t *testing.T) {
-					associatedTree := setupQuery(g)
-
-					var foundItems []any
-					onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
-						foundItems = append(foundItems, associatedKeyValues.Value())
-						return true
-					}
-
-					query := datatypes.AssociatedKeyValuesQuery{
-						KeyValueSelection: &datatypes.KeyValueSelection{
-							KeyValues: map[string]datatypes.Value{
-								"1": {Exists: &existsFalse, ExistsType: &datatypes.T_int8},
-							},
+						"2": {
+							Value:            datatypes.Int(2),
+							Comparison:       v1common.NotEquals,
+							TypeRestrictions: testmodels.TypeRestrictions(g, datatypes.T_int, datatypes.T_int),
 						},
-					}
-					g.Expect(query.Validate()).ToNot(HaveOccurred())
+					},
+				},
+			}
+			g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-					err := associatedTree.Query(query, onFindPagination)
-					g.Expect(err).ToNot(HaveOccurred())
-					g.Expect(len(foundItems)).To(Equal(4))
-					g.Expect(foundItems).To(ContainElements("1", "2", "4", "5"))
-				})
+			expectedValues := []string{"0", "1", "2", "3", "4", "5", "6", "7", "8", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24", "25", "26", "27", "28", "29", "30", "31", "32", "33", "34", "35", "37", "38"}
+			foundValues := []string{}
+			onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
+				foundValues = append(foundValues, associatedKeyValues.Value().(string))
+				return true
+			}
 
-				t.Run("Context when also setting LIMITS", func(t *testing.T) {
-					t.Run("It respects the max key legth", func(t *testing.T) {
-						associatedTree := setupQuery(g)
-
-						one := 1
-						var foundItems []any
-						onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
-							foundItems = append(foundItems, associatedKeyValues.Value())
-							return true
-						}
-
-						query := datatypes.AssociatedKeyValuesQuery{
-							KeyValueSelection: &datatypes.KeyValueSelection{
-								KeyValues: map[string]datatypes.Value{
-									"1": {Exists: &existsFalse, ExistsType: &datatypes.T_int8},
-								},
-								Limits: &datatypes.KeyLimits{
-									NumberOfKeys: &one,
-								},
-							},
-						}
-						g.Expect(query.Validate()).ToNot(HaveOccurred())
-
-						err := associatedTree.Query(query, onFindPagination)
-						g.Expect(err).ToNot(HaveOccurred())
-						g.Expect(len(foundItems)).To(Equal(2))
-						g.Expect(foundItems).To(ContainElements("1", "2"))
-					})
-				})
-
-				t.Run("Context when there are multiple false statements", func(t *testing.T) {
-					t.Run("It joins them with AND returns any values in the associated tree where types match", func(t *testing.T) {
-						associatedTree := setupQuery(g)
-
-						var foundItems []any
-						onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
-							foundItems = append(foundItems, associatedKeyValues.Value())
-							return true
-						}
-
-						query := datatypes.AssociatedKeyValuesQuery{
-							KeyValueSelection: &datatypes.KeyValueSelection{
-								KeyValues: map[string]datatypes.Value{
-									"1": {Exists: &existsFalse, ExistsType: &datatypes.T_int8},
-									"2": {Exists: &existsFalse, ExistsType: &datatypes.T_float32},
-								},
-							},
-						}
-						g.Expect(query.Validate()).ToNot(HaveOccurred())
-
-						err := associatedTree.Query(query, onFindPagination)
-						g.Expect(err).ToNot(HaveOccurred())
-						g.Expect(len(foundItems)).To(Equal(4))
-						g.Expect(foundItems).To(ContainElements("1", "2", "4", "5"))
-					})
-
-					t.Run("It doesn't run the callback if no values are found", func(t *testing.T) {
-						associatedTree := NewThreadSafe()
-
-						// create a number of entries in the associated tree
-						keyValues1 := datatypes.KeyValues{"1": datatypes.Int8(1), "2": datatypes.String("1")}
-						keyValues2 := datatypes.KeyValues{"1": datatypes.Int8(1), "2": datatypes.String("2"), "3": datatypes.Float32(3.2)}
-						keyValues3 := datatypes.KeyValues{"1": datatypes.Int8(1), "2": datatypes.String("3")}
-						associatedTree.CreateOrFind(keyValues1, func() any { return "1" }, noOpOnFind)
-						associatedTree.CreateOrFind(keyValues2, func() any { return "2" }, noOpOnFind)
-						associatedTree.CreateOrFind(keyValues3, func() any { return "3" }, noOpOnFind)
-
-						var foundItems []any
-						onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
-							foundItems = append(foundItems, associatedKeyValues.Value())
-							return true
-						}
-
-						query := datatypes.AssociatedKeyValuesQuery{
-							KeyValueSelection: &datatypes.KeyValueSelection{
-								KeyValues: map[string]datatypes.Value{
-									"1": {Exists: &existsFalse, ExistsType: &datatypes.T_int8},
-									"2": {Exists: &existsFalse, ExistsType: &datatypes.T_string},
-								},
-							},
-						}
-						g.Expect(query.Validate()).ToNot(HaveOccurred())
-
-						err := associatedTree.Query(query, onFindPagination)
-						g.Expect(err).ToNot(HaveOccurred())
-						g.Expect(len(foundItems)).To(Equal(0))
-					})
-				})
-			})
+			g.Expect(tree.QueryAction(&query, onFindPagination)).ToNot(HaveOccurred())
+			g.Expect(len(foundValues)).To(Equal(len(expectedValues)))
+			for _, expectedValue := range expectedValues {
+				g.Expect(foundValues).To(ContainElement(expectedValue))
+			}
 		})
 
-		t.Run("Context with a combination of Exists == True and Exists == False", func(t *testing.T) {
-			t.Run("It returns the proper values saved in the associated tree", func(t *testing.T) {
-				associatedTree := setupQuery(g)
+		t.Run("Context when the query uses T_any", func(t *testing.T) {
+			t.Run("It respects the type restrictions", func(t *testing.T) {
+				_, tree := setupTestQueryTree(g)
 
-				var foundItems []any
-				onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
-					foundItems = append(foundItems, associatedKeyValues.Value())
-					return true
-				}
-
-				query := datatypes.AssociatedKeyValuesQuery{
-					KeyValueSelection: &datatypes.KeyValueSelection{
-						KeyValues: map[string]datatypes.Value{
-							"1": {Exists: &existsTrue, ExistsType: &datatypes.T_int8},
-							"2": {Exists: &existsTrue},
-							"3": {Exists: &existsFalse},
+				query := queryassociatedaction.AssociatedActionQuery{
+					Selection: &queryassociatedaction.Selection{
+						KeyValues: map[string]queryassociatedaction.ValueQuery{
+							"1": {
+								Value:            datatypes.Any(),
+								Comparison:       v1common.NotEquals,
+								TypeRestrictions: testmodels.TypeRestrictions(g, datatypes.T_int, datatypes.T_int),
+							},
+							"2": {
+								Value:            datatypes.Any(),
+								Comparison:       v1common.NotEquals,
+								TypeRestrictions: testmodels.TypeRestrictions(g, datatypes.T_int, datatypes.T_int),
+							},
 						},
 					},
 				}
 				g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-				err := associatedTree.Query(query, onFindPagination)
-				g.Expect(err).ToNot(HaveOccurred())
-				g.Expect(len(foundItems)).To(Equal(2))
-				g.Expect(foundItems).To(ContainElements("3", "6"))
-			})
-		})
-	})
-
-	t.Run("Desribe Select WHERE.Value query", func(t *testing.T) {
-		t.Run("Context when the MatchType is not set", func(t *testing.T) {
-			t.Run("Context when ValueCompare is =", func(t *testing.T) {
-				t.Run("It matches only the items that contain the exact key values", func(t *testing.T) {
-					associatedTree := setupQuery(g)
-
-					var foundItems []any
-					onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
-						foundItems = append(foundItems, associatedKeyValues.Value())
-						return true
-					}
-
-					intOne := datatypes.Int(1)
-					query := datatypes.AssociatedKeyValuesQuery{
-						KeyValueSelection: &datatypes.KeyValueSelection{
-							KeyValues: map[string]datatypes.Value{
-								"1": {Value: &intOne, ValueComparison: datatypes.EqualsPtr()},
-							},
-						},
-					}
-					g.Expect(query.Validate()).ToNot(HaveOccurred())
-
-					err := associatedTree.Query(query, onFindPagination)
-					g.Expect(err).ToNot(HaveOccurred())
-					g.Expect(len(foundItems)).To(Equal(1))
-					g.Expect(foundItems).To(ContainElements("1"))
-				})
-
-				t.Run("Context whene there are multiple key values", func(t *testing.T) {
-					t.Run("It matches only the items that contain all the exact key values", func(t *testing.T) {
-						associatedTree := setupQuery(g)
-
-						var foundItems []any
-						onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
-							foundItems = append(foundItems, associatedKeyValues.Value())
-							return true
-						}
-
-						stringOne := datatypes.String("1")
-						stringTwo := datatypes.String("2")
-						query := datatypes.AssociatedKeyValuesQuery{
-							KeyValueSelection: &datatypes.KeyValueSelection{
-								KeyValues: map[string]datatypes.Value{
-									"1": {Value: &stringOne, ValueComparison: datatypes.EqualsPtr()},
-									"2": {Value: &stringTwo, ValueComparison: datatypes.EqualsPtr()},
-								},
-							},
-						}
-						g.Expect(query.Validate()).ToNot(HaveOccurred())
-
-						err := associatedTree.Query(query, onFindPagination)
-						g.Expect(err).ToNot(HaveOccurred())
-						g.Expect(len(foundItems)).To(Equal(1))
-						g.Expect(foundItems).To(ContainElements("4"))
-					})
-
-					t.Run("It filters out values when desired keys that not found in the first part of a query", func(t *testing.T) {
-						associatedTree := setupQuery(g)
-
-						var foundItems []any
-						onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
-							foundItems = append(foundItems, associatedKeyValues.Value())
-							return true
-						}
-
-						intOne := datatypes.Int(1)
-						query := datatypes.AssociatedKeyValuesQuery{
-							KeyValueSelection: &datatypes.KeyValueSelection{
-								KeyValues: map[string]datatypes.Value{
-									"0": {Value: &intOne, ValueComparison: datatypes.EqualsPtr()}, //runs first, and should invalidate a query
-									"1": {Value: &intOne, ValueComparison: datatypes.EqualsPtr()},
-								},
-							},
-						}
-						g.Expect(query.Validate()).ToNot(HaveOccurred())
-
-						err := associatedTree.Query(query, onFindPagination)
-						g.Expect(err).ToNot(HaveOccurred())
-						g.Expect(len(foundItems)).To(Equal(0))
-					})
-
-					t.Run("It filters out values when desired keys that not found after the first lookup in a query", func(t *testing.T) {
-						associatedTree := setupQuery(g)
-
-						var foundItems []any
-						onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
-							foundItems = append(foundItems, associatedKeyValues.Value())
-							return true
-						}
-
-						intOne := datatypes.Int(1)
-						query := datatypes.AssociatedKeyValuesQuery{
-							KeyValueSelection: &datatypes.KeyValueSelection{
-								KeyValues: map[string]datatypes.Value{
-									"1":  {Value: &intOne, ValueComparison: datatypes.EqualsPtr()},
-									"32": {Value: &intOne, ValueComparison: datatypes.EqualsPtr()}, //runs second, and should invalidate a query
-								},
-							},
-						}
-						g.Expect(query.Validate()).ToNot(HaveOccurred())
-
-						err := associatedTree.Query(query, onFindPagination)
-						g.Expect(err).ToNot(HaveOccurred())
-						g.Expect(len(foundItems)).To(Equal(0))
-					})
-				})
-			})
-
-			t.Run("Context when ValueCompare is !=", func(t *testing.T) {
-				t.Run("It removes an items that match all undesiredable key values", func(t *testing.T) {
-					associatedTree := setupQuery(g)
-
-					var foundItems []any
-					onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
-						foundItems = append(foundItems, associatedKeyValues.Value())
-						return true
-					}
-
-					intOne := datatypes.Int(1)
-					query := datatypes.AssociatedKeyValuesQuery{
-						KeyValueSelection: &datatypes.KeyValueSelection{
-							KeyValues: map[string]datatypes.Value{
-								"1": {Value: &intOne, ValueComparison: datatypes.NotEqualsPtr()}, // filter out first key
-							},
-						},
-					}
-					g.Expect(query.Validate()).ToNot(HaveOccurred())
-
-					err := associatedTree.Query(query, onFindPagination)
-					g.Expect(err).ToNot(HaveOccurred())
-					g.Expect(len(foundItems)).To(Equal(5))
-					g.Expect(foundItems).To(ContainElements("2", "3", "4", "5", "6"))
-				})
-
-				t.Run("It matches any items that do not contain the key value", func(t *testing.T) {
-					associatedTree := setupQuery(g)
-
-					var foundItems []any
-					onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
-						foundItems = append(foundItems, associatedKeyValues.Value())
-						return true
-					}
-
-					intOne := datatypes.Int(1)
-					query := datatypes.AssociatedKeyValuesQuery{
-						KeyValueSelection: &datatypes.KeyValueSelection{
-							KeyValues: map[string]datatypes.Value{
-								"32": {Value: &intOne, ValueComparison: datatypes.NotEqualsPtr()}, // should be a no op
-							},
-						},
-					}
-					g.Expect(query.Validate()).ToNot(HaveOccurred())
-
-					err := associatedTree.Query(query, onFindPagination)
-					g.Expect(err).ToNot(HaveOccurred())
-					g.Expect(len(foundItems)).To(Equal(6))
-					g.Expect(foundItems).To(ContainElements("1", "2", "3", "4", "5", "6"))
-				})
-
-				t.Run("Context whene there are multiple key values", func(t *testing.T) {
-					t.Run("It only removes tree items that match all exact not operations together", func(t *testing.T) {
-						associatedTree := setupQuery(g)
-
-						var foundItems []any
-						onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
-							foundItems = append(foundItems, associatedKeyValues.Value())
-							return true
-						}
-
-						// no-op query
-						intOne := datatypes.Int(1)
-						query1 := datatypes.AssociatedKeyValuesQuery{
-							KeyValueSelection: &datatypes.KeyValueSelection{
-								KeyValues: map[string]datatypes.Value{
-									"1":  {Value: &intOne, ValueComparison: datatypes.NotEqualsPtr()}, // filter out first key
-									"32": {Value: &intOne, ValueComparison: datatypes.NotEqualsPtr()}, // should be a no op
-								},
-							},
-						}
-						g.Expect(query1.Validate()).ToNot(HaveOccurred())
-
-						err := associatedTree.Query(query1, onFindPagination)
-						g.Expect(err).ToNot(HaveOccurred())
-						g.Expect(len(foundItems)).To(Equal(6))
-						g.Expect(foundItems).To(ContainElements("1", "2", "3", "4", "5", "6"))
-
-						// removal query
-						strOne := datatypes.String("1")
-						strTwo := datatypes.String("2")
-						query2 := datatypes.AssociatedKeyValuesQuery{
-							KeyValueSelection: &datatypes.KeyValueSelection{
-								KeyValues: map[string]datatypes.Value{
-									"1": {Value: &strOne, ValueComparison: datatypes.NotEqualsPtr()},
-									"2": {Value: &strTwo, ValueComparison: datatypes.NotEqualsPtr()},
-								},
-							},
-						}
-						g.Expect(query2.Validate()).ToNot(HaveOccurred())
-
-						foundItems = []any{} // clear the found items
-						err = associatedTree.Query(query2, onFindPagination)
-						g.Expect(err).ToNot(HaveOccurred())
-						g.Expect(len(foundItems)).To(Equal(5))
-						g.Expect(foundItems).To(ContainElements("1", "2", "3", "5", "6"))
-					})
-
-					t.Run("It can run removing tree items that match all exact not operations together in any search order", func(t *testing.T) {
-						associatedTree := setupQuery(g)
-
-						var foundItems []any
-						onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
-							foundItems = append(foundItems, associatedKeyValues.Value())
-							return true
-						}
-
-						// no-op query
-						intOne := datatypes.Int(1)
-						query1 := datatypes.AssociatedKeyValuesQuery{
-							KeyValueSelection: &datatypes.KeyValueSelection{
-								KeyValues: map[string]datatypes.Value{
-									"-32": {Value: &intOne, ValueComparison: datatypes.NotEqualsPtr()}, // should be a no op
-									"1":   {Value: &intOne, ValueComparison: datatypes.NotEqualsPtr()}, // filter out first key
-								},
-							},
-						}
-						g.Expect(query1.Validate()).ToNot(HaveOccurred())
-
-						err := associatedTree.Query(query1, onFindPagination)
-						g.Expect(err).ToNot(HaveOccurred())
-						g.Expect(len(foundItems)).To(Equal(6))
-					})
-				})
-			})
-
-			t.Run("Context when ValueCompare is <", func(t *testing.T) {
-				t.Run("It matches only the items that are less than the provided key value", func(t *testing.T) {
-					associatedTree := setupQuery(g)
-
-					var foundItems []any
-					onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
-						foundItems = append(foundItems, associatedKeyValues.Value())
-						return true
-					}
-
-					intTwo := datatypes.Int(2)
-					query := datatypes.AssociatedKeyValuesQuery{
-						KeyValueSelection: &datatypes.KeyValueSelection{
-							KeyValues: map[string]datatypes.Value{
-								"1": {Value: &intTwo, ValueComparison: datatypes.LessThanPtr()},
-							},
-						},
-					}
-					g.Expect(query.Validate()).ToNot(HaveOccurred())
-
-					err := associatedTree.Query(query, onFindPagination)
-					g.Expect(err).ToNot(HaveOccurred())
-					g.Expect(len(foundItems)).To(Equal(3))
-					g.Expect(foundItems).To(ContainElements("1", "3", "6"))
-				})
-			})
-
-			t.Run("Context when ValueCompare is < MATCH for type enforcement", func(t *testing.T) {
-				t.Run("It matches only the items that are less than the provided key and value's type", func(t *testing.T) {
-					associatedTree := setupQuery(g)
-
-					var foundItems []any
-					onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
-						foundItems = append(foundItems, associatedKeyValues.Value())
-						return true
-					}
-
-					intTwo := datatypes.Int(2)
-					query := datatypes.AssociatedKeyValuesQuery{
-						KeyValueSelection: &datatypes.KeyValueSelection{
-							KeyValues: map[string]datatypes.Value{
-								"1": {Value: &intTwo, ValueComparison: datatypes.LessThanMatchTypePtr()},
-							},
-						},
-					}
-					g.Expect(query.Validate()).ToNot(HaveOccurred())
-
-					err := associatedTree.Query(query, onFindPagination)
-					g.Expect(err).ToNot(HaveOccurred())
-					g.Expect(len(foundItems)).To(Equal(1))
-					g.Expect(foundItems).To(ContainElements("1"))
-				})
-			})
-
-			t.Run("Context when ValueCompare is <=", func(t *testing.T) {
-				t.Run("It matches only the items that are less than or equal to the provided key value", func(t *testing.T) {
-					associatedTree := setupQuery(g)
-
-					var foundItems []any
-					onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
-						foundItems = append(foundItems, associatedKeyValues.Value())
-						return true
-					}
-
-					intOne := datatypes.Int(1)
-					query := datatypes.AssociatedKeyValuesQuery{
-						KeyValueSelection: &datatypes.KeyValueSelection{
-							KeyValues: map[string]datatypes.Value{
-								"1": {Value: &intOne, ValueComparison: datatypes.LessThanOrEqualPtr()},
-							},
-						},
-					}
-					g.Expect(query.Validate()).ToNot(HaveOccurred())
-
-					err := associatedTree.Query(query, onFindPagination)
-					g.Expect(err).ToNot(HaveOccurred())
-					g.Expect(len(foundItems)).To(Equal(3))
-					g.Expect(foundItems).To(ContainElements("1", "3", "6"))
-				})
-			})
-
-			t.Run("Context when ValueCompare is <= MATCH for type enforcement", func(t *testing.T) {
-				t.Run("It matches only the items that are less than or equal to the provided key and value's type", func(t *testing.T) {
-					associatedTree := setupQuery(g)
-
-					var foundItems []any
-					onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
-						foundItems = append(foundItems, associatedKeyValues.Value())
-						return true
-					}
-
-					intOne := datatypes.Int(1)
-					query := datatypes.AssociatedKeyValuesQuery{
-						KeyValueSelection: &datatypes.KeyValueSelection{
-							KeyValues: map[string]datatypes.Value{
-								"1": {Value: &intOne, ValueComparison: datatypes.LessThanOrEqualMatchTypePtr()},
-							},
-						},
-					}
-					g.Expect(query.Validate()).ToNot(HaveOccurred())
-
-					err := associatedTree.Query(query, onFindPagination)
-					g.Expect(err).ToNot(HaveOccurred())
-					g.Expect(len(foundItems)).To(Equal(1))
-					g.Expect(foundItems).To(ContainElements("1"))
-				})
-			})
-
-			t.Run("Context when ValueCompare is >", func(t *testing.T) {
-				t.Run("It matches only the items that are greater than the provided key value", func(t *testing.T) {
-					associatedTree := setupQuery(g)
-
-					var foundItems []any
-					onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
-						foundItems = append(foundItems, associatedKeyValues.Value())
-						return true
-					}
-
-					int8Four := datatypes.Int8(4)
-					query := datatypes.AssociatedKeyValuesQuery{
-						KeyValueSelection: &datatypes.KeyValueSelection{
-							KeyValues: map[string]datatypes.Value{
-								"1": {Value: &int8Four, ValueComparison: datatypes.GreaterThanPtr()},
-							},
-						},
-					}
-					g.Expect(query.Validate()).ToNot(HaveOccurred())
-
-					err := associatedTree.Query(query, onFindPagination)
-					g.Expect(err).ToNot(HaveOccurred())
-					g.Expect(len(foundItems)).To(Equal(2))
-					g.Expect(foundItems).To(ContainElements("1", "4"))
-				})
-			})
-
-			t.Run("Context when ValueCompare is > MATCH for type enforcement", func(t *testing.T) {
-				t.Run("It matches only the items that are greater than the provided key and value's type", func(t *testing.T) {
-					associatedTree := setupQuery(g)
-
-					var foundItems []any
-					onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
-						foundItems = append(foundItems, associatedKeyValues.Value())
-						return true
-					}
-
-					int8Three := datatypes.Int8(3)
-					query := datatypes.AssociatedKeyValuesQuery{
-						KeyValueSelection: &datatypes.KeyValueSelection{
-							KeyValues: map[string]datatypes.Value{
-								"1": {Value: &int8Three, ValueComparison: datatypes.GreaterThanMatchTypePtr()},
-							},
-						},
-					}
-					g.Expect(query.Validate()).ToNot(HaveOccurred())
-
-					err := associatedTree.Query(query, onFindPagination)
-					g.Expect(err).ToNot(HaveOccurred())
-					g.Expect(len(foundItems)).To(Equal(1))
-					g.Expect(foundItems).To(ContainElements("6"))
-				})
-			})
-
-			t.Run("Context when ValueCompare is >=", func(t *testing.T) {
-				t.Run("It matches only the items that are greater than or equal to the provided key value", func(t *testing.T) {
-					associatedTree := setupQuery(g)
-
-					var foundItems []any
-					onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
-						foundItems = append(foundItems, associatedKeyValues.Value())
-						return true
-					}
-
-					int8Four := datatypes.Int8(4)
-					query := datatypes.AssociatedKeyValuesQuery{
-						KeyValueSelection: &datatypes.KeyValueSelection{
-							KeyValues: map[string]datatypes.Value{
-								"1": {Value: &int8Four, ValueComparison: datatypes.GreaterThanOrEqualPtr()},
-							},
-						},
-					}
-					g.Expect(query.Validate()).ToNot(HaveOccurred())
-
-					err := associatedTree.Query(query, onFindPagination)
-					g.Expect(err).ToNot(HaveOccurred())
-					g.Expect(len(foundItems)).To(Equal(3))
-					g.Expect(foundItems).To(ContainElements("1", "4", "6"))
-				})
-			})
-
-			t.Run("Context when ValueCompare is >= MATCH for type enforcement", func(t *testing.T) {
-				t.Run("It matches only the items that are greater than or equal to the provided key and value's type", func(t *testing.T) {
-					associatedTree := setupQuery(g)
-
-					var foundItems []any
-					onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
-						foundItems = append(foundItems, associatedKeyValues.Value())
-						return true
-					}
-
-					int8Four := datatypes.Int8(4)
-					query := datatypes.AssociatedKeyValuesQuery{
-						KeyValueSelection: &datatypes.KeyValueSelection{
-							KeyValues: map[string]datatypes.Value{
-								"1": {Value: &int8Four, ValueComparison: datatypes.GreaterThanOrEqualMatchTypePtr()},
-							},
-						},
-					}
-					g.Expect(query.Validate()).ToNot(HaveOccurred())
-
-					err := associatedTree.Query(query, onFindPagination)
-					g.Expect(err).ToNot(HaveOccurred())
-					g.Expect(len(foundItems)).To(Equal(1))
-					g.Expect(foundItems).To(ContainElements("6"))
-				})
-			})
-
-			t.Run("It matches all provided key value comparisons when there are multiple", func(t *testing.T) {
-				associatedTree := setupQuery(g)
-
-				var foundItems []any
+				expectedValues := []string{"0", "1", "2", "3", "4", "5", "6", "7", "8", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24", "25", "26", "27", "28", "29", "30", "31", "32", "33", "34", "35", "37", "38"}
+				foundValues := []string{}
 				onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
-					foundItems = append(foundItems, associatedKeyValues.Value())
+					foundValues = append(foundValues, associatedKeyValues.Value().(string))
 					return true
 				}
 
-				int8One := datatypes.Int8(1)
-				stringFloat := datatypes.String("3.3")
-				query := datatypes.AssociatedKeyValuesQuery{
-					KeyValueSelection: &datatypes.KeyValueSelection{
-						KeyValues: map[string]datatypes.Value{
-							"3": {Value: &int8One, ValueComparison: datatypes.GreaterThanOrEqualPtr()},
-							"4": {Value: &stringFloat, ValueComparison: datatypes.LessThanPtr()},
+				g.Expect(tree.QueryAction(&query, onFindPagination)).ToNot(HaveOccurred())
+				g.Expect(len(foundValues)).To(Equal(len(expectedValues)))
+				for _, expectedValue := range expectedValues {
+					g.Expect(foundValues).To(ContainElement(expectedValue))
+				}
+			})
+
+			t.Run("It allows for all values if there are no type restrictions", func(t *testing.T) {
+				_, tree := setupTestQueryTree(g)
+
+				query := queryassociatedaction.AssociatedActionQuery{
+					Selection: &queryassociatedaction.Selection{
+						KeyValues: map[string]queryassociatedaction.ValueQuery{
+							"1": {
+								Value:            datatypes.Any(),
+								Comparison:       v1common.NotEquals,
+								TypeRestrictions: testmodels.NoTypeRestrictions(g),
+							},
+							"2": {
+								Value:            datatypes.Any(),
+								Comparison:       v1common.NotEquals,
+								TypeRestrictions: testmodels.NoTypeRestrictions(g),
+							},
 						},
 					},
 				}
 				g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-				err := associatedTree.Query(query, onFindPagination)
-				g.Expect(err).ToNot(HaveOccurred())
-				g.Expect(len(foundItems)).To(Equal(1))
-				g.Expect(foundItems).To(ContainElements("5"))
+				expectedValues := []string{"0", "1", "2", "3", "4", "5", "6", "7", "8", "12", "13", "14", "18", "19", "20", "24", "25", "26", "27", "28", "29", "30", "31", "32", "33", "34", "35"}
+				foundValues := []string{}
+				onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
+					foundValues = append(foundValues, associatedKeyValues.Value().(string))
+					return true
+				}
+
+				g.Expect(tree.QueryAction(&query, onFindPagination)).ToNot(HaveOccurred())
+				g.Expect(len(foundValues)).To(Equal(len(expectedValues)))
+				for _, expectedValue := range expectedValues {
+					g.Expect(foundValues).To(ContainElement(expectedValue))
+				}
 			})
+		})
+	})
+
+	t.Run("Describe LESS THAN queries", func(t *testing.T) {
+		t.Run("It can find all fields with a single KeyValue", func(t *testing.T) {
+			_, tree := setupTestQueryTree(g)
+
+			query := queryassociatedaction.AssociatedActionQuery{
+				Selection: &queryassociatedaction.Selection{
+					KeyValues: map[string]queryassociatedaction.ValueQuery{
+						"1": {
+							Value:            datatypes.String("1"),
+							Comparison:       v1common.LessThan,
+							TypeRestrictions: testmodels.NoTypeRestrictions(g),
+						},
+					},
+				},
+			}
+			g.Expect(query.Validate()).ToNot(HaveOccurred())
+
+			expectedValues := []string{"0", "6", "9", "10", "11", "12", "13", "14", "21", "22", "23", "24", "25", "26", "36", "38"}
+			foundValues := []string{}
+			onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
+				foundValues = append(foundValues, associatedKeyValues.Value().(string))
+				return true
+			}
+
+			g.Expect(tree.QueryAction(&query, onFindPagination)).ToNot(HaveOccurred())
+			g.Expect(len(foundValues)).To(Equal(len(expectedValues)))
+			for _, expectedValue := range expectedValues {
+				g.Expect(foundValues).To(ContainElement(expectedValue))
+			}
+		})
+
+		t.Run("It can find all fileds with multiple KeyValues", func(t *testing.T) {
+			_, tree := setupTestQueryTree(g)
+
+			query := queryassociatedaction.AssociatedActionQuery{
+				Selection: &queryassociatedaction.Selection{
+					KeyValues: map[string]queryassociatedaction.ValueQuery{
+						"1": {
+							Value:            datatypes.String("1"),
+							Comparison:       v1common.LessThan,
+							TypeRestrictions: testmodels.NoTypeRestrictions(g),
+						},
+						"2": {
+							Value:            datatypes.String("2"),
+							Comparison:       v1common.LessThan,
+							TypeRestrictions: testmodels.NoTypeRestrictions(g),
+						},
+					},
+				},
+			}
+			g.Expect(query.Validate()).ToNot(HaveOccurred())
+
+			expectedValues := []string{"9", "11", "21", "23", "36", "38"}
+			foundValues := []string{}
+			onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
+				foundValues = append(foundValues, associatedKeyValues.Value().(string))
+				return true
+			}
+
+			g.Expect(tree.QueryAction(&query, onFindPagination)).ToNot(HaveOccurred())
+			g.Expect(len(foundValues)).To(Equal(len(expectedValues)))
+			for _, expectedValue := range expectedValues {
+				g.Expect(foundValues).To(ContainElement(expectedValue))
+			}
+		})
+
+		t.Run("It respects the type restrictions", func(t *testing.T) {
+			_, tree := setupTestQueryTree(g)
+
+			query := queryassociatedaction.AssociatedActionQuery{
+				Selection: &queryassociatedaction.Selection{
+					KeyValues: map[string]queryassociatedaction.ValueQuery{
+						"1": {
+							Value:            datatypes.String("1"),
+							Comparison:       v1common.LessThan,
+							TypeRestrictions: testmodels.TypeRestrictions(g, datatypes.T_int, datatypes.T_string),
+						},
+						"2": {
+							Value:            datatypes.String("2"),
+							Comparison:       v1common.LessThan,
+							TypeRestrictions: testmodels.TypeRestrictions(g, datatypes.T_int, datatypes.T_string),
+						},
+					},
+				},
+			}
+			g.Expect(query.Validate()).ToNot(HaveOccurred())
+
+			expectedValues := []string{"9", "36"}
+			foundValues := []string{}
+			onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
+				foundValues = append(foundValues, associatedKeyValues.Value().(string))
+				return true
+			}
+
+			g.Expect(tree.QueryAction(&query, onFindPagination)).ToNot(HaveOccurred())
+			g.Expect(len(foundValues)).To(Equal(len(expectedValues)))
+			for _, expectedValue := range expectedValues {
+				g.Expect(foundValues).To(ContainElement(expectedValue))
+			}
+		})
+	})
+
+	t.Run("Describe LESS THAN OR EQUAL queries", func(t *testing.T) {
+		t.Run("It can find all fields with a single KeyValue", func(t *testing.T) {
+			_, tree := setupTestQueryTree(g)
+
+			query := queryassociatedaction.AssociatedActionQuery{
+				Selection: &queryassociatedaction.Selection{
+					KeyValues: map[string]queryassociatedaction.ValueQuery{
+						"1": {
+							Value:            datatypes.String("1"),
+							Comparison:       v1common.LessThanOrEqual,
+							TypeRestrictions: testmodels.NoTypeRestrictions(g),
+						},
+					},
+				},
+			}
+			g.Expect(query.Validate()).ToNot(HaveOccurred())
+
+			expectedValues := []string{"0", "3", "6", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24", "25", "26", "36", "37", "38"}
+			foundValues := []string{}
+			onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
+				foundValues = append(foundValues, associatedKeyValues.Value().(string))
+				return true
+			}
+
+			g.Expect(tree.QueryAction(&query, onFindPagination)).ToNot(HaveOccurred())
+			g.Expect(len(foundValues)).To(Equal(len(expectedValues)))
+			for _, expectedValue := range expectedValues {
+				g.Expect(foundValues).To(ContainElement(expectedValue))
+			}
+		})
+
+		t.Run("It can find all fileds with multiple KeyValues", func(t *testing.T) {
+			_, tree := setupTestQueryTree(g)
+
+			query := queryassociatedaction.AssociatedActionQuery{
+				Selection: &queryassociatedaction.Selection{
+					KeyValues: map[string]queryassociatedaction.ValueQuery{
+						"1": {
+							Value:            datatypes.String("1"),
+							Comparison:       v1common.LessThanOrEqual,
+							TypeRestrictions: testmodels.NoTypeRestrictions(g),
+						},
+						"2": {
+							Value:            datatypes.String("2"),
+							Comparison:       v1common.LessThanOrEqual,
+							TypeRestrictions: testmodels.NoTypeRestrictions(g),
+						},
+					},
+				},
+			}
+			g.Expect(query.Validate()).ToNot(HaveOccurred())
+
+			expectedValues := []string{"9", "10", "11", "15", "16", "17", "21", "22", "23", "36", "37", "38"}
+			foundValues := []string{}
+			onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
+				foundValues = append(foundValues, associatedKeyValues.Value().(string))
+				return true
+			}
+
+			g.Expect(tree.QueryAction(&query, onFindPagination)).ToNot(HaveOccurred())
+			g.Expect(len(foundValues)).To(Equal(len(expectedValues)))
+			for _, expectedValue := range expectedValues {
+				g.Expect(foundValues).To(ContainElement(expectedValue))
+			}
+		})
+
+		t.Run("It respects the type restrictions", func(t *testing.T) {
+			_, tree := setupTestQueryTree(g)
+
+			query := queryassociatedaction.AssociatedActionQuery{
+				Selection: &queryassociatedaction.Selection{
+					KeyValues: map[string]queryassociatedaction.ValueQuery{
+						"1": {
+							Value:            datatypes.String("1"),
+							Comparison:       v1common.LessThanOrEqual,
+							TypeRestrictions: testmodels.TypeRestrictions(g, datatypes.T_int, datatypes.T_string),
+						},
+						"2": {
+							Value:            datatypes.String("2"),
+							Comparison:       v1common.LessThanOrEqual,
+							TypeRestrictions: testmodels.TypeRestrictions(g, datatypes.T_int, datatypes.T_string),
+						},
+					},
+				},
+			}
+			g.Expect(query.Validate()).ToNot(HaveOccurred())
+
+			expectedValues := []string{"9", "10", "15", "16", "36", "37"}
+			foundValues := []string{}
+			onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
+				foundValues = append(foundValues, associatedKeyValues.Value().(string))
+				return true
+			}
+
+			g.Expect(tree.QueryAction(&query, onFindPagination)).ToNot(HaveOccurred())
+			g.Expect(len(foundValues)).To(Equal(len(expectedValues)))
+			for _, expectedValue := range expectedValues {
+				g.Expect(foundValues).To(ContainElement(expectedValue))
+			}
+		})
+	})
+
+	t.Run("Describe GREAT THAN queries", func(t *testing.T) {
+		t.Run("It can find all fields with a single KeyValue", func(t *testing.T) {
+			_, tree := setupTestQueryTree(g)
+
+			query := queryassociatedaction.AssociatedActionQuery{
+				Selection: &queryassociatedaction.Selection{
+					KeyValues: map[string]queryassociatedaction.ValueQuery{
+						"1": {
+							Value:            datatypes.Int(1),
+							Comparison:       v1common.GreaterThan,
+							TypeRestrictions: testmodels.NoTypeRestrictions(g),
+						},
+					},
+				},
+			}
+			g.Expect(query.Validate()).ToNot(HaveOccurred())
+
+			expectedValues := []string{"3", "6", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24", "25", "26", "37", "38"}
+			foundValues := []string{}
+			onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
+				foundValues = append(foundValues, associatedKeyValues.Value().(string))
+				return true
+			}
+
+			g.Expect(tree.QueryAction(&query, onFindPagination)).ToNot(HaveOccurred())
+			g.Expect(len(foundValues)).To(Equal(len(expectedValues)))
+			for _, expectedValue := range expectedValues {
+				g.Expect(foundValues).To(ContainElement(expectedValue))
+			}
+		})
+
+		t.Run("It can find all fileds with multiple KeyValues", func(t *testing.T) {
+			_, tree := setupTestQueryTree(g)
+
+			query := queryassociatedaction.AssociatedActionQuery{
+				Selection: &queryassociatedaction.Selection{
+					KeyValues: map[string]queryassociatedaction.ValueQuery{
+						"1": {
+							Value:            datatypes.Int(1),
+							Comparison:       v1common.GreaterThan,
+							TypeRestrictions: testmodels.NoTypeRestrictions(g),
+						},
+						"2": {
+							Value:            datatypes.Int(2),
+							Comparison:       v1common.GreaterThan,
+							TypeRestrictions: testmodels.NoTypeRestrictions(g),
+						},
+					},
+				},
+			}
+			g.Expect(query.Validate()).ToNot(HaveOccurred())
+
+			expectedValues := []string{"16", "17", "22", "23", "37", "38"}
+			foundValues := []string{}
+			onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
+				foundValues = append(foundValues, associatedKeyValues.Value().(string))
+				return true
+			}
+
+			g.Expect(tree.QueryAction(&query, onFindPagination)).ToNot(HaveOccurred())
+			g.Expect(len(foundValues)).To(Equal(len(expectedValues)))
+			for _, expectedValue := range expectedValues {
+				g.Expect(foundValues).To(ContainElement(expectedValue))
+			}
+		})
+
+		t.Run("It respects the type restrictions", func(t *testing.T) {
+			_, tree := setupTestQueryTree(g)
+
+			query := queryassociatedaction.AssociatedActionQuery{
+				Selection: &queryassociatedaction.Selection{
+					KeyValues: map[string]queryassociatedaction.ValueQuery{
+						"1": {
+							Value:            datatypes.Int(1),
+							Comparison:       v1common.GreaterThan,
+							TypeRestrictions: testmodels.TypeRestrictions(g, datatypes.T_int, datatypes.T_string),
+						},
+						"2": {
+							Value:            datatypes.Int(2),
+							Comparison:       v1common.GreaterThan,
+							TypeRestrictions: testmodels.TypeRestrictions(g, datatypes.T_int, datatypes.T_string),
+						},
+					},
+				},
+			}
+			g.Expect(query.Validate()).ToNot(HaveOccurred())
+
+			expectedValues := []string{"16", "37"}
+			foundValues := []string{}
+			onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
+				foundValues = append(foundValues, associatedKeyValues.Value().(string))
+				return true
+			}
+
+			g.Expect(tree.QueryAction(&query, onFindPagination)).ToNot(HaveOccurred())
+			g.Expect(len(foundValues)).To(Equal(len(expectedValues)))
+			for _, expectedValue := range expectedValues {
+				g.Expect(foundValues).To(ContainElement(expectedValue))
+			}
+		})
+	})
+
+	t.Run("Describe GREAT THAN OR EQUAL queries", func(t *testing.T) {
+		t.Run("It can find all fields with a single KeyValue", func(t *testing.T) {
+			_, tree := setupTestQueryTree(g)
+
+			query := queryassociatedaction.AssociatedActionQuery{
+				Selection: &queryassociatedaction.Selection{
+					KeyValues: map[string]queryassociatedaction.ValueQuery{
+						"1": {
+							Value:            datatypes.Int(1),
+							Comparison:       v1common.GreaterThanOrEqual,
+							TypeRestrictions: testmodels.NoTypeRestrictions(g),
+						},
+					},
+				},
+			}
+			g.Expect(query.Validate()).ToNot(HaveOccurred())
+
+			expectedValues := []string{"0", "3", "6", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24", "25", "26", "36", "37", "38"}
+			foundValues := []string{}
+			onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
+				foundValues = append(foundValues, associatedKeyValues.Value().(string))
+				return true
+			}
+
+			g.Expect(tree.QueryAction(&query, onFindPagination)).ToNot(HaveOccurred())
+			g.Expect(len(foundValues)).To(Equal(len(expectedValues)))
+			for _, expectedValue := range expectedValues {
+				g.Expect(foundValues).To(ContainElement(expectedValue))
+			}
+		})
+
+		t.Run("It can find all fileds with multiple KeyValues", func(t *testing.T) {
+			_, tree := setupTestQueryTree(g)
+
+			query := queryassociatedaction.AssociatedActionQuery{
+				Selection: &queryassociatedaction.Selection{
+					KeyValues: map[string]queryassociatedaction.ValueQuery{
+						"1": {
+							Value:            datatypes.Int(1),
+							Comparison:       v1common.GreaterThanOrEqual,
+							TypeRestrictions: testmodels.NoTypeRestrictions(g),
+						},
+						"2": {
+							Value:            datatypes.Int(2),
+							Comparison:       v1common.GreaterThanOrEqual,
+							TypeRestrictions: testmodels.NoTypeRestrictions(g),
+						},
+					},
+				},
+			}
+			g.Expect(query.Validate()).ToNot(HaveOccurred())
+
+			expectedValues := []string{"9", "10", "11", "15", "16", "17", "21", "22", "23", "36", "37", "38"}
+			foundValues := []string{}
+			onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
+				foundValues = append(foundValues, associatedKeyValues.Value().(string))
+				return true
+			}
+
+			g.Expect(tree.QueryAction(&query, onFindPagination)).ToNot(HaveOccurred())
+			g.Expect(len(foundValues)).To(Equal(len(expectedValues)))
+			for _, expectedValue := range expectedValues {
+				g.Expect(foundValues).To(ContainElement(expectedValue))
+			}
+		})
+
+		t.Run("It respects the type restrictions", func(t *testing.T) {
+			_, tree := setupTestQueryTree(g)
+
+			query := queryassociatedaction.AssociatedActionQuery{
+				Selection: &queryassociatedaction.Selection{
+					KeyValues: map[string]queryassociatedaction.ValueQuery{
+						"1": {
+							Value:            datatypes.Int(1),
+							Comparison:       v1common.GreaterThanOrEqual,
+							TypeRestrictions: testmodels.TypeRestrictions(g, datatypes.T_int, datatypes.T_string),
+						},
+						"2": {
+							Value:            datatypes.Int(2),
+							Comparison:       v1common.GreaterThanOrEqual,
+							TypeRestrictions: testmodels.TypeRestrictions(g, datatypes.T_int, datatypes.T_string),
+						},
+					},
+				},
+			}
+			g.Expect(query.Validate()).ToNot(HaveOccurred())
+
+			expectedValues := []string{"9", "10", "15", "16", "36", "37"}
+			foundValues := []string{}
+			onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
+				foundValues = append(foundValues, associatedKeyValues.Value().(string))
+				return true
+			}
+
+			g.Expect(tree.QueryAction(&query, onFindPagination)).ToNot(HaveOccurred())
+			g.Expect(len(foundValues)).To(Equal(len(expectedValues)))
+			for _, expectedValue := range expectedValues {
+				g.Expect(foundValues).To(ContainElement(expectedValue))
+			}
+		})
+	})
+
+	t.Run("Destribe using associatedIDs in the query", func(t *testing.T) {
+		t.Run("It does not run the query if no IDs were found", func(t *testing.T) {
+			_, tree := setupTestQueryTree(g)
+
+			query := queryassociatedaction.AssociatedActionQuery{
+				Selection: &queryassociatedaction.Selection{
+					IDs: []string{"nopes"},
+				},
+			}
+			g.Expect(query.Validate()).ToNot(HaveOccurred())
+
+			foundValues := []string{}
+			onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
+				foundValues = append(foundValues, associatedKeyValues.Value().(string))
+				return true
+			}
+
+			g.Expect(tree.QueryAction(&query, onFindPagination)).ToNot(HaveOccurred())
+			g.Expect(len(foundValues)).To(Equal(0))
+		})
+
+		t.Run("It matches the query against any found IDs", func(t *testing.T) {
+			ids, tree := setupTestQueryTree(g)
+
+			queryMatch := queryassociatedaction.AssociatedActionQuery{
+				Selection: &queryassociatedaction.Selection{
+					IDs: []string{ids[0]},
+					KeyValues: queryassociatedaction.SelectionKeyValues{
+						"1": {
+							Value:            datatypes.Int(1),
+							Comparison:       v1common.Equals,
+							TypeRestrictions: testmodels.NoTypeRestrictions(g),
+						},
+					},
+				},
+			}
+			g.Expect(queryMatch.Validate()).ToNot(HaveOccurred())
+
+			foundValues := []string{}
+			onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
+				foundValues = append(foundValues, associatedKeyValues.Value().(string))
+				return true
+			}
+
+			g.Expect(tree.QueryAction(&queryMatch, onFindPagination)).ToNot(HaveOccurred())
+			g.Expect(len(foundValues)).To(Equal(1))
+			g.Expect(foundValues).To(Equal([]string{"0"}))
+		})
+
+		t.Run("It ignores the found IDs if the wuery does not match their key values", func(t *testing.T) {
+			ids, tree := setupTestQueryTree(g)
+
+			noMatchType := queryassociatedaction.AssociatedActionQuery{
+				Selection: &queryassociatedaction.Selection{
+					IDs: []string{ids[0]},
+					KeyValues: queryassociatedaction.SelectionKeyValues{
+						"1": {
+							Value:            datatypes.Int(1),
+							Comparison:       v1common.Equals,
+							TypeRestrictions: testmodels.TypeRestrictions(g, datatypes.T_any, datatypes.T_any),
+						},
+					},
+				},
+			}
+			g.Expect(noMatchType.Validate()).ToNot(HaveOccurred())
+
+			noMatchMinKeys := queryassociatedaction.AssociatedActionQuery{
+				Selection: &queryassociatedaction.Selection{
+					IDs:                  []string{ids[0]},
+					MinNumberOfKeyValues: helpers.PointerOf(2),
+					KeyValues: queryassociatedaction.SelectionKeyValues{
+						"1": {
+							Value:            datatypes.Int(1),
+							Comparison:       v1common.Equals,
+							TypeRestrictions: testmodels.NoTypeRestrictions(g),
+						},
+					},
+				},
+			}
+			g.Expect(noMatchMinKeys.Validate()).ToNot(HaveOccurred())
+
+			foundValues := []string{}
+			onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
+				foundValues = append(foundValues, associatedKeyValues.Value().(string))
+				return true
+			}
+
+			g.Expect(tree.QueryAction(&noMatchType, onFindPagination)).ToNot(HaveOccurred())
+			g.Expect(len(foundValues)).To(Equal(0))
+
+			g.Expect(tree.QueryAction(&noMatchMinKeys, onFindPagination)).ToNot(HaveOccurred())
+			g.Expect(len(foundValues)).To(Equal(0))
 		})
 	})
 }
 
-func TestAssociatedTree_Query_JoinAND(t *testing.T) {
+func TestAssociatedTree_Query_AND_Joins(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	noOpOnFind := func(item AssociatedKeyValues) {}
+	t.Run("It intersects the AND query, with the ASsociatedSelection", func(t *testing.T) {
+		_, tree := setupTestQueryTree(g)
 
-	setupQuery := func(g *GomegaWithT) *threadsafeAssociatedTree {
-		associatedTree := NewThreadSafe()
-
-		// create a number of entries in the associated tree
-		keyValues1 := datatypes.KeyValues{"1": datatypes.Int(1)}
-		keyValues2 := datatypes.KeyValues{"2": datatypes.Int(2)}
-		keyValues3 := datatypes.KeyValues{"3": datatypes.Int(3)}
-		keyValues4 := datatypes.KeyValues{"1": datatypes.String("1")}
-		keyValues5 := datatypes.KeyValues{"2": datatypes.String("2")}
-		keyValues6 := datatypes.KeyValues{"3": datatypes.String("3")}
-		keyValues7 := datatypes.KeyValues{"1": datatypes.Int(1), "2": datatypes.Int(2)}
-		keyValues8 := datatypes.KeyValues{"1": datatypes.Int(1), "2": datatypes.String("2")}
-		keyValues9 := datatypes.KeyValues{"1": datatypes.Int(1), "3": datatypes.Int(3)}
-		keyValues10 := datatypes.KeyValues{"1": datatypes.Int(1), "3": datatypes.String("3")}
-		keyValues11 := datatypes.KeyValues{"2": datatypes.Int(2), "3": datatypes.Int(3)}
-		keyValues12 := datatypes.KeyValues{"2": datatypes.Int(2), "3": datatypes.String("3")}
-		keyValues13 := datatypes.KeyValues{"1": datatypes.Int(1), "2": datatypes.Int(2), "3": datatypes.Int(3)}
-		keyValues14 := datatypes.KeyValues{"1": datatypes.Int(1), "2": datatypes.String("2"), "3": datatypes.String("3")}
-
-		associatedTree.CreateOrFind(keyValues1, func() any { return "1" }, noOpOnFind)
-		associatedTree.CreateOrFind(keyValues2, func() any { return "2" }, noOpOnFind)
-		associatedTree.CreateOrFind(keyValues3, func() any { return "3" }, noOpOnFind)
-		associatedTree.CreateOrFind(keyValues4, func() any { return "4" }, noOpOnFind)
-		associatedTree.CreateOrFind(keyValues5, func() any { return "5" }, noOpOnFind)
-		associatedTree.CreateOrFind(keyValues6, func() any { return "6" }, noOpOnFind)
-		associatedTree.CreateOrFind(keyValues7, func() any { return "7" }, noOpOnFind)
-		associatedTree.CreateOrFind(keyValues8, func() any { return "8" }, noOpOnFind)
-		associatedTree.CreateOrFind(keyValues9, func() any { return "9" }, noOpOnFind)
-		associatedTree.CreateOrFind(keyValues10, func() any { return "10" }, noOpOnFind)
-		associatedTree.CreateOrFind(keyValues11, func() any { return "11" }, noOpOnFind)
-		associatedTree.CreateOrFind(keyValues12, func() any { return "12" }, noOpOnFind)
-		associatedTree.CreateOrFind(keyValues13, func() any { return "13" }, noOpOnFind)
-		associatedTree.CreateOrFind(keyValues14, func() any { return "14" }, noOpOnFind)
-
-		return associatedTree
-	}
-
-	t.Run("It runs the callback when values are intersected together at the same level", func(t *testing.T) {
-		associatedTree := setupQuery(g)
-
-		var foundItems []any
-		onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
-			foundItems = append(foundItems, associatedKeyValues.Value())
-			return true
-		}
-
-		intOne := datatypes.Int(1)
-		intTwo := datatypes.Int(2)
-		query := datatypes.AssociatedKeyValuesQuery{
-			And: []datatypes.AssociatedKeyValuesQuery{
-				{KeyValueSelection: &datatypes.KeyValueSelection{KeyValues: map[string]datatypes.Value{"1": {Value: &intOne, ValueComparison: datatypes.EqualsPtr()}}}},
-				{KeyValueSelection: &datatypes.KeyValueSelection{KeyValues: map[string]datatypes.Value{"2": {Value: &intTwo, ValueComparison: datatypes.EqualsPtr()}}}},
+		query := queryassociatedaction.AssociatedActionQuery{
+			Selection: &queryassociatedaction.Selection{
+				KeyValues: map[string]queryassociatedaction.ValueQuery{
+					"1": {
+						Value:            datatypes.Int(1),
+						Comparison:       v1common.Equals,
+						TypeRestrictions: testmodels.NoTypeRestrictions(g),
+					},
+				},
 			},
-		}
-		g.Expect(query.Validate()).ToNot(HaveOccurred())
-
-		err := associatedTree.Query(query, onFindPagination)
-		g.Expect(err).ToNot(HaveOccurred())
-		g.Expect(len(foundItems)).To(Equal(2))
-		g.Expect(foundItems).To(ContainElements("7", "13"))
-	})
-
-	t.Run("It runs the callback when values are intersected together with the Where clause", func(t *testing.T) {
-		associatedTree := setupQuery(g)
-
-		var foundItems []any
-		onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
-			foundItems = append(foundItems, associatedKeyValues.Value())
-			return true
-		}
-
-		intOne := datatypes.Int(1)
-		intTwo := datatypes.Int(2)
-		query := datatypes.AssociatedKeyValuesQuery{
-			KeyValueSelection: &datatypes.KeyValueSelection{KeyValues: map[string]datatypes.Value{"1": {Value: &intOne, ValueComparison: datatypes.EqualsPtr()}}},
-			And: []datatypes.AssociatedKeyValuesQuery{
-				{KeyValueSelection: &datatypes.KeyValueSelection{KeyValues: map[string]datatypes.Value{"2": {Value: &intTwo, ValueComparison: datatypes.EqualsPtr()}}}},
-			},
-		}
-		g.Expect(query.Validate()).ToNot(HaveOccurred())
-
-		err := associatedTree.Query(query, onFindPagination)
-		g.Expect(err).ToNot(HaveOccurred())
-		g.Expect(len(foundItems)).To(Equal(2))
-		g.Expect(foundItems).To(ContainElements("7", "13"))
-	})
-
-	t.Run("It runs the callback when values are intersected together at multiple levels", func(t *testing.T) {
-		associatedTree := setupQuery(g)
-
-		var foundItems []any
-		onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
-			foundItems = append(foundItems, associatedKeyValues.Value())
-			return true
-		}
-
-		intOne := datatypes.Int(1)
-		intTwo := datatypes.Int(2)
-		query := datatypes.AssociatedKeyValuesQuery{
-			And: []datatypes.AssociatedKeyValuesQuery{
+			And: []*queryassociatedaction.AssociatedActionQuery{
 				{
-					And: []datatypes.AssociatedKeyValuesQuery{
-						{ // do the same query 2x. shouldn't matter
-							And: []datatypes.AssociatedKeyValuesQuery{
-								{
-									KeyValueSelection: &datatypes.KeyValueSelection{
-										KeyValues: map[string]datatypes.Value{"1": {Value: &intOne, ValueComparison: datatypes.EqualsPtr()}},
-									},
-								},
-							},
-						},
-						{
-							And: []datatypes.AssociatedKeyValuesQuery{
-								{
-									KeyValueSelection: &datatypes.KeyValueSelection{
-										KeyValues: map[string]datatypes.Value{"1": {Value: &intOne, ValueComparison: datatypes.EqualsPtr()}},
-									},
-								},
+					Selection: &queryassociatedaction.Selection{
+						KeyValues: map[string]queryassociatedaction.ValueQuery{
+							"2": {
+								Value:            datatypes.Int(2),
+								Comparison:       v1common.Equals,
+								TypeRestrictions: testmodels.NoTypeRestrictions(g),
 							},
 						},
 					},
 				},
-				{KeyValueSelection: &datatypes.KeyValueSelection{KeyValues: map[string]datatypes.Value{"2": {Value: &intTwo, ValueComparison: datatypes.EqualsPtr()}}}},
 			},
 		}
 		g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-		err := associatedTree.Query(query, onFindPagination)
-		g.Expect(err).ToNot(HaveOccurred())
-		g.Expect(len(foundItems)).To(Equal(2))
-		g.Expect(foundItems).To(ContainElements("7", "13"))
-	})
-
-	t.Run("It stops the query if no ids are found", func(t *testing.T) {
-		associatedTree := setupQuery(g)
-
-		var foundItems []any
+		expectedValues := []string{"9", "11", "21", "23", "36", "38"}
+		foundValues := []string{}
 		onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
-			foundItems = append(foundItems, associatedKeyValues.Value())
+			foundValues = append(foundValues, associatedKeyValues.Value().(string))
 			return true
 		}
 
-		int73 := datatypes.Int(73)
-		intOne := datatypes.Int(1)
-		intTwo := datatypes.Int(2)
-		query := datatypes.AssociatedKeyValuesQuery{
-			And: []datatypes.AssociatedKeyValuesQuery{
+		g.Expect(tree.QueryAction(&query, onFindPagination)).ToNot(HaveOccurred())
+		g.Expect(len(foundValues)).To(Equal(len(expectedValues)))
+		for _, expectedValue := range expectedValues {
+			g.Expect(foundValues).To(ContainElement(expectedValue))
+		}
+	})
+
+	t.Run("It can intersects all ids found from each of the queries", func(t *testing.T) {
+		_, tree := setupTestQueryTree(g)
+
+		query := queryassociatedaction.AssociatedActionQuery{
+			And: []*queryassociatedaction.AssociatedActionQuery{
 				{
-					And: []datatypes.AssociatedKeyValuesQuery{
-						{ // do the same query 2x. shouldn't matter
-							And: []datatypes.AssociatedKeyValuesQuery{
-								{
-									KeyValueSelection: &datatypes.KeyValueSelection{
-										KeyValues: map[string]datatypes.Value{"1": {Value: &int73, ValueComparison: datatypes.EqualsPtr()}},
-									},
-								},
-							},
-						},
-						{
-							And: []datatypes.AssociatedKeyValuesQuery{
-								{
-									KeyValueSelection: &datatypes.KeyValueSelection{
-										KeyValues: map[string]datatypes.Value{"1": {Value: &intOne, ValueComparison: datatypes.EqualsPtr()}},
-									},
-								},
+					Selection: &queryassociatedaction.Selection{
+						KeyValues: map[string]queryassociatedaction.ValueQuery{
+							"1": {
+								Value:            datatypes.Int(1),
+								Comparison:       v1common.Equals,
+								TypeRestrictions: testmodels.NoTypeRestrictions(g),
 							},
 						},
 					},
 				},
-				{KeyValueSelection: &datatypes.KeyValueSelection{KeyValues: map[string]datatypes.Value{"2": {Value: &intTwo, ValueComparison: datatypes.EqualsPtr()}}}},
+				{
+					Selection: &queryassociatedaction.Selection{
+						KeyValues: map[string]queryassociatedaction.ValueQuery{
+							"2": {
+								Value:            datatypes.Int(2),
+								Comparison:       v1common.Equals,
+								TypeRestrictions: testmodels.NoTypeRestrictions(g),
+							},
+						},
+					},
+				},
 			},
 		}
 		g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-		err := associatedTree.Query(query, onFindPagination)
-		g.Expect(err).ToNot(HaveOccurred())
-		g.Expect(len(foundItems)).To(Equal(0))
+		expectedValues := []string{"9", "11", "21", "23", "36", "38"}
+		foundValues := []string{}
+		onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
+			foundValues = append(foundValues, associatedKeyValues.Value().(string))
+			return true
+		}
+
+		g.Expect(tree.QueryAction(&query, onFindPagination)).ToNot(HaveOccurred())
+		g.Expect(len(foundValues)).To(Equal(len(expectedValues)))
+		for _, expectedValue := range expectedValues {
+			g.Expect(foundValues).To(ContainElement(expectedValue))
+		}
+	})
+
+	t.Run("It does not find anything in the query if all intersections return 0 ids", func(t *testing.T) {
+		_, tree := setupTestQueryTree(g)
+
+		query := queryassociatedaction.AssociatedActionQuery{
+			And: []*queryassociatedaction.AssociatedActionQuery{
+				{
+					Selection: &queryassociatedaction.Selection{
+						KeyValues: map[string]queryassociatedaction.ValueQuery{
+							"1": {
+								Value:            datatypes.Int(1),
+								Comparison:       v1common.Equals,
+								TypeRestrictions: testmodels.NoTypeRestrictions(g),
+							},
+						},
+					},
+				},
+				{
+					Selection: &queryassociatedaction.Selection{
+						KeyValues: map[string]queryassociatedaction.ValueQuery{
+							"2": {
+								Value:            datatypes.Int(2),
+								Comparison:       v1common.Equals,
+								TypeRestrictions: testmodels.NoTypeRestrictions(g),
+							},
+						},
+					},
+				},
+				{
+					Selection: &queryassociatedaction.Selection{
+						KeyValues: map[string]queryassociatedaction.ValueQuery{
+							"2": {
+								Value:            datatypes.Int(2),
+								Comparison:       v1common.LessThan,
+								TypeRestrictions: testmodels.TypeRestrictions(g, datatypes.MinDataType, datatypes.T_uint),
+							},
+						},
+					},
+				},
+			},
+		}
+		g.Expect(query.Validate()).ToNot(HaveOccurred())
+
+		expectedValues := []string{}
+		foundValues := []string{}
+		onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
+			foundValues = append(foundValues, associatedKeyValues.Value().(string))
+			return true
+		}
+
+		g.Expect(tree.QueryAction(&query, onFindPagination)).ToNot(HaveOccurred())
+		g.Expect(len(foundValues)).To(Equal(len(expectedValues)))
+		for _, expectedValue := range expectedValues {
+			g.Expect(foundValues).To(ContainElement(expectedValue))
+		}
 	})
 }
 
-func TestAssociatedTree_Query_JoinOR(t *testing.T) {
+func TestAssociatedTree_Query_OR_Joins(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	noOpOnFind := func(item AssociatedKeyValues) {}
+	t.Run("It unions the OR query, with the AssociatedSelection", func(t *testing.T) {
+		_, tree := setupTestQueryTree(g)
 
-	setupQuery := func(g *GomegaWithT) *threadsafeAssociatedTree {
-		associatedTree := NewThreadSafe()
-
-		// create a number of entries in the associated tree
-		keyValues1 := datatypes.KeyValues{"1": datatypes.Int(1)}
-		keyValues2 := datatypes.KeyValues{"2": datatypes.Int(2)}
-		keyValues3 := datatypes.KeyValues{"3": datatypes.Int(3)}
-		keyValues4 := datatypes.KeyValues{"1": datatypes.String("1")}
-		keyValues5 := datatypes.KeyValues{"2": datatypes.String("2")}
-		keyValues6 := datatypes.KeyValues{"3": datatypes.String("3")}
-		keyValues7 := datatypes.KeyValues{"1": datatypes.Int(1), "2": datatypes.Int(2)}
-		keyValues8 := datatypes.KeyValues{"1": datatypes.Int(1), "2": datatypes.String("2")}
-		keyValues9 := datatypes.KeyValues{"1": datatypes.Int(1), "3": datatypes.Int(3)}
-		keyValues10 := datatypes.KeyValues{"1": datatypes.Int(1), "3": datatypes.String("3")}
-		keyValues11 := datatypes.KeyValues{"2": datatypes.Int(2), "3": datatypes.Int(3)}
-		keyValues12 := datatypes.KeyValues{"2": datatypes.Int(2), "3": datatypes.String("3")}
-		keyValues13 := datatypes.KeyValues{"1": datatypes.Int(1), "2": datatypes.Int(2), "3": datatypes.Int(3)}
-		keyValues14 := datatypes.KeyValues{"1": datatypes.Int(1), "2": datatypes.String("2"), "3": datatypes.String("3")}
-
-		associatedTree.CreateOrFind(keyValues1, func() any { return "1" }, noOpOnFind)
-		associatedTree.CreateOrFind(keyValues2, func() any { return "2" }, noOpOnFind)
-		associatedTree.CreateOrFind(keyValues3, func() any { return "3" }, noOpOnFind)
-		associatedTree.CreateOrFind(keyValues4, func() any { return "4" }, noOpOnFind)
-		associatedTree.CreateOrFind(keyValues5, func() any { return "5" }, noOpOnFind)
-		associatedTree.CreateOrFind(keyValues6, func() any { return "6" }, noOpOnFind)
-		associatedTree.CreateOrFind(keyValues7, func() any { return "7" }, noOpOnFind)
-		associatedTree.CreateOrFind(keyValues8, func() any { return "8" }, noOpOnFind)
-		associatedTree.CreateOrFind(keyValues9, func() any { return "9" }, noOpOnFind)
-		associatedTree.CreateOrFind(keyValues10, func() any { return "10" }, noOpOnFind)
-		associatedTree.CreateOrFind(keyValues11, func() any { return "11" }, noOpOnFind)
-		associatedTree.CreateOrFind(keyValues12, func() any { return "12" }, noOpOnFind)
-		associatedTree.CreateOrFind(keyValues13, func() any { return "13" }, noOpOnFind)
-		associatedTree.CreateOrFind(keyValues14, func() any { return "14" }, noOpOnFind)
-
-		return associatedTree
-	}
-
-	t.Run("It runs the callback when values are unioned together at the same level", func(t *testing.T) {
-		associatedTree := setupQuery(g)
-
-		var foundItems []any
-		onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
-			foundItems = append(foundItems, associatedKeyValues.Value())
-			return true
-		}
-
-		intOne := datatypes.Int(1)
-		intTwo := datatypes.Int(2)
-		query := datatypes.AssociatedKeyValuesQuery{
-			Or: []datatypes.AssociatedKeyValuesQuery{
-				{KeyValueSelection: &datatypes.KeyValueSelection{KeyValues: map[string]datatypes.Value{"1": {Value: &intOne, ValueComparison: datatypes.EqualsPtr()}}}},
-				{KeyValueSelection: &datatypes.KeyValueSelection{KeyValues: map[string]datatypes.Value{"2": {Value: &intTwo, ValueComparison: datatypes.EqualsPtr()}}}},
+		query := queryassociatedaction.AssociatedActionQuery{
+			Selection: &queryassociatedaction.Selection{
+				KeyValues: map[string]queryassociatedaction.ValueQuery{
+					"1": {
+						Value:            datatypes.Int(1),
+						Comparison:       v1common.Equals,
+						TypeRestrictions: testmodels.NoTypeRestrictions(g),
+					},
+				},
 			},
-		}
-		g.Expect(query.Validate()).ToNot(HaveOccurred())
-
-		err := associatedTree.Query(query, onFindPagination)
-		g.Expect(err).ToNot(HaveOccurred())
-		g.Expect(len(foundItems)).To(Equal(10))
-		g.Expect(foundItems).To(ContainElements("1", "2", "7", "8", "9", "10", "11", "12", "13", "14"))
-	})
-
-	t.Run("It runs the callback when values are unioned together with the Where clause", func(t *testing.T) {
-		associatedTree := setupQuery(g)
-
-		var foundItems []any
-		onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
-			foundItems = append(foundItems, associatedKeyValues.Value())
-			return true
-		}
-
-		intOne := datatypes.Int(1)
-		intTwo := datatypes.Int(2)
-		query := datatypes.AssociatedKeyValuesQuery{
-			KeyValueSelection: &datatypes.KeyValueSelection{KeyValues: map[string]datatypes.Value{"1": {Value: &intOne, ValueComparison: datatypes.EqualsPtr()}}},
-			Or: []datatypes.AssociatedKeyValuesQuery{
-				{KeyValueSelection: &datatypes.KeyValueSelection{KeyValues: map[string]datatypes.Value{"2": {Value: &intTwo, ValueComparison: datatypes.EqualsPtr()}}}},
-			},
-		}
-		g.Expect(query.Validate()).ToNot(HaveOccurred())
-
-		err := associatedTree.Query(query, onFindPagination)
-		g.Expect(err).ToNot(HaveOccurred())
-		g.Expect(len(foundItems)).To(Equal(10))
-		g.Expect(foundItems).To(ContainElements("1", "2", "7", "8", "9", "10", "11", "12", "13", "14"))
-	})
-
-	t.Run("It runs the callback when values are intersected together at multiple levels", func(t *testing.T) {
-		associatedTree := setupQuery(g)
-
-		var foundItems []any
-		onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
-			foundItems = append(foundItems, associatedKeyValues.Value())
-			return true
-		}
-
-		intOne := datatypes.Int(1)
-		intTwo := datatypes.Int(2)
-		query := datatypes.AssociatedKeyValuesQuery{
-			Or: []datatypes.AssociatedKeyValuesQuery{
-				{And: []datatypes.AssociatedKeyValuesQuery{{And: []datatypes.AssociatedKeyValuesQuery{{KeyValueSelection: &datatypes.KeyValueSelection{KeyValues: map[string]datatypes.Value{"1": {Value: &intOne, ValueComparison: datatypes.EqualsPtr()}}}}}}}},
-				{KeyValueSelection: &datatypes.KeyValueSelection{KeyValues: map[string]datatypes.Value{"2": {Value: &intTwo, ValueComparison: datatypes.EqualsPtr()}}}},
-			},
-		}
-		g.Expect(query.Validate()).ToNot(HaveOccurred())
-
-		err := associatedTree.Query(query, onFindPagination)
-		g.Expect(err).ToNot(HaveOccurred())
-		g.Expect(len(foundItems)).To(Equal(10))
-		g.Expect(foundItems).To(ContainElements("1", "2", "7", "8", "9", "10", "11", "12", "13", "14"))
-	})
-}
-
-func TestAssociatedTree_Query_AND_OR_joins(t *testing.T) {
-	g := NewGomegaWithT(t)
-
-	noOpOnFind := func(item AssociatedKeyValues) {}
-
-	setupQuery := func(g *GomegaWithT) *threadsafeAssociatedTree {
-		associatedTree := NewThreadSafe()
-
-		// create a number of entries in the associated tree
-		keyValues1 := datatypes.KeyValues{"1": datatypes.Int(1)}
-		keyValues2 := datatypes.KeyValues{"2": datatypes.Int(2)}
-		keyValues3 := datatypes.KeyValues{"3": datatypes.Int(3)}
-		keyValues4 := datatypes.KeyValues{"1": datatypes.String("1")}
-		keyValues5 := datatypes.KeyValues{"2": datatypes.String("2")}
-		keyValues6 := datatypes.KeyValues{"3": datatypes.String("3")}
-		keyValues7 := datatypes.KeyValues{"1": datatypes.Int(1), "2": datatypes.Int(2)}
-		keyValues8 := datatypes.KeyValues{"1": datatypes.Int(1), "2": datatypes.String("2")}
-		keyValues9 := datatypes.KeyValues{"1": datatypes.Int(1), "3": datatypes.Int(3)}
-		keyValues10 := datatypes.KeyValues{"1": datatypes.Int(1), "3": datatypes.String("3")}
-		keyValues11 := datatypes.KeyValues{"2": datatypes.Int(2), "3": datatypes.Int(3)}
-		keyValues12 := datatypes.KeyValues{"2": datatypes.Int(2), "3": datatypes.String("3")}
-		keyValues13 := datatypes.KeyValues{"1": datatypes.Int(1), "2": datatypes.Int(2), "3": datatypes.Int(3)}
-		keyValues14 := datatypes.KeyValues{"1": datatypes.Int(1), "2": datatypes.String("2"), "3": datatypes.String("3")}
-
-		associatedTree.CreateOrFind(keyValues1, func() any { return "1" }, noOpOnFind)
-		associatedTree.CreateOrFind(keyValues2, func() any { return "2" }, noOpOnFind)
-		associatedTree.CreateOrFind(keyValues3, func() any { return "3" }, noOpOnFind)
-		associatedTree.CreateOrFind(keyValues4, func() any { return "4" }, noOpOnFind)
-		associatedTree.CreateOrFind(keyValues5, func() any { return "5" }, noOpOnFind)
-		associatedTree.CreateOrFind(keyValues6, func() any { return "6" }, noOpOnFind)
-		associatedTree.CreateOrFind(keyValues7, func() any { return "7" }, noOpOnFind)
-		associatedTree.CreateOrFind(keyValues8, func() any { return "8" }, noOpOnFind)
-		associatedTree.CreateOrFind(keyValues9, func() any { return "9" }, noOpOnFind)
-		associatedTree.CreateOrFind(keyValues10, func() any { return "10" }, noOpOnFind)
-		associatedTree.CreateOrFind(keyValues11, func() any { return "11" }, noOpOnFind)
-		associatedTree.CreateOrFind(keyValues12, func() any { return "12" }, noOpOnFind)
-		associatedTree.CreateOrFind(keyValues13, func() any { return "13" }, noOpOnFind)
-		associatedTree.CreateOrFind(keyValues14, func() any { return "14" }, noOpOnFind)
-
-		return associatedTree
-	}
-
-	t.Run("It joins all values together accordingly", func(t *testing.T) {
-		associatedTree := setupQuery(g)
-
-		var foundItems []any
-		onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
-			foundItems = append(foundItems, associatedKeyValues.Value())
-			return true
-		}
-
-		intOne := datatypes.Int(1)
-		intTwo := datatypes.Int(2)
-		intThree := datatypes.Int(3)
-		query := datatypes.AssociatedKeyValuesQuery{
-			And: []datatypes.AssociatedKeyValuesQuery{
-				{KeyValueSelection: &datatypes.KeyValueSelection{KeyValues: map[string]datatypes.Value{"1": {Value: &intOne, ValueComparison: datatypes.EqualsPtr()}}}},
-				{KeyValueSelection: &datatypes.KeyValueSelection{KeyValues: map[string]datatypes.Value{"2": {Value: &intTwo, ValueComparison: datatypes.EqualsPtr()}}}},
-			},
-			Or: []datatypes.AssociatedKeyValuesQuery{
-				{KeyValueSelection: &datatypes.KeyValueSelection{KeyValues: map[string]datatypes.Value{"3": {Value: &intThree, ValueComparison: datatypes.EqualsPtr()}}}},
-			},
-		}
-		g.Expect(query.Validate()).ToNot(HaveOccurred())
-
-		err := associatedTree.Query(query, onFindPagination)
-		g.Expect(err).ToNot(HaveOccurred())
-		//g.Expect(len(foundItems)).To(Equal(5))
-		g.Expect(foundItems).To(ContainElements("3", "7", "9", "11", "13"))
-	})
-
-	t.Run("It still querys the ORs properly if AND finds nothing", func(t *testing.T) {
-		associatedTree := setupQuery(g)
-
-		var foundItems []any
-		onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
-			foundItems = append(foundItems, associatedKeyValues.Value())
-			return true
-		}
-
-		int73 := datatypes.Int(73)
-		intOne := datatypes.Int(1)
-		intTwo := datatypes.Int(2)
-		intThree := datatypes.Int(3)
-		query := datatypes.AssociatedKeyValuesQuery{
-			And: []datatypes.AssociatedKeyValuesQuery{
+			Or: []*queryassociatedaction.AssociatedActionQuery{
 				{
-					And: []datatypes.AssociatedKeyValuesQuery{
-						{ // do the same query 2x. shouldn't matter
-							And: []datatypes.AssociatedKeyValuesQuery{
-								{
-									KeyValueSelection: &datatypes.KeyValueSelection{
-										KeyValues: map[string]datatypes.Value{"1": {Value: &int73, ValueComparison: datatypes.EqualsPtr()}},
-									},
-								},
-							},
-						},
-						{
-							And: []datatypes.AssociatedKeyValuesQuery{
-								{
-									KeyValueSelection: &datatypes.KeyValueSelection{
-										KeyValues: map[string]datatypes.Value{"1": {Value: &intOne, ValueComparison: datatypes.EqualsPtr()}},
-									},
-								},
+					Selection: &queryassociatedaction.Selection{
+						KeyValues: map[string]queryassociatedaction.ValueQuery{
+							"2": {
+								Value:            datatypes.Int(2),
+								Comparison:       v1common.Equals,
+								TypeRestrictions: testmodels.NoTypeRestrictions(g),
 							},
 						},
 					},
 				},
-				{KeyValueSelection: &datatypes.KeyValueSelection{KeyValues: map[string]datatypes.Value{"2": {Value: &intTwo, ValueComparison: datatypes.EqualsPtr()}}}},
-			},
-			Or: []datatypes.AssociatedKeyValuesQuery{
-				{KeyValueSelection: &datatypes.KeyValueSelection{KeyValues: map[string]datatypes.Value{"3": {Value: &intThree, ValueComparison: datatypes.EqualsPtr()}}}},
 			},
 		}
 		g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-		err := associatedTree.Query(query, onFindPagination)
-		g.Expect(err).ToNot(HaveOccurred())
-		g.Expect(len(foundItems)).To(Equal(4))
-		g.Expect(foundItems).To(ContainElements("3", "9", "11", "13"))
+		expectedValues := []string{"0", "1", "6", "7", "9", "10", "11", "12", "13", "14", "15", "17", "21", "22", "23", "24", "25", "26", "27", "28", "29", "33", "34", "35", "36", "38"}
+		foundValues := []string{}
+		onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
+			foundValues = append(foundValues, associatedKeyValues.Value().(string))
+			return true
+		}
+
+		g.Expect(tree.QueryAction(&query, onFindPagination)).ToNot(HaveOccurred())
+		g.Expect(len(foundValues)).To(Equal(len(expectedValues)))
+		for _, expectedValue := range expectedValues {
+			g.Expect(foundValues).To(ContainElement(expectedValue))
+		}
+	})
+
+	t.Run("It unions multiple OR queries together", func(t *testing.T) {
+		_, tree := setupTestQueryTree(g)
+
+		query := queryassociatedaction.AssociatedActionQuery{
+			Or: []*queryassociatedaction.AssociatedActionQuery{
+				{
+					Selection: &queryassociatedaction.Selection{
+						KeyValues: map[string]queryassociatedaction.ValueQuery{
+							"1": {
+								Value:            datatypes.Int(1),
+								Comparison:       v1common.Equals,
+								TypeRestrictions: testmodels.NoTypeRestrictions(g),
+							},
+						},
+					},
+				},
+				{
+					Selection: &queryassociatedaction.Selection{
+						KeyValues: map[string]queryassociatedaction.ValueQuery{
+							"2": {
+								Value:            datatypes.Int(2),
+								Comparison:       v1common.Equals,
+								TypeRestrictions: testmodels.NoTypeRestrictions(g),
+							},
+						},
+					},
+				},
+			},
+		}
+		g.Expect(query.Validate()).ToNot(HaveOccurred())
+
+		expectedValues := []string{"0", "1", "6", "7", "9", "10", "11", "12", "13", "14", "15", "17", "21", "22", "23", "24", "25", "26", "27", "28", "29", "33", "34", "35", "36", "38"}
+		foundValues := []string{}
+		onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
+			foundValues = append(foundValues, associatedKeyValues.Value().(string))
+			return true
+		}
+
+		g.Expect(tree.QueryAction(&query, onFindPagination)).ToNot(HaveOccurred())
+		g.Expect(len(foundValues)).To(Equal(len(expectedValues)))
+		for _, expectedValue := range expectedValues {
+			g.Expect(foundValues).To(ContainElement(expectedValue))
+		}
+	})
+
+	t.Run("It ignores OR queries that return no IDs", func(t *testing.T) {
+		_, tree := setupTestQueryTree(g)
+
+		query := queryassociatedaction.AssociatedActionQuery{
+			Or: []*queryassociatedaction.AssociatedActionQuery{
+				{
+					Selection: &queryassociatedaction.Selection{
+						KeyValues: map[string]queryassociatedaction.ValueQuery{
+							"1": {
+								Value:            datatypes.Int(1),
+								Comparison:       v1common.Equals,
+								TypeRestrictions: testmodels.NoTypeRestrictions(g),
+							},
+						},
+					},
+				},
+				{
+					Selection: &queryassociatedaction.Selection{
+						KeyValues: map[string]queryassociatedaction.ValueQuery{
+							"2": {
+								Value:            datatypes.Int(2),
+								Comparison:       v1common.Equals,
+								TypeRestrictions: testmodels.NoTypeRestrictions(g),
+							},
+						},
+					},
+				},
+				{
+					Selection: &queryassociatedaction.Selection{
+						KeyValues: map[string]queryassociatedaction.ValueQuery{
+							"2": {
+								Value:            datatypes.Int(1),
+								Comparison:       v1common.LessThan,
+								TypeRestrictions: testmodels.NoTypeRestrictions(g),
+							},
+						},
+					},
+				},
+			},
+		}
+		g.Expect(query.Validate()).ToNot(HaveOccurred())
+
+		expectedValues := []string{"0", "1", "6", "7", "9", "10", "11", "12", "13", "14", "15", "17", "21", "22", "23", "24", "25", "26", "27", "28", "29", "33", "34", "35", "36", "38"}
+		foundValues := []string{}
+		onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
+			foundValues = append(foundValues, associatedKeyValues.Value().(string))
+			return true
+		}
+
+		g.Expect(tree.QueryAction(&query, onFindPagination)).ToNot(HaveOccurred())
+		g.Expect(len(foundValues)).To(Equal(len(expectedValues)))
+		for _, expectedValue := range expectedValues {
+			g.Expect(foundValues).To(ContainElement(expectedValue))
+		}
 	})
 }
 
@@ -1780,21 +1496,23 @@ func TestAssociated_Query_LargeJoinsAreFast(t *testing.T) {
 		}
 		wg.Wait()
 
-		// 2. generate a massive list of key value pairs
+		// 2. generate a list of 10 key value pairs
 		largeKeyValues := datatypes.KeyValues{}
-		for i := 0; i < 6; i++ {
+		for i := 0; i < 10; i++ {
 			largeKeyValues[fmt.Sprintf("%d", i)] = datatypes.String(fmt.Sprintf("%d", i))
 		}
 
-		// 3. generate a massive query to run
-		query := datatypes.AssociatedKeyValuesQuery{}
+		// 3. each key value is its own or join query
+		query := &queryassociatedaction.AssociatedActionQuery{}
 		for _, keyValues := range largeKeyValues.GenerateTagPairs() {
-			associatedQuery := datatypes.AssociatedKeyValuesQuery{
-				KeyValueSelection: &datatypes.KeyValueSelection{KeyValues: map[string]datatypes.Value{}},
+			associatedQuery := &queryassociatedaction.AssociatedActionQuery{
+				Selection: &queryassociatedaction.Selection{
+					KeyValues: queryassociatedaction.SelectionKeyValues{},
+				},
 			}
 
 			for key, value := range keyValues {
-				associatedQuery.KeyValueSelection.KeyValues[key] = datatypes.Value{Value: &value, ValueComparison: datatypes.EqualsPtr()}
+				associatedQuery.Selection.KeyValues[key] = queryassociatedaction.ValueQuery{Value: value, Comparison: v1common.Equals, TypeRestrictions: testmodels.NoTypeRestrictions(g)}
 			}
 
 			query.Or = append(query.Or, associatedQuery)
@@ -1802,11 +1520,660 @@ func TestAssociated_Query_LargeJoinsAreFast(t *testing.T) {
 
 		// 4. run the query
 		counter := 0
-		g.Expect(associatedTree.Query(query, func(item AssociatedKeyValues) bool {
+		g.Expect(associatedTree.QueryAction(query, func(item AssociatedKeyValues) bool {
 			counter++
 			return true
 		})).ToNot(HaveOccurred())
 
-		g.Expect(counter).To(Equal(6))
+		g.Expect(counter).To(Equal(10))
 	})
 }
+
+/*
+	t.Run("Describe when using permutations", func(t *testing.T) {
+		t.Run("Context PermutationsAll", func(t *testing.T) {
+			t.Run("It respects the MinNumberOfPermutationKeyValues field", func(t *testing.T) {
+				_, tree := setupTestQueryTree(g)
+
+				query := queryassociatedaction.AssociatedActionQuery{
+					Selection: &queryassociatedaction.Selection{
+						Permutations:                    v1common.PermutationsAll,
+						MinNumberOfPermutationKeyValues: helpers.PointerOf(2),
+						KeyValues: map[string]queryassociatedaction.ValueQuery{
+							"1": {
+								Value:            datatypes.Int(1),
+								Comparison:       v1common.Equals,
+								TypeRestrictions: testmodels.NoTypeRestrictions(g),
+							},
+							"2": {
+								Value:            datatypes.Int(2),
+								Comparison:       v1common.Equals,
+								TypeRestrictions: testmodels.NoTypeRestrictions(g),
+							},
+							"3": {
+								Value:            datatypes.Any(),
+								Comparison:       v1common.Equals,
+								TypeRestrictions: testmodels.NoTypeRestrictions(g),
+							},
+						},
+					},
+				}
+				g.Expect(query.Validate()).ToNot(HaveOccurred())
+
+				expectedValues := []string{"9", "11", "12", "13", "14", "21", "23", "24", "25", "26", "27", "28", "29", "33", "34", "35", "36", "38"}
+				foundValues := []string{}
+				onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
+					foundValues = append(foundValues, associatedKeyValues.Value().(string))
+					return true
+				}
+
+				g.Expect(tree.QueryAction(&query, onFindPagination)).ToNot(HaveOccurred())
+				g.Expect(len(foundValues)).To(Equal(len(expectedValues)))
+				for _, expectedValue := range expectedValues {
+					g.Expect(foundValues).To(ContainElement(expectedValue))
+				}
+			})
+
+			t.Run("It respects the MaxNumberOfPermutationKeyValues field", func(t *testing.T) {
+				// [[1,2], [1,3], [2,3]]
+				_, tree := setupTestQueryTree(g)
+
+				query := queryassociatedaction.AssociatedActionQuery{
+					Selection: &queryassociatedaction.Selection{
+						Permutations:                    v1common.PermutationsAll,
+						MinNumberOfPermutationKeyValues: helpers.PointerOf(2),
+						MaxNumberOfPermutationKeyValues: helpers.PointerOf(2),
+						KeyValues: map[string]queryassociatedaction.ValueQuery{
+							"1": {
+								Value:            datatypes.Int(1),
+								Comparison:       v1common.Equals,
+								TypeRestrictions: testmodels.NoTypeRestrictions(g),
+							},
+							"2": {
+								Value:            datatypes.Int(2),
+								Comparison:       v1common.NotEquals,
+								TypeRestrictions: testmodels.NoTypeRestrictions(g),
+							},
+							"3": {
+								Value:            datatypes.Any(),
+								Comparison:       v1common.NotEquals,
+								TypeRestrictions: testmodels.NoTypeRestrictions(g),
+							},
+						},
+					},
+				}
+				g.Expect(query.Validate()).ToNot(HaveOccurred())
+
+				expectedValues := []string{"0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24", "25", "26", "30", "31", "32", "36", "37", "38"}
+				foundValues := []string{}
+				onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
+					foundValues = append(foundValues, associatedKeyValues.Value().(string))
+					return true
+				}
+
+				g.Expect(tree.QueryAction(&query, onFindPagination)).ToNot(HaveOccurred())
+				g.Expect(len(foundValues)).To(Equal(len(expectedValues)))
+				for _, expectedValue := range expectedValues {
+					g.Expect(foundValues).To(ContainElement(expectedValue))
+				}
+			})
+
+			t.Run("Context when all queries are finding keys specifically", func(t *testing.T) {
+				t.Run("It can find all permutaions", func(t *testing.T) {
+					_, tree := setupTestQueryTree(g)
+
+					query := queryassociatedaction.AssociatedActionQuery{
+						Selection: &queryassociatedaction.Selection{
+							Permutations: v1common.PermutationsAll,
+							KeyValues: map[string]queryassociatedaction.ValueQuery{
+								"1": {
+									Value:            datatypes.Int(1),
+									Comparison:       v1common.Equals,
+									TypeRestrictions: testmodels.NoTypeRestrictions(g),
+								},
+								"2": {
+									Value:            datatypes.Int(2),
+									Comparison:       v1common.Equals,
+									TypeRestrictions: testmodels.NoTypeRestrictions(g),
+								},
+								"3": {
+									Value:            datatypes.Any(),
+									Comparison:       v1common.Equals,
+									TypeRestrictions: testmodels.NoTypeRestrictions(g),
+								},
+							},
+						},
+					}
+					g.Expect(query.Validate()).ToNot(HaveOccurred())
+
+					expectedValues := []string{"0", "1", "2", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "17", "18", "19", "20", "21", "22", "23", "24", "25", "26", "27", "28", "29", "30", "31", "32", "33", "34", "35", "36", "37", "38"}
+					foundValues := []string{}
+					onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
+						foundValues = append(foundValues, associatedKeyValues.Value().(string))
+						return true
+					}
+
+					g.Expect(tree.QueryAction(&query, onFindPagination)).ToNot(HaveOccurred())
+					g.Expect(len(foundValues)).To(Equal(len(expectedValues)))
+					for _, expectedValue := range expectedValues {
+						g.Expect(foundValues).To(ContainElement(expectedValue))
+					}
+				})
+
+				t.Run("It respects the TypeRestrictions", func(t *testing.T) {
+					_, tree := setupTestQueryTree(g)
+
+					query := queryassociatedaction.AssociatedActionQuery{
+						Selection: &queryassociatedaction.Selection{
+							Permutations: v1common.PermutationsAll,
+							KeyValues: map[string]queryassociatedaction.ValueQuery{
+								"1": {
+									Value:            datatypes.Int(1),
+									Comparison:       v1common.Equals,
+									TypeRestrictions: testmodels.TypeRestrictions(g, datatypes.T_int, datatypes.T_int),
+								},
+								"2": {
+									Value:            datatypes.Int(2),
+									Comparison:       v1common.Equals,
+									TypeRestrictions: testmodels.TypeRestrictions(g, datatypes.T_int, datatypes.T_int),
+								},
+								"3": {
+									Value:            datatypes.Any(),
+									Comparison:       v1common.Equals,
+									TypeRestrictions: testmodels.NoTypeRestrictions(g),
+								},
+							},
+						},
+					}
+					g.Expect(query.Validate()).ToNot(HaveOccurred())
+
+					expectedValues := []string{"0", "1", "2", "5", "8", "9", "10", "11", "12", "13", "14", "15", "18", "19", "20", "21", "24", "25", "26", "27", "28", "29", "30", "31", "32", "33", "34", "35", "36", "37", "38"}
+					foundValues := []string{}
+					onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
+						foundValues = append(foundValues, associatedKeyValues.Value().(string))
+						return true
+					}
+
+					g.Expect(tree.QueryAction(&query, onFindPagination)).ToNot(HaveOccurred())
+					g.Expect(len(foundValues)).To(Equal(len(expectedValues)))
+					for _, expectedValue := range expectedValues {
+						g.Expect(foundValues).To(ContainElement(expectedValue))
+					}
+				})
+			})
+
+			t.Run("Context when queries contain relations for NOT EQUALS and OTHER queries", func(t *testing.T) {
+				// This tests query miught seem a bit odd, but it proves out that stiff like:
+				//		`datatypes.KeyValues{"1": datatypes.Int(1), "2": datatypes.Int(2)}`
+				// still show up in the query. This is because the KeyValues satisfy just the `"1"` permutation
+				t.Run("It can find all permutaions", func(t *testing.T) {
+					_, tree := setupTestQueryTree(g)
+
+					query := queryassociatedaction.AssociatedActionQuery{
+						Selection: &queryassociatedaction.Selection{
+							Permutations: v1common.PermutationsAll,
+							KeyValues: map[string]queryassociatedaction.ValueQuery{
+								"1": {
+									Value:            datatypes.Int(1),
+									Comparison:       v1common.Equals,
+									TypeRestrictions: testmodels.NoTypeRestrictions(g),
+								},
+								"2": {
+									Value:            datatypes.Int(2),
+									Comparison:       v1common.NotEquals,
+									TypeRestrictions: testmodels.NoTypeRestrictions(g),
+								},
+							},
+						},
+					}
+					g.Expect(query.Validate()).ToNot(HaveOccurred())
+
+					expectedValues := []string{"0", "2", "3", "4", "5", "6", "8", "9", "10", "11", "12", "13", "14", "16", "18", "19", "20", "21", "22", "23", "24", "25", "26", "30", "31", "32", "36", "37", "38"}
+					foundValues := []string{}
+					onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
+						foundValues = append(foundValues, associatedKeyValues.Value().(string))
+						return true
+					}
+
+					g.Expect(tree.QueryAction(&query, onFindPagination)).ToNot(HaveOccurred())
+					g.Expect(len(foundValues)).To(Equal(len(expectedValues)))
+					for _, expectedValue := range expectedValues {
+						g.Expect(foundValues).To(ContainElement(expectedValue))
+					}
+				})
+
+				t.Run("It respects the TypeRestrictions", func(t *testing.T) {
+					_, tree := setupTestQueryTree(g)
+
+					query := queryassociatedaction.AssociatedActionQuery{
+						Selection: &queryassociatedaction.Selection{
+							Permutations: v1common.PermutationsAll,
+							KeyValues: map[string]queryassociatedaction.ValueQuery{
+								"1": {
+									Value:            datatypes.Int(1),
+									Comparison:       v1common.Equals,
+									TypeRestrictions: testmodels.TypeRestrictions(g, datatypes.T_int, datatypes.T_int),
+								},
+								"2": {
+									Value:            datatypes.Int(2),
+									Comparison:       v1common.NotEquals,
+									TypeRestrictions: testmodels.TypeRestrictions(g, datatypes.T_int, datatypes.T_int),
+								},
+							},
+						},
+					}
+					g.Expect(query.Validate()).ToNot(HaveOccurred())
+
+					expectedValues := []string{"0", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "16", "17", "18", "19", "20", "22", "23", "24", "25", "26", "30", "31", "32", "33", "34", "35", "36", "37", "38"}
+					foundValues := []string{}
+					onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
+						foundValues = append(foundValues, associatedKeyValues.Value().(string))
+						return true
+					}
+
+					g.Expect(tree.QueryAction(&query, onFindPagination)).ToNot(HaveOccurred())
+					g.Expect(len(foundValues)).To(Equal(len(expectedValues)))
+					for _, expectedValue := range expectedValues {
+						g.Expect(foundValues).To(ContainElement(expectedValue))
+					}
+				})
+			})
+
+			t.Run("Context when queries contain only NOT EQUALS", func(t *testing.T) {
+				t.Run("It can find all permutaions", func(t *testing.T) {
+					_, tree := setupTestQueryTree(g)
+
+					query := queryassociatedaction.AssociatedActionQuery{
+						Selection: &queryassociatedaction.Selection{
+							Permutations: v1common.PermutationsAll,
+							KeyValues: map[string]queryassociatedaction.ValueQuery{
+								"1": {
+									Value:            datatypes.Int(1),
+									Comparison:       v1common.NotEquals,
+									TypeRestrictions: testmodels.NoTypeRestrictions(g),
+								},
+								"2": {
+									Value:            datatypes.Int(2),
+									Comparison:       v1common.NotEquals,
+									TypeRestrictions: testmodels.NoTypeRestrictions(g),
+								},
+							},
+						},
+					}
+					g.Expect(query.Validate()).ToNot(HaveOccurred())
+
+					expectedValues := []string{"0", "1", "2", "3", "4", "5", "6", "7", "8", "10", "12", "13", "14", "15", "16", "17", "18", "19", "20", "22", "24", "25", "26", "27", "28", "29", "30", "31", "32", "33", "34", "35", "37"}
+					foundValues := []string{}
+					onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
+						foundValues = append(foundValues, associatedKeyValues.Value().(string))
+						return true
+					}
+
+					g.Expect(tree.QueryAction(&query, onFindPagination)).ToNot(HaveOccurred())
+					g.Expect(len(foundValues)).To(Equal(len(expectedValues)))
+					for _, expectedValue := range expectedValues {
+						g.Expect(foundValues).To(ContainElement(expectedValue))
+					}
+				})
+
+				t.Run("It respects the TypeRestrictions", func(t *testing.T) {
+					_, tree := setupTestQueryTree(g)
+
+					query := queryassociatedaction.AssociatedActionQuery{
+						Selection: &queryassociatedaction.Selection{
+							Permutations: v1common.PermutationsAll,
+							KeyValues: map[string]queryassociatedaction.ValueQuery{
+								"1": {
+									Value:            datatypes.Int(1),
+									Comparison:       v1common.NotEquals,
+									TypeRestrictions: testmodels.TypeRestrictions(g, datatypes.T_int, datatypes.T_int),
+								},
+								"2": {
+									Value:            datatypes.Int(2),
+									Comparison:       v1common.NotEquals,
+									TypeRestrictions: testmodels.TypeRestrictions(g, datatypes.T_int, datatypes.T_int),
+								},
+							},
+						},
+					}
+					g.Expect(query.Validate()).ToNot(HaveOccurred())
+
+					expectedValues := []string{"0", "1", "2", "3", "4", "5", "6", "7", "8", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24", "25", "26", "27", "28", "29", "30", "31", "32", "33", "34", "35", "37", "38"}
+					foundValues := []string{}
+					onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
+						foundValues = append(foundValues, associatedKeyValues.Value().(string))
+						return true
+					}
+
+					g.Expect(tree.QueryAction(&query, onFindPagination)).ToNot(HaveOccurred())
+					g.Expect(len(foundValues)).To(Equal(len(expectedValues)))
+					for _, expectedValue := range expectedValues {
+						g.Expect(foundValues).To(ContainElement(expectedValue))
+					}
+				})
+			})
+		})
+
+		t.Run("Context PermutationsExact", func(t *testing.T) {
+			t.Run("It respects the MinNumberOfPermutationKeyValues field", func(t *testing.T) {
+				_, tree := setupTestQueryTree(g)
+
+				query := queryassociatedaction.AssociatedActionQuery{
+					Selection: &queryassociatedaction.Selection{
+						Permutations:                    v1common.PermutationsExact,
+						MinNumberOfPermutationKeyValues: helpers.PointerOf(2),
+						KeyValues: map[string]queryassociatedaction.ValueQuery{
+							"1": {
+								Value:            datatypes.Int(1),
+								Comparison:       v1common.Equals,
+								TypeRestrictions: testmodels.NoTypeRestrictions(g),
+							},
+							"2": {
+								Value:            datatypes.Int(2),
+								Comparison:       v1common.Equals,
+								TypeRestrictions: testmodels.NoTypeRestrictions(g),
+							},
+							"3": {
+								Value:            datatypes.Any(),
+								Comparison:       v1common.Equals,
+								TypeRestrictions: testmodels.NoTypeRestrictions(g),
+							},
+						},
+					},
+				}
+				g.Expect(query.Validate()).ToNot(HaveOccurred())
+
+				expectedValues := []string{"9", "11", "12", "13", "14", "21", "23", "24", "25", "26", "27", "28", "29", "33", "34", "35"}
+				foundValues := []string{}
+				onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
+					foundValues = append(foundValues, associatedKeyValues.Value().(string))
+					return true
+				}
+
+				g.Expect(tree.QueryAction(&query, onFindPagination)).ToNot(HaveOccurred())
+				g.Expect(len(foundValues)).To(Equal(len(expectedValues)))
+				for _, expectedValue := range expectedValues {
+					g.Expect(foundValues).To(ContainElement(expectedValue))
+				}
+			})
+
+			t.Run("It respects the MaxNumberOfPermutationKeyValues field", func(t *testing.T) {
+				_, tree := setupTestQueryTree(g)
+
+				query := queryassociatedaction.AssociatedActionQuery{
+					Selection: &queryassociatedaction.Selection{
+						Permutations:                    v1common.PermutationsExact,
+						MinNumberOfPermutationKeyValues: helpers.PointerOf(1),
+						MaxNumberOfPermutationKeyValues: helpers.PointerOf(2),
+						KeyValues: map[string]queryassociatedaction.ValueQuery{
+							"1": {
+								Value:            datatypes.Int(1),
+								Comparison:       v1common.Equals,
+								TypeRestrictions: testmodels.NoTypeRestrictions(g),
+							},
+							"2": {
+								Value:            datatypes.Int(2),
+								Comparison:       v1common.Equals,
+								TypeRestrictions: testmodels.NoTypeRestrictions(g),
+							},
+							"3": {
+								Value:            datatypes.Any(),
+								Comparison:       v1common.Equals,
+								TypeRestrictions: testmodels.NoTypeRestrictions(g),
+							},
+						},
+					},
+				}
+				g.Expect(query.Validate()).ToNot(HaveOccurred())
+
+				expectedValues := []string{"0", "1", "2", "6", "7", "8", "9", "11", "12", "13", "14", "21", "23", "24", "25", "26", "27", "28", "29"}
+				foundValues := []string{}
+				onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
+					foundValues = append(foundValues, associatedKeyValues.Value().(string))
+					return true
+				}
+
+				g.Expect(tree.QueryAction(&query, onFindPagination)).ToNot(HaveOccurred())
+				g.Expect(len(foundValues)).To(Equal(len(expectedValues)))
+				for _, expectedValue := range expectedValues {
+					g.Expect(foundValues).To(ContainElement(expectedValue))
+				}
+			})
+
+			t.Run("Context when all queries are finding keys specifically", func(t *testing.T) {
+				t.Run("It can find all permutaions", func(t *testing.T) {
+					_, tree := setupTestQueryTree(g)
+
+					query := queryassociatedaction.AssociatedActionQuery{
+						Selection: &queryassociatedaction.Selection{
+							Permutations: v1common.PermutationsExact,
+							KeyValues: map[string]queryassociatedaction.ValueQuery{
+								"1": {
+									Value:            datatypes.Int(1),
+									Comparison:       v1common.Equals,
+									TypeRestrictions: testmodels.NoTypeRestrictions(g),
+								},
+								"2": {
+									Value:            datatypes.Int(2),
+									Comparison:       v1common.Equals,
+									TypeRestrictions: testmodels.NoTypeRestrictions(g),
+								},
+								"3": {
+									Value:            datatypes.Any(),
+									Comparison:       v1common.Equals,
+									TypeRestrictions: testmodels.NoTypeRestrictions(g),
+								},
+							},
+						},
+					}
+					g.Expect(query.Validate()).ToNot(HaveOccurred())
+
+					expectedValues := []string{"0", "1", "2", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "17", "18", "19", "20", "21", "22", "23", "24", "25", "26", "27", "28", "29", "30", "31", "32", "33", "34", "35", "36", "37", "38"}
+					foundValues := []string{}
+					onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
+						foundValues = append(foundValues, associatedKeyValues.Value().(string))
+						return true
+					}
+
+					g.Expect(tree.QueryAction(&query, onFindPagination)).ToNot(HaveOccurred())
+					g.Expect(len(foundValues)).To(Equal(len(expectedValues)))
+					for _, expectedValue := range expectedValues {
+						g.Expect(foundValues).To(ContainElement(expectedValue))
+					}
+				})
+
+				t.Run("It respects the TypeRestrictions", func(t *testing.T) {
+					_, tree := setupTestQueryTree(g)
+
+					query := queryassociatedaction.AssociatedActionQuery{
+						Selection: &queryassociatedaction.Selection{
+							Permutations: v1common.PermutationsExact,
+							KeyValues: map[string]queryassociatedaction.ValueQuery{
+								"1": {
+									Value:            datatypes.Int(1),
+									Comparison:       v1common.Equals,
+									TypeRestrictions: testmodels.TypeRestrictions(g, datatypes.T_int, datatypes.T_int),
+								},
+								"2": {
+									Value:            datatypes.Int(2),
+									Comparison:       v1common.Equals,
+									TypeRestrictions: testmodels.TypeRestrictions(g, datatypes.T_int, datatypes.T_int),
+								},
+								"3": {
+									Value:            datatypes.Any(),
+									Comparison:       v1common.Equals,
+									TypeRestrictions: testmodels.NoTypeRestrictions(g),
+								},
+							},
+						},
+					}
+					g.Expect(query.Validate()).ToNot(HaveOccurred())
+
+					expectedValues := []string{"0", "1", "2", "5", "8", "9", "12", "13", "14", "27", "28", "29", "36"}
+					foundValues := []string{}
+					onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
+						foundValues = append(foundValues, associatedKeyValues.Value().(string))
+						return true
+					}
+
+					g.Expect(tree.QueryAction(&query, onFindPagination)).ToNot(HaveOccurred())
+					g.Expect(len(foundValues)).To(Equal(len(expectedValues)))
+					for _, expectedValue := range expectedValues {
+						g.Expect(foundValues).To(ContainElement(expectedValue))
+					}
+				})
+			})
+
+			t.Run("Context when queries contain relations for NOT EQUALS and OTHER queries", func(t *testing.T) {
+				// This tests query miught seem a bit odd, but it proves out that stiff like:
+				//		`datatypes.KeyValues{"1": datatypes.Int(1), "2": datatypes.Int(2)}`
+				// still show up in the query. This is because the KeyValues satisfy just the `"1"` permutation
+				t.Run("It can find all permutaions", func(t *testing.T) {
+					_, tree := setupTestQueryTree(g)
+
+					query := queryassociatedaction.AssociatedActionQuery{
+						Selection: &queryassociatedaction.Selection{
+							Permutations: v1common.PermutationsExact,
+							KeyValues: map[string]queryassociatedaction.ValueQuery{
+								"1": {
+									Value:            datatypes.Int(1),
+									Comparison:       v1common.Equals,
+									TypeRestrictions: testmodels.NoTypeRestrictions(g),
+								},
+								"2": {
+									Value:            datatypes.Int(2),
+									Comparison:       v1common.NotEquals,
+									TypeRestrictions: testmodels.NoTypeRestrictions(g),
+								},
+							},
+						},
+					}
+					g.Expect(query.Validate()).ToNot(HaveOccurred())
+
+					expectedValues := []string{"0", "2", "3", "4", "5", "6", "8", "9", "10", "11", "12", "13", "14", "16", "18", "19", "20", "21", "22", "23", "24", "25", "26", "30", "31", "32", "36", "37", "38"}
+					foundValues := []string{}
+					onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
+						foundValues = append(foundValues, associatedKeyValues.Value().(string))
+						return true
+					}
+
+					g.Expect(tree.QueryAction(&query, onFindPagination)).ToNot(HaveOccurred())
+					g.Expect(len(foundValues)).To(Equal(len(expectedValues)))
+					for _, expectedValue := range expectedValues {
+						g.Expect(foundValues).To(ContainElement(expectedValue))
+					}
+				})
+
+				t.Run("It respects the TypeRestrictions", func(t *testing.T) {
+					_, tree := setupTestQueryTree(g)
+
+					query := queryassociatedaction.AssociatedActionQuery{
+						Selection: &queryassociatedaction.Selection{
+							Permutations: v1common.PermutationsExact,
+							KeyValues: map[string]queryassociatedaction.ValueQuery{
+								"1": {
+									Value:            datatypes.Int(1),
+									Comparison:       v1common.Equals,
+									TypeRestrictions: testmodels.TypeRestrictions(g, datatypes.T_int, datatypes.T_int),
+								},
+								"2": {
+									Value:            datatypes.Int(2),
+									Comparison:       v1common.NotEquals,
+									TypeRestrictions: testmodels.TypeRestrictions(g, datatypes.T_int, datatypes.T_int),
+								},
+							},
+						},
+					}
+					g.Expect(query.Validate()).ToNot(HaveOccurred())
+
+					expectedValues := []string{"0", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "16", "17", "18", "19", "20", "22", "23", "24", "25", "26", "30", "31", "32", "33", "34", "35", "36", "37", "38"}
+					foundValues := []string{}
+					onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
+						foundValues = append(foundValues, associatedKeyValues.Value().(string))
+						return true
+					}
+
+					g.Expect(tree.QueryAction(&query, onFindPagination)).ToNot(HaveOccurred())
+					g.Expect(len(foundValues)).To(Equal(len(expectedValues)))
+					for _, expectedValue := range expectedValues {
+						g.Expect(foundValues).To(ContainElement(expectedValue))
+					}
+				})
+			})
+
+			t.Run("Context when queries contain only NOT EQUALS", func(t *testing.T) {
+				t.Run("It can find all permutaions", func(t *testing.T) {
+					_, tree := setupTestQueryTree(g)
+
+					query := queryassociatedaction.AssociatedActionQuery{
+						Selection: &queryassociatedaction.Selection{
+							Permutations: v1common.PermutationsExact,
+							KeyValues: map[string]queryassociatedaction.ValueQuery{
+								"1": {
+									Value:            datatypes.Int(1),
+									Comparison:       v1common.NotEquals,
+									TypeRestrictions: testmodels.NoTypeRestrictions(g),
+								},
+								"2": {
+									Value:            datatypes.Int(2),
+									Comparison:       v1common.NotEquals,
+									TypeRestrictions: testmodels.NoTypeRestrictions(g),
+								},
+							},
+						},
+					}
+					g.Expect(query.Validate()).ToNot(HaveOccurred())
+
+					expectedValues := []string{"0", "1", "2", "3", "4", "5", "6", "7", "8", "10", "12", "13", "14", "15", "16", "17", "18", "19", "20", "22", "24", "25", "26", "27", "28", "29", "30", "31", "32", "33", "34", "35", "37"}
+					foundValues := []string{}
+					onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
+						foundValues = append(foundValues, associatedKeyValues.Value().(string))
+						return true
+					}
+
+					g.Expect(tree.QueryAction(&query, onFindPagination)).ToNot(HaveOccurred())
+					g.Expect(len(foundValues)).To(Equal(len(expectedValues)))
+					for _, expectedValue := range expectedValues {
+						g.Expect(foundValues).To(ContainElement(expectedValue))
+					}
+				})
+
+				t.Run("It respects the TypeRestrictions", func(t *testing.T) {
+					_, tree := setupTestQueryTree(g)
+
+					query := queryassociatedaction.AssociatedActionQuery{
+						Selection: &queryassociatedaction.Selection{
+							Permutations: v1common.PermutationsExact,
+							KeyValues: map[string]queryassociatedaction.ValueQuery{
+								"1": {
+									Value:            datatypes.Int(1),
+									Comparison:       v1common.NotEquals,
+									TypeRestrictions: testmodels.TypeRestrictions(g, datatypes.T_int, datatypes.T_int),
+								},
+								"2": {
+									Value:            datatypes.Int(2),
+									Comparison:       v1common.NotEquals,
+									TypeRestrictions: testmodels.TypeRestrictions(g, datatypes.T_int, datatypes.T_int),
+								},
+							},
+						},
+					}
+					g.Expect(query.Validate()).ToNot(HaveOccurred())
+
+					expectedValues := []string{"0", "1", "2", "3", "4", "5", "6", "7", "8", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24", "25", "26", "27", "28", "29", "30", "31", "32", "33", "34", "35", "37", "38"}
+					foundValues := []string{}
+					onFindPagination := func(associatedKeyValues AssociatedKeyValues) bool {
+						foundValues = append(foundValues, associatedKeyValues.Value().(string))
+						return true
+					}
+
+					g.Expect(tree.QueryAction(&query, onFindPagination)).ToNot(HaveOccurred())
+					g.Expect(len(foundValues)).To(Equal(len(expectedValues)))
+					for _, expectedValue := range expectedValues {
+						g.Expect(foundValues).To(ContainElement(expectedValue))
+					}
+				})
+			})
+		})
+	})
+*/

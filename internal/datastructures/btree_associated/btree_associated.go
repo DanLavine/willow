@@ -3,6 +3,8 @@ package btreeassociated
 import (
 	"fmt"
 
+	queryassociatedaction "github.com/DanLavine/willow/pkg/models/api/common/v1/query_associated_action"
+	querymatchaction "github.com/DanLavine/willow/pkg/models/api/common/v1/query_match_action"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 )
 
@@ -109,11 +111,11 @@ type BTreeAssociatedIterate func(associatedKeyValues AssociatedKeyValues) bool
 //
 // With this flexibility, we can find any type of unique groupings, and query a generalized key value data set
 type BTreeAssociated interface {
-	// Find an item in the assoociation tree
-	Find(keyValues datatypes.KeyValues, onFind BTreeAssociatedOnFind) error
+	// // Find an item in the assoociation tree
+	// Find(keyValues datatypes.KeyValues, onFind BTreeAssociatedOnFind) error
 
-	// Find an item in the assoociation tree by the assocaited id
-	FindByAssociatedID(associatedID string, onFind BTreeAssociatedOnFind) error
+	// // Find an item in the assoociation tree by the assocaited id
+	// FindByAssociatedID(associatedID string, onFind BTreeAssociatedOnFind) error
 
 	// Create an item in the associated tree.
 	// Returns an error if
@@ -150,14 +152,8 @@ type BTreeAssociated interface {
 	// MatchKeys can be used to find any  any permutation of the KeyValues with items saved in the tree. This can be done via a query, but the
 	// query can be huge and slow. This is an optimization of finding any entries that mach all possible tag combinations
 	// of key values provided.
-	MatchPermutations(keyValues datatypes.KeyValues, onIterate BTreeAssociatedIterate) error
+	MatchAction(matchActionQuery *querymatchaction.MatchActionQuery, onQueryPagination BTreeAssociatedIterate) error
 
 	// Serch for any number of items in the assoociation tree
-	Query(query datatypes.AssociatedKeyValuesQuery, onIterate BTreeAssociatedIterate) error
-}
-
-// Check to see that the reserved keyword is for the associatedID
-func hasAssociatedID(keyValues datatypes.KeyValues) bool {
-	_, ok := keyValues[ReservedID]
-	return ok
+	QueryAction(query *queryassociatedaction.AssociatedActionQuery, onIterate BTreeAssociatedIterate) error
 }

@@ -4,6 +4,8 @@ import (
 	"fmt"
 
 	"github.com/DanLavine/willow/pkg/models/datatypes"
+
+	v1common "github.com/DanLavine/willow/pkg/models/api/common/v1"
 )
 
 var (
@@ -62,7 +64,6 @@ type BTreeIterate func(key datatypes.EncapsulatedValue, item any) bool
 // BTree is a generic 2-3-4 BTree implementation.
 // See https://www.geeksforgeeks.org/2-3-4-tree/ for details on what a 2-3-4 tree is
 type BTree interface {
-
 	// Inserts the keyValue into the tree if the key does not already exist. If the Key does exist
 	// then an error will be returned and 'onCreate()' will not be called
 	//
@@ -108,37 +109,22 @@ type BTree interface {
 	//
 	// Find the item in the Tree and run the `OnFind(...)` function for the saved value. Will not be called if the
 	// key cannot be found
-	Find(key datatypes.EncapsulatedValue, onFind BTreeOnFind) error
+	Find(key datatypes.EncapsulatedValue, typeRestrictions v1common.TypeRestrictions, callback BTreeIterate) error
 
 	// Iterare over all items that don't equal the provided key
-	FindNotEqual(key datatypes.EncapsulatedValue, callback BTreeIterate) error
+	FindNotEqual(key datatypes.EncapsulatedValue, typeRestrictions v1common.TypeRestrictions, callback BTreeIterate) error
 
 	// Iterare over all items where the key's are less than the provided value
-	FindLessThan(key datatypes.EncapsulatedValue, callback BTreeIterate) error
+	FindLessThan(key datatypes.EncapsulatedValue, typeRestrictions v1common.TypeRestrictions, callback BTreeIterate) error
 
 	// Iterare over all items where the key's are less than or equal to the provided value
-	FindLessThanOrEqual(key datatypes.EncapsulatedValue, callback BTreeIterate) error
+	FindLessThanOrEqual(key datatypes.EncapsulatedValue, typeRestrictions v1common.TypeRestrictions, callback BTreeIterate) error
 
 	// Iterare over all items where the key's are greater than the provided value
-	FindGreaterThan(key datatypes.EncapsulatedValue, callback BTreeIterate) error
+	FindGreaterThan(key datatypes.EncapsulatedValue, typeRestrictions v1common.TypeRestrictions, callback BTreeIterate) error
 
 	// Iterare over all items where the key's are greater than or equal to the provided value
-	FindGreaterThanOrEqual(key datatypes.EncapsulatedValue, callback BTreeIterate) error
-
-	// Iterare over all items that don't equal the provided key, where the key's in the BTree match the search key's data type
-	FindNotEqualMatchType(key datatypes.EncapsulatedValue, callback BTreeIterate) error
-
-	// Iterare over all items less than the provided key, where the key's in the BTree match the search key's data type
-	FindLessThanMatchType(key datatypes.EncapsulatedValue, callback BTreeIterate) error
-
-	// Iterare over all items less than or equal to the provided key, where the key's in the BTree match the search key's data type
-	FindLessThanOrEqualMatchType(key datatypes.EncapsulatedValue, callback BTreeIterate) error
-
-	// Iterare over all items greater than the provided key, where the key's in the BTree match the search key's data type
-	FindGreaterThanMatchType(key datatypes.EncapsulatedValue, callback BTreeIterate) error
-
-	// Iterare over all items greater than or euqal to the provided key, where the key's in the BTree match the search key's data type
-	FindGreaterThanOrEqualMatchType(key datatypes.EncapsulatedValue, callback BTreeIterate) error
+	FindGreaterThanOrEqual(key datatypes.EncapsulatedValue, typeRestrictions v1common.TypeRestrictions, callback BTreeIterate) error
 
 	// Iterate over the tree and for each value found invoke the callback with the node's value
 	//
@@ -147,17 +133,7 @@ type BTree interface {
 	//
 	// RETURNS:
 	// - error - any errors with parameters encontered. I.E. callback is nil
-	Iterate(callback BTreeIterate) error
-
-	// Iterate over the tree where the Key's type matches the dataType and for each value found invoke the callback with the node's value
-	//
-	//	PARAMETERS:
-	//	- dataType - type to iterate over
-	//	- callback - Each value in the BTree will run the provided callback
-	//
-	// RETURNS:
-	// - error - any errors with parameters encontered. I.E. callback is nil
-	IterateMatchType(dataType datatypes.DataType, callback BTreeIterate) error
+	//Iterate(typeRestrictions v1common.TypeRestrictions, callback BTreeIterate) error
 
 	// Delete a keyValue from the BTree for the given Key. If the key does not exist
 	// in the tree then this performs a no-op. If the key is nil, then Delete will panic

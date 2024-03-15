@@ -11,12 +11,13 @@ require (
 	github.com/DanLavine/gonotify v0.0.0-20221228000906-77ad21d2336e
 	github.com/DanLavine/urlrouter v0.0.0-20231102214216-aa9c83986dc4
 	github.com/go-openapi/runtime v0.26.2
+	github.com/golang/mock v1.6.0
 	github.com/google/uuid v1.4.0
-	github.com/onsi/gomega v1.31.1
+	github.com/onsi/gomega v1.33.1
 	github.com/segmentio/ksuid v1.0.4
-	go.uber.org/mock v0.2.0
+	go.uber.org/mock v0.4.0
 	go.uber.org/zap v1.24.0
-	golang.org/x/net v0.19.0
+	golang.org/x/net v0.25.0
 )
 
 require (
@@ -38,6 +39,6 @@ require (
 	go.mongodb.org/mongo-driver v1.13.1 // indirect
 	go.uber.org/atomic v1.7.0 // indirect
 	go.uber.org/multierr v1.6.0 // indirect
-	golang.org/x/text v0.14.0 // indirect
+	golang.org/x/text v0.15.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

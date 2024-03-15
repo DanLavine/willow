@@ -5,9 +5,11 @@ import (
 	"testing"
 
 	"github.com/DanLavine/willow/pkg/models/datatypes"
+	"github.com/DanLavine/willow/testhelpers/testmodels"
 
 	limiterclient "github.com/DanLavine/willow/pkg/clients/limiter_client"
 	v1common "github.com/DanLavine/willow/pkg/models/api/common/v1"
+	queryassociatedaction "github.com/DanLavine/willow/pkg/models/api/common/v1/query_associated_action"
 	v1 "github.com/DanLavine/willow/pkg/models/api/limiter/v1"
 
 	. "github.com/DanLavine/willow/integration-tests/integrationhelpers"
@@ -21,10 +23,12 @@ func Test_Limiter_Counters_Update(t *testing.T) {
 
 	createRule := func(g *GomegaWithT, limiterClient limiterclient.LimiterClient) {
 		// create rule
-		rule := &v1.RuleCreateRequest{
-			Name:    "rule1",
-			GroupBy: []string{"key0"},
-			Limit:   5,
+		rule := &v1.Rule{
+			Name: "rule1",
+			GroupByKeyValues: datatypes.KeyValues{
+				"key0": datatypes.Any(),
+			},
+			Limit: 5,
 		}
 
 		err := limiterClient.CreateRule(rule, nil)
@@ -217,12 +221,13 @@ func Test_Limiter_Counters_Query(t *testing.T) {
 		g.Expect(limiterClient.UpdateCounter(counter4, nil)).ToNot(HaveOccurred())
 
 		// query the counters
-		trueCheck := true
-		query := &v1common.AssociatedQuery{
-			AssociatedKeyValues: datatypes.AssociatedKeyValuesQuery{
-				KeyValueSelection: &datatypes.KeyValueSelection{
-					KeyValues: map[string]datatypes.Value{
-						"key1": datatypes.Value{Exists: &trueCheck},
+		query := &queryassociatedaction.AssociatedActionQuery{
+			Selection: &queryassociatedaction.Selection{
+				KeyValues: queryassociatedaction.SelectionKeyValues{
+					"key1": {
+						Value:            datatypes.Any(),
+						Comparison:       v1common.Equals,
+						TypeRestrictions: testmodels.NoTypeRestrictions(g),
 					},
 				},
 			},
@@ -262,10 +267,13 @@ func Test_Limiter_Counters_Set(t *testing.T) {
 		limiterClient := setupClient(g, limiterTestConstruct.ServerURL)
 
 		// create a restrictive rule
-		rule := &v1.RuleCreateRequest{
-			Name:    "rule1",
-			GroupBy: []string{"key1", "key2"},
-			Limit:   5,
+		rule := &v1.Rule{
+			Name: "rule1",
+			GroupByKeyValues: datatypes.KeyValues{
+				"key1": datatypes.Any(),
+				"key2": datatypes.Any(),
+			},
+			Limit: 5,
 		}
 		g.Expect(limiterClient.CreateRule(rule, nil)).ToNot(HaveOccurred())
 
@@ -282,23 +290,12 @@ func Test_Limiter_Counters_Set(t *testing.T) {
 		g.Expect(limiterClient.SetCounters(counter1, nil)).ToNot(HaveOccurred())
 
 		// query the counters
-		trueCheck := true
-		query := &v1common.AssociatedQuery{
-			AssociatedKeyValues: datatypes.AssociatedKeyValuesQuery{
-				KeyValueSelection: &datatypes.KeyValueSelection{
-					KeyValues: map[string]datatypes.Value{
-						"key1": datatypes.Value{Exists: &trueCheck},
-					},
-				},
-			},
-		}
-
 		countersResp1 := &v1.Counter{
 			KeyValues: kv1,
 			Counters:  32,
 		}
 
-		counters, err := limiterClient.QueryCounters(query, nil)
+		counters, err := limiterClient.QueryCounters(&queryassociatedaction.AssociatedActionQuery{}, nil)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(len(counters)).To(Equal(1))
 		g.Expect(counters).To(ContainElements(countersResp1))
@@ -317,10 +314,13 @@ func Test_Limiter_Counters_Set(t *testing.T) {
 		limiterClient := setupClient(g, limiterTestConstruct.ServerURL)
 
 		// create a restrictive rule
-		rule := &v1.RuleCreateRequest{
-			Name:    "rule1",
-			GroupBy: []string{"key1", "key2"},
-			Limit:   5,
+		rule := &v1.Rule{
+			Name: "rule1",
+			GroupByKeyValues: datatypes.KeyValues{
+				"key1": datatypes.Any(),
+				"key2": datatypes.Any(),
+			},
+			Limit: 5,
 		}
 		g.Expect(limiterClient.CreateRule(rule, nil)).ToNot(HaveOccurred())
 
@@ -344,10 +344,7 @@ func Test_Limiter_Counters_Set(t *testing.T) {
 		g.Expect(limiterClient.SetCounters(counter3, nil)).ToNot(HaveOccurred())
 
 		// query the counters to ensure it is removed
-		query := &v1common.AssociatedQuery{
-			AssociatedKeyValues: datatypes.AssociatedKeyValuesQuery{},
-		}
-
+		query := &queryassociatedaction.AssociatedActionQuery{}
 		counters, err := limiterClient.QueryCounters(query, nil)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(len(counters)).To(Equal(0))

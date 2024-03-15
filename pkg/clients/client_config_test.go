@@ -5,7 +5,7 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/DanLavine/willow/pkg/models/api"
+	"github.com/DanLavine/willow/pkg/encoding"
 	. "github.com/onsi/gomega"
 )
 
@@ -26,7 +26,7 @@ func TestClientConfig_Validate(t *testing.T) {
 
 			err := cfg.Validate()
 			g.Expect(err).ToNot(HaveOccurred())
-			g.Expect(cfg.ContentEncoding).To(Equal(api.ContentTypeJSON))
+			g.Expect(cfg.ContentEncoding).To(Equal(encoding.ContentTypeJSON))
 		})
 
 		t.Run("It accepts json content types", func(t *testing.T) {
@@ -34,7 +34,7 @@ func TestClientConfig_Validate(t *testing.T) {
 
 			err := cfg.Validate()
 			g.Expect(err).ToNot(HaveOccurred())
-			g.Expect(cfg.ContentEncoding).To(Equal(api.ContentTypeJSON))
+			g.Expect(cfg.ContentEncoding).To(Equal(encoding.ContentTypeJSON))
 		})
 
 		t.Run("It returns an error for unkown content types", func(t *testing.T) {

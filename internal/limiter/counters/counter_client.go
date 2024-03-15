@@ -3,10 +3,10 @@ package counters
 import (
 	"context"
 
-	lockerclient "github.com/DanLavine/willow/pkg/clients/locker_client"
 	"github.com/DanLavine/willow/pkg/models/api/common/errors"
 
-	v1common "github.com/DanLavine/willow/pkg/models/api/common/v1"
+	lockerclient "github.com/DanLavine/willow/pkg/clients/locker_client"
+	queryassociatedaction "github.com/DanLavine/willow/pkg/models/api/common/v1/query_associated_action"
 	v1limiter "github.com/DanLavine/willow/pkg/models/api/limiter/v1"
 )
 
@@ -19,7 +19,7 @@ type CounterClient interface {
 	DecrementCounters(ctx context.Context, counters *v1limiter.Counter) *errors.ServerError
 
 	//// Query all possible counters
-	QueryCounters(ctx context.Context, query *v1common.AssociatedQuery) (v1limiter.Counters, *errors.ServerError)
+	QueryCounters(ctx context.Context, query *queryassociatedaction.AssociatedActionQuery) (v1limiter.Counters, *errors.ServerError)
 
 	//// set a counter to a particular value, without ensuring any rules
 	SetCounter(ctx context.Context, counters *v1limiter.Counter) *errors.ServerError

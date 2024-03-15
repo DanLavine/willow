@@ -16,7 +16,7 @@ import (
 //	        - 3. datastructures.ErrorTreeDestroying
 func (btree *threadSafeBTree) Destroy(key datatypes.EncapsulatedValue, canDelete BTreeRemove) error {
 	// parameter checks
-	if err := key.Validate(); err != nil {
+	if err := key.Validate(datatypes.MinDataType, datatypes.MaxDataType); err != nil {
 		return fmt.Errorf("key is invalid: %w", err)
 	}
 
@@ -56,7 +56,7 @@ func (btree *threadSafeBTree) Destroy(key datatypes.EncapsulatedValue, canDelete
 	return btree.delete(key, canDelete)
 }
 
-// DestroyALl values in the BTree. This could be improved slightly, but the fact that we want to
+// DestroyAll values in the BTree. This could be improved slightly, but the fact that we want to
 // ensusre the tree is always balanced is kind of a massive headache to do all in one go as each
 // deletion can propigate the entire tree.
 //   - A delete from an internal node needs to swap with a leaf node
@@ -73,7 +73,7 @@ func (btree *threadSafeBTree) Destroy(key datatypes.EncapsulatedValue, canDelete
 //	- error - any errors when trying to destroy he key
 //	        - 1. ErrorTreeDestroying
 func (btree *threadSafeBTree) DestroyAll(canDelete BTreeRemove) error {
-	// set destroying to true
+	// set destroying to true. All other operations should check this upfront and exit early if that is the case
 	if !btree.destroying.CompareAndSwap(false, true) {
 		return ErrorTreeDestroying
 	}

@@ -3,7 +3,9 @@ package btreeassociated
 import (
 	"testing"
 
+	queryassociatedaction "github.com/DanLavine/willow/pkg/models/api/common/v1/query_associated_action"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
+	"github.com/DanLavine/willow/testhelpers/testmodels"
 
 	. "github.com/onsi/gomega"
 )
@@ -16,14 +18,7 @@ func TestAssociatedTree_Delete_ParamCheck(t *testing.T) {
 
 		err := associatedTree.Delete(nil, nil)
 		g.Expect(err).To(HaveOccurred())
-		g.Expect(err.Error()).To(ContainSubstring("KeyValues cannot be empty"))
-	})
-
-	t.Run("it returns an error if the keyValues has _associated_id", func(t *testing.T) {
-		associatedTree := NewThreadSafe()
-
-		err := associatedTree.Delete(datatypes.KeyValues{ReservedID: datatypes.Int(1)}, nil)
-		g.Expect(err).To(Equal(ErrorKeyValuesHasAssociatedID))
+		g.Expect(err.Error()).To(ContainSubstring("recieved no KeyValues, but requires a length of at least 1"))
 	})
 }
 
@@ -73,18 +68,21 @@ func TestAssociatedTree_Delete(t *testing.T) {
 
 			// check before the delete
 			idNodeCalled := false
-			idNodeCallback := func(item any) {
+			idNodeCallback := func(key datatypes.EncapsulatedValue, item any) bool {
 				idNodeCalled = true
 
 				idNode := item.(*threadsafeIDNode)
 				g.Expect(len(idNode.ids)).To(Equal(2))
 				g.Expect(len(idNode.ids[0])).To(Equal(1))
 				g.Expect(len(idNode.ids[1])).To(Equal(1))
+
+				return true
 			}
 
-			associatedTree.keys.Find(datatypes.String("1"), func(item any) {
+			associatedTree.keys.Find(datatypes.String("1"), testmodels.NoTypeRestrictions(g), func(key datatypes.EncapsulatedValue, item any) bool {
 				valuesNode := item.(*threadsafeValuesNode)
-				valuesNode.values.Find(datatypes.Int(1), idNodeCallback)
+				valuesNode.values.Find(datatypes.Int(1), testmodels.NoTypeRestrictions(g), idNodeCallback)
+				return true
 			})
 			g.Expect(idNodeCalled).To(BeTrue())
 
@@ -92,17 +90,20 @@ func TestAssociatedTree_Delete(t *testing.T) {
 
 			// check after the delete
 			idNodeCalled = false
-			idNodeCallbackAfterDelete := func(item any) {
+			idNodeCallbackAfterDelete := func(key datatypes.EncapsulatedValue, item any) bool {
 				idNodeCalled = true
 
 				idNode := item.(*threadsafeIDNode)
 				g.Expect(len(idNode.ids)).To(Equal(1))
 				g.Expect(len(idNode.ids[0])).To(Equal(1))
+
+				return true
 			}
 
-			associatedTree.keys.Find(datatypes.String("1"), func(item any) {
+			associatedTree.keys.Find(datatypes.String("1"), testmodels.NoTypeRestrictions(g), func(key datatypes.EncapsulatedValue, item any) bool {
 				valuesNode := item.(*threadsafeValuesNode)
-				valuesNode.values.Find(datatypes.Int(1), idNodeCallbackAfterDelete)
+				valuesNode.values.Find(datatypes.Int(1), testmodels.NoTypeRestrictions(g), idNodeCallbackAfterDelete)
+				return true
 			})
 			g.Expect(idNodeCalled).To(BeTrue())
 		})
@@ -144,10 +145,11 @@ func TestAssociatedTree_DeleteByAssociatedID(t *testing.T) {
 
 		// ensure find stille works
 		found := false
-		onFind := func(item AssociatedKeyValues) {
+		onFind := func(item AssociatedKeyValues) bool {
 			found = true
+			return true
 		}
-		g.Expect(associatedTree.FindByAssociatedID(id, onFind)).ToNot(HaveOccurred())
+		g.Expect(associatedTree.QueryAction(&queryassociatedaction.AssociatedActionQuery{Selection: &queryassociatedaction.Selection{IDs: []string{id}}}, onFind)).ToNot(HaveOccurred())
 		g.Expect(found).To(BeTrue())
 	})
 
@@ -163,18 +165,21 @@ func TestAssociatedTree_DeleteByAssociatedID(t *testing.T) {
 
 			// check before the delete
 			idNodeCalled := false
-			idNodeCallback := func(item any) {
+			idNodeCallback := func(key datatypes.EncapsulatedValue, item any) bool {
 				idNodeCalled = true
 
 				idNode := item.(*threadsafeIDNode)
 				g.Expect(len(idNode.ids)).To(Equal(2))
 				g.Expect(len(idNode.ids[0])).To(Equal(1))
 				g.Expect(len(idNode.ids[1])).To(Equal(1))
+
+				return true
 			}
 
-			associatedTree.keys.Find(datatypes.String("1"), func(item any) {
+			associatedTree.keys.Find(datatypes.String("1"), testmodels.NoTypeRestrictions(g), func(key datatypes.EncapsulatedValue, item any) bool {
 				valuesNode := item.(*threadsafeValuesNode)
-				valuesNode.values.Find(datatypes.Int(1), idNodeCallback)
+				valuesNode.values.Find(datatypes.Int(1), testmodels.NoTypeRestrictions(g), idNodeCallback)
+				return true
 			})
 			g.Expect(idNodeCalled).To(BeTrue())
 
@@ -182,17 +187,21 @@ func TestAssociatedTree_DeleteByAssociatedID(t *testing.T) {
 
 			// check after the delete
 			idNodeCalled = false
-			idNodeCallbackAfterDelete := func(item any) {
+			idNodeCallbackAfterDelete := func(key datatypes.EncapsulatedValue, item any) bool {
 				idNodeCalled = true
 
 				idNode := item.(*threadsafeIDNode)
 				g.Expect(len(idNode.ids)).To(Equal(1))
 				g.Expect(len(idNode.ids[0])).To(Equal(1))
+
+				return true
 			}
 
-			associatedTree.keys.Find(datatypes.String("1"), func(item any) {
+			associatedTree.keys.Find(datatypes.String("1"), testmodels.NoTypeRestrictions(g), func(key datatypes.EncapsulatedValue, item any) bool {
 				valuesNode := item.(*threadsafeValuesNode)
-				valuesNode.values.Find(datatypes.Int(1), idNodeCallbackAfterDelete)
+				valuesNode.values.Find(datatypes.Int(1), testmodels.NoTypeRestrictions(g), idNodeCallbackAfterDelete)
+
+				return true
 			})
 			g.Expect(idNodeCalled).To(BeTrue())
 		})

@@ -1,7 +1,7 @@
 package v1
 
 import (
-	"encoding/json"
+	"fmt"
 
 	"github.com/DanLavine/willow/pkg/models/api/common/errors"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
@@ -30,6 +30,10 @@ type Override struct {
 //
 // Validate is used to ensure that Override has all required fields set
 func (override *Override) Validate() error {
+	if override == nil {
+		return fmt.Errorf("'Override' can not be nil")
+	}
+
 	if override.Name == "" {
 		return errorNameIsInvalid
 	}
@@ -38,31 +42,7 @@ func (override *Override) Validate() error {
 		return errors.KeyValuesLenghtInvalid
 	}
 
-	if err := override.KeyValues.Validate(); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-//	RETURNS:
-//	- []byte - encoded JSON byte array for the Override
-//	- error - error encoding to JSON
-//
-// EncodeJSON encodes the model to a valid JSON format
-func (override *Override) EncodeJSON() ([]byte, error) {
-	return json.Marshal(override)
-}
-
-//	PARAMETERS:
-//	- data - encoded JSON data to parse Override from
-//
-//	RETURNS:
-//	- error - any error encoutered when reading or parsing the data
-//
-// Decode can convertes the encoded byte array into the Object Decode was called on
-func (override *Override) DecodeJSON(data []byte) error {
-	if err := json.Unmarshal(data, override); err != nil {
+	if err := override.KeyValues.Validate(datatypes.MinDataType, datatypes.MaxDataType); err != nil {
 		return err
 	}
 

@@ -7,6 +7,8 @@ import (
 	"github.com/DanLavine/willow/pkg/clients"
 	"github.com/DanLavine/willow/pkg/models/api"
 	"github.com/DanLavine/willow/pkg/models/api/common/errors"
+	queryassociatedaction "github.com/DanLavine/willow/pkg/models/api/common/v1/query_associated_action"
+	querymatchaction "github.com/DanLavine/willow/pkg/models/api/common/v1/query_match_action"
 	v1limiter "github.com/DanLavine/willow/pkg/models/api/limiter/v1"
 )
 
@@ -18,7 +20,7 @@ import (
 //	- error - error creating the rule
 //
 // CreateRule creates a new Rule to enforce Counters against
-func (lc *LimitClient) CreateRule(rule *v1limiter.RuleCreateRequest, headers http.Header) error {
+func (lc *LimitClient) CreateRule(rule *v1limiter.Rule, headers http.Header) error {
 	// setup and make the request
 	req, err := lc.client.EncodedRequest("POST", fmt.Sprintf("%s/v1/limiter/rules", lc.url), rule)
 	if err != nil {
@@ -56,9 +58,9 @@ func (lc *LimitClient) CreateRule(rule *v1limiter.RuleCreateRequest, headers htt
 //	- error - error findinig the Rule or Overrides
 //
 // GetRule is used to find a specific Rule and any optional Overrides that match the query
-func (lc *LimitClient) GetRule(ruleName string, query *v1limiter.RuleGet, headers http.Header) (*v1limiter.Rule, error) {
+func (lc *LimitClient) GetRule(ruleName string, headers http.Header) (*v1limiter.Rule, error) {
 	// setup and make the request
-	req, err := lc.client.EncodedRequest("GET", fmt.Sprintf("%s/v1/limiter/rules/%s", lc.url, ruleName), query)
+	req, err := lc.client.SetupRequest("GET", fmt.Sprintf("%s/v1/limiter/rules/%s", lc.url, ruleName))
 	if err != nil {
 		return nil, err
 	}
@@ -70,7 +72,7 @@ func (lc *LimitClient) GetRule(ruleName string, query *v1limiter.RuleGet, header
 		return nil, err
 	}
 
-	// parse the response
+	// parse the responseEncodedRequest
 	switch resp.StatusCode {
 	case http.StatusOK:
 		rule := &v1limiter.Rule{}
@@ -92,16 +94,59 @@ func (lc *LimitClient) GetRule(ruleName string, query *v1limiter.RuleGet, header
 }
 
 //	PARAMETERS:
-//	- matchQuery - query that can be used to match KeyValues to Rules
+//	- query - query that can be used to match KeyValues to Rules
 //	- headers (optional) - any headers to apply to the request
 //
 //	RETURNS:
 //	- error - unexpected errors when querying Rule or Overrides
 //
 // MatchRules is used to find any Rules and optional Overrides for the matchQuery
-func (lc *LimitClient) MatchRules(matchQuery *v1limiter.RuleMatch, headers http.Header) (v1limiter.Rules, error) {
+func (lc *LimitClient) QueryRules(query *queryassociatedaction.AssociatedActionQuery, headers http.Header) (v1limiter.Rules, error) {
 	// setup and make the request
-	req, err := lc.client.EncodedRequest("GET", fmt.Sprintf("%s/v1/limiter/rules", lc.url), matchQuery)
+	req, err := lc.client.EncodedRequest("GET", fmt.Sprintf("%s/v1/limiter/rules/query", lc.url), query)
+	if err != nil {
+		return nil, err
+	}
+
+	clients.AppendHeaders(req, headers)
+
+	resp, err := lc.client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+
+	// parse the response
+	switch resp.StatusCode {
+	case http.StatusOK:
+		rules := v1limiter.Rules{}
+		if err := api.DecodeAndValidateHttpResponse(resp, &rules); err != nil {
+			return nil, err
+		}
+
+		return rules, nil
+	case http.StatusBadRequest, http.StatusInternalServerError:
+		apiError := &errors.Error{}
+		if err := api.DecodeAndValidateHttpResponse(resp, apiError); err != nil {
+			return nil, err
+		}
+
+		return nil, apiError
+	default:
+		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+}
+
+//	PARAMETERS:
+//	- match - match operations to look for
+//	- headers (optional) - any headers to apply to the request
+//
+//	RETURNS:
+//	- error - unexpected errors when querying Rule or Overrides
+//
+// MatchRules is used to find any Rules and optional Overrides for the matchQuery
+func (lc *LimitClient) MatchRules(match *querymatchaction.MatchActionQuery, headers http.Header) (v1limiter.Rules, error) {
+	// setup and make the request
+	req, err := lc.client.EncodedRequest("GET", fmt.Sprintf("%s/v1/limiter/rules/match", lc.url), match)
 	if err != nil {
 		return nil, err
 	}

@@ -43,9 +43,8 @@ type lock struct {
 	released     *atomic.Bool
 
 	// remote server client configuration
-	url         string
-	client      clients.HttpClient
-	contentType string
+	url    string
+	client clients.HttpClient
 
 	// record error callback if configured. Can be used to monitor any unexpeded errors
 	// with the remote service and record them
@@ -59,7 +58,7 @@ type lock struct {
 	timeout time.Duration
 }
 
-func newLock(lockResponse *v1locker.LockCreateResponse, url string, client clients.HttpClient, contentType string, heartbeatErrorCallback func(err error), releaseLockCallback func()) *lock {
+func newLock(lockResponse *v1locker.LockCreateResponse, url string, client clients.HttpClient, heartbeatErrorCallback func(err error), releaseLockCallback func()) *lock {
 	lock := &lock{
 		doneOnce: new(sync.Once),
 		done:     make(chan struct{}),
@@ -67,9 +66,8 @@ func newLock(lockResponse *v1locker.LockCreateResponse, url string, client clien
 		heartbeating: make(chan struct{}),
 		released:     new(atomic.Bool),
 
-		client:      client,
-		url:         url,
-		contentType: contentType,
+		client: client,
+		url:    url,
 
 		releaseLockCallback: releaseLockCallback,
 
@@ -126,7 +124,7 @@ func newLock(lockResponse *v1locker.LockCreateResponse, url string, client clien
 					// this is the success case and the heartbeat passed
 					lastHeartbeat = time.Now()
 				case http.StatusConflict, http.StatusBadRequest:
-					// there was an error with the request body or seession id
+					// there was an error with the request body or session id
 					apiError := &errors.Error{}
 					if err := api.DecodeAndValidateHttpResponse(resp, apiError); err != nil {
 						if heartbeatErrorCallback != nil {

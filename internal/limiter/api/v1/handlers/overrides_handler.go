@@ -8,7 +8,8 @@ import (
 	"github.com/DanLavine/willow/pkg/models/api"
 	"go.uber.org/zap"
 
-	v1common "github.com/DanLavine/willow/pkg/models/api/common/v1"
+	queryassociatedaction "github.com/DanLavine/willow/pkg/models/api/common/v1/query_associated_action"
+	querymatchaction "github.com/DanLavine/willow/pkg/models/api/common/v1/query_match_action"
 	v1limiter "github.com/DanLavine/willow/pkg/models/api/limiter/v1"
 )
 
@@ -36,6 +37,56 @@ func (grh *groupRuleHandler) CreateOverride(w http.ResponseWriter, r *http.Reque
 	_, _ = api.EncodeAndSendHttpResponse(r.Header, w, http.StatusCreated, nil)
 }
 
+// query a number of Overrides for a rule
+func (grh *groupRuleHandler) QueryOverrides(w http.ResponseWriter, r *http.Request) {
+	ctx, logger := reporting.SetupContextWithLoggerFromRequest(r.Context(), grh.logger.Named("MatchOverrides"), r)
+	logger.Debug("starting request")
+	defer logger.Debug("processed request")
+
+	// read the query to run
+	query := &queryassociatedaction.AssociatedActionQuery{}
+	if err := api.DecodeAndValidateHttpRequest(r, query); err != nil {
+		logger.Warn("failed to decode and validate request", zap.Error(err))
+		_, _ = api.EncodeAndSendHttpResponse(r.Header, w, err.StatusCode, err)
+		return
+	}
+
+	// find all the overrides for the particular rule
+	namedParameters := urlrouter.GetNamedParamters(r.Context())
+	overrides, err := grh.ruleClient.QueryOverrides(ctx, namedParameters["rule_name"], query)
+	if err != nil {
+		_, _ = api.EncodeAndSendHttpResponse(r.Header, w, err.StatusCode, err)
+		return
+	}
+
+	_, _ = api.EncodeAndSendHttpResponse(r.Header, w, http.StatusOK, &overrides)
+}
+
+// match a number of Overrides for a rule
+func (grh *groupRuleHandler) MatchOverrides(w http.ResponseWriter, r *http.Request) {
+	ctx, logger := reporting.SetupContextWithLoggerFromRequest(r.Context(), grh.logger.Named("MatchOverrides"), r)
+	logger.Debug("starting request")
+	defer logger.Debug("processed request")
+
+	// read the query to run
+	match := &querymatchaction.MatchActionQuery{}
+	if err := api.DecodeAndValidateHttpRequest(r, match); err != nil {
+		logger.Warn("failed to decode and validate request", zap.Error(err))
+		_, _ = api.EncodeAndSendHttpResponse(r.Header, w, err.StatusCode, err)
+		return
+	}
+
+	// find all the overrides for the particular rule
+	namedParameters := urlrouter.GetNamedParamters(r.Context())
+	overrides, err := grh.ruleClient.MatchOverrides(ctx, namedParameters["rule_name"], match)
+	if err != nil {
+		_, _ = api.EncodeAndSendHttpResponse(r.Header, w, err.StatusCode, err)
+		return
+	}
+
+	_, _ = api.EncodeAndSendHttpResponse(r.Header, w, http.StatusOK, &overrides)
+}
+
 // Get a particular override
 func (grh *groupRuleHandler) GetOverride(w http.ResponseWriter, r *http.Request) {
 	ctx, logger := reporting.SetupContextWithLoggerFromRequest(r.Context(), grh.logger.Named("GetOverride"), r)
@@ -57,31 +108,6 @@ func (grh *groupRuleHandler) GetOverride(w http.ResponseWriter, r *http.Request)
 		// override not found
 		_, _ = api.EncodeAndSendHttpResponse(r.Header, w, http.StatusNotFound, nil)
 	}
-}
-
-// Match a number of Overrides for a rule
-func (grh *groupRuleHandler) MatchOverrides(w http.ResponseWriter, r *http.Request) {
-	ctx, logger := reporting.SetupContextWithLoggerFromRequest(r.Context(), grh.logger.Named("MatchOverrides"), r)
-	logger.Debug("starting request")
-	defer logger.Debug("processed request")
-
-	// read the query to run
-	query := &v1common.MatchQuery{}
-	if err := api.DecodeAndValidateHttpRequest(r, query); err != nil {
-		logger.Warn("failed to decode and validate request", zap.Error(err))
-		_, _ = api.EncodeAndSendHttpResponse(r.Header, w, err.StatusCode, err)
-		return
-	}
-
-	// find all the overrides for the particular rule
-	namedParameters := urlrouter.GetNamedParamters(r.Context())
-	overrides, err := grh.ruleClient.MatchOverrides(ctx, namedParameters["rule_name"], query)
-	if err != nil {
-		_, _ = api.EncodeAndSendHttpResponse(r.Header, w, err.StatusCode, err)
-		return
-	}
-
-	_, _ = api.EncodeAndSendHttpResponse(r.Header, w, http.StatusOK, &overrides)
 }
 
 // Update a particular override

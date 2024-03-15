@@ -8,13 +8,12 @@ import (
 	"time"
 
 	"github.com/DanLavine/willow/pkg/clients"
-	"github.com/DanLavine/willow/pkg/models/api"
+	"github.com/DanLavine/willow/pkg/encoding"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 
 	limiterclient "github.com/DanLavine/willow/pkg/clients/limiter_client"
 	willowclient "github.com/DanLavine/willow/pkg/clients/willow_client"
-	v1common "github.com/DanLavine/willow/pkg/models/api/common/v1"
-	v1limiter "github.com/DanLavine/willow/pkg/models/api/limiter/v1"
+	queryassociatedaction "github.com/DanLavine/willow/pkg/models/api/common/v1/query_associated_action"
 	v1willow "github.com/DanLavine/willow/pkg/models/api/willow/v1"
 
 	. "github.com/DanLavine/willow/integration-tests/integrationhelpers"
@@ -26,7 +25,7 @@ func setupLimitterClient(g *GomegaWithT, url string) limiterclient.LimiterClient
 
 	cfg := &clients.Config{
 		URL:             url,
-		ContentEncoding: api.ContentTypeJSON,
+		ContentEncoding: encoding.ContentTypeJSON,
 		CAFile:          filepath.Join(currentDir, "..", "..", "..", "testhelpers", "tls-keys", "ca.crt"),
 		ClientKeyFile:   filepath.Join(currentDir, "..", "..", "..", "testhelpers", "tls-keys", "client.key"),
 		ClientCRTFile:   filepath.Join(currentDir, "..", "..", "..", "testhelpers", "tls-keys", "client.crt"),
@@ -43,7 +42,7 @@ func setupWillowClient(g *GomegaWithT, url string) willowclient.WillowServiceCli
 
 	cfg := &clients.Config{
 		URL:             url,
-		ContentEncoding: api.ContentTypeJSON,
+		ContentEncoding: encoding.ContentTypeJSON,
 		CAFile:          filepath.Join(currentDir, "..", "..", "..", "testhelpers", "tls-keys", "ca.crt"),
 		ClientKeyFile:   filepath.Join(currentDir, "..", "..", "..", "testhelpers", "tls-keys", "client.key"),
 		ClientCRTFile:   filepath.Join(currentDir, "..", "..", "..", "testhelpers", "tls-keys", "client.crt"),
@@ -168,7 +167,7 @@ func Test_Queue_Get(t *testing.T) {
 		}
 		g.Expect(willowClient.CreateQueue(createQueue, nil)).ToNot(HaveOccurred())
 
-		queue, err := willowClient.GetQueue("test queue", &v1common.AssociatedQuery{}, nil)
+		queue, err := willowClient.GetQueue("test queue", &queryassociatedaction.AssociatedActionQuery{}, nil)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(queue.Name).To(Equal("test queue"))
 		g.Expect(queue.QueueMaxSize).To(Equal(int64(5)))
@@ -214,7 +213,7 @@ func Test_Queue_Update(t *testing.T) {
 		g.Expect(err).ToNot(HaveOccurred())
 
 		// get
-		queue, err := willowClient.GetQueue("test queue", &v1common.AssociatedQuery{}, nil)
+		queue, err := willowClient.GetQueue("test queue", &queryassociatedaction.AssociatedActionQuery{}, nil)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(queue.Name).To(Equal("test queue"))
 		g.Expect(queue.QueueMaxSize).To(Equal(int64(12)))
@@ -250,9 +249,9 @@ func Test_Queue_Delete(t *testing.T) {
 		g.Expect(willowClient.CreateQueue(createQueue, nil)).ToNot(HaveOccurred())
 
 		// ensure the override exists before deletion
-		rule, err := limiterClient.GetRule("_willow_queue_enqueued_limits", &v1limiter.RuleGet{OverridesToMatch: &v1common.MatchQuery{}}, nil)
+		overrides, err := limiterClient.QueryOverrides("_willow_queue_enqueued_limits", &queryassociatedaction.AssociatedActionQuery{}, nil)
 		g.Expect(err).ToNot(HaveOccurred())
-		g.Expect(len(rule.Overrides)).To(Equal(1))
+		g.Expect(len(overrides)).To(Equal(1))
 
 		// delete
 		err = willowClient.DeleteQueue("test queue", nil)
@@ -260,15 +259,15 @@ func Test_Queue_Delete(t *testing.T) {
 
 		fmt.Println(willowTestConstruct.ServerStdout.String())
 		// get
-		queue, err := willowClient.GetQueue("test queue", &v1common.AssociatedQuery{}, nil)
+		queue, err := willowClient.GetQueue("test queue", &queryassociatedaction.AssociatedActionQuery{}, nil)
 		g.Expect(queue).To(BeNil())
 		g.Expect(err).To(HaveOccurred())
 		g.Expect(err.Error()).To(ContainSubstring("failed to find queue 'test queue' by name"))
 
 		// ensure the override is deleted
-		rule, err = limiterClient.GetRule("_willow_queue_enqueued_limits", &v1limiter.RuleGet{OverridesToMatch: &v1common.MatchQuery{}}, nil)
+		overrides, err = limiterClient.QueryOverrides("_willow_queue_enqueued_limits", &queryassociatedaction.AssociatedActionQuery{}, nil)
 		g.Expect(err).ToNot(HaveOccurred())
-		g.Expect(len(rule.Overrides)).To(Equal(0))
+		g.Expect(len(overrides)).To(Equal(0))
 	})
 
 	t.Run("It can delete a queue and all Limiter counters for enqueued items", func(t *testing.T) {
@@ -287,7 +286,7 @@ func Test_Queue_Delete(t *testing.T) {
 		limiterClient := setupLimitterClient(g, limiterTestConstruct.ServerURL)
 
 		// ensure the counters are in a clean state to start
-		counters, err := limiterClient.QueryCounters(&v1common.AssociatedQuery{}, nil)
+		counters, err := limiterClient.QueryCounters(&queryassociatedaction.AssociatedActionQuery{}, nil)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(len(counters)).To(Equal(0))
 
@@ -369,7 +368,7 @@ func Test_Queue_Delete(t *testing.T) {
 		g.Expect(err).ToNot(HaveOccurred())
 
 		// ensure the counters are destroyed properly
-		counters, err = limiterClient.QueryCounters(&v1common.AssociatedQuery{}, nil)
+		counters, err = limiterClient.QueryCounters(&queryassociatedaction.AssociatedActionQuery{}, nil)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(len(counters)).To(Equal(0))
 	})

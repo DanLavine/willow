@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"testing"
 
+	v1common "github.com/DanLavine/willow/pkg/models/api/common/v1"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 
 	. "github.com/onsi/gomega"
@@ -113,6 +114,9 @@ func TestBTree_Delete_ShiftNode(t *testing.T) {
 func TestBTree_Delete_CanDeleteChecks(t *testing.T) {
 	g := NewGomegaWithT(t)
 
+	noTypeRestriction := v1common.TypeRestrictions{MinDataType: datatypes.MinDataType, MaxDataType: datatypes.MaxDataType}
+	g.Expect(noTypeRestriction.Validate()).ToNot(HaveOccurred())
+
 	setupTree := func(g *GomegaWithT) *threadSafeBTree {
 		bTree, err := NewThreadSafe(2)
 		g.Expect(err).ToNot(HaveOccurred())
@@ -129,11 +133,12 @@ func TestBTree_Delete_CanDeleteChecks(t *testing.T) {
 		bTree.Delete(Key1, nil)
 
 		found := false
-		onFind := func(item any) {
+		onFind := func(key datatypes.EncapsulatedValue, item any) bool {
 			found = true
+			return true
 		}
 
-		bTree.Find(Key1, onFind)
+		bTree.Find(Key1, noTypeRestriction, onFind)
 		g.Expect(found).To(BeFalse())
 	})
 
@@ -155,11 +160,12 @@ func TestBTree_Delete_CanDeleteChecks(t *testing.T) {
 			g.Expect(foundItem.Value).To(Equal("0"))
 
 			found := false
-			onFind := func(item any) {
+			onFind := func(key datatypes.EncapsulatedValue, item any) bool {
 				found = true
+				return true
 			}
 
-			bTree.Find(Key0, onFind)
+			bTree.Find(Key0, noTypeRestriction, onFind)
 			g.Expect(found).To(BeFalse())
 		})
 
@@ -181,11 +187,12 @@ func TestBTree_Delete_CanDeleteChecks(t *testing.T) {
 			g.Expect(foundItem).To(Equal(valueToDelete))
 
 			found := false
-			onFind := func(item any) {
+			onFind := func(key datatypes.EncapsulatedValue, item any) bool {
 				found = true
+				return true
 			}
 
-			bTree.Find(keyToDelete, onFind)
+			bTree.Find(keyToDelete, noTypeRestriction, onFind)
 			g.Expect(found).To(BeFalse())
 		})
 	})
@@ -200,11 +207,12 @@ func TestBTree_Delete_CanDeleteChecks(t *testing.T) {
 			bTree.Delete(Key0, canDelete)
 
 			found := false
-			onFind := func(item any) {
+			onFind := func(key datatypes.EncapsulatedValue, item any) bool {
 				found = true
+				return true
 			}
 
-			bTree.Find(Key0, onFind)
+			bTree.Find(Key0, noTypeRestriction, onFind)
 			g.Expect(found).To(BeTrue())
 		})
 
@@ -214,11 +222,12 @@ func TestBTree_Delete_CanDeleteChecks(t *testing.T) {
 			bTree.Delete(key, canDelete)
 
 			found := false
-			onFind := func(item any) {
+			onFind := func(key datatypes.EncapsulatedValue, item any) bool {
 				found = true
+				return true
 			}
 
-			bTree.Find(Key0, onFind)
+			bTree.Find(Key0, noTypeRestriction, onFind)
 			g.Expect(found).To(BeTrue())
 		})
 	})

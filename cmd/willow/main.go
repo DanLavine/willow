@@ -17,13 +17,14 @@ import (
 	"github.com/DanLavine/willow/internal/willow/brokers/queue_channels/constructor"
 	"github.com/DanLavine/willow/internal/willow/brokers/queues"
 	"github.com/DanLavine/willow/pkg/clients"
+	"github.com/DanLavine/willow/pkg/encoding"
 	"go.uber.org/zap"
 
 	v1router "github.com/DanLavine/willow/internal/willow/api/v1/router"
 	queuechannels "github.com/DanLavine/willow/internal/willow/brokers/queue_channels"
 	limiterclient "github.com/DanLavine/willow/pkg/clients/limiter_client"
-	commonapi "github.com/DanLavine/willow/pkg/models/api"
 	v1 "github.com/DanLavine/willow/pkg/models/api/limiter/v1"
+	"github.com/DanLavine/willow/pkg/models/datatypes"
 )
 
 func main() {
@@ -42,7 +43,7 @@ func main() {
 	// setup limiterclient config and validate it
 	clientConfig := &clients.Config{
 		URL:             *cfg.LimiterURL,
-		ContentEncoding: commonapi.ContentTypeJSON,
+		ContentEncoding: encoding.ContentTypeJSON,
 		CAFile:          *cfg.LimiterClientCA,
 		ClientKeyFile:   *cfg.LimiterClientKey,
 		ClientCRTFile:   *cfg.LimiterClientCRT,
@@ -69,10 +70,13 @@ func main() {
 	}
 
 	// setup the rule if it does not exist for the willow limits
-	err = limiterClient.CreateRule(&v1.RuleCreateRequest{
-		Name:    "_willow_queue_enqueued_limits",
-		GroupBy: []string{"_willow_queue_name", "_willow_enqueued"},
-		Limit:   0, // by default the limit is 0
+	err = limiterClient.CreateRule(&v1.Rule{
+		Name: "_willow_queue_enqueued_limits",
+		GroupByKeyValues: datatypes.KeyValues{
+			"_willow_queue_name": datatypes.Any(),
+			"_willow_enqueued":   datatypes.Any(),
+		},
+		Limit: 0, // by default the limit is 0
 	}, nil)
 	if err != nil {
 		logger.Fatal("Failed to setup Limiter enqueue rule", zap.Error(err))

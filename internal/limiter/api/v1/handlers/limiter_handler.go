@@ -16,6 +16,7 @@ import (
 type V1LimiterRuleHandler interface {
 	// RULES
 	CreateRule(w http.ResponseWriter, r *http.Request)
+	QueryRules(w http.ResponseWriter, r *http.Request)
 	MatchRules(w http.ResponseWriter, r *http.Request)
 	GetRule(w http.ResponseWriter, r *http.Request)
 	UpdateRule(w http.ResponseWriter, r *http.Request)
@@ -23,9 +24,10 @@ type V1LimiterRuleHandler interface {
 
 	// OVERRIDES
 	CreateOverride(w http.ResponseWriter, r *http.Request)
+	QueryOverrides(w http.ResponseWriter, r *http.Request)
 	MatchOverrides(w http.ResponseWriter, r *http.Request)
-	UpdateOverride(w http.ResponseWriter, r *http.Request)
 	GetOverride(w http.ResponseWriter, r *http.Request)
+	UpdateOverride(w http.ResponseWriter, r *http.Request)
 	DeleteOverride(w http.ResponseWriter, r *http.Request)
 
 	// COUNTERS

@@ -1,5 +1,9 @@
 package btreeassociated
 
+// This now needs to account for the 'Any' Keys saved in the DB, but I wanted to get rid of it eventually.
+// so for now just comment it out as I want interactions to be driven throught the queries
+
+/*
 import (
 	"github.com/DanLavine/willow/internal/datastructures/btree"
 	"github.com/DanLavine/willow/internal/datastructures/set"
@@ -22,7 +26,7 @@ import (
 //	          5. ErrorTreeDestroying
 func (tsat *threadsafeAssociatedTree) Find(keyValues datatypes.KeyValues, onFind BTreeAssociatedOnFind) error {
 	// parameter check
-	if err := keyValues.Validate(); err != nil {
+	if err := keyValues.Validate(datatypes.MinDataType, datatypes.MaxDataType); err != nil {
 		return err
 	}
 	if onFind == nil {
@@ -151,3 +155,4 @@ func (tsat *threadsafeAssociatedTree) FindByAssociatedID(associatedID string, on
 
 	return nil
 }
+*/

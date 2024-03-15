@@ -13,6 +13,8 @@ import (
 	"github.com/DanLavine/willow/internal/idgenerator"
 	"github.com/DanLavine/willow/internal/reporting"
 	"github.com/DanLavine/willow/pkg/models/api/common/errors"
+	queryassociatedaction "github.com/DanLavine/willow/pkg/models/api/common/v1/query_associated_action"
+	querymatchaction "github.com/DanLavine/willow/pkg/models/api/common/v1/query_match_action"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 	"go.uber.org/zap"
 
@@ -188,15 +190,7 @@ func (mqc *memoryQueueChannel) Execute(ctx context.Context) error {
 
 				for {
 					// find any rules we might be at the limit for
-					rules, err := mqc.limiterClient.MatchRules(&v1limiter.RuleMatch{
-						RulesToMatch: &v1common.MatchQuery{
-							KeyValues: &erroredKeyValues,
-						},
-						OverridesToMatch: &v1common.MatchQuery{
-							KeyValues: &erroredKeyValues,
-						},
-					}, nil)
-
+					rules, err := mqc.limiterClient.MatchRules(querymatchaction.KeyValuesToAnyMatchActionQuery(erroredKeyValues), nil)
 					if err != nil {
 						panic(err)
 					}
@@ -204,7 +198,13 @@ func (mqc *memoryQueueChannel) Execute(ctx context.Context) error {
 					// for each rule, query the counters to know if there is an issue
 					underLimit := true
 					for _, rule := range rules {
-						if len(rule.Overrides) == 0 {
+						overrides, err := mqc.limiterClient.MatchOverrides(rule.Name, querymatchaction.KeyValuesToAnyMatchActionQuery(erroredKeyValues), nil)
+						if err != nil {
+							panic(err)
+						}
+
+						switch len(overrides) {
+						case 0:
 							// check the rule itsel
 
 							// somethign is at a limit of 0 so just stop processing
@@ -218,18 +218,22 @@ func (mqc *memoryQueueChannel) Execute(ctx context.Context) error {
 								continue
 							}
 
-							// query for the counters
-							query := &v1common.AssociatedQuery{
-								AssociatedKeyValues: datatypes.AssociatedKeyValuesQuery{
-									KeyValueSelection: &datatypes.KeyValueSelection{
-										KeyValues: map[string]datatypes.Value{},
-									},
+							// setup query for the counters based off of the Rule's key values we are looking at
+							query := &queryassociatedaction.AssociatedActionQuery{
+								Selection: &queryassociatedaction.Selection{
+									KeyValues: queryassociatedaction.SelectionKeyValues{},
 								},
 							}
 
-							for _, key := range rule.GroupBy {
-								tmpValue := mqc.channelKeyValues[key]
-								query.AssociatedKeyValues.KeyValueSelection.KeyValues[key] = datatypes.Value{Value: &tmpValue, ValueComparison: datatypes.EqualsPtr()}
+							for key, value := range rule.GroupByKeyValues {
+								query.Selection.KeyValues[key] = queryassociatedaction.ValueQuery{
+									Value:      value,
+									Comparison: v1common.Equals,
+									TypeRestrictions: v1common.TypeRestrictions{
+										MinDataType: value.Type,
+										MaxDataType: value.Type,
+									},
+								}
 							}
 
 							counters, err := mqc.limiterClient.QueryCounters(query, nil)
@@ -245,10 +249,10 @@ func (mqc *memoryQueueChannel) Execute(ctx context.Context) error {
 									break
 								}
 							}
-						} else {
+						default:
 							// check all the overrides
 
-							for _, override := range rule.Overrides {
+							for _, override := range overrides {
 								// somethign is at a limit of 0 so just stop processing
 								if override.Limit == 0 {
 									underLimit = false
@@ -260,18 +264,22 @@ func (mqc *memoryQueueChannel) Execute(ctx context.Context) error {
 									continue
 								}
 
-								// query for the counters
-								query := &v1common.AssociatedQuery{
-									AssociatedKeyValues: datatypes.AssociatedKeyValuesQuery{
-										KeyValueSelection: &datatypes.KeyValueSelection{
-											KeyValues: map[string]datatypes.Value{},
-										},
+								// setup query for the counters based off of the Rule's key values we are looking at
+								query := &queryassociatedaction.AssociatedActionQuery{
+									Selection: &queryassociatedaction.Selection{
+										KeyValues: queryassociatedaction.SelectionKeyValues{},
 									},
 								}
 
 								for key, value := range override.KeyValues {
-									tmpValue := value
-									query.AssociatedKeyValues.KeyValueSelection.KeyValues[key] = datatypes.Value{Value: &tmpValue, ValueComparison: datatypes.EqualsPtr()}
+									query.Selection.KeyValues[key] = queryassociatedaction.ValueQuery{
+										Value:      value,
+										Comparison: v1common.Equals,
+										TypeRestrictions: v1common.TypeRestrictions{
+											MinDataType: value.Type,
+											MaxDataType: value.Type,
+										},
+									}
 								}
 
 								counters, err := mqc.limiterClient.QueryCounters(query, nil)
@@ -343,7 +351,7 @@ func (mqc *memoryQueueChannel) Enqueue(ctx context.Context, enqueueItem *v1willo
 		lastItemID := mqc.itemIDsEnqueued[lastItemIndex]
 
 		updated := false
-		onFind := func(treeItem any) {
+		onFind := func(key datatypes.EncapsulatedValue, treeItem any) bool {
 			queueItem := treeItem.(*item)
 			queueItem.lock.Lock()
 			defer queueItem.lock.Unlock()
@@ -358,10 +366,12 @@ func (mqc *memoryQueueChannel) Enqueue(ctx context.Context, enqueueItem *v1willo
 				queueItem.retryPosition = enqueueItem.RetryPosition
 				queueItem.retryCount = 0
 			}
+
+			return false
 		}
 
 		// try to update the last item enqueud
-		if err := mqc.items.Find(datatypes.String(lastItemID), onFind); err != nil {
+		if err := mqc.items.Find(datatypes.String(lastItemID), v1common.TypeRestrictions{MinDataType: datatypes.T_string, MaxDataType: datatypes.T_string}, onFind); err != nil {
 			panic(err)
 		}
 
@@ -604,7 +614,7 @@ func (mqc *memoryQueueChannel) dequeue(ctx context.Context) (*v1willow.DequeueQu
 	// 2. successfully incremented the counters, pull an item off for the client
 	dequeueItem := &v1willow.DequeueQueueItem{}
 
-	onFind := func(treeItem any) {
+	onFind := func(key datatypes.EncapsulatedValue, treeItem any) bool {
 		queueItem := treeItem.(*item)
 		dequeueItem.ItemID = firtItemID
 		dequeueItem.Item = queueItem.data
@@ -631,9 +641,11 @@ func (mqc *memoryQueueChannel) dequeue(ctx context.Context) (*v1willow.DequeueQu
 			// we want to ensure our resources are cleaned up properly
 			queueItem.UnsetHeartbeater()
 		}
+
+		return false
 	}
 
-	if err := mqc.items.Find(datatypes.String(firtItemID), onFind); err != nil {
+	if err := mqc.items.Find(datatypes.String(firtItemID), v1common.TypeRestrictions{MinDataType: datatypes.T_string, MaxDataType: datatypes.T_string}, onFind); err != nil {
 		panic(err)
 	}
 
@@ -646,7 +658,7 @@ func (mqc *memoryQueueChannel) successfulDequeue(ctx context.Context, itemID str
 		logger := reporting.GetLogger(ctx).Named("successfulDequeue")
 
 		// start the heartbeater process
-		onfindBTree := func(treeItem any) {
+		onfindBTree := func(key datatypes.EncapsulatedValue, treeItem any) bool {
 			queueItem := treeItem.(*item)
 
 			if queueItem.StartHeartbeater() {
@@ -655,9 +667,11 @@ func (mqc *memoryQueueChannel) successfulDequeue(ctx context.Context, itemID str
 				// This can happen if a call to ACK happens and processes before the success callback is called in the API controller
 				logger.Debug("failed to start the heartbeat process")
 			}
+
+			return false
 		}
 
-		if err := mqc.items.Find(datatypes.String(itemID), onfindBTree); err != nil {
+		if err := mqc.items.Find(datatypes.String(itemID), v1common.TypeRestrictions{MinDataType: datatypes.T_string, MaxDataType: datatypes.T_string}, onfindBTree); err != nil {
 			panic(err)
 		}
 
@@ -727,15 +741,17 @@ func (mqc *memoryQueueChannel) Heartbeat(ctx context.Context, heartbeat *v1willo
 	ctx = reporting.UpdateLogger(ctx, logger)
 	heartbeatErr := &errors.ServerError{Message: "failed to find processing item by id", StatusCode: http.StatusNotFound}
 
-	onFind := func(treeItem any) {
+	onFind := func(key datatypes.EncapsulatedValue, treeItem any) bool {
 		queueItem := treeItem.(*item)
 
 		if queueItem.Heartbeat() {
 			heartbeatErr = nil
 		}
+
+		return false
 	}
 
-	if err := mqc.items.Find(datatypes.String(heartbeat.ItemID), onFind); err != nil {
+	if err := mqc.items.Find(datatypes.String(heartbeat.ItemID), v1common.TypeRestrictions{MinDataType: datatypes.T_string, MaxDataType: datatypes.T_string}, onFind); err != nil {
 		logger.Fatal("failed to lookup item to heartbeat", zap.Error(err))
 	}
 

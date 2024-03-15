@@ -7,7 +7,7 @@ import (
 
 	"github.com/DanLavine/willow/pkg/clients"
 
-	v1common "github.com/DanLavine/willow/pkg/models/api/common/v1"
+	queryassociatedaction "github.com/DanLavine/willow/pkg/models/api/common/v1/query_associated_action"
 	v1willow "github.com/DanLavine/willow/pkg/models/api/willow/v1"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 )
@@ -23,8 +23,8 @@ type WillowServiceClient interface {
 	//// Create a new queue
 	CreateQueue(queue *v1willow.QueueCreate, headers http.Header) error
 	//// Get a spcific queue by name and query the possible channels
-	GetQueue(queueName string, query *v1common.AssociatedQuery, headers http.Header) (*v1willow.Queue, error)
-	//// List all possible rules without their channels
+	GetQueue(queueName string, query *queryassociatedaction.AssociatedActionQuery, headers http.Header) (*v1willow.Queue, error)
+	//// List all possible queues without their channels
 	ListQueues(headers http.Header) (v1willow.Queues, error)
 	//// Update a particualr queue
 	UpdateQueue(queueName string, update *v1willow.QueueUpdate, headers http.Header) error
@@ -35,9 +35,9 @@ type WillowServiceClient interface {
 	//// enqueue a new item to a particular queue's channels
 	EnqueueQueueItem(queueName string, item *v1willow.EnqueueQueueItem, headers http.Header) error
 	//// dequeue an item from a queue's channels that match the query
-	DequeueQueueItem(cancelContext context.Context, queueName string, query *v1common.AssociatedQuery, headers http.Header) (*Item, error)
+	DequeueQueueItem(cancelContext context.Context, queueName string, query *queryassociatedaction.AssociatedActionQuery, headers http.Header) (*Item, error)
 	//// delete a particu;ar channel and all enqueued items
-	DeleteQueueChannel(queueName string, channelKeyValues *datatypes.KeyValues, headers http.Header) error
+	DeleteQueueChannel(queueName string, channelKeyValues datatypes.KeyValues, headers http.Header) error
 }
 
 // LimiteClient to connect with remote limiter service

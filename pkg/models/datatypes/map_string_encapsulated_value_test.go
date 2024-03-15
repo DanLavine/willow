@@ -59,7 +59,7 @@ func TestKeyValues_SortedKeys(t *testing.T) {
 func TestKeyValues_GenerateTagPairs(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	setupKeyValues := func(g *GomegaWithT) KeyValues {
+	setupKeyValues := func() KeyValues {
 		return KeyValues{
 			"a": String("1"),
 			"b": String("2"),
@@ -70,7 +70,7 @@ func TestKeyValues_GenerateTagPairs(t *testing.T) {
 	}
 
 	t.Run("it returns all individual elements", func(t *testing.T) {
-		setupKeyValues := setupKeyValues(g)
+		setupKeyValues := setupKeyValues()
 		generatedTagGroups := setupKeyValues.GenerateTagPairs()
 
 		MatchOnce(g, generatedTagGroups, KeyValues{"a": String("1")})
@@ -81,7 +81,7 @@ func TestKeyValues_GenerateTagPairs(t *testing.T) {
 	})
 
 	t.Run("it returns all 2 pair elements", func(t *testing.T) {
-		setupKeyValues := setupKeyValues(g)
+		setupKeyValues := setupKeyValues()
 		generatedTagGroups := setupKeyValues.GenerateTagPairs()
 
 		// a group
@@ -104,7 +104,7 @@ func TestKeyValues_GenerateTagPairs(t *testing.T) {
 	})
 
 	t.Run("it returns all 3 pair elements", func(t *testing.T) {
-		setupKeyValues := setupKeyValues(g)
+		setupKeyValues := setupKeyValues()
 		generatedTagGroups := setupKeyValues.GenerateTagPairs()
 
 		// a group
@@ -125,7 +125,7 @@ func TestKeyValues_GenerateTagPairs(t *testing.T) {
 	})
 
 	t.Run("it returns all 4 pair elements", func(t *testing.T) {
-		setupKeyValues := setupKeyValues(g)
+		setupKeyValues := setupKeyValues()
 		generatedTagGroups := setupKeyValues.GenerateTagPairs()
 
 		// a group
@@ -139,7 +139,7 @@ func TestKeyValues_GenerateTagPairs(t *testing.T) {
 	})
 
 	t.Run("it returns all 5 pair elements as the last element", func(t *testing.T) {
-		setupKeyValues := setupKeyValues(g)
+		setupKeyValues := setupKeyValues()
 		generatedTagGroups := setupKeyValues.GenerateTagPairs()
 
 		// a group
@@ -149,7 +149,7 @@ func TestKeyValues_GenerateTagPairs(t *testing.T) {
 	})
 
 	t.Run("it has the proper size", func(t *testing.T) {
-		setupKeyValues := setupKeyValues(g)
+		setupKeyValues := setupKeyValues()
 		generatedTagGroups := setupKeyValues.GenerateTagPairs()
 
 		// also matches total number of tests above
@@ -157,7 +157,7 @@ func TestKeyValues_GenerateTagPairs(t *testing.T) {
 	})
 
 	t.Run("it returns all elements in a sorted order", func(t *testing.T) {
-		setupKeyValues := setupKeyValues(g)
+		setupKeyValues := setupKeyValues()
 		generatedTagGroups := setupKeyValues.GenerateTagPairs()
 
 		expectedTags := []KeyValues{
@@ -220,6 +220,7 @@ func TestKeyValues_DataEncoding(t *testing.T) {
 			"Float32": Float32(1),
 			"Float64": Float64(1),
 			"String":  String("1"),
+			"Any":     Any(),
 		}
 
 		data, err := json.Marshal(keyValues)
@@ -238,14 +239,14 @@ func TestKeyValues_DataEncoding(t *testing.T) {
 		decodedKeyValues := KeyValues{}
 		err := json.Unmarshal([]byte(`{"key1":{"other":13, "Data": "some str"}}`), &decodedKeyValues)
 		g.Expect(err).To(HaveOccurred())
-		g.Expect(err.Error()).To(ContainSubstring("key 'key1' has an unkown data type: 0"))
+		g.Expect(err.Error()).To(ContainSubstring("'key1' has an invalid value: failed to decode JSON. Unknown type '0'"))
 	})
 
 	t.Run("It returns an error when json Data is invalid", func(t *testing.T) {
 		decodedKeyValues := KeyValues{}
 		err := json.Unmarshal([]byte(`{"key1":{"Type":12, "unnkown": "some str"}}`), &decodedKeyValues)
 		g.Expect(err).To(HaveOccurred())
-		g.Expect(err.Error()).To(ContainSubstring("received empty Data for key 'key1'"))
+		g.Expect(err.Error()).To(ContainSubstring("'key1' has an invalid value: type 'float64' has nil Data. Requires a castable string to the provided type"))
 	})
 }
 
@@ -255,8 +256,8 @@ func TestKeyValues_Validate(t *testing.T) {
 	t.Run("It can validate a nil map", func(t *testing.T) {
 		var kvs KeyValues
 
-		err := kvs.Validate()
+		err := kvs.Validate(MinDataType, MaxDataType)
 		g.Expect(err).To(HaveOccurred())
-		g.Expect(err.Error()).To(Equal("KeyValues cannot be empty"))
+		g.Expect(err.Error()).To(ContainSubstring("recieved no KeyValues, but requires a length of at least 1"))
 	})
 }

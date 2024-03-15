@@ -17,11 +17,9 @@ paths:
     post:
       operationId: create Rule
       description: |
-        `Rules` are the definied restrictive resource for the `Counters` API. Each `Rule` that matches against the `Counter.KeyValues`
-        request is evaluated to ensure that the specific `Rule's` GroupBy selection has not hit the provided limit. It is important to
-        note that if multiple `Rules` all match the same `Counter.KeyValues` then each `Rule` will be evaluated unless one fails which stops the processing
-
-        There is special logic when a Rule has a Limit = 0. In this case the service will respond quickly rejecting the request saying the limit has been reached
+        `Rules` are the definied restrictive resource for the `Counters` API. Each `Rule.GroupByKeyValues` that matches against the `Counter.KeyValues`
+        request is evaluated to ensure that the specific `Rule.GroupByKeyValues` selection has not hit the provided limit. It is important to
+        note that if multiple `Rules` all match the same `Counter`, then each `Rule` will be evaluated unless one fails which stops the processing
       parameters:
         - in: header
           name: Content-Type
@@ -33,7 +31,7 @@ paths:
         content:
           appplication/json:
             schema:
-              $ref: "#/components/schemas/RuleRequest"
+              $ref: "#/components/schemas/Rule"
       responses:
         201:
           description: Created the `Rule`
@@ -58,10 +56,11 @@ paths:
                 properties:
                   ApiError:
                     $ref: "../common/components.yaml#/components/schemas/ApiError"
+  /v1/limiter/rules/query:
     get:
-      operationId: match Rules
+      operationId: query Rules
       description: |
-        Match any `Rules` that match the particular `KeyValues` and their `Overrides`.
+        List any `Rules` that match the provided query 
       parameters:
         - in: header
           name: Content-Type
@@ -71,19 +70,61 @@ paths:
       requestBody:
         required: true
         description: |
-          Matching will take all permutations of the provided `[rule | override search].KeyValues` and finds
-          all possible values that would match the `KeyValues` like a `Counters` request would.
+          Query for any possible `Rules`.
         content:
           appplication/json:
             schema:
-              $ref: "#/components/schemas/RuleMatch"
+              $ref: "../common/components.yaml#/components/schemas/AssociatedQuery"
       responses:
         200:
           description: Successfully searched for any rules that matched the query
           content:
             appplication/json:
               schema:
-                $ref: "#/components/schemas/RuleResponses"
+                $ref: "#/components/schemas/Rules"
+        400:
+          description: Error parsing or validating the request
+          content:
+            appplication/json:
+              schema:
+                type: object
+                properties:
+                  ApiError:
+                    $ref: "../common/components.yaml#/components/schemas/ApiError"
+        500:
+          description: Internal error that should be addressed by the service maintainer
+          content:
+            appplication/json:
+              schema:
+                type: object
+                properties:
+                  ApiError:
+                    $ref: "../common/components.yaml#/components/schemas/ApiError"
+  /v1/limiter/rules/match:
+    get:
+      operationId: match Rules
+      description: |
+        match the provided KeyValues against the saved `Rules`. In this lookup, the `Rules` act as queries against
+        the provided KeyValues to see if all the Rule.KeyValues properties are in the provided KeyValues.
+      parameters:
+        - in: header
+          name: Content-Type
+          schema:
+            type: string
+            enum: ["application/json"]
+      requestBody:
+        required: true
+        content:
+          appplication/json:
+            schema:
+              $ref: "../common/components.yaml#/components/schemas/KeyValuesTyped"
+      responses:
+        200:
+          description: Successfully searched for any rules that matched the KeyValues
+          content:
+            appplication/json:
+              schema:
+                $ref: "#/components/schemas/Rules"
         400:
           description: Error parsing or validating the request
           content:
@@ -113,14 +154,6 @@ paths:
           schema:
             type: string
             enum: ["application/json"]
-      requestBody:
-        description: |
-          Matching will take all permutations of the provided `[rule | override search].KeyValues` and find
-          all possible values that would match the `KeyValues` like a `Counters` request would.
-        content:
-          appplication/json:
-            schema:
-              $ref: "#/components/schemas/RuleGet"
       responses:
         200:
           description: |
@@ -128,7 +161,7 @@ paths:
           content:
             appplication/json:
               schema:
-                $ref: "#/components/schemas/RuleResponse"
+                $ref: "#/components/schemas/Rule"
         400:
           description: Error parsing or validating the request parameters
           content:
@@ -180,7 +213,7 @@ paths:
         content:
           appplication/json:
             schema:
-              $ref: "#/components/schemas/UpdateRuleRequest"
+              $ref: "#/components/schemas/UpdateRule"
       responses:
         200:
           description: Successfully updated the `Rule`
@@ -272,7 +305,7 @@ paths:
         content:
           appplication/json:
             schema:
-              $ref: "#/components/schemas/RuleOverride"
+              $ref: "#/components/schemas/Override"
       responses:
         201:
           description: Created a new `Override` for a given `Rule`
@@ -305,8 +338,9 @@ paths:
                 properties:
                   ApiError:
                     $ref: "../common/components.yaml#/components/schemas/ApiError"
+  /v1/limiter/rules/:rule_name/overrides/query:
     get:
-      operationId: match Overrides
+      operationId: list Overrides
       description: |
         List any `Overrides` that match the particular `KeyValues`
       parameters:
@@ -323,14 +357,68 @@ paths:
         content:
           appplication/json:
             schema:
-              $ref: "../common/components.yaml#/components/schemas/MatchQuery"
+              $ref: "../common/components.yaml#/components/schemas/AssociatedQuery"
       responses:
         200:
           description: Successfully searched for any rules that matched the query
           content:
             appplication/json:
               schema:
-                $ref: "#/components/schemas/RuleOverrides"
+                $ref: "#/components/schemas/Overrides"
+        400:
+          description: Error parsing or validating the request
+          content:
+            appplication/json:
+              schema:
+                type: object
+                properties:
+                  ApiError:
+                    $ref: "../common/components.yaml#/components/schemas/ApiError"
+        409:
+          description: The current `Rule` is being destroyed
+          content:
+            appplication/json:
+              schema:
+                type: object
+                properties:
+                  ApiError:
+                    $ref: "../common/components.yaml#/components/schemas/ApiError"
+        500:
+          description: Internal error that should be addressed by the service maintainer
+          content:
+            appplication/json:
+              schema:
+                type: object
+                properties:
+                  ApiError:
+                    $ref: "../common/components.yaml#/components/schemas/ApiError"
+  /v1/limiter/rules/:rule_name/overrides/match:
+    get:
+      operationId: list Overrides
+      description: |
+        List any `Overrides` that match the particular `KeyValues`
+      parameters:
+        - in: header
+          name: Content-Type
+          schema:
+            type: string
+            enum: ["application/json"]
+      requestBody:
+        required: true
+        description: |
+          Matching will take all permutations of the provided `KeyValues` and find all
+          possible values that would match the `Overrides` like a `Counters` request would.
+        content:
+          appplication/json:
+            schema:
+              $ref: "../common/components.yaml#/components/schemas/KeyValuesTyped"
+      responses:
+        200:
+          description: Successfully searched for any rules that matched the query
+          content:
+            appplication/json:
+              schema:
+                $ref: "#/components/schemas/Overrides"
         400:
           description: Error parsing or validating the request
           content:
@@ -373,7 +461,7 @@ paths:
           content:
             appplication/json:
               schema:
-                $ref: "#/components/schemas/RuleOverride"
+                $ref: "#/components/schemas/Override"
         404:
           description: The `Rule` or `Override` could not be found
           content:
@@ -416,7 +504,7 @@ paths:
         content:
           appplication/json:
             schema:
-              $ref: "#/components/schemas/UpdateOverrideRequest"
+              $ref: "#/components/schemas/UpdateOverride"
       responses:
         200:
           description: Successfully updated the `Override`
@@ -546,8 +634,9 @@ paths:
                 properties:
                   ApiError:
                     $ref: "../common/components.yaml#/components/schemas/ApiError"
+  /v1/limiter/counters/query:
     get:
-      operationId: query Counters
+      operationId: list Counters
       description: |
         Find any number of `Counters` that match the provided query.
       parameters:
@@ -561,7 +650,7 @@ paths:
         content:
           appplication/json:
             schema:
-              $ref: "../common/components.yaml#/components/schemas/AssociatedKeyValuesQuery"
+              $ref: "../common/components.yaml#/components/schemas/AssociatedQuery"
       responses:
         200:
           description: List of all counters that match the query
@@ -634,60 +723,42 @@ paths:
 
 components:
   schemas:
-    # List rules that match the provided key values
-    RuleMatch:
-      type: object
-      required:
-        - RulesToMach
-      properties:
-        RulesToMach:
-          description: |
-            `Rules` to find that match the KeyValues
-          allOf: # need to use all of for the description to display properly
-            - $ref: "../common/components.yaml#/components/schemas/MatchQuery"
-        OverridesToMatch:
-          description: |
-            `Overrides` to find for any of the found `Rules`. If this is empty, no overrides will be matched
-          allOf:
-            - $ref: "../common/components.yaml#/components/schemas/MatchQuery"
-
-    RuleGet:
-      type: object
-      properties:
-        OverridesToMatch:
-          description: |
-            Optional match query. Leaving this as empty on a request means to not include any `Overrides`
-          allOf:
-            - $ref: "../common/components.yaml#/components/schemas/MatchQuery"
-
-    # create a new rule request
-    RuleRequest:
+    # Rule operations
+    Rule:
       type: object
       required:
         - Name
-        - GroupBy
+        - GroupByKeyValues
         - Limit
+        - Overrides
       properties:
         Name:
           description: "Name of the rule to create"
           type: string
-        GroupBy:
+        GroupByKeyValues:
           description: |
-            GroupBy defines the Keys for any `Counters.KeyValues` that make a unique group matching the `Rule`. The entire
-            grouping of `Counters.KeyValues` is treated as unique so if only 1 `Key` or `Value` differs between 2 `Counters`,
-            then the `Rule` treats those as 2 entierly different comparative objects
-          type: array
-          items:
-            type: string
+            GroupByKeyValues defines the KeyValues to match against `Counters.KeyValues`. As long as the `Counters.KeyValues`
+            has all the KeyValue pairs defined in this `Rule`, then it is treated as a match.
           minLength: 1
+          allOf:
+            - $ref: "../common/components.yaml#/components/schemas/KeyValuesAny"
         Limit:
           description: |
             Max limit for any Key Value Group. If this is set to -1, then the value is treated a 'unlimited'
           type: integer
           format: int64
+        Overrides:
+          description: |
+            Read only overides that are returned from some of the query apis.
+          allOf:
+            - $ref: "#/components/schemas/Overrides"
 
-    # Uppdate requests
-    UpdateRuleRequest:
+    Rules:
+      type: array
+      items:
+        $ref: "#/components/schemas/Rule"
+
+    UpdateRule:
       type: object
       required:
         - Limit
@@ -698,40 +769,8 @@ components:
           description: |
             default limit that all `Rules` match `Counters.KeyValues` against. If this is set to -1, then the value is treated a 'unlimited'
 
-    UpdateOverrideRequest:
-      type: object
-      required:
-        - Limit
-      properties:
-        Limit:
-          type: integer
-          format: int64
-          description: |
-            default limit that all `Overrides` match `Counters.KeyValues` against. If this is set to -1, then the value is treated a 'unlimited'
-
-    # Find rule response
-    RuleResponse:
-      type: object
-      properties:
-        Name:
-          type: string
-        GroupBy:
-          type: array
-          items:
-            type: string
-        Limit:
-          type: integer
-          format: int64
-        Overrides:
-          $ref: "#/components/schemas/RuleOverrides"
-
-    RuleResponses:
-      type: array
-      items:
-        $ref: "#/components/schemas/RuleResponse"
-
     # create a new rule request
-    RuleOverride:
+    Override:
       type: object
       required:
         - Name
@@ -744,19 +783,31 @@ components:
         KeyValues:
           description: |
             The `KeyValues` must at a minimum include the `Rule's` GroupBy Keys with a Value.
-          $ref: "../common/components.yaml#/components/schemas/KeyValues"
+          $ref: "../common/components.yaml#/components/schemas/KeyValuesAny"
         Limit:
           description: |
             Limit to match `Overrides.KeyValues` against. If this is set to -1, then the value is treated a 'unlimited'
           type: integer
           format: int64
 
-    RuleOverrides:
+    Overrides:
       type: array
       items:
-        $ref: "#/components/schemas/RuleOverride"
+        $ref: "#/components/schemas/Override"
 
-    # increment or decrement counters request
+    UpdateOverride:
+      type: object
+      required:
+        - Limit
+      properties:
+        Limit:
+          type: integer
+          format: int64
+          description: |
+            default limit that all `Overrides` match `Counters.KeyValues` against. If this is set to -1, then the value is treated a 'unlimited'
+
+
+    # Counter operations
     Counter:
       type: object
       required:
@@ -764,7 +815,7 @@ components:
         - Counters
       properties:
         KeyValues:
-          $ref: "../common/components.yaml#/components/schemas/KeyValues"
+          $ref: "../common/components.yaml#/components/schemas/KeyValuesTyped"
         Counters:
           description: |
             1. On incrment, increase the counters for the associated `KeyValues`.\

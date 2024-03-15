@@ -32,22 +32,23 @@ func AddV1LimiterRoutes(mux *urlrouter.Router, v1Handler handlers.V1LimiterRuleH
 
 	// crud operations for group rules
 	mux.HandleFunc("POST", "/v1/limiter/rules", v1Handler.CreateRule)
-	mux.HandleFunc("GET", "/v1/limiter/rules", v1Handler.MatchRules)
+	mux.HandleFunc("GET", "/v1/limiter/rules/query", v1Handler.QueryRules)
+	mux.HandleFunc("GET", "/v1/limiter/rules/match", v1Handler.MatchRules)
 	mux.HandleFunc("PUT", "/v1/limiter/rules/:rule_name", v1Handler.UpdateRule)
 	mux.HandleFunc("GET", "/v1/limiter/rules/:rule_name", v1Handler.GetRule)
 	mux.HandleFunc("DELETE", "/v1/limiter/rules/:rule_name", v1Handler.DeleteRule)
 
 	// crud operations for overrides
 	mux.HandleFunc("POST", "/v1/limiter/rules/:rule_name/overrides", v1Handler.CreateOverride)
-	mux.HandleFunc("GET", "/v1/limiter/rules/:rule_name/overrides", v1Handler.MatchOverrides)
+	mux.HandleFunc("GET", "/v1/limiter/rules/:rule_name/overrides/query", v1Handler.QueryOverrides)
+	mux.HandleFunc("GET", "/v1/limiter/rules/:rule_name/overrides/match", v1Handler.MatchOverrides)
 	mux.HandleFunc("PUT", "/v1/limiter/rules/:rule_name/overrides/:override_name", v1Handler.UpdateOverride)
 	mux.HandleFunc("GET", "/v1/limiter/rules/:rule_name/overrides/:override_name", v1Handler.GetOverride)
 	mux.HandleFunc("DELETE", "/v1/limiter/rules/:rule_name/overrides/:override_name", v1Handler.DeleteOverride)
 
 	// operations to check items against arbitrary rules
 	mux.HandleFunc("PUT", "/v1/limiter/counters", v1Handler.UpsertCounters)
-	mux.HandleFunc("GET", "/v1/limiter/counters", v1Handler.QueryCounters)
-
+	mux.HandleFunc("GET", "/v1/limiter/counters/query", v1Handler.QueryCounters)
 	// operations to setup or clean counters without checking rules
 	mux.HandleFunc("POST", "/v1/limiter/counters/set", v1Handler.SetCounters)
 }

@@ -6,7 +6,8 @@ import (
 	"github.com/DanLavine/willow/pkg/models/api/common/errors"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 
-	v1common "github.com/DanLavine/willow/pkg/models/api/common/v1"
+	queryassociatedaction "github.com/DanLavine/willow/pkg/models/api/common/v1/query_associated_action"
+	querymatchaction "github.com/DanLavine/willow/pkg/models/api/common/v1/query_match_action"
 	v1limiter "github.com/DanLavine/willow/pkg/models/api/limiter/v1"
 )
 
@@ -20,12 +21,13 @@ import (
 type RuleClient interface {
 	// rule operations
 	//// create
-	CreateRule(ctx context.Context, rule *v1limiter.RuleCreateRequest) *errors.ServerError
+	CreateRule(ctx context.Context, rule *v1limiter.Rule) *errors.ServerError
 	//// update
 	UpdateRule(ctx context.Context, ruleName string, update *v1limiter.RuleUpdateRquest) *errors.ServerError
 	//// read
-	GetRule(ctx context.Context, ruleName string, query *v1limiter.RuleGet) (*v1limiter.Rule, *errors.ServerError)
-	MatchRules(ctx context.Context, matchQuery *v1limiter.RuleMatch) (v1limiter.Rules, *errors.ServerError)
+	QueryRules(ctx context.Context, query *queryassociatedaction.AssociatedActionQuery) (v1limiter.Rules, *errors.ServerError)
+	MatchRules(ctx context.Context, match *querymatchaction.MatchActionQuery) (v1limiter.Rules, *errors.ServerError)
+	GetRule(ctx context.Context, ruleName string) (*v1limiter.Rule, *errors.ServerError)
 	//// delete operations
 	DeleteRule(ctx context.Context, ruleName string) *errors.ServerError
 
@@ -35,8 +37,9 @@ type RuleClient interface {
 	//// update
 	UpdateOverride(ctx context.Context, ruleName string, overrideName string, override *v1limiter.OverrideUpdate) *errors.ServerError
 	//// read
+	QueryOverrides(ctx context.Context, ruleName string, query *queryassociatedaction.AssociatedActionQuery) (v1limiter.Overrides, *errors.ServerError)
+	MatchOverrides(ctx context.Context, ruleName string, match *querymatchaction.MatchActionQuery) (v1limiter.Overrides, *errors.ServerError)
 	GetOverride(ctx context.Context, ruleName string, overrideName string) (*v1limiter.Override, *errors.ServerError)
-	MatchOverrides(ctx context.Context, ruleName string, query *v1common.MatchQuery) (v1limiter.Overrides, *errors.ServerError)
 	//// delete
 	DeleteOverride(ctx context.Context, ruleName string, overrideName string) *errors.ServerError
 

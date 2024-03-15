@@ -3,12 +3,12 @@ package api
 import (
 	"bytes"
 	"fmt"
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
 
+	"github.com/DanLavine/willow/pkg/encoding"
 	v1locker "github.com/DanLavine/willow/pkg/models/api/locker/v1"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 
@@ -35,9 +35,90 @@ func (writeError *writeError) Write(p []byte) (n int, err error) {
 
 type jsonError struct{}
 
-func (je *jsonError) Validate() error             { return nil }
-func (je *jsonError) DecodeJSON(b []byte) error   { return nil }
-func (je *jsonError) EncodeJSON() ([]byte, error) { return nil, fmt.Errorf("encode test error") }
+func (je *jsonError) Validate() error              { return nil }
+func (je *jsonError) MarshalJSON() ([]byte, error) { return nil, fmt.Errorf("failed to marshal json") }
+
+func Test_DecodeHttpRequest(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	t.Run("It returns an error if the requst body cannot be read", func(t *testing.T) {
+		testRequest := httptest.NewRequest("GET", "/", readError{})
+
+		// DecodeHttpRequest
+		lock := &v1locker.Lock{}
+		serverErr := DecodeHttpRequest(testRequest, lock)
+
+		// check the server response
+		g.Expect(serverErr).To(HaveOccurred())
+		g.Expect(serverErr.Error()).To(Equal("failed to decode request: test read error"))
+	})
+
+	t.Run("It returns an error if the model is nil", func(t *testing.T) {
+		testRequest := httptest.NewRequest("GET", "/", nil)
+
+		// DecodeHttpRequest
+		serverErr := DecodeHttpRequest(testRequest, nil)
+
+		// check the server response
+		g.Expect(serverErr).To(HaveOccurred())
+		g.Expect(serverErr.Error()).To(Equal("unable to decode api model"))
+	})
+
+	t.Run("Context Content-Type headers", func(t *testing.T) {
+		t.Run("It returns an error if the type is unkown", func(t *testing.T) {
+			testRequest := httptest.NewRequest("GET", "/", nil)
+			testRequest.Header.Set("Content-Type", "something bad")
+
+			// DecodeHttpRequest
+			lock := &v1locker.Lock{}
+			serverErr := DecodeHttpRequest(testRequest, lock)
+
+			// check the server response
+			g.Expect(serverErr).To(HaveOccurred())
+			g.Expect(serverErr.Error()).To(Equal("unknown content type for the encoder: something bad"))
+		})
+
+		t.Run("Context JSON", func(t *testing.T) {
+			encoder, err := encoding.NewEncoder(encoding.ContentTypeJSON)
+			g.Expect(err).ToNot(HaveOccurred())
+
+			t.Run("It returns an error if request is not json", func(t *testing.T) {
+				testRequest := httptest.NewRequest("GET", "/", bytes.NewBuffer([]byte(`so not json`)))
+				testRequest.Header.Set("Content-Type", "application/json")
+
+				// DecodeHttpRequest
+				lock := &v1locker.Lock{}
+				serverErr := DecodeHttpRequest(testRequest, lock)
+
+				// check the server response
+				g.Expect(serverErr).To(HaveOccurred())
+				g.Expect(serverErr.Error()).To(ContainSubstring("failed to decode request:"))
+			})
+
+			t.Run("It can decode an item successfully", func(t *testing.T) {
+				data, err := encoder.Encode(v1locker.LockCreateRequest{
+					KeyValues: datatypes.KeyValues{
+						"key1": datatypes.Int(1),
+					},
+					LockTimeout: time.Second,
+				})
+				g.Expect(err).ToNot(HaveOccurred())
+
+				testRequest := httptest.NewRequest("GET", "/", bytes.NewBuffer(data))
+				testRequest.Header.Set("Content-Type", "application/json")
+
+				// DecodeHttpRequest
+				lockCreateRequest := &v1locker.LockCreateRequest{}
+				serverErr := DecodeHttpRequest(testRequest, lockCreateRequest)
+
+				// check the server response
+				g.Expect(serverErr).ToNot(HaveOccurred())
+				g.Expect(lockCreateRequest.KeyValues).To(Equal(datatypes.KeyValues{"key1": datatypes.Int(1)}))
+				g.Expect(lockCreateRequest.LockTimeout).To(Equal(time.Second))
+			})
+		})
+	})
+}
 
 func Test_DecodeAndValidateHttpRequest(t *testing.T) {
 	g := NewGomegaWithT(t)
@@ -51,7 +132,7 @@ func Test_DecodeAndValidateHttpRequest(t *testing.T) {
 
 		// check the server response
 		g.Expect(serverErr).To(HaveOccurred())
-		g.Expect(serverErr.Error()).To(Equal("failed to read http request body: test read error"))
+		g.Expect(serverErr.Error()).To(Equal("failed to decode request: test read error"))
 	})
 
 	t.Run("It returns an error if the model is nil", func(t *testing.T) {
@@ -76,10 +157,13 @@ func Test_DecodeAndValidateHttpRequest(t *testing.T) {
 
 			// check the server response
 			g.Expect(serverErr).To(HaveOccurred())
-			g.Expect(serverErr.Error()).To(Equal("server recieved unkown content type: 'something bad'"))
+			g.Expect(serverErr.Error()).To(Equal("unknown content type for the encoder: something bad"))
 		})
 
 		t.Run("Context JSON", func(t *testing.T) {
+			encoder, err := encoding.NewEncoder(encoding.ContentTypeJSON)
+			g.Expect(err).ToNot(HaveOccurred())
+
 			t.Run("It returns an error if request is not json", func(t *testing.T) {
 				testRequest := httptest.NewRequest("GET", "/", bytes.NewBuffer([]byte(`so not json`)))
 				testRequest.Header.Set("Content-Type", "application/json")
@@ -103,16 +187,16 @@ func Test_DecodeAndValidateHttpRequest(t *testing.T) {
 
 				// check the server response
 				g.Expect(serverErr).To(HaveOccurred())
-				g.Expect(serverErr.Error()).To(Equal("failed validation: 'KeyValues' is empty, but requires a length of at least 1"))
+				g.Expect(serverErr.Error()).To(ContainSubstring("failed validation: KeyValues: recieved no KeyValues, but requires a length of at least 1"))
 			})
 
 			t.Run("It can decode an item successfully", func(t *testing.T) {
-				data, err := (&v1locker.LockCreateRequest{
+				data, err := encoder.Encode(v1locker.LockCreateRequest{
 					KeyValues: datatypes.KeyValues{
 						"key1": datatypes.Int(1),
 					},
 					LockTimeout: time.Second,
-				}).EncodeJSON()
+				})
 				g.Expect(err).ToNot(HaveOccurred())
 
 				testRequest := httptest.NewRequest("GET", "/", bytes.NewBuffer(data))
@@ -176,7 +260,7 @@ func Test_EncodeAndSendHttpResponse(t *testing.T) {
 			dataWritten, serverErr := EncodeAndSendHttpResponse(headers, testWriter, http.StatusOK, lockCreateResp)
 			g.Expect(dataWritten).To(Equal(0))
 			g.Expect(serverErr).To(HaveOccurred())
-			g.Expect(serverErr.Error()).To(Equal("failed to write the respoonse to the client. Closed unexpectedly: failed test write"))
+			g.Expect(serverErr.Error()).To(Equal("failed to write the response to the client. Closed unexpectedly: failed test write"))
 
 			// ensure response recieves proper status code
 			g.Expect(testWriter.Code).To(Equal(http.StatusOK))
@@ -196,59 +280,59 @@ func Test_EncodeAndSendHttpResponse(t *testing.T) {
 				g.Expect(testWriter.Code).To(Equal(http.StatusInternalServerError))
 			})
 
-			t.Run("It sets the content type header to application/json if non are provided", func(t *testing.T) {
-				testWriter := httptest.NewRecorder()
-
-				lockCreateResp := &v1locker.LockCreateResponse{
-					SessionID:   "something",
-					LockTimeout: 5 * time.Second,
-				}
-
-				// Encode and send the http request
-				dataWritten, serverErr := EncodeAndSendHttpResponse(http.Header{}, testWriter, http.StatusOK, lockCreateResp)
-				g.Expect(dataWritten).To(Equal(62))
-				g.Expect(serverErr).ToNot(HaveOccurred())
-
-				// ensure response recieves proper status code
-				g.Expect(testWriter.Code).To(Equal(http.StatusOK))
-
-				// ensure response can be decode properly
-				data, err := io.ReadAll(testWriter.Body)
+			t.Run("Context JSON", func(t *testing.T) {
+				encoder, err := encoding.NewEncoder(encoding.ContentTypeJSON)
 				g.Expect(err).ToNot(HaveOccurred())
 
-				parseLockResp := &v1locker.LockCreateResponse{}
-				err = parseLockResp.DecodeJSON(data)
-				g.Expect(err).ToNot(HaveOccurred())
-				g.Expect(parseLockResp).To(Equal(lockCreateResp))
-			})
+				t.Run("It sets the content type header to application/json if non are provided", func(t *testing.T) {
+					testWriter := httptest.NewRecorder()
 
-			t.Run("It can use application/json", func(t *testing.T) {
-				testWriter := httptest.NewRecorder()
+					lockCreateResp := &v1locker.LockCreateResponse{
+						SessionID:   "something",
+						LockTimeout: 5 * time.Second,
+					}
 
-				lockCreateResp := &v1locker.LockCreateResponse{
-					SessionID:   "something",
-					LockTimeout: 5 * time.Second,
-				}
+					// Encode and send the http request
+					dataWritten, serverErr := EncodeAndSendHttpResponse(http.Header{}, testWriter, http.StatusOK, lockCreateResp)
+					g.Expect(dataWritten).To(Equal(62))
+					g.Expect(serverErr).ToNot(HaveOccurred())
 
-				headers := http.Header{}
-				headers.Add("Content-Type", "application/json")
+					// ensure response recieves proper status code
+					g.Expect(testWriter.Code).To(Equal(http.StatusOK))
 
-				// Encode and send the http request
-				dataWritten, serverErr := EncodeAndSendHttpResponse(headers, testWriter, http.StatusOK, lockCreateResp)
-				g.Expect(dataWritten).To(Equal(62))
-				g.Expect(serverErr).ToNot(HaveOccurred())
+					// ensure response can be decode properly
+					parseLockResp := &v1locker.LockCreateResponse{}
+					err = encoder.Decode(testWriter.Result().Body, parseLockResp)
+					g.Expect(err).ToNot(HaveOccurred())
+					g.Expect(parseLockResp).To(Equal(lockCreateResp))
+				})
 
-				// ensure response recieves proper status code
-				g.Expect(testWriter.Code).To(Equal(http.StatusOK))
+				t.Run("It can use application/json", func(t *testing.T) {
+					testWriter := httptest.NewRecorder()
 
-				// ensure response can be decode properly
-				data, err := io.ReadAll(testWriter.Body)
-				g.Expect(err).ToNot(HaveOccurred())
+					lockCreateResp := &v1locker.LockCreateResponse{
+						SessionID:   "something",
+						LockTimeout: 5 * time.Second,
+					}
 
-				parseLockResp := &v1locker.LockCreateResponse{}
-				err = parseLockResp.DecodeJSON(data)
-				g.Expect(err).ToNot(HaveOccurred())
-				g.Expect(parseLockResp).To(Equal(lockCreateResp))
+					headers := http.Header{}
+					headers.Add("Content-Type", "application/json")
+
+					// Encode and send the http request
+					dataWritten, serverErr := EncodeAndSendHttpResponse(headers, testWriter, http.StatusOK, lockCreateResp)
+					g.Expect(dataWritten).To(Equal(62))
+					g.Expect(serverErr).ToNot(HaveOccurred())
+
+					// ensure response recieves proper status code
+					g.Expect(testWriter.Code).To(Equal(http.StatusOK))
+
+					// ensure response can be decode properly
+					parseLockResp := &v1locker.LockCreateResponse{}
+					err = encoder.Decode(testWriter.Result().Body, parseLockResp)
+
+					g.Expect(err).ToNot(HaveOccurred())
+					g.Expect(parseLockResp).To(Equal(lockCreateResp))
+				})
 			})
 
 			t.Run("It returns an error on a bad content type", func(t *testing.T) {
@@ -266,7 +350,7 @@ func Test_EncodeAndSendHttpResponse(t *testing.T) {
 				dataWritten, serverErr := EncodeAndSendHttpResponse(headers, testWriter, http.StatusOK, lockCreateResp)
 				g.Expect(dataWritten).To(Equal(0))
 				g.Expect(serverErr).To(HaveOccurred())
-				g.Expect(serverErr.Error()).To(Equal("unknown content type to send back to the client: wops"))
+				g.Expect(serverErr.Error()).To(Equal("unknown content type for the encoder: wops"))
 
 				// ensure response recieves proper status code
 				g.Expect(testWriter.Code).To(Equal(http.StatusInternalServerError))

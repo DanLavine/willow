@@ -6,12 +6,13 @@ import (
 	"net/http"
 
 	"github.com/DanLavine/willow/pkg/models/api/common/errors"
+	queryassociatedaction "github.com/DanLavine/willow/pkg/models/api/common/v1/query_associated_action"
+	querymatchaction "github.com/DanLavine/willow/pkg/models/api/common/v1/query_match_action"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 	"go.uber.org/zap"
 
 	btreeonetomany "github.com/DanLavine/willow/internal/datastructures/btree_one_to_many"
 	"github.com/DanLavine/willow/internal/reporting"
-	v1common "github.com/DanLavine/willow/pkg/models/api/common/v1"
 	v1limiter "github.com/DanLavine/willow/pkg/models/api/limiter/v1"
 )
 
@@ -92,16 +93,7 @@ func (ocl *overridesClientLocal) GetOverride(ctx context.Context, ruleName strin
 		return false
 	}
 
-	overrideNameValue := datatypes.String(overrideName)
-	query := datatypes.AssociatedKeyValuesQuery{
-		KeyValueSelection: &datatypes.KeyValueSelection{
-			KeyValues: map[string]datatypes.Value{
-				"_associated_id": datatypes.Value{Value: &overrideNameValue, ValueComparison: datatypes.EqualsPtr()},
-			},
-		},
-	}
-
-	if err := ocl.overrides.Query(ruleName, query, onIterate); err != nil {
+	if err := ocl.overrides.QueryAction(ruleName, queryassociatedaction.StringToAssociatedActionQuery(overrideName), onIterate); err != nil {
 		switch err {
 		//case datastructures.ErrorOneIDDestroying:
 		// This shouldn't happen as the deletion of the `Rule` should block all these request`
@@ -114,7 +106,38 @@ func (ocl *overridesClientLocal) GetOverride(ctx context.Context, ruleName strin
 	return limiterOverride, overrideErr
 }
 
-func (ocl *overridesClientLocal) MatchOverrides(ctx context.Context, ruleName string, query *v1common.MatchQuery) (v1limiter.Overrides, *errors.ServerError) {
+// Query the overrides
+func (ocl *overridesClientLocal) QueryOverrides(ctx context.Context, ruleName string, query *queryassociatedaction.AssociatedActionQuery) (v1limiter.Overrides, *errors.ServerError) {
+	logger := reporting.GetLogger(ctx).Named("QueryOverrides")
+	overrides := v1limiter.Overrides{}
+
+	onIterate := func(item btreeonetomany.OneToManyItem) bool {
+		override := item.Value().(Override)
+
+		overrides = append(overrides, &v1limiter.Override{
+			Name:      item.ManyID(),
+			KeyValues: item.ManyKeyValues(),
+			Limit:     override.Limit(),
+		})
+
+		return true
+	}
+
+	if err := ocl.overrides.QueryAction(ruleName, query, onIterate); err != nil {
+		switch err {
+		//case datastructures.ErrorOneIDDestroying:
+		// This shouldn't happen as the deletion of the `Rule` should block all these request`
+		default:
+			logger.Error("Unexpected error matching all overrides", zap.Error(err))
+			return nil, errors.InternalServerError
+		}
+	}
+
+	return overrides, nil
+}
+
+// Query the overrides
+func (ocl *overridesClientLocal) MatchOverrides(ctx context.Context, ruleName string, match *querymatchaction.MatchActionQuery) (v1limiter.Overrides, *errors.ServerError) {
 	logger := reporting.GetLogger(ctx).Named("MatchOverrides")
 	overrides := v1limiter.Overrides{}
 
@@ -130,27 +153,13 @@ func (ocl *overridesClientLocal) MatchOverrides(ctx context.Context, ruleName st
 		return true
 	}
 
-	if query.KeyValues == nil {
-		// match all
-		if err := ocl.overrides.Query(ruleName, datatypes.AssociatedKeyValuesQuery{}, onIterate); err != nil {
-			switch err {
-			//case datastructures.ErrorOneIDDestroying:
-			// This shouldn't happen as the deletion of the `Rule` should block all these request`
-			default:
-				logger.Error("Unexpected error matching all overrides", zap.Error(err))
-				return nil, errors.InternalServerError
-			}
-		}
-	} else {
-		// match against the key values
-		if err := ocl.overrides.MatchPermutations(ruleName, *query.KeyValues, onIterate); err != nil {
-			switch err {
-			//case datastructures.ErrorOneIDDestroying:
-			// This shouldn't happen as the deletion of the `Rule` should block all these request`
-			default:
-				logger.Error("Unexpected error matching override selection", zap.Error(err))
-				return nil, errors.InternalServerError
-			}
+	if err := ocl.overrides.MatchAction(ruleName, match, onIterate); err != nil {
+		switch err {
+		//case datastructures.ErrorOneIDDestroying:
+		// This shouldn't happen as the deletion of the `Rule` should block all these request`
+		default:
+			logger.Error("Unexpected error matching all overrides", zap.Error(err))
+			return nil, errors.InternalServerError
 		}
 	}
 
@@ -169,16 +178,7 @@ func (ocl *overridesClientLocal) UpdateOverride(ctx context.Context, ruleName st
 		return false
 	}
 
-	overrideNameValue := datatypes.String(overrideName)
-	query := datatypes.AssociatedKeyValuesQuery{
-		KeyValueSelection: &datatypes.KeyValueSelection{
-			KeyValues: map[string]datatypes.Value{
-				"_associated_id": datatypes.Value{Value: &overrideNameValue, ValueComparison: datatypes.EqualsPtr()},
-			},
-		},
-	}
-
-	if err := ocl.overrides.Query(ruleName, query, onIterate); err != nil {
+	if err := ocl.overrides.QueryAction(ruleName, queryassociatedaction.StringToAssociatedActionQuery(overrideName), onIterate); err != nil {
 		switch err {
 		//case ErrorOneIDDestroying.ErrorOneIDDestroying:
 		// This shouldn't happen as the deletion of the `Rule` should block all these request`
@@ -270,7 +270,7 @@ func (ocl *overridesClientLocal) FindOverrideLimits(ctx context.Context, ruleNam
 		return limit != 0
 	}
 
-	if err := ocl.overrides.MatchPermutations(ruleName, keyValues, onIterate); err != nil {
+	if err := ocl.overrides.MatchAction(ruleName, querymatchaction.KeyValuesToAnyMatchActionQuery(keyValues), onIterate); err != nil {
 		switch err {
 		//case datastructures.ErrorOneIDDestroying:
 		// This shouldn't happen as the deletion of the `Rule` should block all these request`

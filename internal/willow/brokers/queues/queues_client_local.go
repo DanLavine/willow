@@ -8,11 +8,12 @@ import (
 	"github.com/DanLavine/willow/internal/datastructures/btree"
 	"github.com/DanLavine/willow/internal/reporting"
 	"github.com/DanLavine/willow/pkg/models/api/common/errors"
+	v1 "github.com/DanLavine/willow/pkg/models/api/common/v1"
+	queryassociatedaction "github.com/DanLavine/willow/pkg/models/api/common/v1/query_associated_action"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 	"go.uber.org/zap"
 
 	queuechannels "github.com/DanLavine/willow/internal/willow/brokers/queue_channels"
-	v1common "github.com/DanLavine/willow/pkg/models/api/common/v1"
 	v1willow "github.com/DanLavine/willow/pkg/models/api/willow/v1"
 )
 
@@ -85,7 +86,7 @@ func (qcl *queueClientLocal) ListQueues(ctx context.Context) (v1willow.Queues, *
 		queue := item.(Queue)
 
 		queues = append(queues, &v1willow.Queue{
-			Name:         key.Value().(string),
+			Name:         key.Data.(string), // Will not have the T_any so this should be safe
 			QueueMaxSize: queue.ConfiguredLimit(),
 			Channels:     nil,
 		})
@@ -93,7 +94,7 @@ func (qcl *queueClientLocal) ListQueues(ctx context.Context) (v1willow.Queues, *
 		return true
 	}
 
-	if err := qcl.queues.Iterate(bTreeOnIterate); err != nil {
+	if err := qcl.queues.Find(datatypes.Any(), v1.TypeRestrictions{MinDataType: datatypes.MinDataType, MaxDataType: datatypes.MaxDataType}, bTreeOnIterate); err != nil {
 		logger.Error("error listing queues from tree", zap.Error(err))
 		return nil, errors.InternalServerError
 	}
@@ -101,23 +102,24 @@ func (qcl *queueClientLocal) ListQueues(ctx context.Context) (v1willow.Queues, *
 	return queues, nil
 }
 
-func (qcl *queueClientLocal) GetQueue(ctx context.Context, queueName string, channelQuery *v1common.AssociatedQuery) (*v1willow.Queue, *errors.ServerError) {
+func (qcl *queueClientLocal) GetQueue(ctx context.Context, queueName string) (*v1willow.Queue, *errors.ServerError) {
 	logger := reporting.GetLogger(ctx).Named("GetQueue").With(zap.String("queue_name", queueName))
 	ctx = reporting.UpdateLogger(ctx, logger)
 	getQueueError := errorMissingQueueName(queueName)
 
 	var queue *v1willow.Queue
-	onFind := func(treeItem any) {
-		willowQueue := treeItem.(Queue)
+	onFind := func(key datatypes.EncapsulatedValue, item any) bool {
+		willowQueue := item.(Queue)
 
 		queue = &v1willow.Queue{
 			Name:         queueName,
 			QueueMaxSize: willowQueue.ConfiguredLimit(),
-			Channels:     qcl.queueChannelsClient.Channels(ctx, queueName, *channelQuery),
 		}
+
+		return false
 	}
 
-	if err := qcl.queues.Find(datatypes.String(queueName), onFind); err != nil {
+	if err := qcl.queues.Find(datatypes.String(queueName), v1.TypeRestrictions{MinDataType: datatypes.T_string, MaxDataType: datatypes.T_string}, onFind); err != nil {
 		switch err {
 		case btree.ErrorKeyDestroying:
 			logger.Warn("failed to get queue. Queue by that name is currenly destroying")
@@ -140,11 +142,12 @@ func (qcl *queueClientLocal) UpdateQueue(ctx context.Context, queueName string, 
 	ctx = reporting.UpdateLogger(ctx, logger)
 	updateQueueError := errorMissingQueueName(queueName)
 
-	bTreeOnFind := func(item any) {
+	bTreeOnFind := func(key datatypes.EncapsulatedValue, item any) bool {
 		updateQueueError = item.(Queue).Update(ctx, queueName, queueUpdate)
+		return false
 	}
 
-	if err := qcl.queues.Find(datatypes.String(queueName), bTreeOnFind); err != nil {
+	if err := qcl.queues.Find(datatypes.String(queueName), v1.TypeRestrictions{MinDataType: datatypes.T_string, MaxDataType: datatypes.T_string}, bTreeOnFind); err != nil {
 		switch err {
 		case btree.ErrorKeyDestroying:
 			logger.Warn("failed to update queue. Queue by that name is currenly destroying")
@@ -194,11 +197,12 @@ func (qcl *queueClientLocal) Enqueue(ctx context.Context, queueName string, enqu
 	enqueueQueueError := errorMissingQueueName(queueName)
 
 	// nothing for the item to do. but use the bTree as a guard to ensure no delete operations are happening at the same time
-	onFind := func(_ any) {
+	onFind := func(key datatypes.EncapsulatedValue, item any) bool {
 		enqueueQueueError = qcl.queueChannelsClient.EnqueueQueueItem(ctx, queueName, enqueueItem)
+		return false
 	}
 
-	if err := qcl.queues.Find(datatypes.String(queueName), onFind); err != nil {
+	if err := qcl.queues.Find(datatypes.String(queueName), v1.TypeRestrictions{MinDataType: datatypes.T_string, MaxDataType: datatypes.T_string}, onFind); err != nil {
 		logger.Error("failed to find the queue in the tree for some reason", zap.Error(err))
 		return errors.InternalServerError
 	}
@@ -206,7 +210,7 @@ func (qcl *queueClientLocal) Enqueue(ctx context.Context, queueName string, enqu
 	return enqueueQueueError
 }
 
-func (qcl *queueClientLocal) Dequeue(ctx context.Context, queueName string, dequeueQuery datatypes.AssociatedKeyValuesQuery) (*v1willow.DequeueQueueItem, func(), func(), *errors.ServerError) {
+func (qcl *queueClientLocal) Dequeue(ctx context.Context, queueName string, dequeueQuery *queryassociatedaction.AssociatedActionQuery) (*v1willow.DequeueQueueItem, func(), func(), *errors.ServerError) {
 	logger := reporting.GetLogger(ctx).Named("Dequeue").With(zap.String("queue_name", queueName))
 	ctx = reporting.UpdateLogger(ctx, logger)
 	dequeueQueueError := errorMissingQueueName(queueName)
@@ -215,11 +219,12 @@ func (qcl *queueClientLocal) Dequeue(ctx context.Context, queueName string, dequ
 	var dequeueItem *v1willow.DequeueQueueItem
 	var onSuccess func()
 	var onFailure func()
-	onFind := func(_ any) {
+	onFind := func(key datatypes.EncapsulatedValue, item any) bool {
 		dequeueItem, onSuccess, onFailure, dequeueQueueError = qcl.queueChannelsClient.DequeueQueueItem(ctx, queueName, dequeueQuery)
+		return false
 	}
 
-	if err := qcl.queues.Find(datatypes.String(queueName), onFind); err != nil {
+	if err := qcl.queues.Find(datatypes.String(queueName), v1.TypeRestrictions{MinDataType: datatypes.T_string, MaxDataType: datatypes.T_string}, onFind); err != nil {
 		logger.Error("failed to find the queue in the tree for some reason", zap.Error(err))
 		return nil, nil, nil, errors.InternalServerError
 	}
@@ -232,11 +237,12 @@ func (qcl *queueClientLocal) DeleteChannel(ctx context.Context, queueName string
 	ctx = reporting.UpdateLogger(ctx, logger)
 	deleteChannelsError := errorMissingQueueName(queueName)
 
-	onFind := func(_ any) {
+	onFind := func(key datatypes.EncapsulatedValue, item any) bool {
 		deleteChannelsError = qcl.queueChannelsClient.DeleteChannel(ctx, queueName, channelKeyValues)
+		return false
 	}
 
-	if err := qcl.queues.Find(datatypes.String(queueName), onFind); err != nil {
+	if err := qcl.queues.Find(datatypes.String(queueName), v1.TypeRestrictions{MinDataType: datatypes.T_string, MaxDataType: datatypes.T_string}, onFind); err != nil {
 		logger.Error("failed to find the queue in the tree for some reason", zap.Error(err))
 		return errors.InternalServerError
 	}
@@ -250,11 +256,12 @@ func (qcl *queueClientLocal) Ack(ctx context.Context, queueName string, ack *v1w
 	ackErr := errorMissingQueueName(queueName)
 
 	// nothing for the item to do. but use the bTree as a guard to ensure no delete operations are happening at the same time
-	onFind := func(_ any) {
+	onFind := func(key datatypes.EncapsulatedValue, item any) bool {
 		ackErr = qcl.queueChannelsClient.ACK(ctx, queueName, ack)
+		return false
 	}
 
-	if err := qcl.queues.Find(datatypes.String(queueName), onFind); err != nil {
+	if err := qcl.queues.Find(datatypes.String(queueName), v1.TypeRestrictions{MinDataType: datatypes.T_string, MaxDataType: datatypes.T_string}, onFind); err != nil {
 		switch err {
 		case btree.ErrorKeyDestroying:
 			logger.Warn("failed to ack item. Queue by that name is currenly destroying")
@@ -274,11 +281,12 @@ func (qcl *queueClientLocal) Heartbeat(ctx context.Context, queueName string, he
 	heartbeatErr := errorMissingQueueName(queueName)
 
 	// nothing for the item to do. but use the bTree as a guard to ensure no delete operations are happening at the same time
-	onFind := func(_ any) {
+	onFind := func(key datatypes.EncapsulatedValue, item any) bool {
 		heartbeatErr = qcl.queueChannelsClient.Heartbeat(ctx, queueName, heartbeat)
+		return false
 	}
 
-	if err := qcl.queues.Find(datatypes.String(queueName), onFind); err != nil {
+	if err := qcl.queues.Find(datatypes.String(queueName), v1.TypeRestrictions{MinDataType: datatypes.T_string, MaxDataType: datatypes.T_string}, onFind); err != nil {
 		switch err {
 		case btree.ErrorKeyDestroying:
 			logger.Warn("failed to update queue. Queue by that name is currenly destroying")

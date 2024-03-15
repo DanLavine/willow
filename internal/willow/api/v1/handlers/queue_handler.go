@@ -9,7 +9,6 @@ import (
 	"github.com/DanLavine/willow/pkg/models/api"
 	"go.uber.org/zap"
 
-	v1common "github.com/DanLavine/willow/pkg/models/api/common/v1"
 	v1willow "github.com/DanLavine/willow/pkg/models/api/willow/v1"
 )
 
@@ -89,14 +88,14 @@ func (qh queueHandler) Get(w http.ResponseWriter, r *http.Request) {
 	defer logger.Debug("processed request")
 
 	// parse the get rule request
-	query := &v1common.AssociatedQuery{}
-	if err := api.DecodeAndValidateHttpRequest(r, query); err != nil {
-		logger.Warn("failed to decode and validate request", zap.Error(err))
-		_, _ = api.EncodeAndSendHttpResponse(r.Header, w, err.StatusCode, err)
-		return
-	}
+	// query := &queryassociatedaction.AssociatedActionQuery{}
+	// if err := api.DecodeAndValidateHttpRequest(r, query); err != nil {
+	// 	logger.Warn("failed to decode and validate request", zap.Error(err))
+	// 	_, _ = api.EncodeAndSendHttpResponse(r.Header, w, err.StatusCode, err)
+	// 	return
+	// }
 
-	queue, err := qh.queueClient.GetQueue(ctx, urlrouter.GetNamedParamters(r.Context())["queue_name"], query)
+	queue, err := qh.queueClient.GetQueue(ctx, urlrouter.GetNamedParamters(r.Context())["queue_name"])
 	if err != nil {
 		_, _ = api.EncodeAndSendHttpResponse(r.Header, w, err.StatusCode, err)
 		return

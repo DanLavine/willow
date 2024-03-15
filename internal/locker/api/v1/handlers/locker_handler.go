@@ -9,7 +9,7 @@ import (
 	"github.com/DanLavine/willow/pkg/models/api"
 
 	lockmanager "github.com/DanLavine/willow/internal/locker/lock_manager"
-	v1common "github.com/DanLavine/willow/pkg/models/api/common/v1"
+	queryassociatedaction "github.com/DanLavine/willow/pkg/models/api/common/v1/query_associated_action"
 	v1locker "github.com/DanLavine/willow/pkg/models/api/locker/v1"
 
 	"go.uber.org/zap"
@@ -110,7 +110,7 @@ func (lh *lockerHandler) List(w http.ResponseWriter, r *http.Request) {
 	defer logger.Debug("processed request")
 
 	// parse the associaed query
-	query := &v1common.AssociatedQuery{}
+	query := &queryassociatedaction.AssociatedActionQuery{}
 	if err := api.DecodeAndValidateHttpRequest(r, query); err != nil {
 		logger.Warn("failed to decode and validate request", zap.Error(err))
 		_, _ = api.EncodeAndSendHttpResponse(r.Header, w, err.StatusCode, err)

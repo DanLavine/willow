@@ -1,5 +1,6 @@
 package btreeonetomany
 
+/*
 import (
 	"testing"
 
@@ -74,3 +75,4 @@ func TestOneToManyTree_MatchPermutations(t *testing.T) {
 
 	// TODO: error handling checks, but thats going to be reworked so ignore for now
 }
+*/

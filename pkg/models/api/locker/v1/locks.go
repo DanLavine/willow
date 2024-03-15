@@ -1,7 +1,6 @@
 package v1
 
 import (
-	"encoding/json"
 	"fmt"
 )
 
@@ -22,36 +21,12 @@ func (locks *Locks) Validate() error {
 
 	for index, lock := range *locks {
 		if lock == nil {
-			return fmt.Errorf("invalid Lock at index: %d: lock cannot be nil", index)
+			return fmt.Errorf("invalid Lock at index %d: lock cannot be nil", index)
 		}
 
 		if err := lock.Validate(); err != nil {
-			return fmt.Errorf("invalid Lock at index: %d: %w", index, err)
+			return fmt.Errorf("invalid Lock at index %d: %w", index, err)
 		}
-	}
-
-	return nil
-}
-
-//	RETURNS:
-//	- []byte - encoded JSON byte array for the LockQueryResponse
-//	- error - error encoding to JSON
-//
-// EncodeJSON encodes the model to a valid JSON format
-func (locks *Locks) EncodeJSON() ([]byte, error) {
-	return json.Marshal(locks)
-}
-
-//	PARAMETERS:
-//	- data - encoded JSON data to parse Locks from
-//
-//	RETURNS:
-//	- error - any error encoutered when reading or parsing the data
-//
-// Decode can convertes the encoded byte array into the Object Decode was called on
-func (locks *Locks) DecodeJSON(data []byte) error {
-	if err := json.Unmarshal(data, locks); err != nil {
-		return err
 	}
 
 	return nil

@@ -1,7 +1,7 @@
 package v1
 
 import (
-	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/DanLavine/willow/pkg/models/datatypes"
@@ -33,47 +33,19 @@ type Lock struct {
 // Validate ensures the Lock has all required fields set
 func (lock *Lock) Validate() error {
 	if lock.SessionID == "" {
-		return sessionIDEmpty
+		return fmt.Errorf("'SessionID' is required, but received an empty string")
 	}
 
-	if len(lock.KeyValues) == 0 {
-		return keyValuesLenghtInvalid
-	}
-
-	if err := lock.KeyValues.Validate(); err != nil {
+	if err := lock.KeyValues.Validate(datatypes.MinDataType, datatypes.MaxWithoutAnyDataType); err != nil {
 		return err
 	}
 
 	if lock.Timeout == 0 {
-		return timeoutIsInvalid
+		return fmt.Errorf("'Timeout' is required, but received an empty string")
 	}
 
 	if lock.LocksHeldOrWaiting == 0 {
-		return locksHeldOrWaitingIsInvalid
-	}
-
-	return nil
-}
-
-//	RETURNS:
-//	- []byte - encoded JSON byte array for the Lock
-//	- error - error encoding to JSON
-//
-// EncodeJSON encodes the model to a valid JSON format
-func (lock *Lock) EncodeJSON() ([]byte, error) {
-	return json.Marshal(lock)
-}
-
-//	PARAMETERS:
-//	- data - encoded JSON data to parse the Lock from
-//
-//	RETURNS:
-//	- error - any error encoutered when reading the response or Validating the Lock
-//
-// Decode can easily parse the response body from an http create request
-func (lock *Lock) DecodeJSON(data []byte) error {
-	if err := json.Unmarshal(data, lock); err != nil {
-		return err
+		return fmt.Errorf("'Timeout' is required, but received 0")
 	}
 
 	return nil

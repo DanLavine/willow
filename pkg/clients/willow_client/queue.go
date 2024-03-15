@@ -7,8 +7,8 @@ import (
 	"github.com/DanLavine/willow/pkg/clients"
 	"github.com/DanLavine/willow/pkg/models/api"
 	"github.com/DanLavine/willow/pkg/models/api/common/errors"
+	queryassociatedaction "github.com/DanLavine/willow/pkg/models/api/common/v1/query_associated_action"
 
-	v1common "github.com/DanLavine/willow/pkg/models/api/common/v1"
 	v1willow "github.com/DanLavine/willow/pkg/models/api/willow/v1"
 )
 
@@ -101,7 +101,7 @@ func (wc *WillowClient) ListQueues(headers http.Header) (v1willow.Queues, error)
 //	- error - error creating the queue
 //
 // GetQueue retrieves a queue and any channels that match the provided query
-func (wc *WillowClient) GetQueue(queueName string, channelsQuery *v1common.AssociatedQuery, headers http.Header) (*v1willow.Queue, error) {
+func (wc *WillowClient) GetQueue(queueName string, channelsQuery *queryassociatedaction.AssociatedActionQuery, headers http.Header) (*v1willow.Queue, error) {
 	// setup and make the request
 	req, err := wc.client.EncodedRequest("GET", fmt.Sprintf("%s/v1/queues/%s", wc.url, queueName), channelsQuery)
 	if err != nil {

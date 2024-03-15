@@ -8,7 +8,7 @@ import (
 	"github.com/DanLavine/willow/pkg/clients"
 	"github.com/DanLavine/willow/pkg/models/api"
 	"github.com/DanLavine/willow/pkg/models/api/common/errors"
-	v1common "github.com/DanLavine/willow/pkg/models/api/common/v1"
+	queryassociatedaction "github.com/DanLavine/willow/pkg/models/api/common/v1/query_associated_action"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 
 	v1willow "github.com/DanLavine/willow/pkg/models/api/willow/v1"
@@ -64,7 +64,7 @@ func (wc *WillowClient) EnqueueQueueItem(queueName string, item *v1willow.Enqueu
 //	- error - error creating the queue
 //
 // DequeueQueueItem retrieves a particular item that matches the dequeue query
-func (wc *WillowClient) DequeueQueueItem(cancelContext context.Context, queueName string, query *v1common.AssociatedQuery, headers http.Header) (*Item, error) {
+func (wc *WillowClient) DequeueQueueItem(cancelContext context.Context, queueName string, query *queryassociatedaction.AssociatedActionQuery, headers http.Header) (*Item, error) {
 	// setup and make the request
 	req, err := wc.client.EncodedRequestWithCancel(cancelContext, "GET", fmt.Sprintf("%s/v1/queues/%s/channels", wc.url, queueName), query)
 	if err != nil {
@@ -81,12 +81,12 @@ func (wc *WillowClient) DequeueQueueItem(cancelContext context.Context, queueNam
 	// parse the response
 	switch resp.StatusCode {
 	case http.StatusOK:
-		dequeueItem := v1willow.DequeueQueueItem{}
-		if err := api.DecodeAndValidateHttpResponse(resp, &dequeueItem); err != nil {
+		dequeueItem := &v1willow.DequeueQueueItem{}
+		if err := api.DecodeAndValidateHttpResponse(resp, dequeueItem); err != nil {
 			return nil, err
 		}
 
-		return newItem(wc.url, wc.client, queueName, &dequeueItem), nil
+		return newItem(wc.url, wc.client, queueName, dequeueItem), nil
 	case http.StatusBadRequest, http.StatusNotFound, http.StatusConflict, http.StatusInternalServerError:
 		apiError := &errors.Error{}
 		if err := api.DecodeAndValidateHttpResponse(resp, apiError); err != nil {
@@ -108,9 +108,9 @@ func (wc *WillowClient) DequeueQueueItem(cancelContext context.Context, queueNam
 //	- error - error creating the queue
 //
 // DeleteQueueChannel removes a specific channel and any items enqueued
-func (wc *WillowClient) DeleteQueueChannel(queueName string, channelKeyValues *datatypes.KeyValues, headers http.Header) error {
+func (wc *WillowClient) DeleteQueueChannel(queueName string, channelDelete datatypes.KeyValues, headers http.Header) error {
 	// setup and make the request
-	req, err := wc.client.EncodedRequest("DELETE", fmt.Sprintf("%s/v1/queues/%s/channels", wc.url, queueName), channelKeyValues)
+	req, err := wc.client.EncodedRequestWithoutValidation("DELETE", fmt.Sprintf("%s/v1/queues/%s/channels", wc.url, queueName), channelDelete)
 	if err != nil {
 		return err
 	}

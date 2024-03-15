@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"testing"
 
+	v1common "github.com/DanLavine/willow/pkg/models/api/common/v1"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 	. "github.com/onsi/gomega"
 )
@@ -30,6 +31,9 @@ func TestBTree_Destroy_ParamChecks(t *testing.T) {
 
 func TestBTree_Destroy(t *testing.T) {
 	g := NewGomegaWithT(t)
+
+	noTypeRestriction := v1common.TypeRestrictions{MinDataType: datatypes.MinDataType, MaxDataType: datatypes.MaxDataType}
+	g.Expect(noTypeRestriction.Validate()).ToNot(HaveOccurred())
 
 	setupTree := func(g *GomegaWithT) *threadSafeBTree {
 		bTree, err := NewThreadSafe(2)
@@ -102,7 +106,7 @@ func TestBTree_Destroy(t *testing.T) {
 			return true
 		}
 
-		err = bTree.Iterate(iterate)
+		err = bTree.Find(datatypes.Any(), noTypeRestriction, iterate)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(len(keys)).To(Equal(99))
 		g.Expect(keys).ToNot(ContainElement(datatypes.Int(17)))
@@ -120,7 +124,7 @@ func TestBTree_Destroy(t *testing.T) {
 			return true
 		}
 
-		err = bTree.Iterate(iterate)
+		err = bTree.Find(datatypes.Any(), noTypeRestriction, iterate)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(len(keys)).To(Equal(99))
 		g.Expect(keys).ToNot(ContainElement(datatypes.Int(17)))
@@ -139,7 +143,7 @@ func TestBTree_Destroy(t *testing.T) {
 				return true
 			}
 
-			err = bTree.Iterate(iterate)
+			err = bTree.Find(datatypes.Any(), noTypeRestriction, iterate)
 			g.Expect(err).ToNot(HaveOccurred())
 			g.Expect(len(keys)).To(Equal(100))
 			g.Expect(keys).To(ContainElement(datatypes.Int(17)))
@@ -161,6 +165,9 @@ func TestBTree_DestroyAll_ParamChecks(t *testing.T) {
 
 func TestBTree_DestroyAll(t *testing.T) {
 	g := NewGomegaWithT(t)
+
+	noTypeRestriction := v1common.TypeRestrictions{MinDataType: datatypes.MinDataType, MaxDataType: datatypes.MaxDataType}
+	g.Expect(noTypeRestriction.Validate()).ToNot(HaveOccurred())
 
 	setupTree := func(g *GomegaWithT) *threadSafeBTree {
 		bTree, err := NewThreadSafe(2)
@@ -240,7 +247,7 @@ func TestBTree_DestroyAll(t *testing.T) {
 				return true
 			}
 
-			err = bTree.Iterate(iterate)
+			err = bTree.Find(datatypes.Any(), noTypeRestriction, iterate)
 			g.Expect(err).ToNot(HaveOccurred())
 			g.Expect(iterateCounter).To(Equal(75))
 		})

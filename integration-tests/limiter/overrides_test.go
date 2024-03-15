@@ -5,8 +5,10 @@ import (
 	"testing"
 
 	v1common "github.com/DanLavine/willow/pkg/models/api/common/v1"
+	queryassociatedaction "github.com/DanLavine/willow/pkg/models/api/common/v1/query_associated_action"
 	v1 "github.com/DanLavine/willow/pkg/models/api/limiter/v1"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
+	"github.com/DanLavine/willow/testhelpers/testmodels"
 
 	. "github.com/DanLavine/willow/integration-tests/integrationhelpers"
 	. "github.com/onsi/gomega"
@@ -30,10 +32,13 @@ func Test_Limiter_Overrides_Create(t *testing.T) {
 		limiterClient := setupClient(g, limiterTestConstruct.ServerURL)
 
 		// create rule
-		rule := &v1.RuleCreateRequest{
-			Name:    "rule1",
-			GroupBy: []string{"key1", "key2"},
-			Limit:   5,
+		rule := &v1.Rule{
+			Name: "rule1",
+			GroupByKeyValues: datatypes.KeyValues{
+				"key1": datatypes.Any(),
+				"key2": datatypes.Any(),
+			},
+			Limit: 5,
 		}
 
 		err := limiterClient.CreateRule(rule, nil)
@@ -73,10 +78,13 @@ func Test_Limiter_Overrides_Get(t *testing.T) {
 		limiterClient := setupClient(g, limiterTestConstruct.ServerURL)
 
 		// create rule
-		rule := &v1.RuleCreateRequest{
-			Name:    "rule1",
-			GroupBy: []string{"key1", "key2"},
-			Limit:   5,
+		rule := &v1.Rule{
+			Name: "rule1",
+			GroupByKeyValues: datatypes.KeyValues{
+				"key1": datatypes.Any(),
+				"key2": datatypes.Any(),
+			},
+			Limit: 5,
 		}
 
 		err := limiterClient.CreateRule(rule, nil)
@@ -130,10 +138,13 @@ func Test_Limiter_Overrides_Update(t *testing.T) {
 		limiterClient := setupClient(g, limiterTestConstruct.ServerURL)
 
 		// create rule
-		rule := &v1.RuleCreateRequest{
-			Name:    "rule1",
-			GroupBy: []string{"key1", "key2"},
-			Limit:   5,
+		rule := &v1.Rule{
+			Name: "rule1",
+			GroupByKeyValues: datatypes.KeyValues{
+				"key1": datatypes.Any(),
+				"key2": datatypes.Any(),
+			},
+			Limit: 5,
 		}
 
 		err := limiterClient.CreateRule(rule, nil)
@@ -185,10 +196,13 @@ func Test_Limiter_Overrides_Delete(t *testing.T) {
 		limiterClient := setupClient(g, limiterTestConstruct.ServerURL)
 
 		// create rule
-		rule := &v1.RuleCreateRequest{
-			Name:    "rule1",
-			GroupBy: []string{"key1", "key2"},
-			Limit:   5,
+		rule := &v1.Rule{
+			Name: "rule1",
+			GroupByKeyValues: datatypes.KeyValues{
+				"key1": datatypes.Any(),
+				"key2": datatypes.Any(),
+			},
+			Limit: 5,
 		}
 		g.Expect(limiterClient.CreateRule(rule, nil)).ToNot(HaveOccurred())
 
@@ -217,7 +231,7 @@ func Test_Limiter_Overrides_Delete(t *testing.T) {
 	})
 }
 
-func Test_Limiter_Overrides_Match(t *testing.T) {
+func Test_Limiter_Overrides_Query(t *testing.T) {
 	t.Parallel()
 
 	g := NewGomegaWithT(t)
@@ -235,10 +249,13 @@ func Test_Limiter_Overrides_Match(t *testing.T) {
 		limiterClient := setupClient(g, limiterTestConstruct.ServerURL)
 
 		// create rule
-		rule := &v1.RuleCreateRequest{
-			Name:    "rule1",
-			GroupBy: []string{"key1", "key2"},
-			Limit:   5,
+		rule := &v1.Rule{
+			Name: "rule1",
+			GroupByKeyValues: datatypes.KeyValues{
+				"key1": datatypes.Any(),
+				"key2": datatypes.Any(),
+			},
+			Limit: 5,
 		}
 
 		err := limiterClient.CreateRule(rule, nil)
@@ -267,18 +284,42 @@ func Test_Limiter_Overrides_Match(t *testing.T) {
 		}
 		g.Expect(limiterClient.CreateOverride("rule1", override2, nil)).ToNot(HaveOccurred())
 
+		override3 := &v1.Override{
+			Name:  "override3",
+			Limit: 18,
+			KeyValues: datatypes.KeyValues{
+				"key1":  datatypes.String("other"),
+				"key2":  datatypes.Int(3),
+				"other": datatypes.Float32(32),
+			},
+		}
+		g.Expect(limiterClient.CreateOverride("rule1", override3, nil)).ToNot(HaveOccurred())
+
 		// query
-		query := &v1common.MatchQuery{
-			KeyValues: &datatypes.KeyValues{
-				"key1":           datatypes.Int(1),
-				"key2":           datatypes.Int(2),
-				"other":          datatypes.Float32(32),
-				"doesn't matter": datatypes.String("hoopla"),
+		query := &queryassociatedaction.AssociatedActionQuery{
+			Selection: &queryassociatedaction.Selection{
+				KeyValues: queryassociatedaction.SelectionKeyValues{
+					"key1": {
+						Value:            datatypes.Any(),
+						Comparison:       v1common.Equals,
+						TypeRestrictions: testmodels.NoTypeRestrictions(g),
+					},
+					"key2": {
+						Value:            datatypes.Int(2),
+						Comparison:       v1common.Equals,
+						TypeRestrictions: testmodels.TypeRestrictions(g, datatypes.T_int, datatypes.T_int),
+					},
+					"other": {
+						Value:            datatypes.Float32(32),
+						Comparison:       v1common.Equals,
+						TypeRestrictions: testmodels.NoTypeRestrictions(g),
+					},
+				},
 			},
 		}
 
-		overrides, err := limiterClient.MatchOverrides("rule1", query, nil)
+		overrides, err := limiterClient.QueryOverrides("rule1", query, nil)
 		g.Expect(err).ToNot(HaveOccurred())
-		g.Expect(len(overrides)).To(Equal(1))
+		g.Expect(len(overrides)).To(Equal(2))
 	})
 }

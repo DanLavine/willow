@@ -8,6 +8,8 @@ import (
 	"github.com/DanLavine/willow/pkg/models/api"
 	"go.uber.org/zap"
 
+	queryassociatedaction "github.com/DanLavine/willow/pkg/models/api/common/v1/query_associated_action"
+	querymatchaction "github.com/DanLavine/willow/pkg/models/api/common/v1/query_match_action"
 	v1limiter "github.com/DanLavine/willow/pkg/models/api/limiter/v1"
 )
 
@@ -18,20 +20,44 @@ func (grh *groupRuleHandler) CreateRule(w http.ResponseWriter, r *http.Request) 
 	defer logger.Debug("processed request")
 
 	// parse the rule create request
-	ruleRequest := &v1limiter.RuleCreateRequest{}
-	if err := api.DecodeAndValidateHttpRequest(r, ruleRequest); err != nil {
+	rule := &v1limiter.Rule{}
+	if err := api.DecodeAndValidateHttpRequest(r, rule); err != nil {
 		logger.Warn("failed to decode and validate request", zap.Error(err))
 		_, _ = api.EncodeAndSendHttpResponse(r.Header, w, err.StatusCode, err)
 		return
 	}
 
 	// create the group rule if it does not already exist
-	if err := grh.ruleClient.CreateRule(ctx, ruleRequest); err != nil {
+	if err := grh.ruleClient.CreateRule(ctx, rule); err != nil {
 		_, _ = api.EncodeAndSendHttpResponse(r.Header, w, err.StatusCode, err)
 		return
 	}
 
 	w.WriteHeader(http.StatusCreated)
+}
+
+// Query rules handler
+func (grh *groupRuleHandler) QueryRules(w http.ResponseWriter, r *http.Request) {
+	ctx, logger := reporting.SetupContextWithLoggerFromRequest(r.Context(), grh.logger.Named("MatchRules"), r)
+	logger.Debug("starting request")
+	defer logger.Debug("processed request")
+
+	// parse the matcher
+	query := &queryassociatedaction.AssociatedActionQuery{}
+	if err := api.DecodeAndValidateHttpRequest(r, query); err != nil {
+		logger.Warn("failed to decode and validate request", zap.Error(err))
+		_, _ = api.EncodeAndSendHttpResponse(r.Header, w, err.StatusCode, err)
+		return
+	}
+
+	// find the Rule and desired overrides
+	rules, err := grh.ruleClient.QueryRules(ctx, query)
+	if err != nil {
+		_, _ = api.EncodeAndSendHttpResponse(r.Header, w, err.StatusCode, err)
+		return
+	}
+
+	_, _ = api.EncodeAndSendHttpResponse(r.Header, w, http.StatusOK, &rules)
 }
 
 // Match rules handler
@@ -41,15 +67,15 @@ func (grh *groupRuleHandler) MatchRules(w http.ResponseWriter, r *http.Request) 
 	defer logger.Debug("processed request")
 
 	// parse the matcher
-	query := &v1limiter.RuleMatch{}
-	if err := api.DecodeAndValidateHttpRequest(r, query); err != nil {
+	match := &querymatchaction.MatchActionQuery{}
+	if err := api.DecodeAndValidateHttpRequest(r, match); err != nil {
 		logger.Warn("failed to decode and validate request", zap.Error(err))
 		_, _ = api.EncodeAndSendHttpResponse(r.Header, w, err.StatusCode, err)
 		return
 	}
 
 	// find the Rule and desired overrides
-	rules, err := grh.ruleClient.MatchRules(ctx, query)
+	rules, err := grh.ruleClient.MatchRules(ctx, match)
 	if err != nil {
 		_, _ = api.EncodeAndSendHttpResponse(r.Header, w, err.StatusCode, err)
 		return
@@ -64,16 +90,8 @@ func (grh *groupRuleHandler) GetRule(w http.ResponseWriter, r *http.Request) {
 	logger.Debug("starting request")
 	defer logger.Debug("processed request")
 
-	// parse the rule and overides to match for
-	ruleGet := &v1limiter.RuleGet{}
-	if err := api.DecodeAndValidateHttpRequest(r, ruleGet); err != nil {
-		logger.Warn("failed to decode and validate request", zap.Error(err))
-		_, _ = api.EncodeAndSendHttpResponse(r.Header, w, err.StatusCode, err)
-		return
-	}
-
 	namedParameters := urlrouter.GetNamedParamters(r.Context())
-	rule, err := grh.ruleClient.GetRule(ctx, namedParameters["rule_name"], ruleGet)
+	rule, err := grh.ruleClient.GetRule(ctx, namedParameters["rule_name"])
 	if err != nil {
 		_, _ = api.EncodeAndSendHttpResponse(r.Header, w, err.StatusCode, err)
 		return

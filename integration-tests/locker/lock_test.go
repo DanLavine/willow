@@ -14,14 +14,15 @@ import (
 	"testing"
 	"time"
 
-	. "github.com/DanLavine/willow/integration-tests/integrationhelpers"
-	"github.com/DanLavine/willow/pkg/clients"
 	lockerclient "github.com/DanLavine/willow/pkg/clients/locker_client"
-	"github.com/DanLavine/willow/pkg/models/api"
-	v1common "github.com/DanLavine/willow/pkg/models/api/common/v1"
+	queryassociatedaction "github.com/DanLavine/willow/pkg/models/api/common/v1/query_associated_action"
 	v1locker "github.com/DanLavine/willow/pkg/models/api/locker/v1"
+
+	"github.com/DanLavine/willow/pkg/clients"
+	"github.com/DanLavine/willow/pkg/encoding"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 
+	. "github.com/DanLavine/willow/integration-tests/integrationhelpers"
 	. "github.com/onsi/gomega"
 )
 
@@ -30,7 +31,7 @@ func setupClient(g *GomegaWithT, url string) lockerclient.LockerClient {
 
 	cfg := &clients.Config{
 		URL:             url,
-		ContentEncoding: api.ContentTypeJSON,
+		ContentEncoding: encoding.ContentTypeJSON,
 		CAFile:          filepath.Join(currentDir, "..", "..", "..", "testhelpers", "tls-keys", "ca.crt"),
 		ClientKeyFile:   filepath.Join(currentDir, "..", "..", "..", "testhelpers", "tls-keys", "client.key"),
 		ClientCRTFile:   filepath.Join(currentDir, "..", "..", "..", "testhelpers", "tls-keys", "client.crt"),
@@ -271,11 +272,13 @@ func TestLocker_List_API(t *testing.T) {
 		g.Expect(lock).ToNot(BeNil())
 
 		// list all the locks
-		query := v1common.AssociatedQuery{
-			AssociatedKeyValues: datatypes.AssociatedKeyValuesQuery{},
-		}
+		query := &queryassociatedaction.AssociatedActionQuery{}
 		g.Expect(query.Validate()).ToNot(HaveOccurred())
-		data, err := query.EncodeJSON()
+
+		encoder, err := encoding.NewEncoder(encoding.ContentTypeJSON)
+		g.Expect(err).ToNot(HaveOccurred())
+
+		data, err := encoder.Encode(query)
 		g.Expect(err).ToNot(HaveOccurred())
 
 		listLocks, err := http.NewRequest("GET", fmt.Sprintf("%s/v1/locks", testConstruct.ServerURL), bytes.NewBuffer(data))
@@ -354,11 +357,12 @@ func TestLocker_Async_API_Threading_Checks(t *testing.T) {
 		}
 
 		// ensure all the locks are cleaned up
-		query := v1common.AssociatedQuery{
-			AssociatedKeyValues: datatypes.AssociatedKeyValuesQuery{},
-		}
+		query := queryassociatedaction.AssociatedActionQuery{}
 		g.Expect(query.Validate()).ToNot(HaveOccurred())
-		data, err := query.EncodeJSON()
+		encoder, err := encoding.NewEncoder(encoding.ContentTypeJSON)
+		g.Expect(err).ToNot(HaveOccurred())
+
+		data, err := encoder.Encode(query)
 		g.Expect(err).ToNot(HaveOccurred())
 
 		listLocks, err := http.NewRequest("GET", fmt.Sprintf("%s/v1/locks", testConstruct.ServerURL), bytes.NewBuffer(data))
@@ -430,11 +434,12 @@ func TestLocker_Async_API_Threading_Checks(t *testing.T) {
 		}
 
 		// ensure all the locks are cleaned up
-		query := v1common.AssociatedQuery{
-			AssociatedKeyValues: datatypes.AssociatedKeyValuesQuery{},
-		}
+		query := queryassociatedaction.AssociatedActionQuery{}
 		g.Expect(query.Validate()).ToNot(HaveOccurred())
-		data, err := query.EncodeJSON()
+		encoder, err := encoding.NewEncoder(encoding.ContentTypeJSON)
+		g.Expect(err).ToNot(HaveOccurred())
+
+		data, err := encoder.Encode(query)
 		g.Expect(err).ToNot(HaveOccurred())
 
 		listLocks, err := http.NewRequest("GET", fmt.Sprintf("%s/v1/locks", testConstruct.ServerURL), bytes.NewBuffer(data))

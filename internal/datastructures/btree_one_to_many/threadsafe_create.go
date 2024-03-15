@@ -33,7 +33,7 @@ func (otm *threadsafeOneToManyTree) CreateWithID(oneID string, manyID string, ma
 	if manyID == "" {
 		return ErrorManyIDEmpty
 	}
-	if err := manyKeyValues.Validate(); err != nil {
+	if err := manyKeyValues.Validate(datatypes.MinDataType, datatypes.MaxDataType); err != nil {
 		return err
 	}
 	if hasResevedKeys(manyKeyValues) {
@@ -122,7 +122,7 @@ func (otm *threadsafeOneToManyTree) CreateOrFind(oneID string, manyKeyValues dat
 	if oneID == "" {
 		return "", ErrorOneIDEmpty
 	}
-	if err := manyKeyValues.Validate(); err != nil {
+	if err := manyKeyValues.Validate(datatypes.MinDataType, datatypes.MaxDataType); err != nil {
 		return "", err
 	}
 	if hasResevedKeys(manyKeyValues) {

@@ -4,8 +4,12 @@ import (
 	"fmt"
 
 	"github.com/DanLavine/willow/internal/datastructures/btree"
-	btreeassociated "github.com/DanLavine/willow/internal/datastructures/btree_associated"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
+
+	btreeassociated "github.com/DanLavine/willow/internal/datastructures/btree_associated"
+
+	v1 "github.com/DanLavine/willow/pkg/models/api/common/v1"
+	queryassociatedaction "github.com/DanLavine/willow/pkg/models/api/common/v1/query_associated_action"
 )
 
 //	RETURNS:
@@ -16,7 +20,7 @@ import (
 //	        4. ErrorOneIDDestroying
 //
 // Match all permutations of the KeyValues for a OneRelation
-func (tree *threadsafeOneToManyTree) Query(oneID string, query datatypes.AssociatedKeyValuesQuery, onIterate OneToManyTreeIterate) error {
+func (tree *threadsafeOneToManyTree) QueryAction(oneID string, query *queryassociatedaction.AssociatedActionQuery, onIterate OneToManyTreeIterate) error {
 	// parameter checks
 	if err := query.Validate(); err != nil {
 		return fmt.Errorf("query error: %w", err)
@@ -32,15 +36,17 @@ func (tree *threadsafeOneToManyTree) Query(oneID string, query datatypes.Associa
 		return onIterate(item.Value().(OneToManyItem))
 	}
 
-	bTreeFindOne := func(item any) {
+	bTreeFindOne := func(key datatypes.EncapsulatedValue, item any) bool {
 		threadsafeValuesNode := item.(*threadsafeValuesNode)
 
-		if err := threadsafeValuesNode.associaedTree.Query(query, bTreeAssociatedIterate); err != nil {
+		if err := threadsafeValuesNode.associaedTree.QueryAction(query, bTreeAssociatedIterate); err != nil {
 			panic(err)
 		}
+
+		return false
 	}
 
-	if err := tree.oneKeys.Find(datatypes.String(oneID), bTreeFindOne); err != nil {
+	if err := tree.oneKeys.Find(datatypes.String(oneID), v1.TypeRestrictions{MinDataType: datatypes.T_string, MaxDataType: datatypes.T_string}, bTreeFindOne); err != nil {
 		switch err {
 		case btree.ErrorKeyDestroying:
 			// the tree is currently destroying

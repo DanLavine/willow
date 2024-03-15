@@ -18,13 +18,11 @@ func (tsat *threadsafeAssociatedTree) DestroyByAssociatedID(associatedID string,
 		return ErrorAssociatedIDEmpty
 	}
 
-	// check for destroying whole tree in progress
-	tsat.readWriteWG.Add(1)
-	defer tsat.readWriteWG.Add(-1)
-
-	if tsat.destroying.Load() {
+	// tree destroying check
+	if !tsat.destroySyncer.GuardOperation() {
 		return ErrorTreeDestroying
 	}
+	defer tsat.destroySyncer.ClearOperation()
 
 	// Don't need to check that the associatedID is being destroyed. That is handled in the bTree code.
 	bTreeCanDestroy := func(_ datatypes.EncapsulatedValue, item any) bool {
@@ -64,13 +62,10 @@ func (tsat *threadsafeAssociatedTree) DestroyByAssociatedID(associatedID string,
 // are unlocked
 func (tsat *threadsafeAssociatedTree) DestroyTree(canDelete BTreeAssociatedRemove) error {
 	// 1. set the destroying operation on the tree to true
-	if !tsat.destroying.CompareAndSwap(false, true) {
+	if !tsat.destroySyncer.WaitDestroy() {
 		return ErrorTreeDestroying
 	}
-	defer tsat.destroying.Store(false)
-
-	// 2. ensure that no other operations  are processing at the same time
-	tsat.readWriteWG.Wait()
+	defer tsat.destroySyncer.ClearDestroy()
 
 	// 3. now perform the deletion
 	deleteAssociatedID := func(_ datatypes.EncapsulatedValue, item any) bool {

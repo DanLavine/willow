@@ -12,13 +12,17 @@ import (
 	"go.uber.org/zap/zaptest/observer"
 
 	btreeonetomany "github.com/DanLavine/willow/internal/datastructures/btree_one_to_many"
+	"github.com/DanLavine/willow/internal/helpers"
 	"github.com/DanLavine/willow/internal/reporting"
 	"github.com/DanLavine/willow/internal/willow/brokers/queue_channels/constructor"
 	"github.com/DanLavine/willow/internal/willow/brokers/queue_channels/constructor/constructorfakes"
 	"github.com/DanLavine/willow/pkg/clients/limiter_client/limiterclientfakes"
 	"github.com/DanLavine/willow/pkg/models/api/common/errors"
+	v1 "github.com/DanLavine/willow/pkg/models/api/common/v1"
+	queryassociatedaction "github.com/DanLavine/willow/pkg/models/api/common/v1/query_associated_action"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 	"github.com/DanLavine/willow/testhelpers"
+	"github.com/DanLavine/willow/testhelpers/testmodels"
 
 	v1limiter "github.com/DanLavine/willow/pkg/models/api/limiter/v1"
 	v1willow "github.com/DanLavine/willow/pkg/models/api/willow/v1"
@@ -212,10 +216,14 @@ func Test_queueChannelsClientLocal_DequeueQueueItem(t *testing.T) {
 
 			queueChannelClentLocal := NewLocalQueueChannelsClient(constructor)
 
-			query := datatypes.AssociatedKeyValuesQuery{
-				KeyValueSelection: &datatypes.KeyValueSelection{
-					KeyValues: map[string]datatypes.Value{
-						"one": datatypes.Value{Exists: &checkTrue},
+			query := &queryassociatedaction.AssociatedActionQuery{
+				Selection: &queryassociatedaction.Selection{
+					KeyValues: queryassociatedaction.SelectionKeyValues{
+						"one": {
+							Value:            datatypes.Any(),
+							Comparison:       v1.Equals,
+							TypeRestrictions: testmodels.NoTypeRestrictions(g),
+						},
 					},
 				},
 			}
@@ -255,10 +263,14 @@ func Test_queueChannelsClientLocal_DequeueQueueItem(t *testing.T) {
 
 			queueChannelClentLocal := NewLocalQueueChannelsClient(constructor)
 
-			query := datatypes.AssociatedKeyValuesQuery{
-				KeyValueSelection: &datatypes.KeyValueSelection{
-					KeyValues: map[string]datatypes.Value{
-						"one": datatypes.Value{Exists: &checkTrue},
+			query := &queryassociatedaction.AssociatedActionQuery{
+				Selection: &queryassociatedaction.Selection{
+					KeyValues: queryassociatedaction.SelectionKeyValues{
+						"one": {
+							Value:            datatypes.Any(),
+							Comparison:       v1.Equals,
+							TypeRestrictions: testmodels.NoTypeRestrictions(g),
+						},
 					},
 				},
 			}
@@ -300,10 +312,14 @@ func Test_queueChannelsClientLocal_DequeueQueueItem(t *testing.T) {
 			}()
 
 			// setup dequeue query
-			query := datatypes.AssociatedKeyValuesQuery{
-				KeyValueSelection: &datatypes.KeyValueSelection{
-					KeyValues: map[string]datatypes.Value{
-						"one": datatypes.Value{Exists: &checkTrue},
+			query := &queryassociatedaction.AssociatedActionQuery{
+				Selection: &queryassociatedaction.Selection{
+					KeyValues: queryassociatedaction.SelectionKeyValues{
+						"one": {
+							Value:            datatypes.Any(),
+							Comparison:       v1.Equals,
+							TypeRestrictions: testmodels.NoTypeRestrictions(g),
+						},
 					},
 				},
 			}
@@ -359,12 +375,19 @@ func Test_queueChannelsClientLocal_DequeueQueueItem(t *testing.T) {
 			}()
 
 			// setup dequeue query
-			twoValue := datatypes.Int(2)
-			query := datatypes.AssociatedKeyValuesQuery{
-				KeyValueSelection: &datatypes.KeyValueSelection{
-					KeyValues: map[string]datatypes.Value{
-						"one": datatypes.Value{Exists: &checkTrue},
-						"two": datatypes.Value{Value: &twoValue, ValueComparison: datatypes.EqualsPtr()},
+			query := &queryassociatedaction.AssociatedActionQuery{
+				Selection: &queryassociatedaction.Selection{
+					KeyValues: queryassociatedaction.SelectionKeyValues{
+						"one": {
+							Value:            datatypes.Any(),
+							Comparison:       v1.Equals,
+							TypeRestrictions: testmodels.NoTypeRestrictions(g),
+						},
+						"two": {
+							Value:            datatypes.Int(2),
+							Comparison:       v1.Equals,
+							TypeRestrictions: testmodels.NoTypeRestrictions(g),
+						},
 					},
 				},
 			}
@@ -445,10 +468,14 @@ func Test_queueChannelsClientLocal_DequeueQueueItem(t *testing.T) {
 			// enqueue an item
 			g.Expect(queueChannelClentLocal.EnqueueQueueItem(testhelpers.NewContextWithLogger(), "test queue", defaultEnqueueItem(g)))
 
-			query := datatypes.AssociatedKeyValuesQuery{
-				KeyValueSelection: &datatypes.KeyValueSelection{
-					KeyValues: map[string]datatypes.Value{
-						"one": datatypes.Value{Exists: &checkTrue},
+			query := &queryassociatedaction.AssociatedActionQuery{
+				Selection: &queryassociatedaction.Selection{
+					KeyValues: queryassociatedaction.SelectionKeyValues{
+						"one": {
+							Value:            datatypes.Any(),
+							Comparison:       v1.Equals,
+							TypeRestrictions: testmodels.NoTypeRestrictions(g),
+						},
 					},
 				},
 			}
@@ -496,14 +523,15 @@ func Test_queueChannelsClientLocal_DequeueQueueItem(t *testing.T) {
 			g.Expect(enqueueItem.Validate()).ToNot(HaveOccurred())
 			g.Expect(queueChannelClentLocal.EnqueueQueueItem(testhelpers.NewContextWithLogger(), "test queue", enqueueItem))
 
-			keyLimit := 1
-			query := datatypes.AssociatedKeyValuesQuery{
-				KeyValueSelection: &datatypes.KeyValueSelection{
-					KeyValues: map[string]datatypes.Value{
-						"one": datatypes.Value{Exists: &checkTrue},
-					},
-					Limits: &datatypes.KeyLimits{
-						NumberOfKeys: &keyLimit,
+			query := &queryassociatedaction.AssociatedActionQuery{
+				Selection: &queryassociatedaction.Selection{
+					MaxNumberOfKeyValues: helpers.PointerOf(1),
+					KeyValues: queryassociatedaction.SelectionKeyValues{
+						"one": {
+							Value:            datatypes.Any(),
+							Comparison:       v1.Equals,
+							TypeRestrictions: testmodels.NoTypeRestrictions(g),
+						},
 					},
 				},
 			}
@@ -605,10 +633,14 @@ func Test_queueChannelsClientLocal_DequeueQueueItem(t *testing.T) {
 			}()
 
 			// setup dequeue query
-			query := datatypes.AssociatedKeyValuesQuery{
-				KeyValueSelection: &datatypes.KeyValueSelection{
-					KeyValues: map[string]datatypes.Value{
-						"one": datatypes.Value{Exists: &checkTrue},
+			query := &queryassociatedaction.AssociatedActionQuery{
+				Selection: &queryassociatedaction.Selection{
+					KeyValues: queryassociatedaction.SelectionKeyValues{
+						"one": {
+							Value:            datatypes.Any(),
+							Comparison:       v1.Equals,
+							TypeRestrictions: testmodels.NoTypeRestrictions(g),
+						},
 					},
 				},
 			}
@@ -689,10 +721,14 @@ func Test_queueChannelsClientLocal_DequeueQueueItem(t *testing.T) {
 			}()
 
 			// setup dequeue query
-			query := datatypes.AssociatedKeyValuesQuery{
-				KeyValueSelection: &datatypes.KeyValueSelection{
-					KeyValues: map[string]datatypes.Value{
-						"one": datatypes.Value{Exists: &checkTrue},
+			query := &queryassociatedaction.AssociatedActionQuery{
+				Selection: &queryassociatedaction.Selection{
+					KeyValues: queryassociatedaction.SelectionKeyValues{
+						"one": {
+							Value:            datatypes.Any(),
+							Comparison:       v1.Equals,
+							TypeRestrictions: testmodels.NoTypeRestrictions(g),
+						},
 					},
 				},
 			}
@@ -788,7 +824,7 @@ func Test_queueChannelsClientLocal_ACK(t *testing.T) {
 		}
 
 		dequeueItem := func(g *GomegaWithT, queueChannelClentLocal *queueChannelsClientLocal) *v1willow.DequeueQueueItem {
-			query := datatypes.AssociatedKeyValuesQuery{} // select all
+			query := &queryassociatedaction.AssociatedActionQuery{} // select all
 			g.Expect(query.Validate()).ToNot(HaveOccurred())
 
 			done := make(chan struct{})
@@ -848,7 +884,7 @@ func Test_queueChannelsClientLocal_ACK(t *testing.T) {
 					foundAny = true
 					return true
 				}
-				queueChannelClentLocal.queueChannels.Query("queue name", datatypes.AssociatedKeyValuesQuery{}, onIterate)
+				queueChannelClentLocal.queueChannels.QueryAction("queue name", &queryassociatedaction.AssociatedActionQuery{}, onIterate)
 
 				return foundAny
 			}).Should(BeFalse())
@@ -890,7 +926,7 @@ func Test_queueChannelsClientLocal_ACK(t *testing.T) {
 					foundAny = true
 					return true
 				}
-				queueChannelClentLocal.queueChannels.Query("queue name", datatypes.AssociatedKeyValuesQuery{}, onIterate)
+				queueChannelClentLocal.queueChannels.QueryAction("queue name", &queryassociatedaction.AssociatedActionQuery{}, onIterate)
 
 				return foundAny
 			}).Should(BeTrue())
@@ -933,7 +969,7 @@ func Test_queueChannelsClientLocal_ACK(t *testing.T) {
 					foundAny = true
 					return true
 				}
-				queueChannelClentLocal.queueChannels.Query("queue name", datatypes.AssociatedKeyValuesQuery{}, onIterate)
+				queueChannelClentLocal.queueChannels.QueryAction("queue name", &queryassociatedaction.AssociatedActionQuery{}, onIterate)
 
 				return foundAny
 			}).Should(BeTrue())
@@ -956,7 +992,7 @@ func Test_queueChannelsClientLocal_ACK(t *testing.T) {
 					foundAny = true
 					return true
 				}
-				queueChannelClentLocal.queueChannels.Query("queue name", datatypes.AssociatedKeyValuesQuery{}, onIterate)
+				queueChannelClentLocal.queueChannels.QueryAction("queue name", &queryassociatedaction.AssociatedActionQuery{}, onIterate)
 
 				return foundAny
 			}).Should(BeFalse())
@@ -1009,7 +1045,7 @@ func Test_queueChannelsClientLocal_Heartbeat(t *testing.T) {
 	}
 
 	dequeueItem := func(g *GomegaWithT, queueChannelClentLocal *queueChannelsClientLocal) *v1willow.DequeueQueueItem {
-		query := datatypes.AssociatedKeyValuesQuery{} // select all
+		query := &queryassociatedaction.AssociatedActionQuery{} // select all
 		g.Expect(query.Validate()).ToNot(HaveOccurred())
 
 		done := make(chan struct{})
@@ -1118,7 +1154,7 @@ func Test_queueChannelsClientLocal_Heartbeat(t *testing.T) {
 			// ensure channel is destroyed
 			g.Eventually(func() int {
 				foundItems := 0
-				queueChannelClentLocal.queueChannels.Query("queue name", datatypes.AssociatedKeyValuesQuery{}, func(oneToManyItem btreeonetomany.OneToManyItem) bool {
+				queueChannelClentLocal.queueChannels.QueryAction("queue name", &queryassociatedaction.AssociatedActionQuery{}, func(oneToManyItem btreeonetomany.OneToManyItem) bool {
 					foundItems++
 					return true
 				})
@@ -1189,13 +1225,13 @@ func Test_queueChannelsClientLocal_DestroyChannelsForQueue(t *testing.T) {
 
 		// should only have 1 item left in the second queue's channels
 		foundItems := 0
-		queueChannelClentLocal.queueChannels.Query("queue name", datatypes.AssociatedKeyValuesQuery{}, func(oneToManyItem btreeonetomany.OneToManyItem) bool {
+		queueChannelClentLocal.queueChannels.QueryAction("queue name", &queryassociatedaction.AssociatedActionQuery{}, func(oneToManyItem btreeonetomany.OneToManyItem) bool {
 			foundItems++
 			return true
 		})
 		g.Expect(foundItems).To(Equal(0))
 
-		queueChannelClentLocal.queueChannels.Query("queue name 2", datatypes.AssociatedKeyValuesQuery{}, func(oneToManyItem btreeonetomany.OneToManyItem) bool {
+		queueChannelClentLocal.queueChannels.QueryAction("queue name 2", &queryassociatedaction.AssociatedActionQuery{}, func(oneToManyItem btreeonetomany.OneToManyItem) bool {
 			foundItems++
 			return true
 		})

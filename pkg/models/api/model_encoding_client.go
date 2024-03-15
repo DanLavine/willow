@@ -1,12 +1,10 @@
 package api
 
 import (
-	"errors"
 	"fmt"
-	"io"
 	"net/http"
 
-	willowerr "github.com/DanLavine/willow/pkg/models/api/common/errors"
+	"github.com/DanLavine/willow/pkg/encoding"
 )
 
 //	PARAMETERS:
@@ -22,29 +20,19 @@ func DecodeAndValidateHttpResponse(resp *http.Response, obj APIObject) error {
 		panic(fmt.Errorf("client code error: API model cannot be nil when decoding api response"))
 	}
 
-	// can always attempt to read the http response since we want to decode something.
-	// if the data is empty, it still means we want to use whatever the decode object returns
-	data, err := io.ReadAll(resp.Body)
+	// setup the decoder for the response
+	contentType := resp.Header.Get(encoding.ContentType)
+	encoder, err := encoding.NewEncoder(resp.Header.Get(encoding.ContentType))
 	if err != nil {
-		return fmt.Errorf("failed to read http response body: %w", err)
+		return fmt.Errorf("unkown content type recieved from service '%s'. Unable to decode the response", contentType)
 	}
 
-	contentType := ContentTypeHeader(resp.Header)
-	switch contentType {
-	case ContentTypeJSON:
-		if err := obj.DecodeJSON(data); err != nil {
-			// special case for an error that occured due to parsing an non 2xx, 3xx status code
-			var apiErr *willowerr.Error
-			if errors.As(err, &apiErr) {
-				return err
-			}
-
-			return fmt.Errorf("failed to decode response: %w", err)
-		}
-	default:
-		return fmt.Errorf("unkown content type recieved from service: %s", contentType)
+	// decode the response
+	if err := encoder.Decode(resp.Body, obj); err != nil {
+		return fmt.Errorf("failed to decode response: %w", err)
 	}
 
+	// ensure the object is valid after decoding
 	if err := obj.Validate(); err != nil {
 		return fmt.Errorf("failed validation for api response: %w", err)
 	}

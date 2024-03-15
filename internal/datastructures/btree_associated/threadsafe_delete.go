@@ -5,6 +5,8 @@ import (
 
 	"github.com/DanLavine/willow/internal/datastructures/btree"
 	"github.com/DanLavine/willow/internal/datastructures/set"
+	v1common "github.com/DanLavine/willow/pkg/models/api/common/v1"
+	queryassociatedaction "github.com/DanLavine/willow/pkg/models/api/common/v1/query_associated_action"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 )
 
@@ -23,20 +25,15 @@ import (
 //	          4. ErrorTreeDestroying
 func (tsat *threadsafeAssociatedTree) Delete(keyValues datatypes.KeyValues, canDelete BTreeAssociatedRemove) error {
 	// parameters check
-	if err := keyValues.Validate(); err != nil {
+	if err := keyValues.Validate(datatypes.MinDataType, datatypes.MaxDataType); err != nil {
 		return err
 	}
-	if hasAssociatedID(keyValues) {
-		return ErrorKeyValuesHasAssociatedID
-	}
 
-	// destroying check
-	tsat.readWriteWG.Add(1)
-	defer tsat.readWriteWG.Add(-1)
-
-	if tsat.destroying.Load() {
+	// tree destroying check
+	if !tsat.destroySyncer.GuardOperation() {
 		return ErrorTreeDestroying
 	}
+	defer tsat.destroySyncer.ClearOperation()
 
 	var idSet set.Set[string]
 	idNodes := []*threadsafeIDNode{}
@@ -46,24 +43,28 @@ func (tsat *threadsafeAssociatedTree) Delete(keyValues datatypes.KeyValues, canD
 	sortedKeys := keyValues.SortedKeys()
 
 	// callback for when a "value" is found
-	findValue := func(item any) {
+	findValue := func(key datatypes.EncapsulatedValue, item any) bool {
 		idNode := item.(*threadsafeIDNode)
 		idNodes = append(idNodes, idNode)
+
+		return false
 	}
 
 	// callback for when a "key" is found
-	findKey := func(value datatypes.EncapsulatedValue) func(item any) {
-		return func(item any) {
+	findKey := func(value datatypes.EncapsulatedValue) func(key datatypes.EncapsulatedValue, item any) bool {
+		return func(key datatypes.EncapsulatedValue, item any) bool {
 			valuesNode := item.(*threadsafeValuesNode)
-			if err := valuesNode.values.Find(value, findValue); err != nil {
+			if err := valuesNode.values.Find(value, v1common.TypeRestrictions{MinDataType: value.Type, MaxDataType: value.Type}, findValue); err != nil {
 				panic(err)
 			}
+
+			return false
 		}
 	}
 
 	// filter all the key value pairs into one specific id to lookup
 	for _, key := range sortedKeys {
-		if err := tsat.keys.Find(datatypes.String(key), findKey(keyValues[key])); err != nil {
+		if err := tsat.keys.Find(datatypes.String(key), v1common.TypeRestrictions{MinDataType: datatypes.T_string, MaxDataType: datatypes.T_string}, findKey(keyValues[key])); err != nil {
 			panic(err)
 		}
 	}
@@ -202,21 +203,26 @@ func (tsat *threadsafeAssociatedTree) DeleteByAssociatedID(assocaitedID string, 
 		return ErrorAssociatedIDEmpty
 	}
 
-	// destroying check
-	tsat.readWriteWG.Add(1)
-	defer tsat.readWriteWG.Add(-1)
-
-	if tsat.destroying.Load() {
+	// tree destroying check
+	if !tsat.destroySyncer.GuardOperation() {
 		return ErrorTreeDestroying
 	}
+	defer tsat.destroySyncer.ClearOperation()
 
 	var keyValues datatypes.KeyValues
 
-	onFind := func(item AssociatedKeyValues) {
+	onFind := func(item AssociatedKeyValues) bool {
 		keyValues = item.KeyValues()
+		return false
 	}
 
-	if err := tsat.FindByAssociatedID(assocaitedID, onFind); err != nil {
+	query := queryassociatedaction.AssociatedActionQuery{
+		Selection: &queryassociatedaction.Selection{
+			IDs: []string{assocaitedID},
+		},
+	}
+
+	if err := tsat.QueryAction(&query, onFind); err != nil {
 		return err
 	}
 

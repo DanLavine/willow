@@ -8,7 +8,7 @@ import (
 	willowclient "github.com/DanLavine/willow/pkg/clients/willow_client"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 
-	v1common "github.com/DanLavine/willow/pkg/models/api/common/v1"
+	queryassociatedaction "github.com/DanLavine/willow/pkg/models/api/common/v1/query_associated_action"
 	v1limiter "github.com/DanLavine/willow/pkg/models/api/limiter/v1"
 	v1willow "github.com/DanLavine/willow/pkg/models/api/willow/v1"
 
@@ -57,13 +57,13 @@ func Test_Queue_ItemACK(t *testing.T) {
 			g.Expect(err).ToNot(HaveOccurred())
 
 			// dequeue the item
-			item, err := willowClient.DequeueQueueItem(context.Background(), "test queue", &v1common.AssociatedQuery{}, nil)
+			item, err := willowClient.DequeueQueueItem(context.Background(), "test queue", &queryassociatedaction.AssociatedActionQuery{}, nil)
 
 			g.Expect(err).ToNot(HaveOccurred())
 			g.Expect(item.Data()).To(Equal([]byte(`data for first item`)))
 
 			// ensure the counters are setup properly
-			counters, err := limiterClient.QueryCounters(&v1common.AssociatedQuery{}, nil)
+			counters, err := limiterClient.QueryCounters(&queryassociatedaction.AssociatedActionQuery{}, nil)
 			g.Expect(err).ToNot(HaveOccurred())
 			g.Expect(len(counters)).To(Equal(2))
 			g.Expect(counters).To(ContainElements(
@@ -91,7 +91,7 @@ func Test_Queue_ItemACK(t *testing.T) {
 			g.Expect(item.Done()).To(BeClosed())
 
 			// ensure the counters are updated properly
-			counters, err = limiterClient.QueryCounters(&v1common.AssociatedQuery{}, nil)
+			counters, err = limiterClient.QueryCounters(&queryassociatedaction.AssociatedActionQuery{}, nil)
 			g.Expect(err).ToNot(HaveOccurred())
 			g.Expect(len(counters)).To(Equal(0))
 		})
@@ -140,14 +140,14 @@ func Test_Queue_ItemACK(t *testing.T) {
 			done := make(chan struct{})
 			go func() {
 				defer close(done)
-				item, dequeueErr = willowClient.DequeueQueueItem(context.Background(), "test queue", &v1common.AssociatedQuery{}, nil)
+				item, dequeueErr = willowClient.DequeueQueueItem(context.Background(), "test queue", &queryassociatedaction.AssociatedActionQuery{}, nil)
 			}()
 			g.Eventually(done).Should(BeClosed())
 			g.Expect(dequeueErr).ToNot(HaveOccurred())
 			g.Expect(item.Data()).To(Equal([]byte(`data for first item`)))
 
 			// ensure the counters are setup properly
-			counters, err := limiterClient.QueryCounters(&v1common.AssociatedQuery{}, nil)
+			counters, err := limiterClient.QueryCounters(&queryassociatedaction.AssociatedActionQuery{}, nil)
 			g.Expect(err).ToNot(HaveOccurred())
 			g.Expect(len(counters)).To(Equal(2))
 			g.Expect(counters).To(ContainElements(
@@ -175,7 +175,7 @@ func Test_Queue_ItemACK(t *testing.T) {
 			g.Expect(item.Done()).To(BeClosed())
 
 			// ensure the counters are updated properly
-			counters, err = limiterClient.QueryCounters(&v1common.AssociatedQuery{}, nil)
+			counters, err = limiterClient.QueryCounters(&queryassociatedaction.AssociatedActionQuery{}, nil)
 			g.Expect(err).ToNot(HaveOccurred())
 			g.Expect(len(counters)).To(Equal(1))
 			g.Expect(counters).To(ContainElements(
@@ -193,7 +193,7 @@ func Test_Queue_ItemACK(t *testing.T) {
 			done = make(chan struct{})
 			go func() {
 				defer close(done)
-				item, dequeueErr = willowClient.DequeueQueueItem(context.Background(), "test queue", &v1common.AssociatedQuery{}, nil)
+				item, dequeueErr = willowClient.DequeueQueueItem(context.Background(), "test queue", &queryassociatedaction.AssociatedActionQuery{}, nil)
 			}()
 			g.Eventually(done).Should(BeClosed())
 			g.Expect(dequeueErr).ToNot(HaveOccurred())
@@ -205,7 +205,7 @@ func Test_Queue_ItemACK(t *testing.T) {
 			g.Expect(item.Done()).To(BeClosed())
 
 			// ensure the item has not been requeued as it hit the limiter count
-			counters, err = limiterClient.QueryCounters(&v1common.AssociatedQuery{}, nil)
+			counters, err = limiterClient.QueryCounters(&queryassociatedaction.AssociatedActionQuery{}, nil)
 			g.Expect(err).ToNot(HaveOccurred())
 			g.Expect(len(counters)).To(Equal(0))
 		})

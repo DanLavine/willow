@@ -1,7 +1,7 @@
 package v1
 
 import (
-	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/DanLavine/willow/pkg/models/api/common/errors"
@@ -23,35 +23,8 @@ type LockCreateRequest struct {
 //
 // Validate ensures the LockCreateRequest has all required fields set
 func (req *LockCreateRequest) Validate() error {
-	if len(req.KeyValues) == 0 {
-		return errors.KeyValuesLenghtInvalid
-	}
-
-	if err := req.KeyValues.Validate(); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-//	RETURNS:
-//	- []byte - encoded JSON byte array for the LockCreateRequest
-//
-// EncodeJSON encodes the model to a valid JSON format
-func (req *LockCreateRequest) EncodeJSON() ([]byte, error) {
-	return json.Marshal(req)
-}
-
-//	PARAMETERS:
-//	- data - encoded JSON data to parse the LockCreateRequest from
-//
-//	RETURNS:
-//	- error - any error encoutered when reading or parsing the reader
-//
-// DecodeJSON can easily parse the response body from an http create request
-func (req *LockCreateRequest) DecodeJSON(data []byte) error {
-	if err := json.Unmarshal(data, req); err != nil {
-		return err
+	if err := req.KeyValues.Validate(datatypes.MinDataType, datatypes.MaxWithoutAnyDataType); err != nil {
+		return &errors.ModelError{Field: "KeyValues", Child: err.(*errors.ModelError)}
 	}
 
 	return nil
@@ -77,35 +50,11 @@ type LockCreateResponse struct {
 // Validate is used to ensure that LockCreateResponse has all required fields set
 func (resp *LockCreateResponse) Validate() error {
 	if resp.SessionID == "" {
-		return sessionIDEmpty
+		return &errors.ModelError{Field: "SessionID", Err: fmt.Errorf("received an empty string")}
 	}
 
 	if resp.LockTimeout == 0 {
-		return timeoutIsInvalid
-	}
-
-	return nil
-}
-
-//	RETURNS:
-//	- []byte - encoded JSON byte array for the LockCreateResponse
-//	- error - error encoding to JSON
-//
-// EncodeJSON encodes the model to a valid JSON format
-func (resp *LockCreateResponse) EncodeJSON() ([]byte, error) {
-	return json.Marshal(resp)
-}
-
-//	PARAMETERS:
-//	- data - encoded JSON data to parse the LockCreateResponse from
-//
-//	RETURNS:
-//	- error - any error encoutered when reading or parsing the reader
-//
-// DecodeJSON can easily parse the response body from an http create request
-func (resp *LockCreateResponse) DecodeJSON(data []byte) error {
-	if err := json.Unmarshal(data, resp); err != nil {
-		return err
+		return &errors.ModelError{Field: "Timeout", Err: fmt.Errorf("requires a value greater than 0")}
 	}
 
 	return nil

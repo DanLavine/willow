@@ -272,6 +272,41 @@ func TestBTree_Create_Tree_SimpleOperations(t *testing.T) {
 		g.Expect(rightChild.keyValues[1].value.(*BTreeTester).Value).To(Equal("35"))
 		g.Expect(rightChild.keyValues[1].value.(*BTreeTester).OnFindCount()).To(Equal(int64(0)))
 	})
+
+	// generate a tree of
+	/*
+	 *      20
+	 *    /    \
+	 *  10    30,T_any
+	 */
+	t.Run("can add a special T_any node always to the rightmost position", func(t *testing.T) {
+		bTree := setupTree(g)
+		g.Expect(bTree.Create(datatypes.Any(), NewBTreeTester("5"))).ToNot(HaveOccurred())
+
+		leftChild := bTree.root.children[0]
+		g.Expect(leftChild.numberOfValues).To(Equal(1))
+		g.Expect(leftChild.keyValues[0].key).To(Equal(Key10))
+		g.Expect(leftChild.keyValues[0].value.(*BTreeTester).Value).To(Equal("10"))
+		g.Expect(leftChild.keyValues[0].value.(*BTreeTester).OnFindCount()).To(Equal(int64(0)))
+
+		rightChild := bTree.root.children[1]
+		g.Expect(rightChild.numberOfValues).To(Equal(2))
+		g.Expect(rightChild.keyValues[0].key).To(Equal(Key30))
+		g.Expect(rightChild.keyValues[0].value.(*BTreeTester).Value).To(Equal("30"))
+		g.Expect(rightChild.keyValues[0].value.(*BTreeTester).OnFindCount()).To(Equal(int64(0)))
+		g.Expect(rightChild.keyValues[1].key).To(Equal(datatypes.Any()))
+		g.Expect(rightChild.keyValues[1].value.(*BTreeTester).Value).To(Equal("5"))
+		g.Expect(rightChild.keyValues[1].value.(*BTreeTester).OnFindCount()).To(Equal(int64(0)))
+	})
+
+	t.Run("it returns an error if the T_any node already exists", func(t *testing.T) {
+		bTree := setupTree(g)
+		g.Expect(bTree.Create(datatypes.Any(), NewBTreeTester("5"))).ToNot(HaveOccurred())
+
+		err := bTree.Create(datatypes.Any(), NewBTreeTester("5"))
+		g.Expect(err).To(HaveOccurred())
+		g.Expect(err).To(Equal(ErrorKeyAlreadyExists))
+	})
 }
 
 func TestBTree_Create_Tree_SimplePromoteOperations(t *testing.T) {
@@ -1213,6 +1248,47 @@ func TestBTree_CreateOrFind_Tree_SimpleOperations(t *testing.T) {
 		g.Expect(rightChild.keyValues[1].key).To(Equal(Key35))
 		g.Expect(rightChild.keyValues[1].value.(*BTreeTester).Value).To(Equal("35"))
 		g.Expect(rightChild.keyValues[1].value.(*BTreeTester).OnFindCount()).To(Equal(int64(0)))
+	})
+
+	// generate a tree of
+	/*
+	 *      20
+	 *    /    \
+	 *  10    30,T_any
+	 */
+	t.Run("can add a special T_any node always to the rightmost position", func(t *testing.T) {
+		bTree := setupTree(g)
+		g.Expect(bTree.CreateOrFind(datatypes.Any(), NewBTreeTester("5"), OnFindTest)).ToNot(HaveOccurred())
+
+		leftChild := bTree.root.children[0]
+		g.Expect(leftChild.numberOfValues).To(Equal(1))
+		g.Expect(leftChild.keyValues[0].key).To(Equal(Key10))
+		g.Expect(leftChild.keyValues[0].value.(*BTreeTester).Value).To(Equal("10"))
+		g.Expect(leftChild.keyValues[0].value.(*BTreeTester).OnFindCount()).To(Equal(int64(0)))
+
+		rightChild := bTree.root.children[1]
+		g.Expect(rightChild.numberOfValues).To(Equal(2))
+		g.Expect(rightChild.keyValues[0].key).To(Equal(Key30))
+		g.Expect(rightChild.keyValues[0].value.(*BTreeTester).Value).To(Equal("30"))
+		g.Expect(rightChild.keyValues[0].value.(*BTreeTester).OnFindCount()).To(Equal(int64(0)))
+		g.Expect(rightChild.keyValues[1].key).To(Equal(datatypes.Any()))
+		g.Expect(rightChild.keyValues[1].value.(*BTreeTester).Value).To(Equal("5"))
+		g.Expect(rightChild.keyValues[1].value.(*BTreeTester).OnFindCount()).To(Equal(int64(0)))
+	})
+
+	t.Run("it runs the on Find operation if T_any already exists", func(t *testing.T) {
+		var itemCreated *BTreeTester
+		bTree := setupTree(g)
+
+		g.Expect(bTree.CreateOrFind(datatypes.Any(), func() any {
+			itemCreated = NewBTreeTester("5")().(*BTreeTester)
+			return itemCreated
+		}, OnFindTest)).ToNot(HaveOccurred())
+		g.Expect(itemCreated.onFindCount).To(Equal(int64(0)))
+
+		err := bTree.CreateOrFind(datatypes.Any(), NewBTreeTester("5"), OnFindTest)
+		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(itemCreated.onFindCount).To(Equal(int64(1)))
 	})
 }
 

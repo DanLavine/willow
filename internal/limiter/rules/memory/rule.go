@@ -14,7 +14,7 @@ type rule struct {
 	limit *atomic.Int64
 }
 
-func New(createRequest *v1limiter.RuleCreateRequest) *rule {
+func New(createRequest *v1limiter.Rule) *rule {
 	limit := new(atomic.Int64)
 	limit.Add(createRequest.Limit)
 

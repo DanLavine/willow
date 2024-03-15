@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"testing"
 
+	queryassociatedaction "github.com/DanLavine/willow/pkg/models/api/common/v1/query_associated_action"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
+	"github.com/DanLavine/willow/testhelpers/testmodels"
 
 	btreeassociated "github.com/DanLavine/willow/internal/datastructures/btree_associated"
 
@@ -34,7 +36,7 @@ func TestOneToManyTree_CreateWithID(t *testing.T) {
 
 			err := tree.CreateWithID("one name", "associated id", datatypes.KeyValues{}, nil)
 			g.Expect(err).To(HaveOccurred())
-			g.Expect(err.Error()).To(ContainSubstring("KeyValues cannot be empty"))
+			g.Expect(err.Error()).To(ContainSubstring("recieved no KeyValues, but requires a length of at least 1"))
 		})
 
 		t.Run("It returns an error if the onCreate is empty", func(t *testing.T) {
@@ -53,14 +55,15 @@ func TestOneToManyTree_CreateWithID(t *testing.T) {
 
 		// find the one relation
 		var oneRelation *threadsafeValuesNode
-		tree.oneKeys.Find(datatypes.String("one name"), func(item any) {
+		tree.oneKeys.Find(datatypes.String("one name"), testmodels.NoTypeRestrictions(g), func(key datatypes.EncapsulatedValue, item any) bool {
 			oneRelation = item.(*threadsafeValuesNode)
+			return true
 		})
 		g.Expect(oneRelation).ToNot(BeNil())
 
 		// find the many relation
 		var manyRelatiosn []any
-		oneRelation.associaedTree.Query(datatypes.AssociatedKeyValuesQuery{}, func(item btreeassociated.AssociatedKeyValues) bool {
+		oneRelation.associaedTree.QueryAction(&queryassociatedaction.AssociatedActionQuery{}, func(item btreeassociated.AssociatedKeyValues) bool {
 			manyRelatiosn = append(manyRelatiosn, item.Value().(OneToManyItem).Value())
 			return true
 		})
@@ -79,14 +82,15 @@ func TestOneToManyTree_CreateWithID(t *testing.T) {
 
 		// find the one relation
 		var oneRelation *threadsafeValuesNode
-		tree.oneKeys.Find(datatypes.String("one name"), func(item any) {
+		tree.oneKeys.Find(datatypes.String("one name"), testmodels.NoTypeRestrictions(g), func(key datatypes.EncapsulatedValue, item any) bool {
 			oneRelation = item.(*threadsafeValuesNode)
+			return true
 		})
 		g.Expect(oneRelation).ToNot(BeNil())
 
 		// find the many relation
 		var manyRelatiosn []any
-		oneRelation.associaedTree.Query(datatypes.AssociatedKeyValuesQuery{}, func(associatedKeyValues btreeassociated.AssociatedKeyValues) bool {
+		oneRelation.associaedTree.QueryAction(&queryassociatedaction.AssociatedActionQuery{}, func(associatedKeyValues btreeassociated.AssociatedKeyValues) bool {
 			manyRelatiosn = append(manyRelatiosn, associatedKeyValues.Value().(OneToManyItem).Value().(string))
 			return true
 		})
@@ -106,7 +110,7 @@ func TestOneToManyTree_CreateWithID(t *testing.T) {
 
 		// find the one relation
 		var oneRelations []*threadsafeValuesNode
-		tree.oneKeys.Iterate(func(key datatypes.EncapsulatedValue, item any) bool {
+		tree.oneKeys.Find(datatypes.Any(), testmodels.NoTypeRestrictions(g), func(key datatypes.EncapsulatedValue, item any) bool {
 			oneRelations = append(oneRelations, item.(*threadsafeValuesNode))
 			return true
 		})
@@ -115,7 +119,7 @@ func TestOneToManyTree_CreateWithID(t *testing.T) {
 		// find the many relation
 		for _, oneRelation := range oneRelations {
 			var manyRelatiosn []any
-			oneRelation.associaedTree.Query(datatypes.AssociatedKeyValuesQuery{}, func(associatedKeyValues btreeassociated.AssociatedKeyValues) bool {
+			oneRelation.associaedTree.QueryAction(&queryassociatedaction.AssociatedActionQuery{}, func(associatedKeyValues btreeassociated.AssociatedKeyValues) bool {
 				manyRelatiosn = append(manyRelatiosn, associatedKeyValues.Value().(OneToManyItem))
 				return true
 			})
@@ -195,7 +199,7 @@ func TestOneToManyTree_CreateOrFind(t *testing.T) {
 
 			id, err := tree.CreateOrFind("one name", datatypes.KeyValues{}, nil, nil)
 			g.Expect(err).To(HaveOccurred())
-			g.Expect(err.Error()).To(ContainSubstring("KeyValues cannot be empty"))
+			g.Expect(err.Error()).To(ContainSubstring("recieved no KeyValues, but requires a length of at least 1"))
 			g.Expect(id).To(Equal(""))
 
 		})
@@ -226,14 +230,15 @@ func TestOneToManyTree_CreateOrFind(t *testing.T) {
 
 		// find the one relation
 		var oneRelation *threadsafeValuesNode
-		tree.oneKeys.Find(datatypes.String("one name"), func(item any) {
+		tree.oneKeys.Find(datatypes.String("one name"), testmodels.NoTypeRestrictions(g), func(key datatypes.EncapsulatedValue, item any) bool {
 			oneRelation = item.(*threadsafeValuesNode)
+			return true
 		})
 		g.Expect(oneRelation).ToNot(BeNil())
 
 		// find the many relation
 		var manyRelatiosn []any
-		oneRelation.associaedTree.Query(datatypes.AssociatedKeyValuesQuery{}, func(item btreeassociated.AssociatedKeyValues) bool {
+		oneRelation.associaedTree.QueryAction(&queryassociatedaction.AssociatedActionQuery{}, func(item btreeassociated.AssociatedKeyValues) bool {
 			manyRelatiosn = append(manyRelatiosn, item.Value().(OneToManyItem).Value())
 			return true
 		})
@@ -248,12 +253,9 @@ func TestOneToManyTree_CreateOrFind(t *testing.T) {
 		g.Expect(createID).ToNot(Equal(""))
 
 		// query
-		strIDValue := datatypes.String(createID)
-		query := datatypes.AssociatedKeyValuesQuery{
-			KeyValueSelection: &datatypes.KeyValueSelection{
-				KeyValues: map[string]datatypes.Value{
-					"_associated_id": datatypes.Value{Value: &strIDValue, ValueComparison: datatypes.EqualsPtr()},
-				},
+		query := &queryassociatedaction.AssociatedActionQuery{
+			Selection: &queryassociatedaction.Selection{
+				IDs: []string{createID},
 			},
 		}
 
@@ -267,7 +269,7 @@ func TestOneToManyTree_CreateOrFind(t *testing.T) {
 			return true
 		}
 
-		g.Expect(tree.Query("one name", query, onIterate)).ToNot(HaveOccurred())
+		g.Expect(tree.QueryAction("one name", query, onIterate)).ToNot(HaveOccurred())
 		g.Expect(found).To(Equal(1))
 	})
 
@@ -291,14 +293,15 @@ func TestOneToManyTree_CreateOrFind(t *testing.T) {
 
 		// find the one relation
 		var oneRelation *threadsafeValuesNode
-		tree.oneKeys.Find(datatypes.String("one name"), func(item any) {
+		tree.oneKeys.Find(datatypes.String("one name"), testmodels.NoTypeRestrictions(g), func(key datatypes.EncapsulatedValue, item any) bool {
 			oneRelation = item.(*threadsafeValuesNode)
+			return true
 		})
 		g.Expect(oneRelation).ToNot(BeNil())
 
 		// find the many relation
 		var manyRelatiosn []any
-		oneRelation.associaedTree.Query(datatypes.AssociatedKeyValuesQuery{}, func(associatedKeyValues btreeassociated.AssociatedKeyValues) bool {
+		oneRelation.associaedTree.QueryAction(&queryassociatedaction.AssociatedActionQuery{}, func(associatedKeyValues btreeassociated.AssociatedKeyValues) bool {
 			manyRelatiosn = append(manyRelatiosn, associatedKeyValues.Value().(OneToManyItem).Value().(string))
 			return true
 		})
@@ -326,7 +329,7 @@ func TestOneToManyTree_CreateOrFind(t *testing.T) {
 
 		// find the one relation
 		var oneRelations []*threadsafeValuesNode
-		tree.oneKeys.Iterate(func(key datatypes.EncapsulatedValue, item any) bool {
+		tree.oneKeys.Find(datatypes.Any(), testmodels.NoTypeRestrictions(g), func(key datatypes.EncapsulatedValue, item any) bool {
 			oneRelations = append(oneRelations, item.(*threadsafeValuesNode))
 			return true
 		})
@@ -335,7 +338,7 @@ func TestOneToManyTree_CreateOrFind(t *testing.T) {
 		// find the many relation
 		for _, oneRelation := range oneRelations {
 			var manyRelatiosn []any
-			oneRelation.associaedTree.Query(datatypes.AssociatedKeyValuesQuery{}, func(associatedKeyValues btreeassociated.AssociatedKeyValues) bool {
+			oneRelation.associaedTree.QueryAction(&queryassociatedaction.AssociatedActionQuery{}, func(associatedKeyValues btreeassociated.AssociatedKeyValues) bool {
 				manyRelatiosn = append(manyRelatiosn, associatedKeyValues.Value().(OneToManyItem))
 				return true
 			})

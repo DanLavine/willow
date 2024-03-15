@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/DanLavine/willow/pkg/encoding"
 	"github.com/DanLavine/willow/pkg/models/api"
 	"golang.org/x/net/http2"
 )
@@ -16,20 +17,22 @@ type HttpClient interface {
 	// Perform an HTTP request that is expected to retun right away
 	Do(request *http.Request) (*http.Response, error)
 
-	// SsetupRequest with any headers setup for the clients configuration
+	// SetupRequest with any headers setup for the clients configuration
 	SetupRequest(method, url string) (*http.Request, error)
 
-	// EncodeModel
+	EncodedRequestWithoutValidation(method, url string, Model any) (*http.Request, error)
+
+	// EncodeModel into a http request
 	EncodedRequest(method, url string, Model api.APIObject) (*http.Request, error)
 
-	// EncodeModelWithCancel
+	// EncodeModelWithCancel into a http request
 	EncodedRequestWithCancel(ctx context.Context, method, url string, Model api.APIObject) (*http.Request, error)
 }
 
 type httpClient struct {
 	client *http.Client
 
-	contentType string
+	encoder encoding.Encoder
 }
 
 // Genreate a new HTTP Client from a valid configuration
@@ -49,9 +52,14 @@ func NewHTTPClient(cfg *Config) (*httpClient, error) {
 		}
 	}
 
+	encoder, err := encoding.NewEncoder(cfg.ContentEncoding)
+	if err != nil {
+		return nil, err
+	}
+
 	return &httpClient{
-		client:      client,
-		contentType: cfg.ContentEncoding,
+		client:  client,
+		encoder: encoder,
 	}, nil
 }
 
@@ -63,8 +71,29 @@ func (httpClient *httpClient) SetupRequest(method, url string) (*http.Request, e
 		return nil, fmt.Errorf("unexpected error setting up http request: %w", err)
 	}
 
-	req.Header.Add("Content-Type", string(httpClient.contentType))
+	req.Header.Add("Content-Type", httpClient.encoder.ContentType())
+	return req, nil
+}
 
+// EncodeRequest to the client's configured settings. The returnd HTTP request has a requried header set
+// 'Content-Type' for services to recognize, but additional headers can be added such as the 'x_request_id'
+// to add a trace log id for each service to track a single request
+func (httpClient *httpClient) EncodedRequestWithoutValidation(method, url string, model any) (*http.Request, error) {
+	if model == nil {
+		return nil, fmt.Errorf("model cannot be nil")
+	}
+
+	data, encodeErr := httpClient.encoder.Encode(model)
+	if encodeErr != nil {
+		return nil, encodeErr
+	}
+
+	req, err := http.NewRequestWithContext(context.Background(), method, url, bytes.NewBuffer(data))
+	if err != nil {
+		return nil, fmt.Errorf("unexpected error setting up http request: %w", err)
+	}
+
+	req.Header.Add("Content-Type", httpClient.encoder.ContentType())
 	return req, nil
 }
 
@@ -76,31 +105,22 @@ func (httpClient *httpClient) EncodedRequest(method, url string, model api.APIOb
 		return nil, fmt.Errorf("model cannot be nil")
 	}
 
-	var err error
-	var req *http.Request
-
-	switch httpClient.contentType {
-	case api.ContentTypeJSON:
-		// validate the model
-		if err := model.Validate(); err != nil {
-			return nil, fmt.Errorf("failed to validate model localy, not sending request: %w", err)
-		}
-
-		// encode the mode
-		data, err := model.EncodeJSON()
-		if err != nil {
-			return nil, fmt.Errorf("failed to encode the model local, not sending request: %w", err)
-		}
-
-		req, err = http.NewRequestWithContext(context.Background(), method, url, bytes.NewBuffer(data))
-		if err != nil {
-			return nil, fmt.Errorf("unexpected error setting up http request: %w", err)
-		}
-
-		req.Header.Add("Content-Type", string(httpClient.contentType))
+	if err := model.Validate(); err != nil {
+		return nil, err
 	}
 
-	return req, err
+	data, encodeErr := httpClient.encoder.Encode(model)
+	if encodeErr != nil {
+		return nil, encodeErr
+	}
+
+	req, err := http.NewRequestWithContext(context.Background(), method, url, bytes.NewBuffer(data))
+	if err != nil {
+		return nil, fmt.Errorf("unexpected error setting up http request: %w", err)
+	}
+
+	req.Header.Add("Content-Type", httpClient.encoder.ContentType())
+	return req, nil
 }
 
 // EncodeRequest to the client's configured settings. The returnd HTTP request has a requried header set
@@ -111,30 +131,21 @@ func (httpClient *httpClient) EncodedRequestWithCancel(ctx context.Context, meth
 		return nil, fmt.Errorf("model cannot be nil")
 	}
 
-	var err error
-	var req *http.Request
-
-	switch httpClient.contentType {
-	case api.ContentTypeJSON:
-		// validate the model
-		if err := model.Validate(); err != nil {
-			return nil, fmt.Errorf("failed to validate model localy, not sending request: %w", err)
-		}
-
-		// encode the mode
-		data, err := model.EncodeJSON()
-		if err != nil {
-			return nil, fmt.Errorf("failed to encode the model local, not sending request: %w", err)
-		}
-
-		req, err = http.NewRequestWithContext(ctx, method, url, bytes.NewBuffer(data))
-		if err != nil {
-			return nil, fmt.Errorf("unexpected error setting up http request: %w", err)
-		}
-
-		req.Header.Add("Content-Type", string(httpClient.contentType))
+	if err := model.Validate(); err != nil {
+		return nil, err
 	}
 
+	data, err := httpClient.encoder.Encode(model)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, method, url, bytes.NewBuffer(data))
+	if err != nil {
+		return nil, fmt.Errorf("unexpected error setting up http request: %w", err)
+	}
+
+	req.Header.Add("Content-Type", httpClient.encoder.ContentType())
 	return req, err
 }
 

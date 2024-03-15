@@ -7,8 +7,8 @@ import (
 	"github.com/DanLavine/willow/pkg/clients"
 	"github.com/DanLavine/willow/pkg/models/api"
 	"github.com/DanLavine/willow/pkg/models/api/common/errors"
+	queryassociatedaction "github.com/DanLavine/willow/pkg/models/api/common/v1/query_associated_action"
 
-	v1common "github.com/DanLavine/willow/pkg/models/api/common/v1"
 	v1limiter "github.com/DanLavine/willow/pkg/models/api/limiter/v1"
 )
 
@@ -62,9 +62,9 @@ func (lc *LimitClient) UpdateCounter(counter *v1limiter.Counter, headers http.He
 //	- error - Error if there was an unexpcted or encoding issue
 //
 // LisCounters can be used to query any Counters
-func (lc *LimitClient) QueryCounters(query *v1common.AssociatedQuery, headers http.Header) (v1limiter.Counters, error) {
+func (lc *LimitClient) QueryCounters(query *queryassociatedaction.AssociatedActionQuery, headers http.Header) (v1limiter.Counters, error) {
 	// setup and make the request
-	req, err := lc.client.EncodedRequest("GET", fmt.Sprintf("%s/v1/limiter/counters", lc.url), query)
+	req, err := lc.client.EncodedRequest("GET", fmt.Sprintf("%s/v1/limiter/counters/query", lc.url), query)
 	if err != nil {
 		return nil, err
 	}
