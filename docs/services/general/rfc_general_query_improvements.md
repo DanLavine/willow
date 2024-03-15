@@ -91,3 +91,16 @@ drawbacks and limitations in a horazontally scaled system.
    the "kind, namespace, label (name)". So that matches the current arbitrary key value tagging system, but what has yet
    to be accounted for is the Taints and Tolerations. That can be thought of "metadata" for the queue as key value pairs,
    but those are save on the "channel" itself and can be updated without applying to the key values that define the channel.
+   1. Possibbly this does't make sense to do as fields directly as that could all be stored in the `ITEM's` data as the actual
+      configuration to run that is pulled via a scheduler. Would need a way for infinite retries from Willow though.
+
+# Work items
+
+1. First thing I want to try, but have gone back and forth on before was adding an "Any" type to the EncapsulatedValues. This way
+   the Limiter can be setup for the `GroupBy` to be similar Key + Value Pairs like all the other api calls and logic for
+   the "Any" types can be the behavior for what `GroupBy` currently does. Now that the Apis allow for the behaviors I want, I think
+   this can be cleanly done. Every time before was a bit confusing since I didn't have a clear idea of the actual service interactions
+   1. In addition to this, I think the "Match" apis can go away and just become queries
+   2. There is something nice about "Match" api behaviors though to explicitly see what the Rules/Overrides are for a particualr
+      set of Key Values. Thoough that might be something more akin to a "dry run" api that explains the details behind the scenes
+      thats going on.
