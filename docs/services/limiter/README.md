@@ -54,9 +54,9 @@ To try and explain this workflow, I think it is easiest to go through an example
 	# PUT /v1/limiter/counters
 	{
 	    "KeyValues": {
-	        "repo_name": `{"Type": 12, "Data": "willow"}`,  // type indicate string, data is the actual value. see api docs
-	        "branch_name": `{"Type": 12, "Data": "new_feature_72"}`,
-	        "os": `{"Type": 12, "Data": "windows"}`,
+	        "repo_name": `{"Type": 13, "Data": "willow"}`,  // type indicate string, data is the actual value. see api docs
+	        "branch_name": `{"Type": 13, "Data": "new_feature_72"}`,
+	        "os": `{"Type": 13, "Data": "windows"}`,
 	    },
 	    "Counters": 1,
 	}
@@ -81,8 +81,8 @@ To try and explain this workflow, I think it is easiest to go through an example
 	{
 	    "Name": "override main branch",
 	    "KeyValues": {
-	        "repo_name": `{"Type": 12, "Data": "willow"}`,
-	        "branch_name":  `{"Type": 12, "Data": "main"}`,
+	        "repo_name": `{"Type": 13, "Data": "willow"}`,
+	        "branch_name":  `{"Type": 13, "Data": "main"}`,
 	    },
 	    "Limit": -1, // NOTE: this means unlimited in the API
 	}
@@ -93,8 +93,8 @@ To try and explain this workflow, I think it is easiest to go through an example
 	# PUT /v1/limiter/counters
 	{
 	    "KeyValues": {
-	        "repo_name": `{"Type": 12, "Data": "willow"}`,
-	        "branch_name": `{"Type": 12, "Data": "main"}`,
+	        "repo_name": `{"Type": 13, "Data": "willow"}`,
+	        "branch_name": `{"Type": 123, "Data": "main"}`,
 	        "os": "windows",
 	    },
 	    "Counters": 1,
@@ -103,8 +103,8 @@ To try and explain this workflow, I think it is easiest to go through an example
 	# PUT /v1/limiter/counters
 	{
 	    "KeyValues": {
-	        "repo_name":  {"Type": 12, "Data": "willow"},
-	        "branch_name":  {"Type": 12, "Data": "main"},
+	        "repo_name":  {"Type": 13, "Data": "willow"},
+	        "branch_name":  {"Type": 13, "Data": "main"},
 	        "os": "mac",
 	    },
 	    "Counters": 1,
@@ -113,8 +113,8 @@ To try and explain this workflow, I think it is easiest to go through an example
 	# PUT /v1/limiter/counters
 	{
 	    "KeyValues": {
-	        "repo_name": `{"Type": 12, "Data": "willow"}`,
-	        "branch_name": `{"Type": 12, "Data": "main"}`,
+	        "repo_name": `{"Type": 13, "Data": "willow"}`,
+	        "branch_name": `{"Type": 13, "Data": "main"}`,
 	        "os": "linux",
 	    },
 	    "Counters": 1,
@@ -145,7 +145,7 @@ To try and explain this workflow, I think it is easiest to go through an example
 	{
 	    "Name": "willow any branch os linux",
 	    "KeyValues": {
-	        "os": `{"Type": 12, "Data": "linux"}`,
+	        "os": `{"Type": 13, "Data": "linux"}`,
 	    },
 	    "Counters": -1,
 	},
@@ -154,8 +154,8 @@ To try and explain this workflow, I think it is easiest to go through an example
 	{
 	    "Name": "willow main override os windows",
 	    "KeyValues": {
-	        "branch_name": `{"Type": 12, "Data": "main"}`, // NOTE: this enforces only Counters with this Key + Value can match. So its a subset of the original rule
-	        "os": `{"Type": 12, "Data": "mac"}`,
+	        "branch_name": `{"Type": 13, "Data": "main"}`, // NOTE: this enforces only Counters with this Key + Value can match. So its a subset of the original rule
+	        "os": `{"Type": 13, "Data": "mac"}`,
 	    },
 	    "Counters": -1,
 	},
@@ -164,8 +164,8 @@ To try and explain this workflow, I think it is easiest to go through an example
 	{
 	    "Name": "willow main override os mac",
 	    "KeyValues": {
-	        "branch_name": `{"Type": 12, "Data": "main"}`,
-	        "os": `{"Type": 12, "Data": "mac"}`,
+	        "branch_name": `{"Type": 13, "Data": "main"}`,
+	        "os": `{"Type": 13, "Data": "mac"}`,
 	    },
 	    "Counters": -1,
 	},
