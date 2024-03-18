@@ -66,9 +66,9 @@ builds, while all branches can build Linux.
 	{
 	"Item": []byte(`[git commit to build]`),
 	  "KeyValues": {
-	    "repo_name": `{"Type": 12, "Data": "willow"}`,
-	    "branch_name": `{"Type": 12, "Data": "new_feature_72"}`,
-	    "os": `{"Type": 12, "Data": "Linux"}`,
+	    "repo_name": `{"Type": 13, "Data": "willow"}`,
+	    "branch_name": `{"Type": 13, "Data": "new_feature_72"}`,
+	    "os": `{"Type": 13, "Data": "Linux"}`,
 	  },
 	"Updatable": true, // if this is true and no item is processing. another request that comes in will overwrite the 'Item' field
 	"RetryAttempts": 0,
@@ -84,9 +84,9 @@ builds, while all branches can build Linux.
 	{
 	"Item": []byte(`[git commit to build]`),
 	  "KeyValues": {
-	    "repo_name": `{"Type": 12, "Data": "willow"}`,
-	    "branch_name": `{"Type": 12, "Data": "main"}`,
-	    "os": `{"Type": 12, "Data": "windows"}`,
+	    "repo_name": `{"Type": 13, "Data": "willow"}`,
+	    "branch_name": `{"Type": 13, "Data": "main"}`,
+	    "os": `{"Type": 13, "Data": "windows"}`,
 	  },
 	"Updatable": true, // if this is true and no item is processing. another request that comes in will overwrite the 'Item' field
 	"RetryAttemps": 0,
@@ -101,9 +101,9 @@ builds, while all branches can build Linux.
 	{
 	"Item": []byte(`[git commit to build]`),
 	  "KeyValues": {
-	    "repo_name": `{"Type": 12, "Data": "willow"}`,
-	    "branch_name": `{"Type": 12, "Data": "main"}`,
-	    "os": `{"Type": 12, "Data": "Linux"}`,
+	    "repo_name": `{"Type": 13, "Data": "willow"}`,
+	    "branch_name": `{"Type": 13, "Data": "main"}`,
+	    "os": `{"Type": 13, "Data": "Linux"}`,
 	  },
 	"Updatable": true, // if this is true and no item is processing. another request that comes in will overwrite the 'Item' field
 	"RetryAttempts": 0,
@@ -120,7 +120,7 @@ builds, while all branches can build Linux.
 	"AssociatedKeyValues": {
 	"KeyValuesSelection": {
 	"KeyValues": {
-	  "os": {"Value": {"Type":12, "Data": "Linux"}, "ValueComparison": "="},
+	  "os": {"Value": {"Type":13, "Data": "Linux"}, "ValueComparison": "="},
 	},
 	},
 	},
@@ -139,8 +139,8 @@ builds, while all branches can build Linux.
 	"AssociatedKeyValues": {
 	"KeyValuesSelection": {
 	"KeyValues": {
-	  "os": {"Value": {"Type":12, "Data": "Windows"}, "ValueComparison": "="},
-	  "branch_name": {"Value": {"Type":12, "Data": "Main"}, "ValueComparison": "="},
+	  "os": {"Value": {"Type":13, "Data": "Windows"}, "ValueComparison": "="},
+	  "branch_name": {"Value": {"Type":13, "Data": "Main"}, "ValueComparison": "="},
 	},
 	},
 	},
@@ -159,9 +159,9 @@ builds, while all branches can build Linux.
 	"ItemID": "[guid]",
 	"Item": []byte(`[git commit to build]`),
 	"KeyValues": {
-	    "repo_name": `{"Type": 12, "Data": "willow"}`,
-	    "branch_name": `{"Type": 12, "Data": "main"}`,
-	    "os": `{"Type": 12, "Data": "Linux"}`,
+	    "repo_name": `{"Type": 13, "Data": "willow"}`,
+	    "branch_name": `{"Type": 13, "Data": "main"}`,
+	    "os": `{"Type": 13, "Data": "Linux"}`,
 	  },
 	"TimeoutDuration": 1000000000,
 	}
@@ -181,9 +181,9 @@ builds, while all branches can build Linux.
 	{
 	"ItemID": "[guid]",
 	"KeyValues": { // so Willow knows which channel to route to
-	    "repo_name": `{"Type": 12, "Data": "willow"}`,
-	    "branch_name": `{"Type": 12, "Data": "main"}`,
-	    "os": `{"Type": 12, "Data": "Linux"}`,
+	    "repo_name": `{"Type": 13, "Data": "willow"}`,
+	    "branch_name": `{"Type": 13, "Data": "main"}`,
+	    "os": `{"Type": 13, "Data": "Linux"}`,
 	  },
 	"Passed": true,
 	}
