@@ -147,6 +147,11 @@ func (kv KeyValues) MarshalJSON() ([]byte, error) {
 			}
 		case T_string:
 			mapKeyValues[key] = value
+		case T_any:
+			mapKeyValues[key] = EncapsulatedValue{
+				Type: T_any,
+				Data: nil,
+			}
 		default:
 			return nil, fmt.Errorf("unknown data type: %d", value.DataType())
 		}
@@ -171,87 +176,96 @@ func (kv *KeyValues) UnmarshalJSON(b []byte) error {
 	}
 
 	for key, value := range custom {
-		if value.Value() == nil {
-			return fmt.Errorf("received empty Data for key '%s'", key)
-		}
-
 		switch value.DataType() {
-		case T_uint8:
-			parsedValue, err := strconv.ParseUint(value.Value().(string), 10, 64)
-			if err != nil {
-				return err
+		case T_any:
+			if value.Value() != nil {
+				return fmt.Errorf("received Data for key '%s'", key)
 			}
-			(*kv)[key] = Uint8(uint8(parsedValue))
-		case T_uint16:
-			parsedValue, err := strconv.ParseUint(value.Value().(string), 10, 64)
-			if err != nil {
-				return err
-			}
-			(*kv)[key] = Uint16(uint16(parsedValue))
-		case T_uint32:
-			parsedValue, err := strconv.ParseUint(value.Value().(string), 10, 64)
-			if err != nil {
-				return err
-			}
-			(*kv)[key] = Uint32(uint32(parsedValue))
-		case T_uint64:
-			parsedValue, err := strconv.ParseUint(value.Value().(string), 10, 64)
-			if err != nil {
-				return err
-			}
-			(*kv)[key] = Uint64(uint64(parsedValue))
-		case T_uint:
-			parsedValue, err := strconv.ParseUint(value.Value().(string), 10, 64)
-			if err != nil {
-				return err
-			}
-			(*kv)[key] = Uint(uint(parsedValue))
-		case T_int8:
-			parsedValue, err := strconv.ParseInt(value.Value().(string), 10, 64)
-			if err != nil {
-				return err
-			}
-			(*kv)[key] = Int8(int8(parsedValue))
-		case T_int16:
-			parsedValue, err := strconv.ParseInt(value.Value().(string), 10, 64)
-			if err != nil {
-				return err
-			}
-			(*kv)[key] = Int16(int16(parsedValue))
-		case T_int32:
-			parsedValue, err := strconv.ParseInt(value.Value().(string), 10, 64)
-			if err != nil {
-				return err
-			}
-			(*kv)[key] = Int32(int32(parsedValue))
-		case T_int64:
-			parsedValue, err := strconv.ParseInt(value.Value().(string), 10, 64)
-			if err != nil {
-				return err
-			}
-			(*kv)[key] = Int64(int64(parsedValue))
-		case T_int:
-			parsedValue, err := strconv.ParseInt(value.Value().(string), 10, 64)
-			if err != nil {
-				return err
-			}
-			(*kv)[key] = Int(int(parsedValue))
-		case T_float32:
-			parsedValue, err := strconv.ParseFloat(value.Value().(string), 32)
-			if err != nil {
-				return err
-			}
-			(*kv)[key] = Float32(float32(parsedValue))
-		case T_float64:
-			parsedValue, err := strconv.ParseFloat(value.Value().(string), 64)
-			if err != nil {
-				return err
-			}
-			(*kv)[key] = Float64(float64(parsedValue))
-		case T_string:
-			(*kv)[key] = value
+
+			(*kv)[key] = Any()
 		default:
-			return fmt.Errorf("key '%s' has an unkown data type: %d", key, value.DataType())
+			if value.Value() == nil {
+				return fmt.Errorf("received empty Data for key '%s'", key)
+			}
+
+			switch value.DataType() {
+			case T_uint8:
+				parsedValue, err := strconv.ParseUint(value.Value().(string), 10, 64)
+				if err != nil {
+					return err
+				}
+				(*kv)[key] = Uint8(uint8(parsedValue))
+			case T_uint16:
+				parsedValue, err := strconv.ParseUint(value.Value().(string), 10, 64)
+				if err != nil {
+					return err
+				}
+				(*kv)[key] = Uint16(uint16(parsedValue))
+			case T_uint32:
+				parsedValue, err := strconv.ParseUint(value.Value().(string), 10, 64)
+				if err != nil {
+					return err
+				}
+				(*kv)[key] = Uint32(uint32(parsedValue))
+			case T_uint64:
+				parsedValue, err := strconv.ParseUint(value.Value().(string), 10, 64)
+				if err != nil {
+					return err
+				}
+				(*kv)[key] = Uint64(uint64(parsedValue))
+			case T_uint:
+				parsedValue, err := strconv.ParseUint(value.Value().(string), 10, 64)
+				if err != nil {
+					return err
+				}
+				(*kv)[key] = Uint(uint(parsedValue))
+			case T_int8:
+				parsedValue, err := strconv.ParseInt(value.Value().(string), 10, 64)
+				if err != nil {
+					return err
+				}
+				(*kv)[key] = Int8(int8(parsedValue))
+			case T_int16:
+				parsedValue, err := strconv.ParseInt(value.Value().(string), 10, 64)
+				if err != nil {
+					return err
+				}
+				(*kv)[key] = Int16(int16(parsedValue))
+			case T_int32:
+				parsedValue, err := strconv.ParseInt(value.Value().(string), 10, 64)
+				if err != nil {
+					return err
+				}
+				(*kv)[key] = Int32(int32(parsedValue))
+			case T_int64:
+				parsedValue, err := strconv.ParseInt(value.Value().(string), 10, 64)
+				if err != nil {
+					return err
+				}
+				(*kv)[key] = Int64(int64(parsedValue))
+			case T_int:
+				parsedValue, err := strconv.ParseInt(value.Value().(string), 10, 64)
+				if err != nil {
+					return err
+				}
+				(*kv)[key] = Int(int(parsedValue))
+			case T_float32:
+				parsedValue, err := strconv.ParseFloat(value.Value().(string), 32)
+				if err != nil {
+					return err
+				}
+				(*kv)[key] = Float32(float32(parsedValue))
+			case T_float64:
+				parsedValue, err := strconv.ParseFloat(value.Value().(string), 64)
+				if err != nil {
+					return err
+				}
+				(*kv)[key] = Float64(float64(parsedValue))
+			case T_string:
+				(*kv)[key] = value
+			default:
+				return fmt.Errorf("key '%s' has an unkown data type: %d", key, value.DataType())
+			}
 		}
 	}
 

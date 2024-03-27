@@ -19,6 +19,14 @@ var (
 	greaterThanOrEqualMatchType Comparison = ">= MATCH"
 )
 
+/*
+	'key1' = Any() && 'key2' EXISTS // theses I think are the same
+	'key1' != Any() && 'key2' NOT EXISTS // theses I think are the same
+	'key2' = MATCH Type(int) // so in this case, we only care about the type of data to find
+	'key2' > MATCH String("foo") // find all values that are greate than the string foo where the types match
+	'key2' > String("foo") // find all values that are greate than the string foo including any of the types
+*/
+
 func Equals() Comparison    { return equals }
 func NotEquals() Comparison { return notEquals }
 
@@ -44,81 +52,58 @@ func GreaterThanOrEqualPtr() *Comparison          { return &greaterThanOrEqual }
 func GreaterThanOrEqualMatchTypePtr() *Comparison { return &greaterThanOrEqualMatchType }
 
 // Value to check for with the data types
-type Value struct {
-	// check to see if a key exists
-	Exists *bool
-	// check to use for a particualr type
-	ExistsType *DataType
+type AssociatedValue struct {
+	// value that is used for the comparison
+	Value EncapsulatedValue
 
-	// specific value for a particular key
-	// If this is the 'T_any' data type, the only thing that makes sense is exists, or not exists
-	Value *EncapsulatedValue
-	// what type of comparison to run on a particualr value [=, !=, <, < MATCH, <=, <= MATCH, >, > MATCH, >=, >= MATCH]
-	ValueComparison *Comparison
+	// what type of comparison to run on a particualr Type and Data [=, !=, <, < MATCH, <=, <= MATCH, >, > MATCH, >=, >= MATCH]
+	ValueComparison Comparison
 }
 
-func (v *Value) validate() error {
-	if v.Exists == nil && v.Value == nil {
-		return fmt.Errorf(": Requires an Exists or Value check")
+func (v *AssociatedValue) validate() error {
+	if err := v.Value.Validate(); err != nil {
+		return fmt.Errorf(".Value: %w", err)
 	}
 
-	// validate existance
-	if v.Exists != nil {
-		if v.Value != nil {
-			return fmt.Errorf(": Can only contain a single Exists or Value check, not both")
-		}
-
-		if v.ValueComparison != nil {
-			return fmt.Errorf(": ValueComparison is provided, but is incompatible with Exists check")
-		}
-
-		if v.ExistsType != nil {
-			switch *v.ExistsType {
-			case 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13:
-				// these are all valid
-			default:
-				return fmt.Errorf(": Unexpected ExistsType. Must be an int from 1-13 inclusive")
-			}
-		}
-	}
-
-	// validate values
-	if v.Value != nil {
-		if v.ValueComparison == nil {
-			return fmt.Errorf(".ValueComparison: is required for a Value")
-		}
-
-		switch *v.ValueComparison {
-		case equals, notEquals, lessThan, lessThanMatchType, lessThanOrEqual, lessThanOrEqualMatchType, greaterThan, greaterThanMatchType, greaterThanOrEqual, greaterThanOrEqualMatchType:
-			// nothing to do here. These are all the valid cases
+	if v.Value.DataType() == T_any {
+		switch v.ValueComparison {
+		case equals, notEquals:
+			// these are the only alowed values for the any type
 		default:
-			return fmt.Errorf(".ValueComparison: received an unexpected key")
+			return fmt.Errorf(": Can only have [= | !=] for an Any value")
 		}
 	}
 
-	return nil
-}
-
-func (v *Value) validateReservedKey() error {
-	if v.Exists != nil {
-		return fmt.Errorf(": cannot be an existence check. It can only mach an exact string")
-	}
-
-	if v.ExistsType != nil {
-		return fmt.Errorf(": cannot check an existence type. It can only mach an exact string")
-	}
-
-	if v.Value == nil {
-		return fmt.Errorf(": requires a string Value to match against")
-	}
-
-	if v.Value.DataType() != T_string {
-		return fmt.Errorf(": requires a string Value to match against")
-	}
-
-	if v.ValueComparison != EqualsPtr() {
-		return fmt.Errorf(": requires an Equals ValueComparison")
+	switch v.ValueComparison {
+	case equals, notEquals, lessThan, lessThanMatchType, lessThanOrEqual, lessThanOrEqualMatchType, greaterThan, greaterThanMatchType, greaterThanOrEqual, greaterThanOrEqualMatchType:
+		// these are all valid
+	default:
+		return fmt.Errorf(".ValueComparison: received an unexpected value")
 	}
 
 	return nil
 }
+
+// func (v *Value) validateReservedKey() error {
+// 	if v.Exists != nil {
+// 		return fmt.Errorf(": cannot be an existence check. It can only mach an exact string")
+// 	}
+
+// 	if v.ExistsType != nil {
+// 		return fmt.Errorf(": cannot check an existence type. It can only mach an exact string")
+// 	}
+
+// 	if v.Value == nil {
+// 		return fmt.Errorf(": requires a string Value to match against")
+// 	}
+
+// 	if v.Value.DataType() != T_string {
+// 		return fmt.Errorf(": requires a string Value to match against")
+// 	}
+
+// 	if v.ValueComparison != EqualsPtr() {
+// 		return fmt.Errorf(": requires an Equals ValueComparison")
+// 	}
+
+// 	return nil
+// }

@@ -316,6 +316,24 @@ func Test_AssociatedKeyValuesQuery_MatchTags(t *testing.T) {
 					g.Expect(query.MatchTags(tags)).To(BeTrue())
 				})
 
+				t.Run("It returns true if the tags are the Any type", func(t *testing.T) {
+					oneValue := String("1")
+					query := &AssociatedKeyValuesQuery{
+						KeyValueSelection: &KeyValueSelection{
+							KeyValues: map[string]Value{
+								"one": {Value: &oneValue, ValueComparison: EqualsPtr()},
+							},
+						},
+					}
+					g.Expect(query.Validate()).ToNot(HaveOccurred())
+
+					tags := KeyValues{
+						"one": Any(),
+					}
+
+					g.Expect(query.MatchTags(tags)).To(BeTrue())
+				})
+
 				t.Run("It returns false if the tags don't have the exact key", func(t *testing.T) {
 					oneValue := String("1")
 					query := &AssociatedKeyValuesQuery{

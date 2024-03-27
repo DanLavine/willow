@@ -123,6 +123,12 @@ func (kvs *KeyValueSelection) MatchTags(tags KeyValues) bool {
 
 			switch *keysValue.ValueComparison {
 			case equals:
+				fmt.Println("tagValue:", tagValue)
+				fmt.Println("keysValue:", keysValue)
+
+				fmt.Println(tagValue.Less(*keysValue.Value))
+				fmt.Println((*keysValue.Value).Less(tagValue))
+
 				if tagValue.Less(*keysValue.Value) || (*keysValue.Value).Less(tagValue) {
 					return false
 				}

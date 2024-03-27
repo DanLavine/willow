@@ -68,7 +68,11 @@ func (edv EncapsulatedValue) Less(comparableObj EncapsulatedValue) bool {
 
 func (edv EncapsulatedValue) LessType(comparableObj EncapsulatedValue) bool {
 	// know data type is less
-	return edv.Type < comparableObj.DataType()
+	if edv.Type < comparableObj.DataType() {
+		return edv.Type == T_any
+	}
+
+	return false
 }
 
 func (edv EncapsulatedValue) LessValue(comparableObj EncapsulatedValue) bool {
