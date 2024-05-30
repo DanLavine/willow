@@ -20,17 +20,13 @@ type Counter struct {
 //	- error - error describing any possible issues with the Counter and the steps to rectify them
 //
 // Validate ensures the Lock has all required fields set
-func (counter *Counter) Validate() error {
-	if counter == nil {
-		return fmt.Errorf("'Counter' can not be nil")
-	}
-
+func (counter *Counter) Validate() *errors.ModelError {
 	if len(counter.KeyValues) == 0 {
-		return errors.KeyValuesLenghtInvalid
+		return &errors.ModelError{Field: "KeyValues", Err: fmt.Errorf("need to have a length of at least 1")}
 	}
 
 	if err := counter.KeyValues.Validate(datatypes.MinDataType, datatypes.MaxWithoutAnyDataType); err != nil {
-		return err
+		return &errors.ModelError{Field: "KeyValues", Child: err}
 	}
 
 	return nil

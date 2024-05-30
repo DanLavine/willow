@@ -6,7 +6,7 @@ import (
 	"net/http"
 
 	"github.com/DanLavine/willow/internal/datastructures/btree"
-	"github.com/DanLavine/willow/internal/reporting"
+	"github.com/DanLavine/willow/internal/middleware"
 	"github.com/DanLavine/willow/pkg/models/api/common/errors"
 	v1 "github.com/DanLavine/willow/pkg/models/api/common/v1"
 	queryassociatedaction "github.com/DanLavine/willow/pkg/models/api/common/v1/query_associated_action"
@@ -47,8 +47,7 @@ func NewLocalQueueClient(queueConstructor QueueConstructor, queueChannelsClient 
 
 // Create the main queue and setup the limts on the Limiter service
 func (qcl *queueClientLocal) CreateQueue(ctx context.Context, queueCreate *v1willow.QueueCreate) *errors.ServerError {
-	logger := reporting.GetLogger(ctx).Named("CreateQueue").With(zap.String("queue_name", queueCreate.Name))
-	ctx = reporting.UpdateLogger(ctx, logger)
+	ctx, logger := middleware.GetNamedMiddlewareLogger(ctx, "CreateQueue")
 
 	var createQueueError *errors.ServerError
 	bTreeOnCreate := func() any {
@@ -79,7 +78,7 @@ func (qcl *queueClientLocal) CreateQueue(ctx context.Context, queueCreate *v1wil
 }
 
 func (qcl *queueClientLocal) ListQueues(ctx context.Context) (v1willow.Queues, *errors.ServerError) {
-	logger := reporting.GetLogger(ctx).Named("ListQueues")
+	_, logger := middleware.GetNamedMiddlewareLogger(ctx, "ListQueues")
 
 	var queues v1willow.Queues
 	bTreeOnIterate := func(key datatypes.EncapsulatedValue, item any) bool {
@@ -103,8 +102,7 @@ func (qcl *queueClientLocal) ListQueues(ctx context.Context) (v1willow.Queues, *
 }
 
 func (qcl *queueClientLocal) GetQueue(ctx context.Context, queueName string) (*v1willow.Queue, *errors.ServerError) {
-	logger := reporting.GetLogger(ctx).Named("GetQueue").With(zap.String("queue_name", queueName))
-	ctx = reporting.UpdateLogger(ctx, logger)
+	_, logger := middleware.GetNamedMiddlewareLogger(ctx, "GetQueue")
 	getQueueError := errorMissingQueueName(queueName)
 
 	var queue *v1willow.Queue
@@ -138,8 +136,7 @@ func (qcl *queueClientLocal) GetQueue(ctx context.Context, queueName string) (*v
 }
 
 func (qcl *queueClientLocal) UpdateQueue(ctx context.Context, queueName string, queueUpdate *v1willow.QueueUpdate) *errors.ServerError {
-	logger := reporting.GetLogger(ctx).Named("UpdateQueue").With(zap.String("queue_name", queueName))
-	ctx = reporting.UpdateLogger(ctx, logger)
+	ctx, logger := middleware.GetNamedMiddlewareLogger(ctx, "UpdateQueue")
 	updateQueueError := errorMissingQueueName(queueName)
 
 	bTreeOnFind := func(key datatypes.EncapsulatedValue, item any) bool {
@@ -162,8 +159,7 @@ func (qcl *queueClientLocal) UpdateQueue(ctx context.Context, queueName string, 
 }
 
 func (qcl *queueClientLocal) DeleteQueue(ctx context.Context, queueName string) *errors.ServerError {
-	logger := reporting.GetLogger(ctx).Named("DeleteQueue").With(zap.String("queue_name", queueName))
-	ctx = reporting.UpdateLogger(ctx, logger)
+	ctx, logger := middleware.GetNamedMiddlewareLogger(ctx, "DeleteQueue")
 
 	var deleteQueueError *errors.ServerError
 	destroyQueue := func(key datatypes.EncapsulatedValue, item any) bool {
@@ -192,8 +188,7 @@ func (qcl *queueClientLocal) DeleteQueue(ctx context.Context, queueName string) 
 }
 
 func (qcl *queueClientLocal) Enqueue(ctx context.Context, queueName string, enqueueItem *v1willow.EnqueueQueueItem) *errors.ServerError {
-	logger := reporting.GetLogger(ctx).Named("Enqueue").With(zap.String("queue_name", queueName))
-	ctx = reporting.UpdateLogger(ctx, logger)
+	ctx, logger := middleware.GetNamedMiddlewareLogger(ctx, "Enqueue")
 	enqueueQueueError := errorMissingQueueName(queueName)
 
 	// nothing for the item to do. but use the bTree as a guard to ensure no delete operations are happening at the same time
@@ -211,8 +206,7 @@ func (qcl *queueClientLocal) Enqueue(ctx context.Context, queueName string, enqu
 }
 
 func (qcl *queueClientLocal) Dequeue(ctx context.Context, queueName string, dequeueQuery *queryassociatedaction.AssociatedActionQuery) (*v1willow.DequeueQueueItem, func(), func(), *errors.ServerError) {
-	logger := reporting.GetLogger(ctx).Named("Dequeue").With(zap.String("queue_name", queueName))
-	ctx = reporting.UpdateLogger(ctx, logger)
+	ctx, logger := middleware.GetNamedMiddlewareLogger(ctx, "Dequeue")
 	dequeueQueueError := errorMissingQueueName(queueName)
 
 	// nothing for the item to do. but use the bTree as a guard to ensure no delete operations are happening at the same time
@@ -233,8 +227,7 @@ func (qcl *queueClientLocal) Dequeue(ctx context.Context, queueName string, dequ
 }
 
 func (qcl *queueClientLocal) DeleteChannel(ctx context.Context, queueName string, channelKeyValues datatypes.KeyValues) *errors.ServerError {
-	logger := reporting.GetLogger(ctx).Named("DeleteChannel").With(zap.String("queue_name", queueName))
-	ctx = reporting.UpdateLogger(ctx, logger)
+	ctx, logger := middleware.GetNamedMiddlewareLogger(ctx, "DeleteChannel")
 	deleteChannelsError := errorMissingQueueName(queueName)
 
 	onFind := func(key datatypes.EncapsulatedValue, item any) bool {
@@ -251,8 +244,7 @@ func (qcl *queueClientLocal) DeleteChannel(ctx context.Context, queueName string
 }
 
 func (qcl *queueClientLocal) Ack(ctx context.Context, queueName string, ack *v1willow.ACK) *errors.ServerError {
-	logger := reporting.GetLogger(ctx).Named("Ack").With(zap.String("queue_name", queueName))
-	ctx = reporting.UpdateLogger(ctx, logger)
+	ctx, logger := middleware.GetNamedMiddlewareLogger(ctx, "Ack")
 	ackErr := errorMissingQueueName(queueName)
 
 	// nothing for the item to do. but use the bTree as a guard to ensure no delete operations are happening at the same time
@@ -276,8 +268,7 @@ func (qcl *queueClientLocal) Ack(ctx context.Context, queueName string, ack *v1w
 }
 
 func (qcl *queueClientLocal) Heartbeat(ctx context.Context, queueName string, heartbeat *v1willow.Heartbeat) *errors.ServerError {
-	logger := reporting.GetLogger(ctx).Named("CreateQueue").With(zap.String("queue_name", queueName))
-	ctx = reporting.UpdateLogger(ctx, logger)
+	ctx, logger := middleware.GetNamedMiddlewareLogger(ctx, "Heartbeat")
 	heartbeatErr := errorMissingQueueName(queueName)
 
 	// nothing for the item to do. but use the bTree as a guard to ensure no delete operations are happening at the same time

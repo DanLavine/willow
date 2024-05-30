@@ -36,7 +36,7 @@ func Test_OverrideClientLocal_CreateOverride(t *testing.T) {
 		}
 		g.Expect(override.Validate()).ToNot(HaveOccurred())
 
-		err := overrideClient.CreateOverride(testhelpers.NewContextWithLogger(), "test rule", override)
+		err := overrideClient.CreateOverride(testhelpers.NewContextWithMiddlewareSetup(), "test rule", override)
 		g.Expect(err).ToNot(HaveOccurred())
 	})
 
@@ -61,10 +61,10 @@ func Test_OverrideClientLocal_CreateOverride(t *testing.T) {
 		}
 		g.Expect(override1.Validate()).ToNot(HaveOccurred())
 
-		err := overrideClient.CreateOverride(testhelpers.NewContextWithLogger(), "test rule", override1)
+		err := overrideClient.CreateOverride(testhelpers.NewContextWithMiddlewareSetup(), "test rule", override1)
 		g.Expect(err).ToNot(HaveOccurred())
 
-		err = overrideClient.CreateOverride(testhelpers.NewContextWithLogger(), "test rule", override2)
+		err = overrideClient.CreateOverride(testhelpers.NewContextWithMiddlewareSetup(), "test rule", override2)
 		g.Expect(err).To(HaveOccurred())
 		g.Expect(err.Message).To(Equal("override Name alreayd exists"))
 	})
@@ -90,10 +90,10 @@ func Test_OverrideClientLocal_CreateOverride(t *testing.T) {
 		}
 		g.Expect(override1.Validate()).ToNot(HaveOccurred())
 
-		err := overrideClient.CreateOverride(testhelpers.NewContextWithLogger(), "test rule", override1)
+		err := overrideClient.CreateOverride(testhelpers.NewContextWithMiddlewareSetup(), "test rule", override1)
 		g.Expect(err).ToNot(HaveOccurred())
 
-		err = overrideClient.CreateOverride(testhelpers.NewContextWithLogger(), "test rule", override2)
+		err = overrideClient.CreateOverride(testhelpers.NewContextWithMiddlewareSetup(), "test rule", override2)
 		g.Expect(err).To(HaveOccurred())
 		g.Expect(err.Message).To(Equal("override KeyValues alreayd exists"))
 	})
@@ -116,7 +116,7 @@ func Test_OverrideClientLocal_CreateOverride(t *testing.T) {
 		}
 		g.Expect(override.Validate()).ToNot(HaveOccurred())
 
-		err := overrideClient.CreateOverride(testhelpers.NewContextWithLogger(), "test rule", override)
+		err := overrideClient.CreateOverride(testhelpers.NewContextWithMiddlewareSetup(), "test rule", override)
 		g.Expect(err).To(HaveOccurred())
 		g.Expect(err.Message).To(Equal("override is being destroy"))
 	})
@@ -139,7 +139,7 @@ func Test_OverrideClientLocal_CreateOverride(t *testing.T) {
 		}
 		g.Expect(override.Validate()).ToNot(HaveOccurred())
 
-		err := overrideClient.CreateOverride(testhelpers.NewContextWithLogger(), "test rule", override)
+		err := overrideClient.CreateOverride(testhelpers.NewContextWithMiddlewareSetup(), "test rule", override)
 		g.Expect(err).To(HaveOccurred())
 		g.Expect(err.Message).To(Equal("Internal Server Error"))
 	})
@@ -154,7 +154,7 @@ func Test_OverrideClientLocal_GetOverride(t *testing.T) {
 	t.Run("It returns a not found error if the override doesn't exist", func(t *testing.T) {
 		overrideClient := NewDefaultOverridesClientLocal(constructor)
 
-		override, err := overrideClient.GetOverride(testhelpers.NewContextWithLogger(), "test rule", "test override")
+		override, err := overrideClient.GetOverride(testhelpers.NewContextWithMiddlewareSetup(), "test rule", "test override")
 		g.Expect(override).To(BeNil())
 		g.Expect(err).To(HaveOccurred())
 		g.Expect(err.Message).To(Equal("Override 'test override' not found"))
@@ -171,9 +171,9 @@ func Test_OverrideClientLocal_GetOverride(t *testing.T) {
 			Limit: 3,
 		}
 		g.Expect(override.Validate()).ToNot(HaveOccurred())
-		g.Expect(overrideClient.CreateOverride(testhelpers.NewContextWithLogger(), "test rule", override)).ToNot(HaveOccurred())
+		g.Expect(overrideClient.CreateOverride(testhelpers.NewContextWithMiddlewareSetup(), "test rule", override)).ToNot(HaveOccurred())
 
-		override, err := overrideClient.GetOverride(testhelpers.NewContextWithLogger(), "test rule", "test override")
+		override, err := overrideClient.GetOverride(testhelpers.NewContextWithMiddlewareSetup(), "test rule", "test override")
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(override).ToNot(BeNil())
 		g.Expect(override.Name).To(Equal("test override"))
@@ -190,7 +190,7 @@ func Test_OverrideClientLocal_GetOverride(t *testing.T) {
 
 		overrideClient := NewOverridesClientLocal(mockBTreeOneToMany, constructor)
 
-		override, err := overrideClient.GetOverride(testhelpers.NewContextWithLogger(), "test rule", "test override")
+		override, err := overrideClient.GetOverride(testhelpers.NewContextWithMiddlewareSetup(), "test rule", "test override")
 		g.Expect(err).To(Equal(errors.InternalServerError))
 		g.Expect(override).To(BeNil())
 	})
@@ -210,7 +210,7 @@ func Test_OverrideClientLocal_UpdateOverride(t *testing.T) {
 		}
 		g.Expect(updateReq.Validate()).ToNot(HaveOccurred())
 
-		err := overrideClient.UpdateOverride(testhelpers.NewContextWithLogger(), "test rule", "test override", updateReq)
+		err := overrideClient.UpdateOverride(testhelpers.NewContextWithMiddlewareSetup(), "test rule", "test override", updateReq)
 		g.Expect(err).To(HaveOccurred())
 		g.Expect(err.Message).To(Equal("Override 'test override' not found"))
 	})
@@ -226,18 +226,18 @@ func Test_OverrideClientLocal_UpdateOverride(t *testing.T) {
 			Limit: 3,
 		}
 		g.Expect(overrideReq.Validate()).ToNot(HaveOccurred())
-		g.Expect(overrideClient.CreateOverride(testhelpers.NewContextWithLogger(), "test rule", overrideReq)).ToNot(HaveOccurred())
+		g.Expect(overrideClient.CreateOverride(testhelpers.NewContextWithMiddlewareSetup(), "test rule", overrideReq)).ToNot(HaveOccurred())
 
 		updateReq := &v1limiter.OverrideUpdate{
 			Limit: 17,
 		}
 		g.Expect(updateReq.Validate()).ToNot(HaveOccurred())
 
-		err := overrideClient.UpdateOverride(testhelpers.NewContextWithLogger(), "test rule", "test override", updateReq)
+		err := overrideClient.UpdateOverride(testhelpers.NewContextWithMiddlewareSetup(), "test rule", "test override", updateReq)
 		g.Expect(err).ToNot(HaveOccurred())
 
 		// ensure override was updated
-		override, err := overrideClient.GetOverride(testhelpers.NewContextWithLogger(), "test rule", "test override")
+		override, err := overrideClient.GetOverride(testhelpers.NewContextWithMiddlewareSetup(), "test rule", "test override")
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(override).ToNot(BeNil())
 		g.Expect(override.Name).To(Equal("test override"))
@@ -258,7 +258,7 @@ func Test_OverrideClientLocal_UpdateOverride(t *testing.T) {
 		g.Expect(updateReq.Validate()).ToNot(HaveOccurred())
 
 		overrideClient := NewOverridesClientLocal(mockBTreeOneToMany, constructor)
-		err := overrideClient.UpdateOverride(testhelpers.NewContextWithLogger(), "test rule", "test override", updateReq)
+		err := overrideClient.UpdateOverride(testhelpers.NewContextWithMiddlewareSetup(), "test rule", "test override", updateReq)
 		g.Expect(err).To(Equal(errors.InternalServerError))
 	})
 }
@@ -285,7 +285,7 @@ func Test_OverrideClientLocal_QueryOverrides(t *testing.T) {
 			}
 
 			g.Expect(overrideReq.Validate()).ToNot(HaveOccurred())
-			g.Expect(overrideClient.CreateOverride(testhelpers.NewContextWithLogger(), "test rule", overrideReq)).ToNot(HaveOccurred())
+			g.Expect(overrideClient.CreateOverride(testhelpers.NewContextWithMiddlewareSetup(), "test rule", overrideReq)).ToNot(HaveOccurred())
 		}
 
 		return overrideClient
@@ -297,7 +297,7 @@ func Test_OverrideClientLocal_QueryOverrides(t *testing.T) {
 		query := &queryassociatedaction.AssociatedActionQuery{} // match all
 		g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-		overrides, err := overrideClient.QueryOverrides(testhelpers.NewContextWithLogger(), "test rule", query)
+		overrides, err := overrideClient.QueryOverrides(testhelpers.NewContextWithMiddlewareSetup(), "test rule", query)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(overrides).ToNot(BeNil())
 		g.Expect(len(overrides)).To(Equal(0))
@@ -310,7 +310,7 @@ func Test_OverrideClientLocal_QueryOverrides(t *testing.T) {
 			query := &queryassociatedaction.AssociatedActionQuery{} // match all
 			g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-			overrides, err := overrideClient.QueryOverrides(testhelpers.NewContextWithLogger(), "test rule", query)
+			overrides, err := overrideClient.QueryOverrides(testhelpers.NewContextWithMiddlewareSetup(), "test rule", query)
 			g.Expect(err).ToNot(HaveOccurred())
 			g.Expect(len(overrides)).To(Equal(50))
 		})
@@ -326,7 +326,7 @@ func Test_OverrideClientLocal_QueryOverrides(t *testing.T) {
 			g.Expect(query.Validate()).ToNot(HaveOccurred())
 
 			overrideClient := NewOverridesClientLocal(mockBTreeOneToMany, constructor)
-			overrides, err := overrideClient.QueryOverrides(testhelpers.NewContextWithLogger(), "test rule", query)
+			overrides, err := overrideClient.QueryOverrides(testhelpers.NewContextWithMiddlewareSetup(), "test rule", query)
 			g.Expect(err).To(Equal(errors.InternalServerError))
 			g.Expect(len(overrides)).To(Equal(0))
 		})
@@ -349,7 +349,7 @@ func Test_OverrideClientLocal_QueryOverrides(t *testing.T) {
 			}
 			g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-			overrides, err := overrideClient.QueryOverrides(testhelpers.NewContextWithLogger(), "test rule", query)
+			overrides, err := overrideClient.QueryOverrides(testhelpers.NewContextWithMiddlewareSetup(), "test rule", query)
 			g.Expect(err).ToNot(HaveOccurred())
 			g.Expect(len(overrides)).To(Equal(1)) // pairs of groups{ {0} }
 		})
@@ -365,7 +365,7 @@ func Test_OverrideClientLocal_QueryOverrides(t *testing.T) {
 			g.Expect(query.Validate()).ToNot(HaveOccurred())
 
 			overrideClient := NewOverridesClientLocal(mockBTreeOneToMany, constructor)
-			overrides, err := overrideClient.QueryOverrides(testhelpers.NewContextWithLogger(), "test rule", query)
+			overrides, err := overrideClient.QueryOverrides(testhelpers.NewContextWithMiddlewareSetup(), "test rule", query)
 			g.Expect(err).To(Equal(errors.InternalServerError))
 			g.Expect(len(overrides)).To(Equal(0))
 		})
@@ -381,7 +381,7 @@ func Test_OverrideClientLocal_DestroyOverride(t *testing.T) {
 	t.Run("It runs a no-op if the override canno be found", func(t *testing.T) {
 		overrideClient := NewDefaultOverridesClientLocal(constructor)
 
-		err := overrideClient.DestroyOverride(testhelpers.NewContextWithLogger(), "test rule", "test override")
+		err := overrideClient.DestroyOverride(testhelpers.NewContextWithMiddlewareSetup(), "test rule", "test override")
 		g.Expect(err).ToNot(HaveOccurred())
 	})
 
@@ -396,12 +396,12 @@ func Test_OverrideClientLocal_DestroyOverride(t *testing.T) {
 			Limit: 3,
 		}
 		g.Expect(overrideReq.Validate()).ToNot(HaveOccurred())
-		g.Expect(overrideClient.CreateOverride(testhelpers.NewContextWithLogger(), "test rule", overrideReq)).ToNot(HaveOccurred())
+		g.Expect(overrideClient.CreateOverride(testhelpers.NewContextWithMiddlewareSetup(), "test rule", overrideReq)).ToNot(HaveOccurred())
 
-		err := overrideClient.DestroyOverride(testhelpers.NewContextWithLogger(), "test rule", "test override")
+		err := overrideClient.DestroyOverride(testhelpers.NewContextWithMiddlewareSetup(), "test rule", "test override")
 		g.Expect(err).ToNot(HaveOccurred())
 
-		override, err := overrideClient.GetOverride(testhelpers.NewContextWithLogger(), "test rule", "test override")
+		override, err := overrideClient.GetOverride(testhelpers.NewContextWithMiddlewareSetup(), "test rule", "test override")
 		g.Expect(err).To(HaveOccurred())
 		g.Expect(override).To(BeNil())
 	})
@@ -414,7 +414,7 @@ func Test_OverrideClientLocal_DestroyOverride(t *testing.T) {
 		mockBTreeOneToMany.EXPECT().DestroyOneOfManyByID(gomock.Any(), gomock.Any(), gomock.Any()).Return(btreeonetomany.ErrorManyIDDestroying).Times(1)
 
 		overrideClient := NewOverridesClientLocal(mockBTreeOneToMany, constructor)
-		err := overrideClient.DestroyOverride(testhelpers.NewContextWithLogger(), "test rule", "test override")
+		err := overrideClient.DestroyOverride(testhelpers.NewContextWithMiddlewareSetup(), "test rule", "test override")
 		g.Expect(err).ToNot(HaveOccurred())
 	})
 
@@ -426,7 +426,7 @@ func Test_OverrideClientLocal_DestroyOverride(t *testing.T) {
 		mockBTreeOneToMany.EXPECT().DestroyOneOfManyByID(gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("deleting")).Times(1)
 
 		overrideClient := NewOverridesClientLocal(mockBTreeOneToMany, constructor)
-		err := overrideClient.DestroyOverride(testhelpers.NewContextWithLogger(), "test rule", "test override")
+		err := overrideClient.DestroyOverride(testhelpers.NewContextWithMiddlewareSetup(), "test rule", "test override")
 		g.Expect(err).To(Equal(errors.InternalServerError))
 	})
 }
@@ -440,7 +440,7 @@ func Test_OverrideClientLocal_DestroyOverrides(t *testing.T) {
 	t.Run("It runs a no-op if the override relation cannot be found", func(t *testing.T) {
 		overrideClient := NewDefaultOverridesClientLocal(constructor)
 
-		err := overrideClient.DestroyOverrides(testhelpers.NewContextWithLogger(), "test rule")
+		err := overrideClient.DestroyOverrides(testhelpers.NewContextWithMiddlewareSetup(), "test rule")
 		g.Expect(err).ToNot(HaveOccurred())
 	})
 
@@ -460,17 +460,17 @@ func Test_OverrideClientLocal_DestroyOverrides(t *testing.T) {
 			}
 
 			g.Expect(overrideReq.Validate()).ToNot(HaveOccurred())
-			g.Expect(overrideClient.CreateOverride(testhelpers.NewContextWithLogger(), "test rule", overrideReq)).ToNot(HaveOccurred())
+			g.Expect(overrideClient.CreateOverride(testhelpers.NewContextWithMiddlewareSetup(), "test rule", overrideReq)).ToNot(HaveOccurred())
 		}
 
-		err := overrideClient.DestroyOverrides(testhelpers.NewContextWithLogger(), "test rule")
+		err := overrideClient.DestroyOverrides(testhelpers.NewContextWithMiddlewareSetup(), "test rule")
 		g.Expect(err).ToNot(HaveOccurred())
 
 		// check all overrides are deleted
 		query := &queryassociatedaction.AssociatedActionQuery{} // match all
 		g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-		overrides, err := overrideClient.QueryOverrides(testhelpers.NewContextWithLogger(), "test rule", query)
+		overrides, err := overrideClient.QueryOverrides(testhelpers.NewContextWithMiddlewareSetup(), "test rule", query)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(len(overrides)).To(Equal(0))
 	})
@@ -483,7 +483,7 @@ func Test_OverrideClientLocal_DestroyOverrides(t *testing.T) {
 		mockBTreeOneToMany.EXPECT().DestroyOne(gomock.Any(), gomock.Any()).Return(btreeonetomany.ErrorManyIDDestroying).Times(1)
 
 		overrideClient := NewOverridesClientLocal(mockBTreeOneToMany, constructor)
-		err := overrideClient.DestroyOverrides(testhelpers.NewContextWithLogger(), "test rule")
+		err := overrideClient.DestroyOverrides(testhelpers.NewContextWithMiddlewareSetup(), "test rule")
 		g.Expect(err).To(Equal(errors.InternalServerError))
 	})
 }
@@ -510,7 +510,7 @@ func Test_OverrideClientLocal_FindOverrideLimits(t *testing.T) {
 			}
 
 			g.Expect(overrideReq.Validate()).ToNot(HaveOccurred())
-			g.Expect(overrideClient.CreateOverride(testhelpers.NewContextWithLogger(), "test rule", overrideReq)).ToNot(HaveOccurred())
+			g.Expect(overrideClient.CreateOverride(testhelpers.NewContextWithMiddlewareSetup(), "test rule", overrideReq)).ToNot(HaveOccurred())
 		}
 
 		return overrideClient
@@ -525,7 +525,7 @@ func Test_OverrideClientLocal_FindOverrideLimits(t *testing.T) {
 		}
 		g.Expect(keyValues.Validate(datatypes.MinDataType, datatypes.MaxDataType)).ToNot(HaveOccurred())
 
-		overrides, err := overrideClient.FindOverrideLimits(testhelpers.NewContextWithLogger(), "test rule", keyValues)
+		overrides, err := overrideClient.FindOverrideLimits(testhelpers.NewContextWithMiddlewareSetup(), "test rule", keyValues)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(overrides).ToNot(BeNil())
 		g.Expect(len(overrides)).To(Equal(0))
@@ -542,7 +542,7 @@ func Test_OverrideClientLocal_FindOverrideLimits(t *testing.T) {
 		}
 		g.Expect(keyValues.Validate(datatypes.MinDataType, datatypes.MaxDataType)).ToNot(HaveOccurred())
 
-		overrides, err := overrideClient.FindOverrideLimits(testhelpers.NewContextWithLogger(), "test rule", keyValues)
+		overrides, err := overrideClient.FindOverrideLimits(testhelpers.NewContextWithMiddlewareSetup(), "test rule", keyValues)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(len(overrides)).To(Equal(4)) // pairs of groups{ {2}, {4}, {1, 2}, {3, 4} }
 	})
@@ -557,7 +557,7 @@ func Test_OverrideClientLocal_FindOverrideLimits(t *testing.T) {
 		}
 		g.Expect(keyValues.Validate(datatypes.MinDataType, datatypes.MaxDataType)).ToNot(HaveOccurred())
 
-		overrides, err := overrideClient.FindOverrideLimits(testhelpers.NewContextWithLogger(), "test rule", keyValues)
+		overrides, err := overrideClient.FindOverrideLimits(testhelpers.NewContextWithMiddlewareSetup(), "test rule", keyValues)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(len(overrides)).To(Equal(1)) // pairs of groups{ {0} }
 		g.Expect(overrides[0].Limit).To(Equal(int64(0)))
@@ -578,7 +578,7 @@ func Test_OverrideClientLocal_FindOverrideLimits(t *testing.T) {
 		g.Expect(keyValues.Validate(datatypes.MinDataType, datatypes.MaxDataType)).ToNot(HaveOccurred())
 
 		overrideClient := NewOverridesClientLocal(mockBTreeOneToMany, constructor)
-		overrides, err := overrideClient.FindOverrideLimits(testhelpers.NewContextWithLogger(), "test rule", *keyValues)
+		overrides, err := overrideClient.FindOverrideLimits(testhelpers.NewContextWithMiddlewareSetup(), "test rule", *keyValues)
 		g.Expect(err).To(Equal(errors.InternalServerError))
 		g.Expect(len(overrides)).To(Equal(0))
 	})

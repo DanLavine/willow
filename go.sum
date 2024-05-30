@@ -2,6 +2,8 @@ github.com/DanLavine/channelops v0.0.0-20240204212043-e2fa5ce72e5b h1:3BZwL9cXKi
 github.com/DanLavine/channelops v0.0.0-20240204212043-e2fa5ce72e5b/go.mod h1:wgViuoEjca7ugJj/z7FfQ07D+hEoTjkLj7iFPw96rQo=
 github.com/DanLavine/contextops v0.0.0-20240221000531-f2cba84cdedc h1:4BFC/dyESaRA2g4Iw0n6I7ApR5JCFCLYo+8P/atQ17Q=
 github.com/DanLavine/contextops v0.0.0-20240221000531-f2cba84cdedc/go.mod h1:DfuR265UIU5Mk2oZGlbXt6WWZdFDNqXobCHBAMmfi48=
+github.com/DanLavine/contextops v0.0.0-20240603052238-7f8bb8a0487d h1:ldSPRMhx79mJPkAGUENsg3AWaoEUybW3c2LrP9ixJP0=
+github.com/DanLavine/contextops v0.0.0-20240603052238-7f8bb8a0487d/go.mod h1:DfuR265UIU5Mk2oZGlbXt6WWZdFDNqXobCHBAMmfi48=
 github.com/DanLavine/goasync v1.0.2 h1:GUnkNv9p7l5lhpD+Or9HrM6ZBbH9OEoqEtvTufivmGo=
 github.com/DanLavine/goasync v1.0.2/go.mod h1:nR7mV8TA1RT5d6nVgsHEqonPB5GxuNJU1WArc9gUilA=
 github.com/DanLavine/gonotify v0.0.0-20221228000906-77ad21d2336e h1:zX/Z3tg0w5ud4FvftnE/laSyZez5zqRiOvTJRJFbtH8=

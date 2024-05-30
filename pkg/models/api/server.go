@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 
@@ -9,25 +10,16 @@ import (
 )
 
 //	PARAMETERS:
-//	- r - httpRequest to parse the model and relevant headers out of
+//	- r - httpRequest to parse the model out of
 //	- obj - api object that data will be parsed into
 //
 //	RETURNS:
 //	- *errors.ServerError - any error encoutered when reading the request or validating the model
 //
 // DecodeAndValidateHttpRequest is the server side logic used to read and decode any http request into the provided APIObject
-func DecodeHttpRequest(r *http.Request, obj any) *errors.ServerError {
-	if obj == nil {
-		return errors.ServerErrorNoAPIModel()
-	}
-
-	encoder, err := encoding.NewEncoder(r.Header.Get(encoding.ContentType))
-	if err != nil {
-		return &errors.ServerError{Message: err.Error(), StatusCode: http.StatusBadRequest}
-	}
-
-	if err := encoder.Decode(r.Body, obj); err != nil {
-		return errors.ServerErrorDecodeingJson(err)
+func DecodeRequest(r *http.Request, obj any) *errors.ServerError {
+	if err := json.NewDecoder(r.Body).Decode(obj); err != nil {
+		return errors.ServerErrorDecoding(err)
 	}
 
 	return nil
@@ -40,22 +32,33 @@ func DecodeHttpRequest(r *http.Request, obj any) *errors.ServerError {
 //	RETURNS:
 //	- *errors.ServerError - any error encoutered when reading the request or validating the model
 //
-// DecodeAndValidateHttpRequest is the server side logic used to read and decode any http request into the provided APIObject
-func DecodeAndValidateHttpRequest(r *http.Request, obj APIObject) *errors.ServerError {
-	if obj == nil {
-		return errors.ServerErrorNoAPIModel()
-	}
-
-	encoder, err := encoding.NewEncoder(r.Header.Get(encoding.ContentType))
-	if err != nil {
-		return &errors.ServerError{Message: err.Error(), StatusCode: http.StatusBadRequest}
-	}
-
-	if err := encoder.Decode(r.Body, obj); err != nil {
-		return errors.ServerErrorDecodeingJson(err)
+// ObjectDecodeAndValidateHttpRequest is the server side logic used to read and decode any http request into the provided APIObject
+func ModelDecodeRequest(r *http.Request, obj ApiModel) *errors.ServerError {
+	if err := json.NewDecoder(r.Body).Decode(obj); err != nil {
+		return errors.ServerErrorDecoding(err)
 	}
 
 	if err := obj.Validate(); err != nil {
+		return errors.ServerErrorModelRequestValidation(err)
+	}
+
+	return nil
+}
+
+//	PARAMETERS:
+//	- r - httpRequest to parse the model and relevant headers out of
+//	- obj - api object that data will be parsed into
+//
+//	RETURNS:
+//	- *errors.ServerError - any error encoutered when reading the request or validating the model
+//
+// ObjectDecodeAndValidateHttpRequest is the server side logic used to read and decode any http request into the provided APIObject
+func ObjectDecodeRequest(r *http.Request, obj APIObject) *errors.ServerError {
+	if err := json.NewDecoder(r.Body).Decode(obj); err != nil {
+		return errors.ServerErrorDecoding(err)
+	}
+
+	if err := obj.ValidateSpecOnly(); err != nil {
 		return errors.ServerErrorModelRequestValidation(err)
 	}
 
@@ -74,9 +77,12 @@ func DecodeAndValidateHttpRequest(r *http.Request, obj APIObject) *errors.Server
 // HttpResponse can be used to encode any APIObject and send thr response to the http.ResponseWriter.
 // If there us an error encoding or validatiing the data, the http.ResponseWriter will be sent a `http.InternalServerError`
 // and an error will be returned that can be logged server side to fix the unexpected issue
-func EncodeAndSendHttpResponse(headers http.Header, w http.ResponseWriter, statuscode int, obj APIObject) (int, error) {
+func ModelEncodeResponse(w http.ResponseWriter, statuscode int, obj ApiModel) (int, error) {
 	switch obj {
 	case nil:
+		// be safe and remove the content typ header just in case since there is none
+		w.Header().Del(encoding.ContentTypeHeader)
+
 		// only need to send the status code
 		w.WriteHeader(statuscode)
 		return 0, nil
@@ -84,29 +90,25 @@ func EncodeAndSendHttpResponse(headers http.Header, w http.ResponseWriter, statu
 		// validate the response is valid
 		if err := obj.Validate(); err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte(fmt.Sprintf(`{"Message":"%s"}`, err.Error())))
+
 			return 0, fmt.Errorf("failed to validate response object: %w", err)
 		}
 
-		// encode the response
-		encoder, err := encoding.NewEncoder(headers.Get(encoding.ContentType))
+		data, err := json.Marshal(obj)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			return 0, err
-		}
+			w.Write([]byte(`{"Message":"failed to encode the response"}`))
 
-		data, err := encoder.Encode(obj)
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
 			return 0, fmt.Errorf("failed to encode the response object: %w", err)
 		}
 
 		// write the reponse to the same encoder that we received it in
-		w.Header().Set(encoding.ContentType, headers.Get("Content-Type"))
 		w.WriteHeader(statuscode)
 
 		n, writeErr := w.Write(data)
 		if writeErr != nil {
-			return n, fmt.Errorf("failed to write the response to the client. Closed unexpectedly: %w", writeErr)
+			return n, fmt.Errorf("failed to write the response to the client: %w", writeErr)
 		}
 
 		return n, nil

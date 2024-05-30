@@ -1,6 +1,8 @@
 package limiterclient
 
 import (
+	"bytes"
+	"context"
 	"fmt"
 	"net/http"
 
@@ -20,14 +22,19 @@ import (
 //	- error - error creating the rule
 //
 // CreateRule creates a new Rule to enforce Counters against
-func (lc *LimitClient) CreateRule(rule *v1limiter.Rule, headers http.Header) error {
-	// setup and make the request
-	req, err := lc.client.EncodedRequest("POST", fmt.Sprintf("%s/v1/limiter/rules", lc.url), rule)
+func (lc *LimitClient) CreateRule(ctx context.Context, rule *v1limiter.Rule) error {
+	// encode the request
+	data, err := api.ModelEncodeRequest(rule)
 	if err != nil {
 		return err
 	}
 
-	clients.AppendHeaders(req, headers)
+	// setup and make the request
+	req, err := http.NewRequest("POST", fmt.Sprintf("%s/v1/limiter/rules", lc.url), bytes.NewBuffer(data))
+	if err != nil {
+		return err
+	}
+	clients.AddHeadersFromContext(req, ctx)
 
 	resp, err := lc.client.Do(req)
 	if err != nil {
@@ -40,7 +47,7 @@ func (lc *LimitClient) CreateRule(rule *v1limiter.Rule, headers http.Header) err
 		return nil
 	case http.StatusBadRequest, http.StatusConflict, http.StatusInternalServerError:
 		apiError := &errors.Error{}
-		if err := api.DecodeAndValidateHttpResponse(resp, apiError); err != nil {
+		if err := api.ModelDecodeResponse(resp, apiError); err != nil {
 			return err
 		}
 
@@ -54,18 +61,18 @@ func (lc *LimitClient) CreateRule(rule *v1limiter.Rule, headers http.Header) err
 //	- ruleName - name of the Rule to get
 //	- query - overrides to include for the found rule
 //	- headers (optional) - any headers to apply to the request
+//
 //	RETURNS:
 //	- error - error findinig the Rule or Overrides
 //
 // GetRule is used to find a specific Rule and any optional Overrides that match the query
-func (lc *LimitClient) GetRule(ruleName string, headers http.Header) (*v1limiter.Rule, error) {
+func (lc *LimitClient) GetRule(ctx context.Context, ruleName string) (*v1limiter.Rule, error) {
 	// setup and make the request
-	req, err := lc.client.SetupRequest("GET", fmt.Sprintf("%s/v1/limiter/rules/%s", lc.url, ruleName))
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s/v1/limiter/rules/%s", lc.url, ruleName), nil)
 	if err != nil {
 		return nil, err
 	}
-
-	clients.AppendHeaders(req, headers)
+	clients.AddHeadersFromContext(req, ctx)
 
 	resp, err := lc.client.Do(req)
 	if err != nil {
@@ -76,14 +83,14 @@ func (lc *LimitClient) GetRule(ruleName string, headers http.Header) (*v1limiter
 	switch resp.StatusCode {
 	case http.StatusOK:
 		rule := &v1limiter.Rule{}
-		if err := api.DecodeAndValidateHttpResponse(resp, rule); err != nil {
+		if err := api.ModelDecodeResponse(resp, rule); err != nil {
 			return nil, err
 		}
 
 		return rule, nil
 	case http.StatusBadRequest, http.StatusNotFound, http.StatusConflict, http.StatusInternalServerError:
 		apiError := &errors.Error{}
-		if err := api.DecodeAndValidateHttpResponse(resp, apiError); err != nil {
+		if err := api.ModelDecodeResponse(resp, apiError); err != nil {
 			return nil, err
 		}
 
@@ -101,14 +108,19 @@ func (lc *LimitClient) GetRule(ruleName string, headers http.Header) (*v1limiter
 //	- error - unexpected errors when querying Rule or Overrides
 //
 // MatchRules is used to find any Rules and optional Overrides for the matchQuery
-func (lc *LimitClient) QueryRules(query *queryassociatedaction.AssociatedActionQuery, headers http.Header) (v1limiter.Rules, error) {
-	// setup and make the request
-	req, err := lc.client.EncodedRequest("GET", fmt.Sprintf("%s/v1/limiter/rules/query", lc.url), query)
+func (lc *LimitClient) QueryRules(ctx context.Context, query *queryassociatedaction.AssociatedActionQuery) (v1limiter.Rules, error) {
+	// encode the request
+	data, err := api.ModelEncodeRequest(query)
 	if err != nil {
 		return nil, err
 	}
 
-	clients.AppendHeaders(req, headers)
+	// setup and make the request
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s/v1/limiter/rules/query", lc.url), bytes.NewBuffer(data))
+	if err != nil {
+		return nil, err
+	}
+	clients.AddHeadersFromContext(req, ctx)
 
 	resp, err := lc.client.Do(req)
 	if err != nil {
@@ -119,14 +131,14 @@ func (lc *LimitClient) QueryRules(query *queryassociatedaction.AssociatedActionQ
 	switch resp.StatusCode {
 	case http.StatusOK:
 		rules := v1limiter.Rules{}
-		if err := api.DecodeAndValidateHttpResponse(resp, &rules); err != nil {
+		if err := api.ModelDecodeResponse(resp, &rules); err != nil {
 			return nil, err
 		}
 
 		return rules, nil
 	case http.StatusBadRequest, http.StatusInternalServerError:
 		apiError := &errors.Error{}
-		if err := api.DecodeAndValidateHttpResponse(resp, apiError); err != nil {
+		if err := api.ModelDecodeResponse(resp, apiError); err != nil {
 			return nil, err
 		}
 
@@ -144,14 +156,19 @@ func (lc *LimitClient) QueryRules(query *queryassociatedaction.AssociatedActionQ
 //	- error - unexpected errors when querying Rule or Overrides
 //
 // MatchRules is used to find any Rules and optional Overrides for the matchQuery
-func (lc *LimitClient) MatchRules(match *querymatchaction.MatchActionQuery, headers http.Header) (v1limiter.Rules, error) {
-	// setup and make the request
-	req, err := lc.client.EncodedRequest("GET", fmt.Sprintf("%s/v1/limiter/rules/match", lc.url), match)
+func (lc *LimitClient) MatchRules(ctx context.Context, match *querymatchaction.MatchActionQuery) (v1limiter.Rules, error) {
+	// encode the request
+	data, err := api.ModelEncodeRequest(match)
 	if err != nil {
 		return nil, err
 	}
 
-	clients.AppendHeaders(req, headers)
+	// setup and make the request
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s/v1/limiter/rules/match", lc.url), bytes.NewBuffer(data))
+	if err != nil {
+		return nil, err
+	}
+	clients.AddHeadersFromContext(req, ctx)
 
 	resp, err := lc.client.Do(req)
 	if err != nil {
@@ -162,14 +179,14 @@ func (lc *LimitClient) MatchRules(match *querymatchaction.MatchActionQuery, head
 	switch resp.StatusCode {
 	case http.StatusOK:
 		rules := v1limiter.Rules{}
-		if err := api.DecodeAndValidateHttpResponse(resp, &rules); err != nil {
+		if err := api.ModelDecodeResponse(resp, &rules); err != nil {
 			return nil, err
 		}
 
 		return rules, nil
 	case http.StatusBadRequest, http.StatusInternalServerError:
 		apiError := &errors.Error{}
-		if err := api.DecodeAndValidateHttpResponse(resp, apiError); err != nil {
+		if err := api.ModelDecodeResponse(resp, apiError); err != nil {
 			return nil, err
 		}
 
@@ -188,14 +205,19 @@ func (lc *LimitClient) MatchRules(match *querymatchaction.MatchActionQuery, head
 //	- error - unexpected errors when updating the Rule
 //
 // UpdateRule can update the default limits for a particular Rule
-func (lc *LimitClient) UpdateRule(ruleName string, ruleUpdate *v1limiter.RuleUpdateRquest, headers http.Header) error {
-	// setup and make the request
-	req, err := lc.client.EncodedRequest("PUT", fmt.Sprintf("%s/v1/limiter/rules/%s", lc.url, ruleName), ruleUpdate)
+func (lc *LimitClient) UpdateRule(ctx context.Context, ruleName string, ruleUpdate *v1limiter.RuleUpdateRquest) error {
+	// encode the request
+	data, err := api.ModelEncodeRequest(ruleUpdate)
 	if err != nil {
 		return err
 	}
 
-	clients.AppendHeaders(req, headers)
+	// setup and make the request
+	req, err := http.NewRequest("PUT", fmt.Sprintf("%s/v1/limiter/rules/%s", lc.url, ruleName), bytes.NewBuffer(data))
+	if err != nil {
+		return err
+	}
+	clients.AddHeadersFromContext(req, ctx)
 
 	resp, err := lc.client.Do(req)
 	if err != nil {
@@ -208,7 +230,7 @@ func (lc *LimitClient) UpdateRule(ruleName string, ruleUpdate *v1limiter.RuleUpd
 		return nil
 	case http.StatusBadRequest, http.StatusNotFound, http.StatusConflict, http.StatusInternalServerError:
 		apiError := &errors.Error{}
-		if err := api.DecodeAndValidateHttpResponse(resp, apiError); err != nil {
+		if err := api.ModelDecodeResponse(resp, apiError); err != nil {
 			return err
 		}
 
@@ -226,14 +248,13 @@ func (lc *LimitClient) UpdateRule(ruleName string, ruleUpdate *v1limiter.RuleUpd
 //	- error - unexpected errors when deleting the Rule
 //
 // DeleteRule deletes a Rule and all Overrides for the associated Rule
-func (lc *LimitClient) DeleteRule(ruleName string, headers http.Header) error {
+func (lc *LimitClient) DeleteRule(ctx context.Context, ruleName string) error {
 	// setup and make the request
-	req, err := lc.client.SetupRequest("DELETE", fmt.Sprintf("%s/v1/limiter/rules/%s", lc.url, ruleName))
+	req, err := http.NewRequest("DELETE", fmt.Sprintf("%s/v1/limiter/rules/%s", lc.url, ruleName), nil)
 	if err != nil {
 		return err
 	}
-
-	clients.AppendHeaders(req, headers)
+	clients.AddHeadersFromContext(req, ctx)
 
 	resp, err := lc.client.Do(req)
 	if err != nil {
@@ -246,7 +267,7 @@ func (lc *LimitClient) DeleteRule(ruleName string, headers http.Header) error {
 		return nil
 	case http.StatusConflict, http.StatusInternalServerError:
 		apiError := &errors.Error{}
-		if err := api.DecodeAndValidateHttpResponse(resp, apiError); err != nil {
+		if err := api.ModelDecodeResponse(resp, apiError); err != nil {
 			return err
 		}
 

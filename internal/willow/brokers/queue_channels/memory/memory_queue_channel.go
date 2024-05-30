@@ -11,6 +11,7 @@ import (
 	"github.com/DanLavine/gonotify"
 	"github.com/DanLavine/willow/internal/datastructures/btree"
 	"github.com/DanLavine/willow/internal/idgenerator"
+	"github.com/DanLavine/willow/internal/middleware"
 	"github.com/DanLavine/willow/internal/reporting"
 	"github.com/DanLavine/willow/pkg/models/api/common/errors"
 	queryassociatedaction "github.com/DanLavine/willow/pkg/models/api/common/v1/query_associated_action"
@@ -106,8 +107,7 @@ func (mqc *memoryQueueChannel) Delete() bool {
 // force delete is used when a channel is being destroyed and we do not care about the channel being empty.
 // in this case, the channel should always just be destroyed
 func (mqc *memoryQueueChannel) ForceDelete(ctx context.Context) {
-	logger := reporting.GetLogger(ctx).Named("ForceDelete")
-	ctx = reporting.UpdateLogger(ctx, logger)
+	ctx, logger := middleware.GetNamedMiddlewareLogger(ctx, "ForceDelete")
 
 	// stop processing on this channel
 	mqc.deleteOnce.Do(func() {
@@ -190,7 +190,7 @@ func (mqc *memoryQueueChannel) Execute(ctx context.Context) error {
 
 				for {
 					// find any rules we might be at the limit for
-					rules, err := mqc.limiterClient.MatchRules(querymatchaction.KeyValuesToAnyMatchActionQuery(erroredKeyValues), nil)
+					rules, err := mqc.limiterClient.MatchRules(context.Background(), querymatchaction.KeyValuesToAnyMatchActionQuery(erroredKeyValues))
 					if err != nil {
 						panic(err)
 					}
@@ -198,7 +198,7 @@ func (mqc *memoryQueueChannel) Execute(ctx context.Context) error {
 					// for each rule, query the counters to know if there is an issue
 					underLimit := true
 					for _, rule := range rules {
-						overrides, err := mqc.limiterClient.MatchOverrides(rule.Name, querymatchaction.KeyValuesToAnyMatchActionQuery(erroredKeyValues), nil)
+						overrides, err := mqc.limiterClient.MatchOverrides(context.Background(), rule.Name, querymatchaction.KeyValuesToAnyMatchActionQuery(erroredKeyValues))
 						if err != nil {
 							panic(err)
 						}
@@ -236,7 +236,7 @@ func (mqc *memoryQueueChannel) Execute(ctx context.Context) error {
 								}
 							}
 
-							counters, err := mqc.limiterClient.QueryCounters(query, nil)
+							counters, err := mqc.limiterClient.QueryCounters(context.Background(), query)
 							if err != nil {
 								panic(err)
 							}
@@ -282,7 +282,7 @@ func (mqc *memoryQueueChannel) Execute(ctx context.Context) error {
 									}
 								}
 
-								counters, err := mqc.limiterClient.QueryCounters(query, nil)
+								counters, err := mqc.limiterClient.QueryCounters(context.Background(), query)
 								if err != nil {
 									panic(err)
 								}
@@ -338,8 +338,7 @@ BREAK_DEQUEUE:
 
 // Try to Enqueue an item and record on the limiter what is being saved
 func (mqc *memoryQueueChannel) Enqueue(ctx context.Context, enqueueItem *v1willow.EnqueueQueueItem) *errors.ServerError {
-	logger := reporting.GetLogger(ctx).Named("Enqueue").With(zap.Any("channel_key_values", enqueueItem.KeyValues))
-	ctx = reporting.UpdateLogger(ctx, logger)
+	ctx, _ = middleware.GetNamedMiddlewareLogger(ctx, "Enqueue")
 
 	mqc.itemsLock.Lock() // need this lock so multiple enqueue requests can all be squashed into 1
 	defer mqc.itemsLock.Unlock()
@@ -424,8 +423,7 @@ func (mqc *memoryQueueChannel) Enqueue(ctx context.Context, enqueueItem *v1willo
 //
 // NOTE: Write locked from the queue_channel_client
 func (mqc *memoryQueueChannel) ACK(ctx context.Context, ack *v1willow.ACK) (bool, *errors.ServerError) {
-	logger := reporting.GetLogger(ctx).Named("ACK").With(zap.Any("channel_key_values", ack.KeyValues), zap.String("item_id", ack.ItemID))
-	ctx = reporting.UpdateLogger(ctx, logger)
+	ctx, logger := middleware.GetNamedMiddlewareLogger(ctx, "ACK")
 	ackErr := &errors.ServerError{Message: "failed to find processing item by id", StatusCode: http.StatusNotFound}
 
 	switch ack.Passed {
@@ -470,8 +468,7 @@ func (mqc *memoryQueueChannel) ACK(ctx context.Context, ack *v1willow.ACK) (bool
 }
 
 func (mqc *memoryQueueChannel) failItem(ctx context.Context, itemID string, timedOut bool) bool {
-	logger := reporting.GetLogger(ctx).Named("failItem")
-	ctx = reporting.UpdateLogger(ctx, logger)
+	ctx, _ = middleware.GetNamedMiddlewareLogger(ctx, "failItem")
 
 	mqc.itemsLock.Lock()
 	defer mqc.itemsLock.Unlock()
@@ -590,8 +587,7 @@ func (mqc *memoryQueueChannel) Dequeue() <-chan func(ctx context.Context) (*v1wi
 
 // callback passed to the 'dequeueChan' when there is something to dequeue
 func (mqc *memoryQueueChannel) dequeue(ctx context.Context) (*v1willow.DequeueQueueItem, func(), func()) {
-	logger := reporting.GetLogger(ctx).Named("dequeue")
-	ctx = reporting.UpdateLogger(ctx, logger)
+	ctx, logger := middleware.GetNamedMiddlewareLogger(ctx, "dequeue")
 
 	// 1. ensure that the item can be dequeued when running. This just forwards the key values that define the channel
 	if err := mqc.limterUpdateRunningValue(ctx, 1); err != nil {
@@ -655,7 +651,7 @@ func (mqc *memoryQueueChannel) dequeue(ctx context.Context) (*v1willow.DequeueQu
 // callback passed to the 'dequeueChan' and called when the client successfully recieved the item
 func (mqc *memoryQueueChannel) successfulDequeue(ctx context.Context, itemID string) func() {
 	return func() {
-		logger := reporting.GetLogger(ctx).Named("successfulDequeue")
+		_, logger := middleware.GetNamedMiddlewareLogger(ctx, "successfulDequeue")
 
 		// start the heartbeater process
 		onfindBTree := func(key datatypes.EncapsulatedValue, treeItem any) bool {
@@ -683,8 +679,7 @@ func (mqc *memoryQueueChannel) successfulDequeue(ctx context.Context, itemID str
 // callback passed to the 'dequeueChan' and called wheh the client failed to send the dequeue response to the client
 func (mqc *memoryQueueChannel) failedDequeue(ctx context.Context, itemID string) func() {
 	return func() {
-		logger := reporting.GetLogger(ctx).Named("failedDequeue")
-		ctx = reporting.UpdateLogger(ctx, logger)
+		ctx, logger := middleware.GetNamedMiddlewareLogger(ctx, "failedDequeue")
 
 		// update the running counter that we are no longer processing since we failed to dequeue to the remote client
 		if err := mqc.limterUpdateRunningValue(ctx, -1); err != nil {
@@ -737,8 +732,7 @@ func (mqc *memoryQueueChannel) failedDequeue(ctx context.Context, itemID string)
 }
 
 func (mqc *memoryQueueChannel) Heartbeat(ctx context.Context, heartbeat *v1willow.Heartbeat) *errors.ServerError {
-	logger := reporting.GetLogger(ctx).Named("Heartbeat").With(zap.String("item_id", heartbeat.ItemID))
-	ctx = reporting.UpdateLogger(ctx, logger)
+	_, logger := middleware.GetNamedMiddlewareLogger(ctx, "Heartbeat")
 	heartbeatErr := &errors.ServerError{Message: "failed to find processing item by id", StatusCode: http.StatusNotFound}
 
 	onFind := func(key datatypes.EncapsulatedValue, treeItem any) bool {
@@ -762,7 +756,7 @@ func (mqc *memoryQueueChannel) Heartbeat(ctx context.Context, heartbeat *v1willo
 // limiterUpdateEnqueuedValue is used when an item is enqueued or removed from the channel. This keeps track
 // of the total 'enqueued' items for a queue and rejects when to many items are being added to the queue
 func (mqc *memoryQueueChannel) limiterUpdateEnqueuedValue(ctx context.Context, counterUpdate int64) *errors.ServerError {
-	logger := reporting.GetLogger(ctx).Named("limiterUpdateEnqueuedValue")
+	ctx, logger := middleware.GetNamedMiddlewareLogger(ctx, "limiterUpdateEnqueuedValue")
 
 	enqueueKeyValues := datatypes.KeyValues{
 		"_willow_queue_name": datatypes.String(mqc.queueName),
@@ -772,10 +766,10 @@ func (mqc *memoryQueueChannel) limiterUpdateEnqueuedValue(ctx context.Context, c
 		enqueueKeyValues[fmt.Sprintf("_willow_%s", key)] = value
 	}
 
-	err := mqc.limiterClient.UpdateCounter(&v1limiter.Counter{
+	err := mqc.limiterClient.UpdateCounter(ctx, &v1limiter.Counter{
 		KeyValues: enqueueKeyValues,
 		Counters:  counterUpdate,
-	}, reporting.GetTraceHeaders(ctx))
+	})
 
 	if err != nil {
 		logger.Warn("hit a limit with the total number of enqued items", zap.Error(err))
@@ -788,7 +782,7 @@ func (mqc *memoryQueueChannel) limiterUpdateEnqueuedValue(ctx context.Context, c
 // limterUpdateRunningValue is used when an item is dequeued channel. This keeps track
 // of the total 'running' items for a queue and rejects when a 3rd paarty rule has reached the limit setup from a user
 func (mqc *memoryQueueChannel) limterUpdateRunningValue(ctx context.Context, counterUpdate int64) error {
-	logger := reporting.GetLogger(ctx).Named("limiterUpdateRunningValue")
+	ctx, logger := middleware.GetNamedMiddlewareLogger(ctx, "limiterUpdateRunningValue")
 
 	counterKeyValues := datatypes.KeyValues{
 		"_willow_queue_name": datatypes.String(mqc.queueName),
@@ -803,7 +797,7 @@ func (mqc *memoryQueueChannel) limterUpdateRunningValue(ctx context.Context, cou
 		Counters:  counterUpdate,
 	}
 
-	if err := mqc.limiterClient.UpdateCounter(counter, reporting.GetTraceHeaders(ctx)); err != nil {
+	if err := mqc.limiterClient.UpdateCounter(ctx, counter); err != nil {
 		logger.Warn("hit a limit for the total number of runnable items", zap.Error(err))
 		return err
 	}
@@ -812,7 +806,7 @@ func (mqc *memoryQueueChannel) limterUpdateRunningValue(ctx context.Context, cou
 }
 
 func (mqc *memoryQueueChannel) setLimiterEnqueuedValue(ctx context.Context) *errors.ServerError {
-	logger := reporting.GetLogger(ctx).Named("setLimiterEnqueuedValue")
+	ctx, logger := middleware.GetNamedMiddlewareLogger(ctx, "setLimiterEnqueuedValue")
 
 	enqueueKeyValues := datatypes.KeyValues{
 		"_willow_queue_name": datatypes.String(mqc.queueName),
@@ -822,10 +816,10 @@ func (mqc *memoryQueueChannel) setLimiterEnqueuedValue(ctx context.Context) *err
 		enqueueKeyValues[fmt.Sprintf("_willow_%s", key)] = value
 	}
 
-	err := mqc.limiterClient.SetCounters(&v1limiter.Counter{
+	err := mqc.limiterClient.SetCounters(ctx, &v1limiter.Counter{
 		KeyValues: enqueueKeyValues,
 		Counters:  0,
-	}, reporting.GetTraceHeaders(ctx))
+	})
 
 	if err != nil {
 		logger.Warn("failed to remove the enqueued counters values", zap.Error(err))
@@ -836,7 +830,7 @@ func (mqc *memoryQueueChannel) setLimiterEnqueuedValue(ctx context.Context) *err
 }
 
 func (mqc *memoryQueueChannel) setLimterRunningValue(ctx context.Context) error {
-	logger := reporting.GetLogger(ctx).Named("setLimiterRunningValue")
+	ctx, logger := middleware.GetNamedMiddlewareLogger(ctx, "setLimiterRunningValue")
 
 	counterKeyValues := datatypes.KeyValues{
 		"_willow_queue_name": datatypes.String(mqc.queueName),
@@ -851,7 +845,7 @@ func (mqc *memoryQueueChannel) setLimterRunningValue(ctx context.Context) error 
 		Counters:  0,
 	}
 
-	if err := mqc.limiterClient.SetCounters(counter, reporting.GetTraceHeaders(ctx)); err != nil {
+	if err := mqc.limiterClient.SetCounters(ctx, counter); err != nil {
 		logger.Warn("hit a limit for the total number of runnable items", zap.Error(err))
 		return &errors.ServerError{Message: "Failed to set the counters properly for running channel", StatusCode: http.StatusInternalServerError}
 	}

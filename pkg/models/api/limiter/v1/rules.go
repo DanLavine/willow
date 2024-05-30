@@ -2,6 +2,8 @@ package v1
 
 import (
 	"fmt"
+
+	"github.com/DanLavine/willow/pkg/models/api/common/errors"
 )
 
 // Collection of Rules that is returned from a "Match" or "Query"
@@ -11,18 +13,18 @@ type Rules []*Rule
 //	- error - error describing any possible issues and the steps to rectify them
 //
 // Validate ensures the Rules has all required fields set
-func (rules Rules) Validate() error {
+func (rules Rules) Validate() *errors.ModelError {
 	if len(rules) == 0 {
 		return nil
 	}
 
 	for index, rule := range rules {
 		if rule == nil {
-			return fmt.Errorf("invalid Rule at index %d. Rule can not be nil", index)
+			return &errors.ModelError{Field: fmt.Sprintf("[%d]", index), Err: fmt.Errorf("Rule cannot be null")}
 		}
 
 		if err := rule.Validate(); err != nil {
-			return fmt.Errorf("invalid Rule at index %d: %w", index, err)
+			return &errors.ModelError{Field: fmt.Sprintf("[%d]", index), Child: err}
 		}
 	}
 

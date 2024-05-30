@@ -1,0 +1,49 @@
+components:
+  schemas:
+
+    # Map of encapsulated value for all types but Any
+    TypedKeyValues:
+      type: object
+      description: |
+        Map of encapsulated value for all types but Any
+      additionalProperties:
+        title: TypedKeyValues
+        x-additionalPropertiesName: TypedKeyValues
+        oneOf:
+          - $ref: "./encapsulated_values.yaml#/components/schemas/Uint8"
+          - $ref: "./encapsulated_values.yaml#/components/schemas/Uint16"
+          - $ref: "./encapsulated_values.yaml#/components/schemas/Uint32"
+          - $ref: "./encapsulated_values.yaml#/components/schemas/Uint64"
+          - $ref: "./encapsulated_values.yaml#/components/schemas/Uint"
+          - $ref: "./encapsulated_values.yaml#/components/schemas/Int8"
+          - $ref: "./encapsulated_values.yaml#/components/schemas/Int16"
+          - $ref: "./encapsulated_values.yaml#/components/schemas/Int32"
+          - $ref: "./encapsulated_values.yaml#/components/schemas/Int64"
+          - $ref: "./encapsulated_values.yaml#/components/schemas/Int"
+          - $ref: "./encapsulated_values.yaml#/components/schemas/Float32"
+          - $ref: "./encapsulated_values.yaml#/components/schemas/Float64"
+          - $ref: "./encapsulated_values.yaml#/components/schemas/String"
+
+    # Map of encapsulated value for all types
+    AnyKeyValues:
+      type: object
+      description: |
+        Map of encapsulated value for all types
+      additionalProperties:
+        title: TypedKeyValues
+        x-additionalPropertiesName: TypedKeyValues
+        oneOf:
+          - $ref: "./encapsulated_values.yaml#/components/schemas/Uint8"
+          - $ref: "./encapsulated_values.yaml#/components/schemas/Uint16"
+          - $ref: "./encapsulated_values.yaml#/components/schemas/Uint32"
+          - $ref: "./encapsulated_values.yaml#/components/schemas/Uint64"
+          - $ref: "./encapsulated_values.yaml#/components/schemas/Uint"
+          - $ref: "./encapsulated_values.yaml#/components/schemas/Int8"
+          - $ref: "./encapsulated_values.yaml#/components/schemas/Int16"
+          - $ref: "./encapsulated_values.yaml#/components/schemas/Int32"
+          - $ref: "./encapsulated_values.yaml#/components/schemas/Int64"
+          - $ref: "./encapsulated_values.yaml#/components/schemas/Int"
+          - $ref: "./encapsulated_values.yaml#/components/schemas/Float32"
+          - $ref: "./encapsulated_values.yaml#/components/schemas/Float64"
+          - $ref: "./encapsulated_values.yaml#/components/schemas/String"
+          - $ref: "./encapsulated_values.yaml#/components/schemas/Any"

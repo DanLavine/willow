@@ -1,6 +1,9 @@
 package querymatchaction
 
 import (
+	"fmt"
+
+	"github.com/DanLavine/willow/pkg/models/api/common/errors"
 	v1 "github.com/DanLavine/willow/pkg/models/api/common/v1"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 )
@@ -22,10 +25,12 @@ type MatchActionQuery struct {
 //	- error - error describing any possible issues with the query and the steps to rectify them
 //
 // Validate ensures the CreateLockRequest has all required fields set
-func (matchActionQuery *MatchActionQuery) Validate() error {
-	if matchActionQuery.KeyValues != nil {
+func (matchActionQuery *MatchActionQuery) Validate() *errors.ModelError {
+	if matchActionQuery.KeyValues == nil || len(matchActionQuery.KeyValues) == 0 {
+		return &errors.ModelError{Field: "KeyValues", Err: fmt.Errorf("requires a length of at least 1, but recevied 0")}
+	} else {
 		if err := matchActionQuery.KeyValues.Validate(); err != nil {
-			return err
+			return &errors.ModelError{Field: "KeyValues", Child: err}
 		}
 	}
 

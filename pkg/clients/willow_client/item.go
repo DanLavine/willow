@@ -1,6 +1,7 @@
 package willowclient
 
 import (
+	"bytes"
 	"fmt"
 	"net/http"
 	"sync"
@@ -9,6 +10,7 @@ import (
 	"github.com/DanLavine/willow/pkg/clients"
 	"github.com/DanLavine/willow/pkg/models/api"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
+	"golang.org/x/net/context"
 
 	"github.com/DanLavine/willow/pkg/models/api/common/errors"
 	v1willow "github.com/DanLavine/willow/pkg/models/api/willow/v1"
@@ -29,7 +31,7 @@ type Item struct {
 	done     chan struct{}
 
 	url    string
-	client clients.HttpClient
+	client *http.Client
 
 	data             []byte
 	itemID           string
@@ -41,7 +43,7 @@ type Item struct {
 	heartbeatErrorCallback func(err error)
 }
 
-func newItem(url string, client clients.HttpClient, queueName string, dequeueItem *v1willow.DequeueQueueItem) *Item {
+func newItem(url string, client *http.Client, queueName string, dequeueItem *v1willow.DequeueQueueItem) *Item {
 	item := &Item{
 		doneOnce: new(sync.Once),
 		done:     make(chan struct{}),
@@ -77,13 +79,19 @@ func newItem(url string, client clients.HttpClient, queueName string, dequeueIte
 					return
 				}
 
-				req, err := client.EncodedRequest(
+				data, err := api.ModelEncodeRequest(v1willow.Heartbeat{
+					ItemID:    item.itemID,
+					KeyValues: item.keyValues,
+				})
+				if err != nil {
+					item.forwardError(err)
+					continue
+				}
+
+				req, err := http.NewRequest(
 					"POST",
 					fmt.Sprintf("%s/v1/queues/%s/channels/items/heartbeat", item.url, item.queueName),
-					v1willow.Heartbeat{
-						ItemID:    item.itemID,
-						KeyValues: item.keyValues,
-					},
+					bytes.NewBuffer(data),
 				)
 				if err != nil {
 					item.forwardError(err)
@@ -110,7 +118,7 @@ func newItem(url string, client clients.HttpClient, queueName string, dequeueIte
 				case http.StatusBadRequest, http.StatusConflict, http.StatusInternalServerError:
 					// faild to heartbeat for some reason
 					apiError := &errors.Error{}
-					if err := api.DecodeAndValidateHttpResponse(resp, apiError); err != nil {
+					if err := api.ModelDecodeResponse(resp, apiError); err != nil {
 						select {
 						case <-item.done:
 							//nothing to do here. race between ack and heartbeat
@@ -157,23 +165,28 @@ func (item *Item) Done() <-chan struct{} {
 //	- error - error creating the queue
 //
 // ACK an item to inform the service that it successfully processed, or needs to be retried
-func (item *Item) ACK(passed bool, headers http.Header) error {
+func (item *Item) ACK(ctx context.Context, passed bool) error {
 	item.stop()
 
-	req, err := item.client.EncodedRequest(
-		"POST",
-		fmt.Sprintf("%s/v1/queues/%s/channels/items/ack", item.url, item.queueName),
-		v1willow.ACK{
-			ItemID:    item.itemID,
-			KeyValues: item.keyValues,
-			Passed:    passed,
-		},
-	)
+	// encode the request
+	data, err := api.ModelEncodeRequest(v1willow.ACK{
+		ItemID:    item.itemID,
+		KeyValues: item.keyValues,
+		Passed:    passed,
+	})
 	if err != nil {
 		return err
 	}
 
-	clients.AppendHeaders(req, headers)
+	req, err := http.NewRequest(
+		"POST",
+		fmt.Sprintf("%s/v1/queues/%s/channels/items/ack", item.url, item.queueName),
+		bytes.NewBuffer(data),
+	)
+	if err != nil {
+		return err
+	}
+	clients.AddHeadersFromContext(req, ctx)
 
 	resp, err := item.client.Do(req)
 	if err != nil {
@@ -188,7 +201,7 @@ func (item *Item) ACK(passed bool, headers http.Header) error {
 	case http.StatusBadRequest, http.StatusNotFound, http.StatusConflict, http.StatusInternalServerError:
 		// faild to ack for some reason
 		apiError := &errors.Error{}
-		if err := api.DecodeAndValidateHttpResponse(resp, apiError); err != nil {
+		if err := api.ModelDecodeResponse(resp, apiError); err != nil {
 			return err
 		}
 

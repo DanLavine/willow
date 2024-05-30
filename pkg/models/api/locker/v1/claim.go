@@ -2,6 +2,8 @@ package v1
 
 import (
 	"fmt"
+
+	"github.com/DanLavine/willow/pkg/models/api/common/errors"
 )
 
 // LockClaim is used to refresh a heartbeat and eventually reclaim a lock when a service restarts
@@ -11,12 +13,12 @@ type LockClaim struct {
 }
 
 //	RETURNS:
-//	- error - error describing any possible issues and the steps to rectify them
+//	- *errors.ModelError - error describing any possible issues and the steps to rectify them
 //
-// Validate ensures the LockCreateRequest has all required fields set
-func (claim *LockClaim) Validate() error {
+// Validate ensures the LockClaim is valid for the held lock
+func (claim *LockClaim) Validate() *errors.ModelError {
 	if claim.SessionID == "" {
-		return fmt.Errorf("'SessionID' is required, but received an empty string")
+		return &errors.ModelError{Field: "SessionID", Err: fmt.Errorf("received an empty string")}
 	}
 
 	return nil

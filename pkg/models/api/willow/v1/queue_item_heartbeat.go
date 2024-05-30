@@ -3,6 +3,7 @@ package v1
 import (
 	"fmt"
 
+	"github.com/DanLavine/willow/pkg/models/api/common/errors"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 )
 
@@ -18,13 +19,13 @@ type Heartbeat struct {
 //	- error - any errors encountered with the response object
 //
 // Validate is used to ensure that ack response has all required fields set
-func (heartbeat Heartbeat) Validate() error {
+func (heartbeat Heartbeat) Validate() *errors.ModelError {
 	if heartbeat.ItemID == "" {
-		return fmt.Errorf("'ItemID' is the empty string")
+		return &errors.ModelError{Field: "ItemId", Err: fmt.Errorf("is an empty string")}
 	}
 
 	if err := heartbeat.KeyValues.Validate(datatypes.MinDataType, datatypes.MaxWithoutAnyDataType); err != nil {
-		return err
+		return &errors.ModelError{Field: "KeyValues", Child: err}
 	}
 
 	return nil

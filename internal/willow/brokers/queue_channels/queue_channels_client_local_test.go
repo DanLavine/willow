@@ -3,7 +3,6 @@ package queuechannels
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"testing"
 	"time"
 
@@ -13,7 +12,7 @@ import (
 
 	btreeonetomany "github.com/DanLavine/willow/internal/datastructures/btree_one_to_many"
 	"github.com/DanLavine/willow/internal/helpers"
-	"github.com/DanLavine/willow/internal/reporting"
+	"github.com/DanLavine/willow/internal/middleware"
 	"github.com/DanLavine/willow/internal/willow/brokers/queue_channels/constructor"
 	"github.com/DanLavine/willow/internal/willow/brokers/queue_channels/constructor/constructorfakes"
 	"github.com/DanLavine/willow/pkg/clients/limiter_client/limiterclientfakes"
@@ -54,8 +53,8 @@ func setupConstuctor(t *testing.T, g *GomegaWithT) (*gomock.Controller, construc
 
 	// setup the limiter client to always pass
 	fakeLimiterClient := limiterclientfakes.NewMockLimiterClient(mockController)
-	fakeLimiterClient.EXPECT().UpdateCounter(gomock.Any(), gomock.Any()).DoAndReturn(func(_ *v1limiter.Counter, _ http.Header) error { return nil }).AnyTimes()
-	fakeLimiterClient.EXPECT().SetCounters(gomock.Any(), gomock.Any()).DoAndReturn(func(_ *v1limiter.Counter, _ http.Header) error { return nil }).AnyTimes()
+	fakeLimiterClient.EXPECT().UpdateCounter(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ *v1limiter.Counter) error { return nil }).AnyTimes()
+	fakeLimiterClient.EXPECT().SetCounters(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ *v1limiter.Counter) error { return nil }).AnyTimes()
 
 	constructor, err := constructor.NewQueueChannelConstructor("memory", fakeLimiterClient)
 	g.Expect(err).ToNot(HaveOccurred())
@@ -86,7 +85,7 @@ func Test_queueChannelsClientLocal_EnqueueQueueItem(t *testing.T) {
 			// setup queue channel client local
 			queueChannelClentLocal := NewLocalQueueChannelsClient(mockConstructor)
 
-			err := queueChannelClentLocal.EnqueueQueueItem(testhelpers.NewContextWithLogger(), "queue name", defaultEnqueueItem(g))
+			err := queueChannelClentLocal.EnqueueQueueItem(testhelpers.NewContextWithMiddlewareSetup(), "queue name", defaultEnqueueItem(g))
 			g.Expect(err).ToNot(HaveOccurred())
 		})
 
@@ -109,11 +108,11 @@ func Test_queueChannelsClientLocal_EnqueueQueueItem(t *testing.T) {
 			// setup queue channel client local
 			queueChannelClentLocal := NewLocalQueueChannelsClient(mockConstructor)
 
-			g.Expect(queueChannelClentLocal.EnqueueQueueItem(testhelpers.NewContextWithLogger(), "queue name 1", defaultEnqueueItem(g)))
-			g.Expect(queueChannelClentLocal.EnqueueQueueItem(testhelpers.NewContextWithLogger(), "queue name 2", defaultEnqueueItem(g)))
-			g.Expect(queueChannelClentLocal.EnqueueQueueItem(testhelpers.NewContextWithLogger(), "queue name 3", defaultEnqueueItem(g)))
-			g.Expect(queueChannelClentLocal.EnqueueQueueItem(testhelpers.NewContextWithLogger(), "queue name 4", defaultEnqueueItem(g)))
-			g.Expect(queueChannelClentLocal.EnqueueQueueItem(testhelpers.NewContextWithLogger(), "queue name 5", defaultEnqueueItem(g)))
+			g.Expect(queueChannelClentLocal.EnqueueQueueItem(testhelpers.NewContextWithMiddlewareSetup(), "queue name 1", defaultEnqueueItem(g)))
+			g.Expect(queueChannelClentLocal.EnqueueQueueItem(testhelpers.NewContextWithMiddlewareSetup(), "queue name 2", defaultEnqueueItem(g)))
+			g.Expect(queueChannelClentLocal.EnqueueQueueItem(testhelpers.NewContextWithMiddlewareSetup(), "queue name 3", defaultEnqueueItem(g)))
+			g.Expect(queueChannelClentLocal.EnqueueQueueItem(testhelpers.NewContextWithMiddlewareSetup(), "queue name 4", defaultEnqueueItem(g)))
+			g.Expect(queueChannelClentLocal.EnqueueQueueItem(testhelpers.NewContextWithMiddlewareSetup(), "queue name 5", defaultEnqueueItem(g)))
 		})
 
 		t.Run("It creates a new channel with the same Name + different KeyValues", func(t *testing.T) {
@@ -147,7 +146,7 @@ func Test_queueChannelsClientLocal_EnqueueQueueItem(t *testing.T) {
 					TimeoutDuration: time.Second,
 				}
 				g.Expect(enqueuItem.Validate()).ToNot(HaveOccurred())
-				g.Expect(queueChannelClentLocal.EnqueueQueueItem(testhelpers.NewContextWithLogger(), "queue name", enqueuItem))
+				g.Expect(queueChannelClentLocal.EnqueueQueueItem(testhelpers.NewContextWithMiddlewareSetup(), "queue name", enqueuItem))
 			}
 		})
 
@@ -169,7 +168,7 @@ func Test_queueChannelsClientLocal_EnqueueQueueItem(t *testing.T) {
 			// setup queue channel client local
 			queueChannelClentLocal := NewLocalQueueChannelsClient(mockConstructor)
 
-			err := queueChannelClentLocal.EnqueueQueueItem(testhelpers.NewContextWithLogger(), "queue name", defaultEnqueueItem(g))
+			err := queueChannelClentLocal.EnqueueQueueItem(testhelpers.NewContextWithMiddlewareSetup(), "queue name", defaultEnqueueItem(g))
 			g.Expect(err).To(HaveOccurred())
 			g.Expect(err.Error()).To(ContainSubstring("failed to enqueue item"))
 		})
@@ -195,11 +194,11 @@ func Test_queueChannelsClientLocal_EnqueueQueueItem(t *testing.T) {
 			// setup queue channel client local
 			queueChannelClentLocal := NewLocalQueueChannelsClient(mockConstructor)
 
-			g.Expect(queueChannelClentLocal.EnqueueQueueItem(testhelpers.NewContextWithLogger(), "queue name", defaultEnqueueItem(g)))
-			g.Expect(queueChannelClentLocal.EnqueueQueueItem(testhelpers.NewContextWithLogger(), "queue name", defaultEnqueueItem(g)))
-			g.Expect(queueChannelClentLocal.EnqueueQueueItem(testhelpers.NewContextWithLogger(), "queue name", defaultEnqueueItem(g)))
-			g.Expect(queueChannelClentLocal.EnqueueQueueItem(testhelpers.NewContextWithLogger(), "queue name", defaultEnqueueItem(g)))
-			g.Expect(queueChannelClentLocal.EnqueueQueueItem(testhelpers.NewContextWithLogger(), "queue name", defaultEnqueueItem(g)))
+			g.Expect(queueChannelClentLocal.EnqueueQueueItem(testhelpers.NewContextWithMiddlewareSetup(), "queue name", defaultEnqueueItem(g)))
+			g.Expect(queueChannelClentLocal.EnqueueQueueItem(testhelpers.NewContextWithMiddlewareSetup(), "queue name", defaultEnqueueItem(g)))
+			g.Expect(queueChannelClentLocal.EnqueueQueueItem(testhelpers.NewContextWithMiddlewareSetup(), "queue name", defaultEnqueueItem(g)))
+			g.Expect(queueChannelClentLocal.EnqueueQueueItem(testhelpers.NewContextWithMiddlewareSetup(), "queue name", defaultEnqueueItem(g)))
+			g.Expect(queueChannelClentLocal.EnqueueQueueItem(testhelpers.NewContextWithMiddlewareSetup(), "queue name", defaultEnqueueItem(g)))
 		})
 	})
 }
@@ -236,14 +235,14 @@ func Test_queueChannelsClientLocal_DequeueQueueItem(t *testing.T) {
 			var dequeueErr *errors.ServerError
 
 			// run the server in async mode
-			executeCtx, executeCancel := context.WithCancel(context.Background())
+			executeCtx, executeCancel := context.WithCancel(testhelpers.NewContextWithMiddlewareSetup())
 			go func() {
 				_ = queueChannelClentLocal.Execute(executeCtx)
 			}()
 
 			go func() {
 				defer close(done)
-				dequeueItem, success, failure, dequeueErr = queueChannelClentLocal.DequeueQueueItem(testhelpers.NewContextWithLogger(), "test queue", query)
+				dequeueItem, success, failure, dequeueErr = queueChannelClentLocal.DequeueQueueItem(testhelpers.NewContextWithMiddlewareSetup(), "test queue", query)
 			}()
 
 			g.Consistently(done).ShouldNot(BeClosed())
@@ -282,10 +281,10 @@ func Test_queueChannelsClientLocal_DequeueQueueItem(t *testing.T) {
 			var failure func()
 			var dequeueErr *errors.ServerError
 
-			ctx, cancel := context.WithCancel(context.Background())
+			ctx, cancel := context.WithCancel(testhelpers.NewContextWithMiddlewareSetup())
 			go func() {
 				defer close(done)
-				dequeueItem, success, failure, dequeueErr = queueChannelClentLocal.DequeueQueueItem(context.WithValue(ctx, reporting.CustomLogger, zap.NewNop()), "test queue", query)
+				dequeueItem, success, failure, dequeueErr = queueChannelClentLocal.DequeueQueueItem(ctx, "test queue", query)
 			}()
 
 			g.Consistently(done).ShouldNot(BeClosed())
@@ -305,7 +304,7 @@ func Test_queueChannelsClientLocal_DequeueQueueItem(t *testing.T) {
 
 			queueChannelClentLocal := NewLocalQueueChannelsClient(constructor)
 			// run the server in async mode
-			executeCtx, executeCancel := context.WithCancel(context.Background())
+			executeCtx, executeCancel := context.WithCancel(testhelpers.NewContextWithMiddlewareSetup())
 			defer executeCancel()
 			go func() {
 				_ = queueChannelClentLocal.Execute(executeCtx)
@@ -326,7 +325,7 @@ func Test_queueChannelsClientLocal_DequeueQueueItem(t *testing.T) {
 			g.Expect(query.Validate()).ToNot(HaveOccurred())
 
 			testZapCore, testLogs := observer.New(zap.DebugLevel)
-			testContext := context.WithValue(context.Background(), reporting.CustomLogger, zap.New(testZapCore))
+			testContext := context.WithValue(context.Background(), middleware.LoggerCtxKey, zap.New(testZapCore))
 
 			// run dequeue and wait till it has checked all current channels
 			done := make(chan struct{})
@@ -346,7 +345,7 @@ func Test_queueChannelsClientLocal_DequeueQueueItem(t *testing.T) {
 			}).Should(ContainSubstring("waiting for available item"))
 
 			// enqueue a new item
-			g.Expect(queueChannelClentLocal.EnqueueQueueItem(testhelpers.NewContextWithLogger(), "test queue", defaultEnqueueItem(g)))
+			g.Expect(queueChannelClentLocal.EnqueueQueueItem(testhelpers.NewContextWithMiddlewareSetup(), "test queue", defaultEnqueueItem(g)))
 
 			g.Eventually(done).Should(BeClosed())
 			g.Expect(dequeueItem).ToNot(BeNil())
@@ -394,7 +393,7 @@ func Test_queueChannelsClientLocal_DequeueQueueItem(t *testing.T) {
 			g.Expect(query.Validate()).ToNot(HaveOccurred())
 
 			testZapCore, testLogs := observer.New(zap.DebugLevel)
-			testContext := context.WithValue(context.Background(), reporting.CustomLogger, zap.New(testZapCore))
+			testContext := context.WithValue(context.Background(), middleware.LoggerCtxKey, zap.New(testZapCore))
 
 			// run dequeue and wait till it has checked all current channels
 			done := make(chan struct{})
@@ -414,7 +413,7 @@ func Test_queueChannelsClientLocal_DequeueQueueItem(t *testing.T) {
 			}).Should(ContainSubstring("waiting for available item"))
 
 			// enqueue an item that triggers the request
-			g.Expect(queueChannelClentLocal.EnqueueQueueItem(testhelpers.NewContextWithLogger(), "test queue", defaultEnqueueItem(g)))
+			g.Expect(queueChannelClentLocal.EnqueueQueueItem(testhelpers.NewContextWithMiddlewareSetup(), "test queue", defaultEnqueueItem(g)))
 			g.Consistently(done).ShouldNot(BeClosed())
 
 			// enqueue an item that should not trigger the request
@@ -431,7 +430,7 @@ func Test_queueChannelsClientLocal_DequeueQueueItem(t *testing.T) {
 				TimeoutDuration: time.Second,
 			}
 			g.Expect(enqueueItem.Validate()).ToNot(HaveOccurred())
-			g.Expect(queueChannelClentLocal.EnqueueQueueItem(testhelpers.NewContextWithLogger(), "test queue", enqueueItem))
+			g.Expect(queueChannelClentLocal.EnqueueQueueItem(testhelpers.NewContextWithMiddlewareSetup(), "test queue", enqueueItem))
 
 			g.Eventually(done).Should(BeClosed())
 			g.Expect(dequeueItem).ToNot(BeNil())
@@ -466,7 +465,7 @@ func Test_queueChannelsClientLocal_DequeueQueueItem(t *testing.T) {
 			}()
 
 			// enqueue an item
-			g.Expect(queueChannelClentLocal.EnqueueQueueItem(testhelpers.NewContextWithLogger(), "test queue", defaultEnqueueItem(g)))
+			g.Expect(queueChannelClentLocal.EnqueueQueueItem(testhelpers.NewContextWithMiddlewareSetup(), "test queue", defaultEnqueueItem(g)))
 
 			query := &queryassociatedaction.AssociatedActionQuery{
 				Selection: &queryassociatedaction.Selection{
@@ -481,7 +480,7 @@ func Test_queueChannelsClientLocal_DequeueQueueItem(t *testing.T) {
 			}
 			g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-			dequeueItem, success, failure, dequeueErr := queueChannelClentLocal.DequeueQueueItem(testhelpers.NewContextWithLogger(), "test queue", query)
+			dequeueItem, success, failure, dequeueErr := queueChannelClentLocal.DequeueQueueItem(testhelpers.NewContextWithMiddlewareSetup(), "test queue", query)
 			g.Expect(dequeueItem).ToNot(BeNil())
 			g.Expect(dequeueItem.Item).To(Equal([]byte(`item to queue`)))
 			g.Expect(dequeueItem.ItemID).ToNot(Equal(""))
@@ -505,7 +504,7 @@ func Test_queueChannelsClientLocal_DequeueQueueItem(t *testing.T) {
 			}()
 
 			// enqueue an item that will dequeue
-			g.Expect(queueChannelClentLocal.EnqueueQueueItem(testhelpers.NewContextWithLogger(), "test queue", defaultEnqueueItem(g)))
+			g.Expect(queueChannelClentLocal.EnqueueQueueItem(testhelpers.NewContextWithMiddlewareSetup(), "test queue", defaultEnqueueItem(g)))
 
 			// enqueue an item that will not dequeue
 			enqueueItem := &v1willow.EnqueueQueueItem{
@@ -521,7 +520,7 @@ func Test_queueChannelsClientLocal_DequeueQueueItem(t *testing.T) {
 				TimeoutDuration: time.Second,
 			}
 			g.Expect(enqueueItem.Validate()).ToNot(HaveOccurred())
-			g.Expect(queueChannelClentLocal.EnqueueQueueItem(testhelpers.NewContextWithLogger(), "test queue", enqueueItem))
+			g.Expect(queueChannelClentLocal.EnqueueQueueItem(testhelpers.NewContextWithMiddlewareSetup(), "test queue", enqueueItem))
 
 			query := &queryassociatedaction.AssociatedActionQuery{
 				Selection: &queryassociatedaction.Selection{
@@ -537,7 +536,7 @@ func Test_queueChannelsClientLocal_DequeueQueueItem(t *testing.T) {
 			}
 			g.Expect(query.Validate()).ToNot(HaveOccurred())
 
-			dequeueItem, success, failure, dequeueErr := queueChannelClentLocal.DequeueQueueItem(testhelpers.NewContextWithLogger(), "test queue", query)
+			dequeueItem, success, failure, dequeueErr := queueChannelClentLocal.DequeueQueueItem(testhelpers.NewContextWithMiddlewareSetup(), "test queue", query)
 			g.Expect(dequeueItem).ToNot(BeNil())
 			g.Expect(dequeueItem.Item).To(Equal([]byte(`item to queue`)))
 			g.Expect(dequeueItem.ItemID).ToNot(Equal(""))
@@ -607,7 +606,7 @@ func Test_queueChannelsClientLocal_DequeueQueueItem(t *testing.T) {
 			queueChannelClentLocal := NewLocalQueueChannelsClient(constructor)
 
 			// enqueue our fake chan twice
-			g.Expect(queueChannelClentLocal.EnqueueQueueItem(testhelpers.NewContextWithLogger(), "test queue", &v1willow.EnqueueQueueItem{
+			g.Expect(queueChannelClentLocal.EnqueueQueueItem(testhelpers.NewContextWithMiddlewareSetup(), "test queue", &v1willow.EnqueueQueueItem{
 				Item:            []byte(`doesn't matter 1`),
 				KeyValues:       datatypes.KeyValues{"one": datatypes.Int(1)},
 				Updateable:      false,
@@ -616,7 +615,7 @@ func Test_queueChannelsClientLocal_DequeueQueueItem(t *testing.T) {
 				TimeoutDuration: time.Second,
 			})).ToNot(HaveOccurred())
 
-			g.Expect(queueChannelClentLocal.EnqueueQueueItem(testhelpers.NewContextWithLogger(), "test queue", &v1willow.EnqueueQueueItem{
+			g.Expect(queueChannelClentLocal.EnqueueQueueItem(testhelpers.NewContextWithMiddlewareSetup(), "test queue", &v1willow.EnqueueQueueItem{
 				Item:            []byte(`doesn't matter 2`),
 				KeyValues:       datatypes.KeyValues{"one": datatypes.Int(1), "two": datatypes.Float32(2.0)},
 				Updateable:      false,
@@ -654,7 +653,7 @@ func Test_queueChannelsClientLocal_DequeueQueueItem(t *testing.T) {
 			var dequeueErr *errors.ServerError
 			go func() {
 				defer close(done)
-				dequeueItem, success, failure, dequeueErr = queueChannelClentLocal.DequeueQueueItem(testhelpers.NewContextWithLogger(), "test queue", query)
+				dequeueItem, success, failure, dequeueErr = queueChannelClentLocal.DequeueQueueItem(testhelpers.NewContextWithMiddlewareSetup(), "test queue", query)
 			}()
 
 			g.Eventually(done).Should(BeClosed())
@@ -704,7 +703,7 @@ func Test_queueChannelsClientLocal_DequeueQueueItem(t *testing.T) {
 			queueChannelClentLocal := NewLocalQueueChannelsClient(constructor)
 
 			// enqueue our fake chan
-			g.Expect(queueChannelClentLocal.EnqueueQueueItem(testhelpers.NewContextWithLogger(), "test queue", &v1willow.EnqueueQueueItem{
+			g.Expect(queueChannelClentLocal.EnqueueQueueItem(testhelpers.NewContextWithMiddlewareSetup(), "test queue", &v1willow.EnqueueQueueItem{
 				Item:            []byte(`doesn't matter`),
 				KeyValues:       datatypes.KeyValues{"one": datatypes.Int(1)},
 				Updateable:      false,
@@ -742,7 +741,7 @@ func Test_queueChannelsClientLocal_DequeueQueueItem(t *testing.T) {
 			var dequeueErr *errors.ServerError
 			go func() {
 				defer close(done)
-				dequeueItem, success, failure, dequeueErr = queueChannelClentLocal.DequeueQueueItem(testhelpers.NewContextWithLogger(), "test queue", query)
+				dequeueItem, success, failure, dequeueErr = queueChannelClentLocal.DequeueQueueItem(testhelpers.NewContextWithMiddlewareSetup(), "test queue", query)
 			}()
 
 			g.Eventually(done).Should(BeClosed())
@@ -770,7 +769,7 @@ func Test_queueChannelsClientLocal_ACK(t *testing.T) {
 
 		// setup the limiter client to always pass
 		fakeLimiterClient := limiterclientfakes.NewMockLimiterClient(mockController)
-		fakeLimiterClient.EXPECT().UpdateCounter(gomock.Any(), gomock.Any()).DoAndReturn(func(_ *v1limiter.Counter, _ http.Header) error { return nil }).AnyTimes()
+		fakeLimiterClient.EXPECT().UpdateCounter(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ *v1limiter.Counter) error { return nil }).AnyTimes()
 
 		constructor, err := constructor.NewQueueChannelConstructor("memory", fakeLimiterClient)
 		g.Expect(err).ToNot(HaveOccurred())
@@ -793,7 +792,7 @@ func Test_queueChannelsClientLocal_ACK(t *testing.T) {
 
 		queueChannelClentLocal := NewLocalQueueChannelsClient(constructor)
 
-		err := queueChannelClentLocal.ACK(testhelpers.NewContextWithLogger(), "not found", ack)
+		err := queueChannelClentLocal.ACK(testhelpers.NewContextWithMiddlewareSetup(), "not found", ack)
 		g.Expect(err).To(HaveOccurred())
 		g.Expect(err.Error()).To(ContainSubstring("Failed to find channel by key values"))
 	})
@@ -819,7 +818,7 @@ func Test_queueChannelsClientLocal_ACK(t *testing.T) {
 			}
 			g.Expect(enqueuItem.Validate()).ToNot(HaveOccurred())
 
-			err := queueChannelClentLocal.EnqueueQueueItem(testhelpers.NewContextWithLogger(), "queue name", enqueuItem)
+			err := queueChannelClentLocal.EnqueueQueueItem(testhelpers.NewContextWithMiddlewareSetup(), "queue name", enqueuItem)
 			g.Expect(err).ToNot(HaveOccurred())
 		}
 
@@ -834,7 +833,7 @@ func Test_queueChannelsClientLocal_ACK(t *testing.T) {
 			var dequeueErr *errors.ServerError
 			go func() {
 				defer close(done)
-				dequeueItem, success, failure, dequeueErr = queueChannelClentLocal.DequeueQueueItem(testhelpers.NewContextWithLogger(), "queue name", query)
+				dequeueItem, success, failure, dequeueErr = queueChannelClentLocal.DequeueQueueItem(testhelpers.NewContextWithMiddlewareSetup(), "queue name", query)
 			}()
 
 			g.Eventually(done).Should(BeClosed())
@@ -874,7 +873,7 @@ func Test_queueChannelsClientLocal_ACK(t *testing.T) {
 			}
 			g.Expect(ack.Validate()).ToNot(HaveOccurred())
 
-			err := queueChannelClentLocal.ACK(testhelpers.NewContextWithLogger(), "queue name", ack)
+			err := queueChannelClentLocal.ACK(testhelpers.NewContextWithMiddlewareSetup(), "queue name", ack)
 			g.Expect(err).ToNot(HaveOccurred())
 
 			// ensure the channel is eventually deleted.
@@ -916,7 +915,7 @@ func Test_queueChannelsClientLocal_ACK(t *testing.T) {
 			}
 			g.Expect(ack.Validate()).ToNot(HaveOccurred())
 
-			err := queueChannelClentLocal.ACK(testhelpers.NewContextWithLogger(), "queue name", ack)
+			err := queueChannelClentLocal.ACK(testhelpers.NewContextWithMiddlewareSetup(), "queue name", ack)
 			g.Expect(err).ToNot(HaveOccurred())
 
 			// ensure the channel is not deleted
@@ -959,7 +958,7 @@ func Test_queueChannelsClientLocal_ACK(t *testing.T) {
 			}
 			g.Expect(ack.Validate()).ToNot(HaveOccurred())
 
-			err := queueChannelClentLocal.ACK(testhelpers.NewContextWithLogger(), "queue name", ack)
+			err := queueChannelClentLocal.ACK(testhelpers.NewContextWithMiddlewareSetup(), "queue name", ack)
 			g.Expect(err).ToNot(HaveOccurred())
 
 			// ensure the channel is not deleted
@@ -982,7 +981,7 @@ func Test_queueChannelsClientLocal_ACK(t *testing.T) {
 			}
 			g.Expect(ack.Validate()).ToNot(HaveOccurred())
 
-			err = queueChannelClentLocal.ACK(testhelpers.NewContextWithLogger(), "queue name", ack2)
+			err = queueChannelClentLocal.ACK(testhelpers.NewContextWithMiddlewareSetup(), "queue name", ack2)
 			g.Expect(err).ToNot(HaveOccurred())
 
 			// ensure the channel is eventually deleted
@@ -1009,8 +1008,8 @@ func Test_queueChannelsClientLocal_Heartbeat(t *testing.T) {
 
 		// setup the limiter client to always pass
 		fakeLimiterClient := limiterclientfakes.NewMockLimiterClient(mockController)
-		fakeLimiterClient.EXPECT().UpdateCounter(gomock.Any(), gomock.Any()).DoAndReturn(func(_ *v1limiter.Counter, _ http.Header) error { return nil }).AnyTimes()
-		fakeLimiterClient.EXPECT().SetCounters(gomock.Any(), gomock.Any()).DoAndReturn(func(_ *v1limiter.Counter, _ http.Header) error { return nil }).AnyTimes()
+		fakeLimiterClient.EXPECT().UpdateCounter(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ *v1limiter.Counter) error { return nil }).AnyTimes()
+		fakeLimiterClient.EXPECT().SetCounters(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ *v1limiter.Counter) error { return nil }).AnyTimes()
 
 		constructor, err := constructor.NewQueueChannelConstructor("memory", fakeLimiterClient)
 		g.Expect(err).ToNot(HaveOccurred())
@@ -1040,7 +1039,7 @@ func Test_queueChannelsClientLocal_Heartbeat(t *testing.T) {
 		}
 		g.Expect(enqueuItem.Validate()).ToNot(HaveOccurred())
 
-		err := queueChannelClentLocal.EnqueueQueueItem(testhelpers.NewContextWithLogger(), "queue name", enqueuItem)
+		err := queueChannelClentLocal.EnqueueQueueItem(testhelpers.NewContextWithMiddlewareSetup(), "queue name", enqueuItem)
 		g.Expect(err).ToNot(HaveOccurred())
 	}
 
@@ -1055,7 +1054,7 @@ func Test_queueChannelsClientLocal_Heartbeat(t *testing.T) {
 		var dequeueErr *errors.ServerError
 		go func() {
 			defer close(done)
-			dequeueItem, success, failure, dequeueErr = queueChannelClentLocal.DequeueQueueItem(testhelpers.NewContextWithLogger(), "queue name", query)
+			dequeueItem, success, failure, dequeueErr = queueChannelClentLocal.DequeueQueueItem(testhelpers.NewContextWithMiddlewareSetup(), "queue name", query)
 		}()
 
 		g.Eventually(done, 2*time.Second).Should(BeClosed())
@@ -1084,7 +1083,7 @@ func Test_queueChannelsClientLocal_Heartbeat(t *testing.T) {
 
 		queueChannelClentLocal := NewLocalQueueChannelsClient(constructor)
 
-		err := queueChannelClentLocal.Heartbeat(testhelpers.NewContextWithLogger(), "queue name", hearbeat)
+		err := queueChannelClentLocal.Heartbeat(testhelpers.NewContextWithMiddlewareSetup(), "queue name", hearbeat)
 		g.Expect(err).To(HaveOccurred())
 		g.Expect(err.Error()).To(ContainSubstring("Failed to find channel for item by key values"))
 	})
@@ -1114,7 +1113,7 @@ func Test_queueChannelsClientLocal_Heartbeat(t *testing.T) {
 		g.Expect(hearbeat.Validate()).ToNot(HaveOccurred())
 
 		for i := 0; i < 5; i++ {
-			err := queueChannelClentLocal.Heartbeat(testhelpers.NewContextWithLogger(), "queue name", hearbeat)
+			err := queueChannelClentLocal.Heartbeat(testhelpers.NewContextWithMiddlewareSetup(), "queue name", hearbeat)
 			g.Expect(err).ToNot(HaveOccurred())
 
 			time.Sleep(300 * time.Millisecond)
@@ -1128,7 +1127,7 @@ func Test_queueChannelsClientLocal_Heartbeat(t *testing.T) {
 		}
 		g.Expect(ack.Validate()).ToNot(HaveOccurred())
 
-		err := queueChannelClentLocal.ACK(testhelpers.NewContextWithLogger(), "queue name", ack)
+		err := queueChannelClentLocal.ACK(testhelpers.NewContextWithMiddlewareSetup(), "queue name", ack)
 		g.Expect(err).ToNot(HaveOccurred())
 	})
 
@@ -1138,7 +1137,7 @@ func Test_queueChannelsClientLocal_Heartbeat(t *testing.T) {
 			defer mockController.Finish()
 
 			// run the queue channel client async
-			executeCtx, executeCancel := context.WithCancel(context.Background())
+			executeCtx, executeCancel := context.WithCancel(testhelpers.NewContextWithMiddlewareSetup())
 			defer executeCancel()
 			go func() {
 				_ = queueChannelClentLocal.Execute(executeCtx)
@@ -1178,7 +1177,7 @@ func Test_queueChannelsClientLocal_DestroyChannelsForQueue(t *testing.T) {
 
 		queueChannelClentLocal := NewLocalQueueChannelsClient(constructor)
 
-		err := queueChannelClentLocal.DestroyChannelsForQueue(testhelpers.NewContextWithLogger(), "does not matter")
+		err := queueChannelClentLocal.DestroyChannelsForQueue(testhelpers.NewContextWithMiddlewareSetup(), "does not matter")
 		g.Expect(err).ToNot(HaveOccurred())
 	})
 
@@ -1202,7 +1201,7 @@ func Test_queueChannelsClientLocal_DestroyChannelsForQueue(t *testing.T) {
 			}
 			g.Expect(enqueuItem.Validate()).ToNot(HaveOccurred())
 
-			err := queueChannelClentLocal.EnqueueQueueItem(testhelpers.NewContextWithLogger(), "queue name", enqueuItem)
+			err := queueChannelClentLocal.EnqueueQueueItem(testhelpers.NewContextWithMiddlewareSetup(), "queue name", enqueuItem)
 			g.Expect(err).ToNot(HaveOccurred())
 		}
 
@@ -1218,9 +1217,9 @@ func Test_queueChannelsClientLocal_DestroyChannelsForQueue(t *testing.T) {
 			TimeoutDuration: time.Second,
 		}
 		g.Expect(enqueuItem.Validate()).ToNot(HaveOccurred())
-		g.Expect(queueChannelClentLocal.EnqueueQueueItem(testhelpers.NewContextWithLogger(), "queue name 2", enqueuItem)).ToNot(HaveOccurred())
+		g.Expect(queueChannelClentLocal.EnqueueQueueItem(testhelpers.NewContextWithMiddlewareSetup(), "queue name 2", enqueuItem)).ToNot(HaveOccurred())
 
-		err := queueChannelClentLocal.DestroyChannelsForQueue(testhelpers.NewContextWithLogger(), "queue name")
+		err := queueChannelClentLocal.DestroyChannelsForQueue(testhelpers.NewContextWithMiddlewareSetup(), "queue name")
 		g.Expect(err).ToNot(HaveOccurred())
 
 		// should only have 1 item left in the second queue's channels

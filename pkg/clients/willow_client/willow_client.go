@@ -21,23 +21,23 @@ type WillowServiceClient interface {
 
 	// Queue Operations
 	//// Create a new queue
-	CreateQueue(queue *v1willow.QueueCreate, headers http.Header) error
+	CreateQueue(ctx context.Context, queue *v1willow.QueueCreate) error
 	//// Get a spcific queue by name and query the possible channels
-	GetQueue(queueName string, query *queryassociatedaction.AssociatedActionQuery, headers http.Header) (*v1willow.Queue, error)
+	GetQueue(ctx context.Context, queueName string, query *queryassociatedaction.AssociatedActionQuery) (*v1willow.Queue, error)
 	//// List all possible queues without their channels
-	ListQueues(headers http.Header) (v1willow.Queues, error)
+	ListQueues(ctx context.Context) (v1willow.Queues, error)
 	//// Update a particualr queue
-	UpdateQueue(queueName string, update *v1willow.QueueUpdate, headers http.Header) error
+	UpdateQueue(ctx context.Context, queueName string, update *v1willow.QueueUpdate) error
 	//// Delete a particualr queue
-	DeleteQueue(queueName string, headers http.Header) error
+	DeleteQueue(ctx context.Context, queueName string) error
 
 	// channel operations
 	//// enqueue a new item to a particular queue's channels
-	EnqueueQueueItem(queueName string, item *v1willow.EnqueueQueueItem, headers http.Header) error
+	EnqueueQueueItem(ctx context.Context, queueName string, item *v1willow.EnqueueQueueItem) error
 	//// dequeue an item from a queue's channels that match the query
-	DequeueQueueItem(cancelContext context.Context, queueName string, query *queryassociatedaction.AssociatedActionQuery, headers http.Header) (*Item, error)
+	DequeueQueueItem(ctx context.Context, queueName string, query *queryassociatedaction.AssociatedActionQuery) (*Item, error)
 	//// delete a particu;ar channel and all enqueued items
-	DeleteQueueChannel(queueName string, channelKeyValues datatypes.KeyValues, headers http.Header) error
+	DeleteQueueChannel(ctx context.Context, queueName string, channelKeyValues datatypes.KeyValues) error
 }
 
 // LimiteClient to connect with remote limiter service
@@ -46,10 +46,7 @@ type WillowClient struct {
 	url string
 
 	// client setup with HTTP or HTTPS certs
-	client clients.HttpClient
-
-	// type to understand request/response formats
-	contentType string
+	client *http.Client
 }
 
 //	PARAMATERS
@@ -67,15 +64,14 @@ func NewWillowClient(cfg *clients.Config) (*WillowClient, error) {
 	}
 
 	return &WillowClient{
-		url:         cfg.URL,
-		client:      httpClient,
-		contentType: cfg.ContentEncoding,
+		url:    cfg.URL,
+		client: httpClient,
 	}, nil
 }
 
 func (wc *WillowClient) Healthy() error {
 	// setup and make the request
-	req, err := wc.client.SetupRequest("GET", fmt.Sprintf("%s/health", wc.url))
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s/health", wc.url), nil)
 	if err != nil {
 		return fmt.Errorf("failed to setup request to healthy api")
 	}

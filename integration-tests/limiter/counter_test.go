@@ -1,6 +1,7 @@
 package limter_integration_tests
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
@@ -31,7 +32,7 @@ func Test_Limiter_Counters_Update(t *testing.T) {
 			Limit: 5,
 		}
 
-		err := limiterClient.CreateRule(rule, nil)
+		err := limiterClient.CreateRule(context.Background(), rule)
 		g.Expect(err).ToNot(HaveOccurred())
 	}
 
@@ -62,7 +63,7 @@ func Test_Limiter_Counters_Update(t *testing.T) {
 					Counters: 1,
 				}
 
-				g.Expect(limiterClient.UpdateCounter(counter, nil)).ToNot(HaveOccurred(), fmt.Sprintf("failed on counter %d", i))
+				g.Expect(limiterClient.UpdateCounter(context.Background(), counter)).ToNot(HaveOccurred(), fmt.Sprintf("failed on counter %d", i))
 			}
 
 			// the 6th value should be an error
@@ -73,7 +74,7 @@ func Test_Limiter_Counters_Update(t *testing.T) {
 				},
 				Counters: 1,
 			}
-			err := limiterClient.UpdateCounter(counter, nil)
+			err := limiterClient.UpdateCounter(context.Background(), counter)
 			g.Expect(err).To(HaveOccurred())
 			g.Expect(err.Error()).To(ContainSubstring("Limit has already been reached for rule 'rule1'"))
 		})
@@ -100,7 +101,7 @@ func Test_Limiter_Counters_Update(t *testing.T) {
 				},
 				Counters: -1,
 			}
-			err := limiterClient.UpdateCounter(counter, nil)
+			err := limiterClient.UpdateCounter(context.Background(), counter)
 			g.Expect(err).ToNot(HaveOccurred())
 		})
 
@@ -130,7 +131,7 @@ func Test_Limiter_Counters_Update(t *testing.T) {
 					Counters: 1,
 				}
 
-				g.Expect(limiterClient.UpdateCounter(counter, nil)).ToNot(HaveOccurred(), fmt.Sprintf("failed on counter %d", i))
+				g.Expect(limiterClient.UpdateCounter(context.Background(), counter)).ToNot(HaveOccurred(), fmt.Sprintf("failed on counter %d", i))
 			}
 
 			// the try incrementing a vlue that already exists
@@ -141,7 +142,7 @@ func Test_Limiter_Counters_Update(t *testing.T) {
 				},
 				Counters: 1,
 			}
-			err := limiterClient.UpdateCounter(incrementCounter, nil)
+			err := limiterClient.UpdateCounter(context.Background(), incrementCounter)
 			g.Expect(err).To(HaveOccurred())
 			g.Expect(err.Error()).To(ContainSubstring("Limit has already been reached for rule 'rule1'"))
 
@@ -153,11 +154,11 @@ func Test_Limiter_Counters_Update(t *testing.T) {
 				},
 				Counters: -1,
 			}
-			err = limiterClient.UpdateCounter(decrementCounter, nil)
+			err = limiterClient.UpdateCounter(context.Background(), decrementCounter)
 			g.Expect(err).ToNot(HaveOccurred())
 
 			// increment should now pass again
-			err = limiterClient.UpdateCounter(incrementCounter, nil)
+			err = limiterClient.UpdateCounter(context.Background(), incrementCounter)
 			g.Expect(err).ToNot(HaveOccurred())
 		})
 	})
@@ -190,7 +191,7 @@ func Test_Limiter_Counters_Query(t *testing.T) {
 			KeyValues: kv1,
 			Counters:  1,
 		}
-		g.Expect(limiterClient.UpdateCounter(counter1, nil)).ToNot(HaveOccurred())
+		g.Expect(limiterClient.UpdateCounter(context.Background(), counter1)).ToNot(HaveOccurred())
 
 		kv2 := datatypes.KeyValues{
 			"key0": datatypes.String("0"),
@@ -201,8 +202,8 @@ func Test_Limiter_Counters_Query(t *testing.T) {
 			KeyValues: kv2,
 			Counters:  1,
 		}
-		g.Expect(limiterClient.UpdateCounter(counter2, nil)).ToNot(HaveOccurred())
-		g.Expect(limiterClient.UpdateCounter(counter2, nil)).ToNot(HaveOccurred())
+		g.Expect(limiterClient.UpdateCounter(context.Background(), counter2)).ToNot(HaveOccurred())
+		g.Expect(limiterClient.UpdateCounter(context.Background(), counter2)).ToNot(HaveOccurred())
 
 		counter3 := &v1.Counter{
 			KeyValues: datatypes.KeyValues{
@@ -210,7 +211,7 @@ func Test_Limiter_Counters_Query(t *testing.T) {
 			},
 			Counters: 1,
 		}
-		g.Expect(limiterClient.UpdateCounter(counter3, nil)).ToNot(HaveOccurred())
+		g.Expect(limiterClient.UpdateCounter(context.Background(), counter3)).ToNot(HaveOccurred())
 
 		counter4 := &v1.Counter{
 			KeyValues: datatypes.KeyValues{
@@ -218,7 +219,7 @@ func Test_Limiter_Counters_Query(t *testing.T) {
 			},
 			Counters: 1,
 		}
-		g.Expect(limiterClient.UpdateCounter(counter4, nil)).ToNot(HaveOccurred())
+		g.Expect(limiterClient.UpdateCounter(context.Background(), counter4)).ToNot(HaveOccurred())
 
 		// query the counters
 		query := &queryassociatedaction.AssociatedActionQuery{
@@ -242,7 +243,7 @@ func Test_Limiter_Counters_Query(t *testing.T) {
 			Counters:  2,
 		}
 
-		counters, err := limiterClient.QueryCounters(query, nil)
+		counters, err := limiterClient.QueryCounters(context.Background(), query)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(len(counters)).To(Equal(2))
 		g.Expect(counters).To(ContainElements(counterResp1, countersResp2))
@@ -275,7 +276,7 @@ func Test_Limiter_Counters_Set(t *testing.T) {
 			},
 			Limit: 5,
 		}
-		g.Expect(limiterClient.CreateRule(rule, nil)).ToNot(HaveOccurred())
+		g.Expect(limiterClient.CreateRule(context.Background(), rule)).ToNot(HaveOccurred())
 
 		// set a counter for the rule thats above the count
 		kv1 := datatypes.KeyValues{
@@ -287,7 +288,7 @@ func Test_Limiter_Counters_Set(t *testing.T) {
 			KeyValues: kv1,
 			Counters:  32,
 		}
-		g.Expect(limiterClient.SetCounters(counter1, nil)).ToNot(HaveOccurred())
+		g.Expect(limiterClient.SetCounters(context.Background(), counter1)).ToNot(HaveOccurred())
 
 		// query the counters
 		countersResp1 := &v1.Counter{
@@ -295,7 +296,7 @@ func Test_Limiter_Counters_Set(t *testing.T) {
 			Counters:  32,
 		}
 
-		counters, err := limiterClient.QueryCounters(&queryassociatedaction.AssociatedActionQuery{}, nil)
+		counters, err := limiterClient.QueryCounters(context.Background(), &queryassociatedaction.AssociatedActionQuery{})
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(len(counters)).To(Equal(1))
 		g.Expect(counters).To(ContainElements(countersResp1))
@@ -322,7 +323,7 @@ func Test_Limiter_Counters_Set(t *testing.T) {
 			},
 			Limit: 5,
 		}
-		g.Expect(limiterClient.CreateRule(rule, nil)).ToNot(HaveOccurred())
+		g.Expect(limiterClient.CreateRule(context.Background(), rule)).ToNot(HaveOccurred())
 
 		// set a counter for the rule thats above the count
 		kv1 := datatypes.KeyValues{
@@ -334,18 +335,18 @@ func Test_Limiter_Counters_Set(t *testing.T) {
 			KeyValues: kv1,
 			Counters:  32,
 		}
-		g.Expect(limiterClient.SetCounters(counter1, nil)).ToNot(HaveOccurred())
+		g.Expect(limiterClient.SetCounters(context.Background(), counter1)).ToNot(HaveOccurred())
 
 		// reset the counters to 0 to remove the item
 		counter3 := &v1.Counter{
 			KeyValues: kv1,
 			Counters:  0,
 		}
-		g.Expect(limiterClient.SetCounters(counter3, nil)).ToNot(HaveOccurred())
+		g.Expect(limiterClient.SetCounters(context.Background(), counter3)).ToNot(HaveOccurred())
 
 		// query the counters to ensure it is removed
 		query := &queryassociatedaction.AssociatedActionQuery{}
-		counters, err := limiterClient.QueryCounters(query, nil)
+		counters, err := limiterClient.QueryCounters(context.Background(), query)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(len(counters)).To(Equal(0))
 	})

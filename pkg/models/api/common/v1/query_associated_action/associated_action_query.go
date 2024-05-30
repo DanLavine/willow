@@ -26,7 +26,7 @@ type AssociatedActionQuery struct {
 //	- error - error describing any possible issues with the query and the steps to rectify them
 //
 // Validate ensures the CreateLockRequest has all required fields set
-func (query *AssociatedActionQuery) Validate() error {
+func (query *AssociatedActionQuery) Validate() *errors.ModelError {
 	if query == nil {
 		// this is the select all case
 		return nil
@@ -46,7 +46,7 @@ func (query *AssociatedActionQuery) Validate() error {
 		}
 
 		if err := or.Validate(); err != nil {
-			return &errors.ModelError{Field: fmt.Sprintf("Or[%d]", index), Child: err.(*errors.ModelError)}
+			return &errors.ModelError{Field: fmt.Sprintf("Or[%d]", index), Child: err}
 		}
 	}
 
@@ -57,7 +57,7 @@ func (query *AssociatedActionQuery) Validate() error {
 		}
 
 		if err := and.Validate(); err != nil {
-			return &errors.ModelError{Field: fmt.Sprintf("And[%d]", index), Child: err.(*errors.ModelError)}
+			return &errors.ModelError{Field: fmt.Sprintf("And[%d]", index), Child: err}
 		}
 	}
 

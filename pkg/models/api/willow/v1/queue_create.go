@@ -2,6 +2,8 @@ package v1
 
 import (
 	"fmt"
+
+	"github.com/DanLavine/willow/pkg/models/api/common/errors"
 )
 
 type QueueCreate struct {
@@ -17,9 +19,9 @@ type QueueCreate struct {
 //	- error - any errors encountered with the response object
 //
 // Validate is used to ensure that Create has all required fields set
-func (qc QueueCreate) Validate() error {
+func (qc QueueCreate) Validate() *errors.ModelError {
 	if qc.Name == "" {
-		return fmt.Errorf("'Name' is the empty string")
+		return &errors.ModelError{Field: "Name", Err: fmt.Errorf("is an empty string")}
 	}
 
 	return nil

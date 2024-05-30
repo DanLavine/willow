@@ -6,7 +6,7 @@ toolchain go1.22.0
 
 require (
 	github.com/DanLavine/channelops v0.0.0-20240204212043-e2fa5ce72e5b
-	github.com/DanLavine/contextops v0.0.0-20240221000531-f2cba84cdedc
+	github.com/DanLavine/contextops v0.0.0-20240603052238-7f8bb8a0487d
 	github.com/DanLavine/goasync v1.0.2
 	github.com/DanLavine/gonotify v0.0.0-20221228000906-77ad21d2336e
 	github.com/DanLavine/urlrouter v0.0.0-20231102214216-aa9c83986dc4

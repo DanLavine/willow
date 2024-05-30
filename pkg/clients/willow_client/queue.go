@@ -1,6 +1,8 @@
 package willowclient
 
 import (
+	"bytes"
+	"context"
 	"fmt"
 	"net/http"
 
@@ -20,14 +22,19 @@ import (
 //	- error - error creating the queue
 //
 // CreateQueue creates a new Queue. This will return an error if the queue name already exists
-func (wc *WillowClient) CreateQueue(queue *v1willow.QueueCreate, headers http.Header) error {
-	// setup and make the request
-	req, err := wc.client.EncodedRequest("POST", fmt.Sprintf("%s/v1/queues", wc.url), queue)
+func (wc *WillowClient) CreateQueue(ctx context.Context, queue *v1willow.QueueCreate) error {
+	// encode the request
+	data, err := api.ModelEncodeRequest(queue)
 	if err != nil {
 		return err
 	}
 
-	clients.AppendHeaders(req, headers)
+	// setup and make the request
+	req, err := http.NewRequest("POST", fmt.Sprintf("%s/v1/queues", wc.url), bytes.NewBuffer(data))
+	if err != nil {
+		return err
+	}
+	clients.AddHeadersFromContext(req, ctx)
 
 	resp, err := wc.client.Do(req)
 	if err != nil {
@@ -40,7 +47,7 @@ func (wc *WillowClient) CreateQueue(queue *v1willow.QueueCreate, headers http.He
 		return nil
 	case http.StatusBadRequest, http.StatusConflict, http.StatusInternalServerError:
 		apiError := &errors.Error{}
-		if err := api.DecodeAndValidateHttpResponse(resp, apiError); err != nil {
+		if err := api.ModelDecodeResponse(resp, apiError); err != nil {
 			return err
 		}
 
@@ -57,14 +64,13 @@ func (wc *WillowClient) CreateQueue(queue *v1willow.QueueCreate, headers http.He
 //	- error - error creating the queue
 //
 // List all the queues without any of the details about the queue's channels
-func (wc *WillowClient) ListQueues(headers http.Header) (v1willow.Queues, error) {
+func (wc *WillowClient) ListQueues(ctx context.Context) (v1willow.Queues, error) {
 	// setup and make the request
-	req, err := wc.client.SetupRequest("GET", fmt.Sprintf("%s/v1/queues", wc.url))
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s/v1/queues", wc.url), nil)
 	if err != nil {
 		return nil, err
 	}
-
-	clients.AppendHeaders(req, headers)
+	clients.AddHeadersFromContext(req, ctx)
 
 	resp, err := wc.client.Do(req)
 	if err != nil {
@@ -75,14 +81,14 @@ func (wc *WillowClient) ListQueues(headers http.Header) (v1willow.Queues, error)
 	switch resp.StatusCode {
 	case http.StatusOK:
 		queues := v1willow.Queues{}
-		if err := api.DecodeAndValidateHttpResponse(resp, &queues); err != nil {
+		if err := api.ModelDecodeResponse(resp, &queues); err != nil {
 			return nil, err
 		}
 
 		return queues, nil
 	case http.StatusInternalServerError:
 		apiError := &errors.Error{}
-		if err := api.DecodeAndValidateHttpResponse(resp, apiError); err != nil {
+		if err := api.ModelDecodeResponse(resp, apiError); err != nil {
 			return nil, err
 		}
 
@@ -101,14 +107,19 @@ func (wc *WillowClient) ListQueues(headers http.Header) (v1willow.Queues, error)
 //	- error - error creating the queue
 //
 // GetQueue retrieves a queue and any channels that match the provided query
-func (wc *WillowClient) GetQueue(queueName string, channelsQuery *queryassociatedaction.AssociatedActionQuery, headers http.Header) (*v1willow.Queue, error) {
-	// setup and make the request
-	req, err := wc.client.EncodedRequest("GET", fmt.Sprintf("%s/v1/queues/%s", wc.url, queueName), channelsQuery)
+func (wc *WillowClient) GetQueue(ctx context.Context, queueName string, channelsQuery *queryassociatedaction.AssociatedActionQuery) (*v1willow.Queue, error) {
+	// encode the request
+	data, err := api.ModelEncodeRequest(channelsQuery)
 	if err != nil {
 		return nil, err
 	}
 
-	clients.AppendHeaders(req, headers)
+	// setup and make the request
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s/v1/queues/%s", wc.url, queueName), bytes.NewBuffer(data))
+	if err != nil {
+		return nil, err
+	}
+	clients.AddHeadersFromContext(req, ctx)
 
 	resp, err := wc.client.Do(req)
 	if err != nil {
@@ -120,14 +131,14 @@ func (wc *WillowClient) GetQueue(queueName string, channelsQuery *queryassociate
 	case http.StatusOK:
 		queue := &v1willow.Queue{}
 
-		if err := api.DecodeAndValidateHttpResponse(resp, queue); err != nil {
+		if err := api.ModelDecodeResponse(resp, queue); err != nil {
 			return nil, err
 		}
 
 		return queue, nil
 	case http.StatusBadRequest, http.StatusNotFound, http.StatusConflict, http.StatusInternalServerError:
 		apiError := &errors.Error{}
-		if err := api.DecodeAndValidateHttpResponse(resp, apiError); err != nil {
+		if err := api.ModelDecodeResponse(resp, apiError); err != nil {
 			return nil, err
 		}
 
@@ -146,14 +157,19 @@ func (wc *WillowClient) GetQueue(queueName string, channelsQuery *queryassociate
 //	- error - error creating the queue
 //
 // UpdateQueue is used to upadte the queue's specific properties
-func (wc *WillowClient) UpdateQueue(queueName string, queueUpdate *v1willow.QueueUpdate, headers http.Header) error {
-	// setup and make the request
-	req, err := wc.client.EncodedRequest("PUT", fmt.Sprintf("%s/v1/queues/%s", wc.url, queueName), queueUpdate)
+func (wc *WillowClient) UpdateQueue(ctx context.Context, queueName string, queueUpdate *v1willow.QueueUpdate) error {
+	// encode the request
+	data, err := api.ModelEncodeRequest(queueUpdate)
 	if err != nil {
 		return err
 	}
 
-	clients.AppendHeaders(req, headers)
+	// setup and make the request
+	req, err := http.NewRequest("PUT", fmt.Sprintf("%s/v1/queues/%s", wc.url, queueName), bytes.NewBuffer(data))
+	if err != nil {
+		return err
+	}
+	clients.AddHeadersFromContext(req, ctx)
 
 	resp, err := wc.client.Do(req)
 	if err != nil {
@@ -166,7 +182,7 @@ func (wc *WillowClient) UpdateQueue(queueName string, queueUpdate *v1willow.Queu
 		return nil
 	case http.StatusBadRequest, http.StatusNotFound, http.StatusConflict, http.StatusInternalServerError:
 		apiError := &errors.Error{}
-		if err := api.DecodeAndValidateHttpResponse(resp, apiError); err != nil {
+		if err := api.ModelDecodeResponse(resp, apiError); err != nil {
 			return err
 		}
 
@@ -184,14 +200,13 @@ func (wc *WillowClient) UpdateQueue(queueName string, queueUpdate *v1willow.Queu
 //	- error - error creating the queue
 //
 // Delete a queue and any channels associated with the Queue
-func (wc *WillowClient) DeleteQueue(queueName string, headers http.Header) error {
+func (wc *WillowClient) DeleteQueue(ctx context.Context, queueName string) error {
 	// setup and make the request
-	req, err := wc.client.SetupRequest("DELETE", fmt.Sprintf("%s/v1/queues/%s", wc.url, queueName))
+	req, err := http.NewRequest("DELETE", fmt.Sprintf("%s/v1/queues/%s", wc.url, queueName), nil)
 	if err != nil {
 		return err
 	}
-
-	clients.AppendHeaders(req, headers)
+	clients.AddHeadersFromContext(req, ctx)
 
 	resp, err := wc.client.Do(req)
 	if err != nil {
@@ -204,7 +219,7 @@ func (wc *WillowClient) DeleteQueue(queueName string, headers http.Header) error
 		return nil
 	case http.StatusNotFound, http.StatusConflict, http.StatusInternalServerError:
 		apiError := &errors.Error{}
-		if err := api.DecodeAndValidateHttpResponse(resp, apiError); err != nil {
+		if err := api.ModelDecodeResponse(resp, apiError); err != nil {
 			return err
 		}
 

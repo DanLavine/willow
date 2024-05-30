@@ -7,10 +7,12 @@ import (
 	"time"
 
 	"github.com/DanLavine/channelops"
+	"github.com/DanLavine/willow/internal/helpers"
 	"github.com/DanLavine/willow/internal/limiter/rules"
-	"github.com/DanLavine/willow/internal/reporting"
+	"github.com/DanLavine/willow/internal/middleware"
 	lockerclient "github.com/DanLavine/willow/pkg/clients/locker_client"
 	"github.com/DanLavine/willow/pkg/models/api/common/errors"
+	dbdefinition "github.com/DanLavine/willow/pkg/models/api/common/v1/db_definition"
 	queryassociatedaction "github.com/DanLavine/willow/pkg/models/api/common/v1/query_associated_action"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 	"go.uber.org/zap"
@@ -42,7 +44,7 @@ func NewCountersClientLocal(constructor CounterConstructor, rulesClient rules.Ru
 
 // List a all counters that match the query
 func (cm *counterClientLocal) QueryCounters(ctx context.Context, query *queryassociatedaction.AssociatedActionQuery) (v1limiter.Counters, *errors.ServerError) {
-	logger := reporting.GetLogger(ctx).Named("QueryCounters")
+	_, logger := middleware.GetNamedMiddlewareLogger(ctx, "QueryCounters")
 
 	countersResponse := v1limiter.Counters{}
 	bTreeAssociatedOnIterate := func(item btreeassociated.AssociatedKeyValues) bool {
@@ -66,8 +68,7 @@ func (cm *counterClientLocal) QueryCounters(ctx context.Context, query *queryass
 }
 
 func (cm *counterClientLocal) IncrementCounters(ctx context.Context, requestContext context.Context, lockerClient lockerclient.LockerClient, counter *v1limiter.Counter) *errors.ServerError {
-	logger := reporting.GetLogger(ctx).Named("IncrementCounters")
-	ctx = reporting.UpdateLogger(ctx, logger)
+	ctx, logger := middleware.GetNamedMiddlewareLogger(ctx, "IncrementCounters")
 
 	// 1. Find the Rules /w Overrides limts that match the counter's key values
 	rules, limitErrors := cm.rulesClient.FindLimits(ctx, counter.KeyValues)
@@ -113,15 +114,12 @@ func (cm *counterClientLocal) IncrementCounters(ctx context.Context, requestCont
 		}
 
 		if !unlimited {
-			// forward the headers for the logger
-			headers := reporting.GetTraceHeaders(ctx)
-
 			// 5. grab a lock for each key value to ensure that we are the only operation enforcing the rules for such values
 			lockerLocks := []lockerclient.Lock{}
 			defer func() {
 				// release all locks when the function exits
 				for _, lock := range lockerLocks {
-					if err := lock.Release(headers); err != nil {
+					if err := lock.Release(ctx); err != nil {
 						logger.Error("Failed to release lock", zap.Error(err))
 					}
 				}
@@ -130,13 +128,17 @@ func (cm *counterClientLocal) IncrementCounters(ctx context.Context, requestCont
 			channelOps, chanReceiver := channelops.NewMergeRead[struct{}](true, requestContext)
 			for _, key := range counter.KeyValues.SortedKeys() {
 				// setup the group to lock
-				lockKeyValues := &v1locker.LockCreateRequest{
-					KeyValues:   datatypes.KeyValues{key: counter.KeyValues[key]},
-					LockTimeout: time.Second,
+				lockKeyValues := &v1locker.Lock{
+					Spec: &v1locker.LockSpec{
+						DBDeifinition: &dbdefinition.TypedKeyValues{
+							key: counter.KeyValues[key],
+						},
+						Timeout: helpers.PointerOf(time.Second),
+					},
 				}
 
 				// obtain the required lock
-				lockerLock, err := lockerClient.ObtainLock(requestContext, lockKeyValues, headers, func(keyValue datatypes.KeyValues, err error) {
+				lockerLock, err := lockerClient.ObtainLock(requestContext, lockKeyValues, func(keyValue datatypes.KeyValues, err error) {
 					logger.Error(err.Error())
 				})
 
@@ -232,7 +234,7 @@ func (cm *counterClientLocal) IncrementCounters(ctx context.Context, requestCont
 }
 
 func (cm *counterClientLocal) checkCounters(ctx context.Context, ruleName string, ruleKeys []string, counteKeyValyes datatypes.KeyValues, limit int64) *errors.ServerError {
-	logger := reporting.GetLogger(ctx).Named("checkCounters")
+	_, logger := middleware.GetNamedMiddlewareLogger(ctx, "checkCounters")
 
 	// construct the query for all possible rules that need to be found
 	query := &queryassociatedaction.AssociatedActionQuery{
@@ -278,7 +280,7 @@ func (cm *counterClientLocal) checkCounters(ctx context.Context, ruleName string
 // Decrement is muuch easier than increment because we don't need to ensure any rules validation. So no locks are required
 // and we can just decrement the key values directly
 func (cm *counterClientLocal) DecrementCounters(ctx context.Context, counter *v1limiter.Counter) *errors.ServerError {
-	logger := reporting.GetLogger(ctx).Named("DecrementCounters")
+	_, logger := middleware.GetNamedMiddlewareLogger(ctx, "DecrementCounters")
 
 	bTreeAssociatedCanDelete := func(item btreeassociated.AssociatedKeyValues) bool {
 		return item.Value().(Counter).Update(counter.Counters) <= 0
@@ -293,7 +295,7 @@ func (cm *counterClientLocal) DecrementCounters(ctx context.Context, counter *v1
 }
 
 func (cm *counterClientLocal) SetCounter(ctx context.Context, counter *v1limiter.Counter) *errors.ServerError {
-	logger := reporting.GetLogger(ctx).Named("SetCounters")
+	_, logger := middleware.GetNamedMiddlewareLogger(ctx, "SetCounter")
 
 	if counter.Counters <= 0 {
 		// need to remove the key values

@@ -7,7 +7,7 @@ import (
 
 	btreeassociated "github.com/DanLavine/willow/internal/datastructures/btree_associated"
 	"github.com/DanLavine/willow/internal/limiter/overrides"
-	"github.com/DanLavine/willow/internal/reporting"
+	"github.com/DanLavine/willow/internal/middleware"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 	"go.uber.org/zap"
 
@@ -49,7 +49,7 @@ func NewLocalRulesClient(ruleConstructor RuleConstructor, overridesClient overri
 //
 // Create new Rule
 func (rm *localRulesCient) CreateRule(ctx context.Context, rule *v1limiter.Rule) *errors.ServerError {
-	logger := reporting.GetLogger(ctx).Named("CreateRule")
+	_, logger := middleware.GetNamedMiddlewareLogger(ctx, "CreateRule")
 
 	onCreate := func() any {
 		return rm.ruleConstructor.New(rule)
@@ -78,8 +78,7 @@ func (rm *localRulesCient) CreateRule(ctx context.Context, rule *v1limiter.Rule)
 
 // list all group rules that the query matches
 func (rm *localRulesCient) QueryRules(ctx context.Context, ruleQuery *queryassociatedaction.AssociatedActionQuery) (v1limiter.Rules, *errors.ServerError) {
-	logger := reporting.GetLogger(ctx).Named("MatchRules")
-
+	_, logger := middleware.GetNamedMiddlewareLogger(ctx, "QueryRules")
 	foundRules := v1limiter.Rules{}
 
 	bTreeAssociatedOnIterate := func(associatedKeyValues btreeassociated.AssociatedKeyValues) bool {
@@ -104,8 +103,7 @@ func (rm *localRulesCient) QueryRules(ctx context.Context, ruleQuery *queryassoc
 
 // list all group rules that match the provided key values
 func (rm *localRulesCient) MatchRules(ctx context.Context, ruleMatch *querymatchaction.MatchActionQuery) (v1limiter.Rules, *errors.ServerError) {
-	logger := reporting.GetLogger(ctx).Named("MatchRules")
-
+	_, logger := middleware.GetNamedMiddlewareLogger(ctx, "MatchRules")
 	foundRules := v1limiter.Rules{}
 
 	bTreeAssociatedOnIterate := func(associatedKeyValues btreeassociated.AssociatedKeyValues) bool {
@@ -137,7 +135,7 @@ func (rm *localRulesCient) MatchRules(ctx context.Context, ruleMatch *querymatch
 //
 // Get a Rule by name
 func (rm *localRulesCient) GetRule(ctx context.Context, ruleName string) (*v1limiter.Rule, *errors.ServerError) {
-	logger := reporting.GetLogger(ctx).Named("GetRule").With(zap.String("rule_name", ruleName))
+	_, logger := middleware.GetNamedMiddlewareLogger(ctx, "GetRule")
 
 	var apiRule *v1limiter.Rule
 	errorMissingRuleName := errorMissingRuleName(ruleName)
@@ -177,7 +175,7 @@ func (rm *localRulesCient) GetRule(ctx context.Context, ruleName string) (*v1lim
 //
 // Create new Rule
 func (rm *localRulesCient) UpdateRule(ctx context.Context, ruleName string, update *v1limiter.RuleUpdateRquest) *errors.ServerError {
-	logger := reporting.GetLogger(ctx).Named("UpdateRule").With(zap.String("rule_name", ruleName))
+	_, logger := middleware.GetNamedMiddlewareLogger(ctx, "UpdateRule")
 
 	updateErr := errorMissingRuleName(ruleName)
 	bTreeAssociatedOnIterate := func(item btreeassociated.AssociatedKeyValues) bool {
@@ -207,8 +205,7 @@ func (rm *localRulesCient) UpdateRule(ctx context.Context, ruleName string, upda
 
 // Delete a rule by name
 func (rm *localRulesCient) DeleteRule(ctx context.Context, ruleName string) *errors.ServerError {
-	logger := reporting.GetLogger(ctx).Named("DeleteRule").With(zap.String("rule_name", ruleName))
-	ctx = reporting.UpdateLogger(ctx, logger)
+	ctx, logger := middleware.GetNamedMiddlewareLogger(ctx, "DeleteRule")
 
 	ruleErr := errorMissingRuleName(ruleName)
 	bTreeAssociatedOnCanDelete := func(item btreeassociated.AssociatedKeyValues) bool {
@@ -247,8 +244,7 @@ func (rm *localRulesCient) DeleteRule(ctx context.Context, ruleName string) *err
 
 // Create an override for a rule by name
 func (rm *localRulesCient) CreateOverride(ctx context.Context, ruleName string, override *v1limiter.Override) *errors.ServerError {
-	logger := reporting.GetLogger(ctx).Named("CreateOverride").With(zap.String("rule_name", ruleName))
-	ctx = reporting.UpdateLogger(ctx, logger)
+	ctx, logger := middleware.GetNamedMiddlewareLogger(ctx, "CreateOverride")
 
 	overrideErr := errorMissingRuleName(ruleName)
 	bTreeAssociatedOnFind := func(item btreeassociated.AssociatedKeyValues) bool {
@@ -286,8 +282,7 @@ func (rm *localRulesCient) CreateOverride(ctx context.Context, ruleName string, 
 
 // query all overrides for a given Rule
 func (rm *localRulesCient) QueryOverrides(ctx context.Context, ruleName string, overrideQuery *queryassociatedaction.AssociatedActionQuery) (v1limiter.Overrides, *errors.ServerError) {
-	logger := reporting.GetLogger(ctx).Named("ListOverrides").With(zap.String("rule_name", ruleName))
-	ctx = reporting.UpdateLogger(ctx, logger)
+	ctx, logger := middleware.GetNamedMiddlewareLogger(ctx, "QueryOverrides")
 
 	var overrides v1limiter.Overrides
 	overridesErr := errorMissingRuleName(ruleName)
@@ -318,8 +313,7 @@ func (rm *localRulesCient) QueryOverrides(ctx context.Context, ruleName string, 
 
 // match all overrides for a given Rule
 func (rm *localRulesCient) MatchOverrides(ctx context.Context, ruleName string, overrideMatch *querymatchaction.MatchActionQuery) (v1limiter.Overrides, *errors.ServerError) {
-	logger := reporting.GetLogger(ctx).Named("ListOverrides").With(zap.String("rule_name", ruleName))
-	ctx = reporting.UpdateLogger(ctx, logger)
+	ctx, logger := middleware.GetNamedMiddlewareLogger(ctx, "MAtchOverrides")
 
 	var overrides v1limiter.Overrides
 	overridesErr := errorMissingRuleName(ruleName)
@@ -350,8 +344,7 @@ func (rm *localRulesCient) MatchOverrides(ctx context.Context, ruleName string, 
 
 // get a single override by name
 func (rm *localRulesCient) GetOverride(ctx context.Context, ruleName string, overrideName string) (*v1limiter.Override, *errors.ServerError) {
-	logger := reporting.GetLogger(ctx).Named("GetOverride").With(zap.String("rule_name", ruleName))
-	ctx = reporting.UpdateLogger(ctx, logger)
+	ctx, logger := middleware.GetNamedMiddlewareLogger(ctx, "GetOverride")
 
 	var override *v1limiter.Override
 	overrideErr := errorMissingRuleName(ruleName)
@@ -385,8 +378,7 @@ func (rm *localRulesCient) GetOverride(ctx context.Context, ruleName string, ove
 
 // Update an override by its name
 func (rm *localRulesCient) UpdateOverride(ctx context.Context, ruleName string, overrideName string, override *v1limiter.OverrideUpdate) *errors.ServerError {
-	logger := reporting.GetLogger(ctx).Named("UpdateOverried").With(zap.String("rule_name", ruleName))
-	ctx = reporting.UpdateLogger(ctx, logger)
+	ctx, logger := middleware.GetNamedMiddlewareLogger(ctx, "UpdateOverride")
 
 	overrideErr := errorMissingRuleName(ruleName)
 	bTreeAssociatedOnFind := func(item btreeassociated.AssociatedKeyValues) bool {
@@ -418,8 +410,7 @@ func (rm *localRulesCient) UpdateOverride(ctx context.Context, ruleName string, 
 
 // Delete an override
 func (rm *localRulesCient) DeleteOverride(ctx context.Context, ruleName string, overrideName string) *errors.ServerError {
-	logger := reporting.GetLogger(ctx).Named("DeleteOverride").With(zap.String("rule_name", ruleName))
-	ctx = reporting.UpdateLogger(ctx, logger)
+	ctx, logger := middleware.GetNamedMiddlewareLogger(ctx, "DeleteOverride")
 
 	overrideErr := errorMissingRuleName(ruleName)
 	bTreeAssociatedOnFind := func(item btreeassociated.AssociatedKeyValues) bool {
@@ -447,8 +438,7 @@ func (rm *localRulesCient) DeleteOverride(ctx context.Context, ruleName string, 
 
 // Find the limits for each rule and the overrides for a give key values
 func (rm localRulesCient) FindLimits(ctx context.Context, keyValues datatypes.KeyValues) (v1limiter.Rules, *errors.ServerError) {
-	logger := reporting.GetLogger(ctx).Named("FindLimits")
-	ctx = reporting.UpdateLogger(ctx, logger)
+	ctx, logger := middleware.GetNamedMiddlewareLogger(ctx, "FindLimits")
 
 	rules := v1limiter.Rules{}
 	var limitErr *errors.ServerError

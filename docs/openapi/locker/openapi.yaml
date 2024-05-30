@@ -32,14 +32,14 @@ paths:
         content:
           appplication/json:
             schema:
-              $ref: "#/components/schemas/CreateLockRequest"
+              $ref: "#/components/schemas/Lock"
       responses:
         200:
           description: created or obtained the lock
           content:
             appplication/json:
               schema:
-                $ref: "#/components/schemas/CreateLockResponse"
+                $ref: "#/components/schemas/Lock"
         400:
           description: returned when an error processing for the request body fails
           content:
@@ -58,7 +58,7 @@ paths:
         503:
           description: server is shutting down for a restart and client should retry obtaining the lock
     get:
-      operationId: list Locks
+      operationId: query Locks
       description: |
         List all the locks currently in use by this service that match the query
       requestBody:
@@ -66,14 +66,14 @@ paths:
         content:
           appplication/json:
             schema:
-              $ref: "../common/components.yaml#/components/schemas/AssociatedKeyValuesQuery"
+              $ref: "../common/components.yaml#/components/schemas/AssociatedQuery"
       responses:
         200:
           description: OK
           content:
             appplication/json:
               schema:
-                $ref: "#/components/schemas/ListResponse"
+                $ref: "#/components/schemas/Locks"
         400:
           description: returned when an error processing for the request body fails
           content:
@@ -175,60 +175,47 @@ components:
             The unique SessionID returned when a lock was originally claimed
           type: string
 
-    CreateLockRequest:
+    Lock:
       type: object
-      required:
-        - KeyValues
+      description: |
+        Exclusive `Lock` that can be used to synchronize processes across many different appplications
       properties:
-        KeyValues:
-          allOf:
-            - $ref: "../common/components.yaml#/components/schemas/KeyValues"
-        LockTimeout:
+        Spec:
+          type: object
           description: |
-            How long a server will keep the lock. This value is refreshed when a heartbeat is received. If
-            this is set 0, then the servers default LockTimeout configuration will be used.
-
-            NOTE: this time is represented in nanoseconds, so `1000000000` = 1 second
-          type: integer
-          format: int64
-          minimum: 1000000000
-
-    CreateLockResponse:
-      type: object
-      properties:
-        LockID:
-          description: ID for the `Lock`
-          type: string
-        SessionID:
-          description: "Unique session ID that needs to be used when heartbeating or releasing the lock"
-          type: string
-        LockTimeout:
+            Specification on the details of how to save the object and fields that dictate any logic
+          properties:
+            DBDefinition:
+              allOf:
+                - $ref: "../common/db_definitions.yaml#/components/schemas/TypedKeyValues"
+            Timeout:
+              type: integer
+              description: |
+                How long the lock should exist before expiring. This can be refreshed with calls to the Heartbeat api
+        Status:
+          type: object
           description: |
-            How long a server will keep the lock. This value is refreshed when a heartbeat is received.
-            Clients should ensure the lock is heartbeat a few time per session to ensure network issues
-            don't cause a lock to be lost entierly.
-          type: integer
-          format: int64
-          minimum: 1000000000
+            Read-Only data about the lock
+          properties:
+            LockID:
+              type: string
+              description: |
+                ID of the lock saved in the DB. Can be used as the `lock_id` field in other apis.
+            SessionID:
+              type: string
+              description: |
+                Unique identifier that the service that has clamed the lock can use to issue heartbeats. If a service restarts
+                without releasing a lock. This SessionID can be used to know if the lock is still heald by the service
+            TimeTillExpire:
+              type: integer
+              description: |
+                How long until the lock expires and another process can claim the lock. This is represented as nanoseconds
+            LocksHeldOrWaiting:
+              type: integer
+              description: |
+                Total of how many clients are holding or waiting for the Lock
 
-    # list locks response
-    ListResponse:
-      type: object
-      properties:
-        Locks:
-          type: array
-          items:
-            type: object
-            properties:
-              SessionID:
-                type: string
-              KeyValues:
-                $ref: "../common/components.yaml#/components/schemas/KeyValues"
-              Timeout:
-                type: integer
-                format: int64
-              TimeTillExpire:
-                type: integer
-                format: int64
-              LocksHeldOrWaiting:
-                type: integer
+    Locks:
+      type: array
+      items:
+        $ref: "#/components/schemas/Lock"

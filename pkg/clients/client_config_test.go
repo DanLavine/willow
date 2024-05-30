@@ -5,7 +5,6 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/DanLavine/willow/pkg/encoding"
 	. "github.com/onsi/gomega"
 )
 
@@ -18,32 +17,6 @@ func TestClientConfig_Validate(t *testing.T) {
 		err := cfg.Validate()
 		g.Expect(err).To(HaveOccurred())
 		g.Expect(err.Error()).To(Equal("client's Config.URL cannot be empty"))
-	})
-
-	t.Run("Context content types", func(t *testing.T) {
-		t.Run("It sets the default conttent encoding to json", func(t *testing.T) {
-			cfg := &Config{URL: "http://something.io"}
-
-			err := cfg.Validate()
-			g.Expect(err).ToNot(HaveOccurred())
-			g.Expect(cfg.ContentEncoding).To(Equal(encoding.ContentTypeJSON))
-		})
-
-		t.Run("It accepts json content types", func(t *testing.T) {
-			cfg := &Config{URL: "http://something.io", ContentEncoding: "application/json"}
-
-			err := cfg.Validate()
-			g.Expect(err).ToNot(HaveOccurred())
-			g.Expect(cfg.ContentEncoding).To(Equal(encoding.ContentTypeJSON))
-		})
-
-		t.Run("It returns an error for unkown content types", func(t *testing.T) {
-			cfg := &Config{URL: "http://something.io", ContentEncoding: "bad"}
-
-			err := cfg.Validate()
-			g.Expect(err).To(HaveOccurred())
-			g.Expect(err.Error()).To(Equal("unknown content type: bad"))
-		})
 	})
 
 	t.Run("Context when using HTTP", func(t *testing.T) {

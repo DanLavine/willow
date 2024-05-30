@@ -4,7 +4,7 @@ import (
 	"context"
 	"sync/atomic"
 
-	"github.com/DanLavine/willow/internal/reporting"
+	"github.com/DanLavine/willow/internal/middleware"
 	"github.com/DanLavine/willow/pkg/models/api/common/errors"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 	"go.uber.org/zap"
@@ -25,20 +25,20 @@ type memoryQueue struct {
 }
 
 func New(ctx context.Context, queue *v1willow.QueueCreate, limiterClient limiterclient.LimiterClient) (*memoryQueue, *errors.ServerError) {
-	logger := reporting.GetLogger(ctx).Named("New")
+	ctx, logger := middleware.GetNamedMiddlewareLogger(ctx, "New")
 
 	limit := new(atomic.Int64)
 	limit.Store(queue.QueueMaxSize)
 
 	// need to create an override for the willow Rules in the limiter
-	err := limiterClient.CreateOverride("_willow_queue_enqueued_limits", &v1.Override{
+	err := limiterClient.CreateOverride(ctx, "_willow_queue_enqueued_limits", &v1.Override{
 		Name: queue.Name,
 		KeyValues: datatypes.KeyValues{
 			"_willow_queue_name": datatypes.String(queue.Name),
 			"_willow_enqueued":   datatypes.String("true"),
 		},
 		Limit: queue.QueueMaxSize,
-	}, reporting.GetTraceHeaders(ctx))
+	})
 
 	if err != nil {
 		logger.Error("Failed to create a Limiter override", zap.Error(err))
@@ -56,14 +56,13 @@ func (mq *memoryQueue) ConfiguredLimit() int64 {
 }
 
 func (mq *memoryQueue) Update(ctx context.Context, queueName string, updateReq *v1willow.QueueUpdate) *errors.ServerError {
-	logger := reporting.GetLogger(ctx).Named("Update")
-
+	ctx, logger := middleware.GetNamedMiddlewareLogger(ctx, "Update")
 	mq.configuredLimit.Store(updateReq.QueueMaxSize)
 
 	// need to create an override for the willow Rules in the limiter
-	err := mq.limiterClient.UpdateOverride("_willow_queue_enqueued_limits", queueName, &v1.OverrideUpdate{
+	err := mq.limiterClient.UpdateOverride(ctx, "_willow_queue_enqueued_limits", queueName, &v1.OverrideUpdate{
 		Limit: updateReq.QueueMaxSize,
-	}, reporting.GetTraceHeaders(ctx))
+	})
 	if err != nil {
 		logger.Error("Failed to update the Limiter override", zap.Error(err))
 		return errors.InternalServerError
@@ -73,10 +72,10 @@ func (mq *memoryQueue) Update(ctx context.Context, queueName string, updateReq *
 }
 
 func (mq *memoryQueue) Destroy(ctx context.Context, queueName string) *errors.ServerError {
-	logger := reporting.GetLogger(ctx).Named("Destroy")
+	ctx, logger := middleware.GetNamedMiddlewareLogger(ctx, "DEstroy")
 
 	// need to delete the override for the willow Rules in the limiter
-	err := mq.limiterClient.DeleteOverride("_willow_queue_enqueued_limits", queueName, reporting.GetTraceHeaders(ctx))
+	err := mq.limiterClient.DeleteOverride(ctx, "_willow_queue_enqueued_limits", queueName)
 	if err != nil {
 		logger.Error("Failed to delete the Limiter override", zap.Error(err))
 		return errors.InternalServerError

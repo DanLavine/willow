@@ -31,9 +31,6 @@ var (
 	AnyDataType      = map[DataType]bool{T_any: true}
 	GeneralDataTypes = map[DataType]bool{T_uint: true, T_uint8: true, T_uint16: true, T_uint32: true, T_uint64: true, T_int: true, T_int8: true, T_int16: true, T_int32: true, T_int64: true, T_float32: true, T_float64: true, T_string: true}
 
-	GeneralDatatypesSlice = []DataType{T_uint, T_uint8, T_uint16, T_uint32, T_uint64, T_int, T_int8, T_int16, T_int32, T_int64, T_float32, T_float64, T_string}
-	AllDatatypesSlice     = []DataType{T_uint, T_uint8, T_uint16, T_uint32, T_uint64, T_int, T_int8, T_int16, T_int32, T_int64, T_float32, T_float64, T_string, T_any}
-
 	MinDataType           DataType = T_uint8
 	MaxDataType           DataType = T_any
 	MaxWithoutAnyDataType DataType = T_string

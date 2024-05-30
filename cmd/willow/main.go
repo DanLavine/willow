@@ -17,7 +17,6 @@ import (
 	"github.com/DanLavine/willow/internal/willow/brokers/queue_channels/constructor"
 	"github.com/DanLavine/willow/internal/willow/brokers/queues"
 	"github.com/DanLavine/willow/pkg/clients"
-	"github.com/DanLavine/willow/pkg/encoding"
 	"go.uber.org/zap"
 
 	v1router "github.com/DanLavine/willow/internal/willow/api/v1/router"
@@ -42,11 +41,10 @@ func main() {
 
 	// setup limiterclient config and validate it
 	clientConfig := &clients.Config{
-		URL:             *cfg.LimiterURL,
-		ContentEncoding: encoding.ContentTypeJSON,
-		CAFile:          *cfg.LimiterClientCA,
-		ClientKeyFile:   *cfg.LimiterClientKey,
-		ClientCRTFile:   *cfg.LimiterClientCRT,
+		URL:           *cfg.LimiterURL,
+		CAFile:        *cfg.LimiterClientCA,
+		ClientKeyFile: *cfg.LimiterClientKey,
+		ClientCRTFile: *cfg.LimiterClientCRT,
 	}
 	limiterClient, err := limiterclient.NewLimiterClient(clientConfig)
 	if err != nil {
@@ -70,14 +68,14 @@ func main() {
 	}
 
 	// setup the rule if it does not exist for the willow limits
-	err = limiterClient.CreateRule(&v1.Rule{
+	err = limiterClient.CreateRule(context.Background(), &v1.Rule{
 		Name: "_willow_queue_enqueued_limits",
 		GroupByKeyValues: datatypes.KeyValues{
 			"_willow_queue_name": datatypes.Any(),
 			"_willow_enqueued":   datatypes.Any(),
 		},
 		Limit: 0, // by default the limit is 0
-	}, nil)
+	})
 	if err != nil {
 		logger.Fatal("Failed to setup Limiter enqueue rule", zap.Error(err))
 	}
@@ -104,7 +102,7 @@ func main() {
 	// setup willow server
 	willowMux := urlrouter.New()
 	//// v1 api handlers
-	v1router.AddV1WillowRoutes(willowMux, handlers.NewV1QueueHandler(logger, queueClient))
+	v1router.AddV1WillowRoutes(logger, willowMux, handlers.NewV1QueueHandler(queueClient))
 	taskManager.AddTask("tcp_server", api.NewWillowTCP(logger, cfg, willowMux))
 
 	// start all processes

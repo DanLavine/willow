@@ -7,7 +7,6 @@ import (
 	"github.com/DanLavine/willow/internal/limiter/counters"
 	"github.com/DanLavine/willow/internal/limiter/rules"
 	"github.com/DanLavine/willow/pkg/clients"
-	"go.uber.org/zap"
 )
 
 // Handles CRUD operations for Limit operations
@@ -37,8 +36,6 @@ type V1LimiterRuleHandler interface {
 }
 
 type groupRuleHandler struct {
-	logger *zap.Logger
-
 	shutdownContext context.Context
 
 	// locker client to ensure that all locks are respected
@@ -49,9 +46,8 @@ type groupRuleHandler struct {
 	counterClient counters.CounterClient
 }
 
-func NewGroupRuleHandler(logger *zap.Logger, shutdownContext context.Context, lockerClientConfig *clients.Config, rulesClient rules.RuleClient, countersClient counters.CounterClient) *groupRuleHandler {
+func NewGroupRuleHandler(shutdownContext context.Context, lockerClientConfig *clients.Config, rulesClient rules.RuleClient, countersClient counters.CounterClient) *groupRuleHandler {
 	return &groupRuleHandler{
-		logger:             logger.Named("GroupRuleHandler"),
 		shutdownContext:    shutdownContext,
 		lockerClientConfig: lockerClientConfig,
 		ruleClient:         rulesClient,

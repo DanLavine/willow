@@ -1,8 +1,9 @@
 package v1
 
 import (
-	"encoding/json"
 	"fmt"
+
+	"github.com/DanLavine/willow/pkg/models/api/common/errors"
 )
 
 type Channels []Channel
@@ -11,38 +12,15 @@ type Channels []Channel
 //	- error - any errors encountered with the response object
 //
 // Validate is used to ensure that Create has all required fields set
-func (c Channels) Validate() error {
+func (c Channels) Validate() *errors.ModelError {
 	if len(c) == 0 {
 		return nil
 	}
 
 	for index, singleChan := range c {
 		if err := singleChan.Validate(); err != nil {
-			return fmt.Errorf("error at channel index %d: %w", index, err)
+			return &errors.ModelError{Field: fmt.Sprintf("[%d]", index), Child: err}
 		}
-	}
-
-	return nil
-}
-
-//	RETURNS:
-//	- []byte - byte array that can be sent over an http client
-//
-// EncodeJSON encodes the model to a valid JSON format
-func (c Channels) EncodeJSON() ([]byte, error) {
-	return json.Marshal(c)
-}
-
-//	PARAMETERS:
-//	- data - encoded JSON data to parse Create from
-//
-//	RETURNS:
-//	- error - any error encoutered when reading or parsing the data
-//
-// DecodeJSON can convertes the encoded byte array into the Object Decode was called on
-func (c Channels) DecodeJSON(data []byte) error {
-	if err := json.Unmarshal(data, c); err != nil {
-		return err
 	}
 
 	return nil

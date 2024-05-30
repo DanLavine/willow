@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	"github.com/DanLavine/urlrouter"
-	"github.com/DanLavine/willow/internal/reporting"
+	"github.com/DanLavine/willow/internal/middleware"
 	"github.com/DanLavine/willow/pkg/models/api"
 	"go.uber.org/zap"
 
@@ -15,39 +15,41 @@ import (
 
 // Create an Override for a specific Rule
 func (grh *groupRuleHandler) CreateOverride(w http.ResponseWriter, r *http.Request) {
-	ctx, logger := reporting.SetupContextWithLoggerFromRequest(r.Context(), grh.logger.Named("CreateOverride"), r)
+	// grab the request middleware objects
+	ctx, logger := middleware.GetNamedMiddlewareLogger(r.Context(), "CreateOverride")
 	logger.Debug("starting request")
 	defer logger.Debug("processed request")
 
 	// parse the override from the request
 	override := &v1limiter.Override{}
-	if err := api.DecodeAndValidateHttpRequest(r, override); err != nil {
+	if err := api.ModelDecodeRequest(r, override); err != nil {
 		logger.Warn("failed to decode and validate request", zap.Error(err))
-		_, _ = api.EncodeAndSendHttpResponse(r.Header, w, err.StatusCode, err)
+		_, _ = api.ModelEncodeResponse(w, err.StatusCode, err)
 		return
 	}
 
 	// create the override
 	namedParameters := urlrouter.GetNamedParamters(r.Context())
 	if err := grh.ruleClient.CreateOverride(ctx, namedParameters["rule_name"], override); err != nil {
-		_, _ = api.EncodeAndSendHttpResponse(r.Header, w, err.StatusCode, err)
+		_, _ = api.ModelEncodeResponse(w, err.StatusCode, err)
 		return
 	}
 
-	_, _ = api.EncodeAndSendHttpResponse(r.Header, w, http.StatusCreated, nil)
+	_, _ = api.ModelEncodeResponse(w, http.StatusCreated, nil)
 }
 
 // query a number of Overrides for a rule
 func (grh *groupRuleHandler) QueryOverrides(w http.ResponseWriter, r *http.Request) {
-	ctx, logger := reporting.SetupContextWithLoggerFromRequest(r.Context(), grh.logger.Named("MatchOverrides"), r)
+	// grab the request middleware objects
+	ctx, logger := middleware.GetNamedMiddlewareLogger(r.Context(), "QueryOverrides")
 	logger.Debug("starting request")
 	defer logger.Debug("processed request")
 
 	// read the query to run
 	query := &queryassociatedaction.AssociatedActionQuery{}
-	if err := api.DecodeAndValidateHttpRequest(r, query); err != nil {
+	if err := api.ModelDecodeRequest(r, query); err != nil {
 		logger.Warn("failed to decode and validate request", zap.Error(err))
-		_, _ = api.EncodeAndSendHttpResponse(r.Header, w, err.StatusCode, err)
+		_, _ = api.ModelEncodeResponse(w, err.StatusCode, err)
 		return
 	}
 
@@ -55,24 +57,25 @@ func (grh *groupRuleHandler) QueryOverrides(w http.ResponseWriter, r *http.Reque
 	namedParameters := urlrouter.GetNamedParamters(r.Context())
 	overrides, err := grh.ruleClient.QueryOverrides(ctx, namedParameters["rule_name"], query)
 	if err != nil {
-		_, _ = api.EncodeAndSendHttpResponse(r.Header, w, err.StatusCode, err)
+		_, _ = api.ModelEncodeResponse(w, err.StatusCode, err)
 		return
 	}
 
-	_, _ = api.EncodeAndSendHttpResponse(r.Header, w, http.StatusOK, &overrides)
+	_, _ = api.ModelEncodeResponse(w, http.StatusOK, &overrides)
 }
 
 // match a number of Overrides for a rule
 func (grh *groupRuleHandler) MatchOverrides(w http.ResponseWriter, r *http.Request) {
-	ctx, logger := reporting.SetupContextWithLoggerFromRequest(r.Context(), grh.logger.Named("MatchOverrides"), r)
+	// grab the request middleware objects
+	ctx, logger := middleware.GetNamedMiddlewareLogger(r.Context(), "MatchOVerrides")
 	logger.Debug("starting request")
 	defer logger.Debug("processed request")
 
 	// read the query to run
 	match := &querymatchaction.MatchActionQuery{}
-	if err := api.DecodeAndValidateHttpRequest(r, match); err != nil {
+	if err := api.ModelDecodeRequest(r, match); err != nil {
 		logger.Warn("failed to decode and validate request", zap.Error(err))
-		_, _ = api.EncodeAndSendHttpResponse(r.Header, w, err.StatusCode, err)
+		_, _ = api.ModelEncodeResponse(w, err.StatusCode, err)
 		return
 	}
 
@@ -80,16 +83,17 @@ func (grh *groupRuleHandler) MatchOverrides(w http.ResponseWriter, r *http.Reque
 	namedParameters := urlrouter.GetNamedParamters(r.Context())
 	overrides, err := grh.ruleClient.MatchOverrides(ctx, namedParameters["rule_name"], match)
 	if err != nil {
-		_, _ = api.EncodeAndSendHttpResponse(r.Header, w, err.StatusCode, err)
+		_, _ = api.ModelEncodeResponse(w, err.StatusCode, err)
 		return
 	}
 
-	_, _ = api.EncodeAndSendHttpResponse(r.Header, w, http.StatusOK, &overrides)
+	_, _ = api.ModelEncodeResponse(w, http.StatusOK, &overrides)
 }
 
 // Get a particular override
 func (grh *groupRuleHandler) GetOverride(w http.ResponseWriter, r *http.Request) {
-	ctx, logger := reporting.SetupContextWithLoggerFromRequest(r.Context(), grh.logger.Named("GetOverride"), r)
+	// grab the request middleware objects
+	ctx, logger := middleware.GetNamedMiddlewareLogger(r.Context(), "GetOVerride")
 	logger.Debug("starting request")
 	defer logger.Debug("processed request")
 
@@ -97,54 +101,56 @@ func (grh *groupRuleHandler) GetOverride(w http.ResponseWriter, r *http.Request)
 	namedParameters := urlrouter.GetNamedParamters(r.Context())
 	override, err := grh.ruleClient.GetOverride(ctx, namedParameters["rule_name"], namedParameters["override_name"])
 	if err != nil {
-		_, _ = api.EncodeAndSendHttpResponse(r.Header, w, err.StatusCode, err)
+		_, _ = api.ModelEncodeResponse(w, err.StatusCode, err)
 		return
 	}
 
 	if override != nil {
 		// found an override
-		_, _ = api.EncodeAndSendHttpResponse(r.Header, w, http.StatusOK, override)
+		_, _ = api.ModelEncodeResponse(w, http.StatusOK, override)
 	} else {
 		// override not found
-		_, _ = api.EncodeAndSendHttpResponse(r.Header, w, http.StatusNotFound, nil)
+		_, _ = api.ModelEncodeResponse(w, http.StatusNotFound, nil)
 	}
 }
 
 // Update a particular override
 func (grh *groupRuleHandler) UpdateOverride(w http.ResponseWriter, r *http.Request) {
-	ctx, logger := reporting.SetupContextWithLoggerFromRequest(r.Context(), grh.logger.Named("UpdateOverride"), r)
+	// grab the request middleware objects
+	ctx, logger := middleware.GetNamedMiddlewareLogger(r.Context(), "UpdateOverride")
 	logger.Debug("starting request")
 	defer logger.Debug("processed request")
 
 	// parse the update parameters
 	overrideUpdate := &v1limiter.OverrideUpdate{}
-	if err := api.DecodeAndValidateHttpRequest(r, overrideUpdate); err != nil {
+	if err := api.ModelDecodeRequest(r, overrideUpdate); err != nil {
 		logger.Warn("failed to decode and validate request", zap.Error(err))
-		_, _ = api.EncodeAndSendHttpResponse(r.Header, w, err.StatusCode, err)
+		_, _ = api.ModelEncodeResponse(w, err.StatusCode, err)
 		return
 	}
 
 	// find all the overrides for the particular rule
 	namedParameters := urlrouter.GetNamedParamters(r.Context())
 	if err := grh.ruleClient.UpdateOverride(ctx, namedParameters["rule_name"], namedParameters["override_name"], overrideUpdate); err != nil {
-		_, _ = api.EncodeAndSendHttpResponse(r.Header, w, err.StatusCode, err)
+		_, _ = api.ModelEncodeResponse(w, err.StatusCode, err)
 		return
 	}
 
-	_, _ = api.EncodeAndSendHttpResponse(r.Header, w, http.StatusOK, nil)
+	_, _ = api.ModelEncodeResponse(w, http.StatusOK, nil)
 }
 
 // Delete an override for a specific rule
 func (grh *groupRuleHandler) DeleteOverride(w http.ResponseWriter, r *http.Request) {
-	ctx, logger := reporting.SetupContextWithLoggerFromRequest(r.Context(), grh.logger.Named("DeleteOverride"), r)
+	// grab the request middleware objects
+	ctx, logger := middleware.GetNamedMiddlewareLogger(r.Context(), "DeleteOverride")
 	logger.Debug("starting request")
 	defer logger.Debug("processed request")
 
 	namedParameters := urlrouter.GetNamedParamters(r.Context())
 	if err := grh.ruleClient.DeleteOverride(ctx, namedParameters["rule_name"], namedParameters["override_name"]); err != nil {
-		_, _ = api.EncodeAndSendHttpResponse(r.Header, w, err.StatusCode, err)
+		_, _ = api.ModelEncodeResponse(w, err.StatusCode, err)
 		return
 	}
 
-	_, _ = api.EncodeAndSendHttpResponse(r.Header, w, http.StatusNoContent, nil)
+	_, _ = api.ModelEncodeResponse(w, http.StatusNoContent, nil)
 }

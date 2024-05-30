@@ -1,6 +1,10 @@
 package v1
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/DanLavine/willow/pkg/models/api/common/errors"
+)
 
 // OverrideUpdate is used to update a particular override
 type OverrideUpdate struct {
@@ -13,9 +17,9 @@ type OverrideUpdate struct {
 //	- error - any errors encountered with the OverrideUpdate
 //
 // Validate is used to ensure that Override has all required fields set
-func (overrideUpdate *OverrideUpdate) Validate() error {
+func (overrideUpdate *OverrideUpdate) Validate() *errors.ModelError {
 	if overrideUpdate.Limit < -1 {
-		return fmt.Errorf("Limit is less than -1")
+		return &errors.ModelError{Field: "Limit", Err: fmt.Errorf("recevied a value less than -1")}
 	}
 
 	return nil

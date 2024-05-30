@@ -31,7 +31,7 @@ func main() {
 	mux := urlrouter.New()
 	// add the versioned apis to the server mux
 	exclusiveLocker := lockmanager.NewExclusiveLocker()
-	v1router.AddV1LockerRoutes(mux, v1handlers.NewLockHandler(logger, cfg, exclusiveLocker))
+	v1router.AddV1LockerRoutes(logger, mux, v1handlers.NewLockHandler(cfg, exclusiveLocker))
 
 	// setup async handlers
 	//// using strict config ensures that if any process fails, the server will ty and shutdown gracefully

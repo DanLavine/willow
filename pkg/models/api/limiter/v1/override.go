@@ -29,21 +29,17 @@ type Override struct {
 //	- error - any errors encountered with the response object
 //
 // Validate is used to ensure that Override has all required fields set
-func (override *Override) Validate() error {
-	if override == nil {
-		return fmt.Errorf("'Override' can not be nil")
-	}
-
+func (override *Override) Validate() *errors.ModelError {
 	if override.Name == "" {
-		return errorNameIsInvalid
+		return &errors.ModelError{Field: "Name", Err: fmt.Errorf("is the empty string")}
 	}
 
 	if len(override.KeyValues) == 0 {
-		return errors.KeyValuesLenghtInvalid
+		return &errors.ModelError{Field: "KeyValue", Err: fmt.Errorf("needs at least a length of at least 1")}
 	}
 
 	if err := override.KeyValues.Validate(datatypes.MinDataType, datatypes.MaxDataType); err != nil {
-		return err
+		return &errors.ModelError{Field: "KeyValues", Child: err}
 	}
 
 	return nil

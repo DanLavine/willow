@@ -3,6 +3,7 @@ package querymatchaction
 import (
 	"sort"
 
+	"github.com/DanLavine/willow/pkg/models/api/common/errors"
 	v1 "github.com/DanLavine/willow/pkg/models/api/common/v1"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 )
@@ -32,7 +33,6 @@ type MatchValue struct {
 	TypeRestrictions v1.TypeRestrictions `json:"TypeRestrictions"`
 }
 
-func (matchValue MatchKeyValues) Validate() error {
-
+func (matchValue MatchKeyValues) Validate() *errors.ModelError {
 	return nil
 }

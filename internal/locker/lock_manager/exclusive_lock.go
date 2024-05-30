@@ -94,6 +94,8 @@ func newExclusiveLock(timeout func()) *exclusiveLock {
 	}
 }
 
+// Can possibly be easier and not needed if the client's each call "lock" with a Context that cancels on client disconnect + server shutdown?
+// then the heartbeater is direct to the object (there was something complicated about that before, but cannot remember now)
 func (exclusiveLock *exclusiveLock) Execute(ctx context.Context) error {
 	defer func() {
 		close(exclusiveLock.clientLost)

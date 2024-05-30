@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	"github.com/DanLavine/contextops"
-	"github.com/DanLavine/willow/internal/reporting"
+	"github.com/DanLavine/willow/internal/middleware"
 	"github.com/DanLavine/willow/pkg/models/api"
 	"github.com/DanLavine/willow/pkg/models/api/common/errors"
 	"go.uber.org/zap"
@@ -16,15 +16,16 @@ import (
 
 // Increment the Counters if they do not conflict with any rules
 func (grh *groupRuleHandler) UpsertCounters(w http.ResponseWriter, r *http.Request) {
-	ctx, logger := reporting.SetupContextWithLoggerFromRequest(r.Context(), grh.logger.Named("UpsertCounters"), r)
+	// grab the request middleware objects
+	ctx, logger := middleware.GetNamedMiddlewareLogger(r.Context(), "UpsertCounters")
 	logger.Debug("starting request")
 	defer logger.Debug("processed request")
 
 	// parse the counter increment
 	counter := &v1limiter.Counter{}
-	if err := api.DecodeAndValidateHttpRequest(r, counter); err != nil {
+	if err := api.ModelDecodeRequest(r, counter); err != nil {
 		logger.Warn("failed to decode and validate request", zap.Error(err))
-		_, _ = api.EncodeAndSendHttpResponse(r.Header, w, err.StatusCode, err)
+		_, _ = api.ModelEncodeResponse(w, err.StatusCode, err)
 		return
 	}
 
@@ -37,68 +38,70 @@ func (grh *groupRuleHandler) UpsertCounters(w http.ResponseWriter, r *http.Reque
 		if lockerErr != nil {
 			logger.Error("failed to create locker client on increment counter request", zap.Error(lockerErr))
 			err := errors.InternalServerError
-			_, _ = api.EncodeAndSendHttpResponse(r.Header, w, err.StatusCode, err)
+			_, _ = api.ModelEncodeResponse(w, err.StatusCode, err)
 			return
 		}
 
 		if err := grh.counterClient.IncrementCounters(ctx, contextops.MergeForDone(r.Context(), grh.shutdownContext), lockerClient, counter); err != nil {
-			_, _ = api.EncodeAndSendHttpResponse(r.Header, w, err.StatusCode, err)
+			_, _ = api.ModelEncodeResponse(w, err.StatusCode, err)
 			return
 		}
 
-		_, _ = api.EncodeAndSendHttpResponse(r.Header, w, http.StatusOK, nil)
+		_, _ = api.ModelEncodeResponse(w, http.StatusOK, nil)
 	} else {
 		// this is a decrement request
 		if err := grh.counterClient.DecrementCounters(ctx, counter); err != nil {
-			_, _ = api.EncodeAndSendHttpResponse(r.Header, w, err.StatusCode, err)
+			_, _ = api.ModelEncodeResponse(w, err.StatusCode, err)
 			return
 		}
 
-		_, _ = api.EncodeAndSendHttpResponse(r.Header, w, http.StatusOK, nil)
+		_, _ = api.ModelEncodeResponse(w, http.StatusOK, nil)
 	}
 }
 
 // Query the counters to see what is already provided
 func (grh *groupRuleHandler) QueryCounters(w http.ResponseWriter, r *http.Request) {
-	ctx, logger := reporting.SetupContextWithLoggerFromRequest(r.Context(), grh.logger.Named("QueryCounters"), r)
+	// grab the request middleware objects
+	ctx, logger := middleware.GetNamedMiddlewareLogger(r.Context(), "QueryCounters")
 	logger.Debug("starting request")
 	defer logger.Debug("processed request")
 
 	// parse the query from the counters
 	query := &queryassociatedaction.AssociatedActionQuery{}
-	if err := api.DecodeAndValidateHttpRequest(r, query); err != nil {
+	if err := api.ModelDecodeRequest(r, query); err != nil {
 		logger.Warn("failed to decode and validate request", zap.Error(err))
-		_, _ = api.EncodeAndSendHttpResponse(r.Header, w, err.StatusCode, err)
+		_, _ = api.ModelEncodeResponse(w, err.StatusCode, err)
 		return
 	}
 
 	countersResp, err := grh.counterClient.QueryCounters(ctx, query)
 	if err != nil {
-		_, _ = api.EncodeAndSendHttpResponse(r.Header, w, err.StatusCode, err)
+		_, _ = api.ModelEncodeResponse(w, err.StatusCode, err)
 		return
 	}
 
-	_, _ = api.EncodeAndSendHttpResponse(r.Header, w, http.StatusOK, &countersResp)
+	_, _ = api.ModelEncodeResponse(w, http.StatusOK, &countersResp)
 }
 
 func (grh *groupRuleHandler) SetCounters(w http.ResponseWriter, r *http.Request) {
-	ctx, logger := reporting.SetupContextWithLoggerFromRequest(r.Context(), grh.logger.Named("SetCounters"), r)
+	// grab the request middleware objects
+	ctx, logger := middleware.GetNamedMiddlewareLogger(r.Context(), "SetCounters")
 	logger.Debug("starting request")
 	defer logger.Debug("processed request")
 
 	// parse the countrs set
 	counter := &v1limiter.Counter{}
-	if err := api.DecodeAndValidateHttpRequest(r, counter); err != nil {
+	if err := api.ModelDecodeRequest(r, counter); err != nil {
 		logger.Warn("failed to decode and validate request", zap.Error(err))
-		_, _ = api.EncodeAndSendHttpResponse(r.Header, w, err.StatusCode, err)
+		_, _ = api.ModelEncodeResponse(w, err.StatusCode, err)
 		return
 	}
 
 	// forcefully set the counters
 	if err := grh.counterClient.SetCounter(ctx, counter); err != nil {
-		_, _ = api.EncodeAndSendHttpResponse(r.Header, w, err.StatusCode, err)
+		_, _ = api.ModelEncodeResponse(w, err.StatusCode, err)
 		return
 	}
 
-	_, _ = api.EncodeAndSendHttpResponse(r.Header, w, http.StatusOK, nil)
+	_, _ = api.ModelEncodeResponse(w, http.StatusOK, nil)
 }

@@ -1,0 +1,161 @@
+components:
+  schemas:
+
+    # Uint values
+    Uint8:
+      type: object
+      properties:
+        Type:
+          type: integer
+          enum: [1]
+        Data:
+          type: string
+          description: |
+            Data that can be cast to a proper Uint8 value
+
+    Uint16:
+      type: object
+      properties:
+        Type:
+          type: integer
+          enum: [2]
+        Data:
+          type: string
+          description: |
+            Data that can be cast to a proper Uint16 value
+
+    Uint32:
+      type: object
+      properties:
+        Type:
+          type: integer
+          enum: [3]
+        Data:
+          type: string
+          description: |
+            Data that can be cast to a proper Uint32 value
+
+    Uint64:
+      type: object
+      properties:
+        Type:
+          type: integer
+          enum: [4]
+        Data:
+          type: string
+          description: |
+            Data that can be cast to a proper Uint64 value
+    
+    Uint:
+      type: object
+      properties:
+        Type:
+          type: integer
+          enum: [5]
+        Data:
+          type: string
+          description: |
+            Data that can be cast to a proper Uint value
+
+    # Int values
+    Int8:
+      type: object
+      properties:
+        Type:
+          type: integer
+          enum: [6]
+        Data:
+          type: string
+          description: |
+            Data that can be cast to a proper Int8 value
+
+    Int16:
+      type: object
+      properties:
+        Type:
+          type: integer
+          enum: [7]
+        Data:
+          type: string
+          description: |
+            Data that can be cast to a proper Int16 value
+
+    Int32:
+      type: object
+      properties:
+        Type:
+          type: integer
+          enum: [8]
+        Data:
+          type: string
+          description: |
+            Data that can be cast to a proper Int32 value
+
+    Int64:
+      type: object
+      properties:
+        Type:
+          type: integer
+          enum: [9]
+        Data:
+          type: string
+          description: |
+            Data that can be cast to a proper Int64 value
+    
+    Int:
+      type: object
+      properties:
+        Type:
+          type: integer
+          enum: [10]
+        Data:
+          type: string
+          description: |
+            Data that can be cast to a proper Int value
+
+    # Float values
+    Float32:
+      type: object
+      properties:
+        Type:
+          type: integer
+          enum: [11]
+        Data:
+          type: string
+          description: |
+            Data that can be cast to a proper float32 value
+
+    Float64:
+      type: object
+      properties:
+        Type:
+          type: integer
+          enum: [12]
+        Data:
+          type: string
+          description: |
+            Data that can be cast to a proper float64 value
+
+    # String values
+    String:
+      type: object
+      properties:
+        Type:
+          type: integer
+          enum: [13]
+        Data:
+          type: string
+          description: |
+            Data value that will be used as is
+
+    # General values
+    Any:
+      type: object
+      properties:
+        Type:
+          type: integer
+          enum: [1024]
+        Data:
+          type: nill
+          description: |
+            This is a catch all object that can be used to match against all other values

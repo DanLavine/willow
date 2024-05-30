@@ -1,6 +1,7 @@
 package lockerclient
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"net/http"
@@ -38,7 +39,7 @@ type LockerClient interface {
 	// Obtain a lock for a particular set of KeyValues. This blocks until the desired lock is obtained, or the context is canceled.
 	// The returned lock will automatically heartbeat to ensure that the lock remains valid. If the heartbeat fails for some reason,
 	// the channel returned from the `lock.Done()` call will be closed. It is up to the clients to monitor for a lock being lost
-	ObtainLock(ctx context.Context, lockRequest *v1locker.LockCreateRequest, headers http.Header, heartbeatErrorCallback func(keyValue datatypes.KeyValues, err error)) (Lock, error)
+	ObtainLock(ctx context.Context, lockRequest *v1locker.Lock, heartbeatErrorCallback func(keyValue datatypes.KeyValues, err error)) (Lock, error)
 }
 
 // LockClient interacts with the Locker service.
@@ -47,12 +48,10 @@ type LockerClient interface {
 // As long as these rules are followed by each of the services, then there will be no deadlocks
 //  1. Sort lenght of KeyValues, with min first
 //  2. Sort each of the KeyValues by their Keys to know which locks to obtaini first
-//
-// The MockLockerClient can be used in tests to satisfy the LockerClient interface
 type LockClient struct {
 	// client to connect with the remote Locker service
 	url    string
-	client clients.HttpClient
+	client *http.Client
 
 	// each item in the locks tree's value is a lock
 	locks btreeassociated.BTreeAssociated
@@ -87,8 +86,8 @@ func NewLockClient(cfg *clients.Config) (*LockClient, error) {
 //
 // Healthy is used to ensure that the Locker service can be reached
 func (lc *LockClient) Healthy() error {
-	// setup and make the request
-	req, err := lc.client.SetupRequest("GET", fmt.Sprintf("%s/health", lc.url))
+	// setup and make the health request
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s/health", lc.url), nil)
 	if err != nil {
 		return fmt.Errorf("failed to setup request to healthy api")
 	}
@@ -121,26 +120,31 @@ func (lc *LockClient) Healthy() error {
 // Obtain a lock for a particular set of KeyValues. This blocks until the desired lock is obtained, or the context is canceled.
 // The returned lock will automatically heartbeat to ensure that the lock remains valid. If the heartbeat fails for some reason,
 // the channel returned from the `lock.Done()` call will be closed. It is up to the clients to monitor for a lock being lost
-func (lc *LockClient) ObtainLock(ctx context.Context, lockRequest *v1locker.LockCreateRequest, headers http.Header, heartbeatErrorCallback func(keyValue datatypes.KeyValues, err error)) (Lock, error) {
-	obtainedLock := make(chan struct{})
-	defer close(obtainedLock)
-
+func (lc *LockClient) ObtainLock(ctx context.Context, lockRequest *v1locker.Lock, heartbeatErrorCallback func(keyValue datatypes.KeyValues, err error)) (Lock, error) {
 	var returnLock Lock
 	var lockErr error
 
-	// should check to make sure we don't already have the lock
+	// obtain the desired lock
 	onCreate := func() any {
 		for {
-			// setup and make request
-			req, err := lc.client.EncodedRequestWithCancel(ctx, "POST", fmt.Sprintf("%s/v1/locks", lc.url), lockRequest)
+			// encode and validate the model
+			data, err := api.ObjectEncodeRequest(lockRequest)
 			if err != nil {
 				lockErr = err
 				return nil
 			}
 
-			clients.AppendHeaders(req, headers)
+			// setup the http request
+			obtainLockReq, err := http.NewRequestWithContext(ctx, "POST", fmt.Sprintf("%s/v1/locks", lc.url), bytes.NewBuffer(data))
+			if err != nil {
+				lockErr = err
+				return nil
+			}
+			clients.AddHeadersFromContext(obtainLockReq, ctx)
+			obtainLockReq.Header.Set("Content-Type", "application/json")
 
-			resp, err := lc.client.Do(req)
+			// Obtain the lock
+			resp, err := lc.client.Do(obtainLockReq)
 			if err != nil {
 				select {
 				case <-ctx.Done():
@@ -157,8 +161,8 @@ func (lc *LockClient) ObtainLock(ctx context.Context, lockRequest *v1locker.Lock
 			switch resp.StatusCode {
 			case http.StatusOK:
 				// created the lock, need to record the session id and start hearbeating
-				createLockResponse := &v1locker.LockCreateResponse{}
-				if err := api.DecodeAndValidateHttpResponse(resp, createLockResponse); err != nil {
+				createLockResponse := &v1locker.Lock{}
+				if err := api.ModelDecodeResponse(resp, createLockResponse); err != nil {
 					lockErr = err
 					return nil
 				}
@@ -169,14 +173,14 @@ func (lc *LockClient) ObtainLock(ctx context.Context, lockRequest *v1locker.Lock
 						return true
 					}
 
-					if err = lc.locks.Delete(lockRequest.KeyValues, canDelete); err != nil {
+					if err = lc.locks.Delete(lockRequest.Spec.DBDeifinition.ToKeyValues(), canDelete); err != nil {
 						panic(fmt.Sprintf("failed to relase the lock's memeory footprint: %s", err.Error()))
 					}
 				}
 
 				if heartbeatErrorCallback != nil {
 					errCallback := func(err error) {
-						heartbeatErrorCallback(lockRequest.KeyValues, err)
+						heartbeatErrorCallback(lockRequest.Spec.DBDeifinition.ToKeyValues(), err)
 					}
 					returnLock = newLock(createLockResponse, lc.url, lc.client, errCallback, lostLockWrapper)
 				} else {
@@ -187,7 +191,7 @@ func (lc *LockClient) ObtainLock(ctx context.Context, lockRequest *v1locker.Lock
 			case http.StatusBadRequest, http.StatusInternalServerError:
 				// there was an error with the request. possibly a mismatch on client server versions
 				apiError := &errors.Error{}
-				if err := api.DecodeAndValidateHttpResponse(resp, apiError); err != nil {
+				if err := api.ModelDecodeResponse(resp, apiError); err != nil {
 					lockErr = err
 				} else {
 					lockErr = apiError
@@ -210,7 +214,7 @@ func (lc *LockClient) ObtainLock(ctx context.Context, lockRequest *v1locker.Lock
 	}
 
 	// create or find the lock if we already have it
-	_, _ = lc.locks.CreateOrFind(lockRequest.KeyValues, onCreate, onFind)
+	_, _ = lc.locks.CreateOrFind(lockRequest.Spec.DBDeifinition.ToKeyValues(), onCreate, onFind)
 
 	return returnLock, lockErr
 }

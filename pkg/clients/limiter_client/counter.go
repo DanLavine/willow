@@ -1,6 +1,8 @@
 package limiterclient
 
 import (
+	"bytes"
+	"context"
 	"fmt"
 	"net/http"
 
@@ -23,14 +25,19 @@ import (
 // 1. If the `Counter.Counters` is positive, then the counter will either be created or incremented server side.
 // 2. If the `Counter.Counters` is negative, then the counter will be decremented server side. If this value reaches 0, then the counter is automatically deleted
 // An error will be returned if there is a Rule that limits the total number of Counters associatted with the KeyValues
-func (lc *LimitClient) UpdateCounter(counter *v1limiter.Counter, headers http.Header) error {
-	// setup and make the request
-	req, err := lc.client.EncodedRequest("PUT", fmt.Sprintf("%s/v1/limiter/counters", lc.url), counter)
+func (lc *LimitClient) UpdateCounter(ctx context.Context, counter *v1limiter.Counter) error {
+	// encode the request
+	data, err := api.ModelEncodeRequest(counter)
 	if err != nil {
 		return err
 	}
 
-	clients.AppendHeaders(req, headers)
+	// setup and make the request
+	req, err := http.NewRequest("PUT", fmt.Sprintf("%s/v1/limiter/counters", lc.url), bytes.NewBuffer(data))
+	if err != nil {
+		return err
+	}
+	clients.AddHeadersFromContext(req, ctx)
 
 	resp, err := lc.client.Do(req)
 	if err != nil {
@@ -44,7 +51,7 @@ func (lc *LimitClient) UpdateCounter(counter *v1limiter.Counter, headers http.He
 		return nil
 	case http.StatusBadRequest, http.StatusConflict, http.StatusInternalServerError:
 		apiError := &errors.Error{}
-		if err := api.DecodeAndValidateHttpResponse(resp, apiError); err != nil {
+		if err := api.ModelDecodeResponse(resp, apiError); err != nil {
 			return err
 		}
 
@@ -62,14 +69,19 @@ func (lc *LimitClient) UpdateCounter(counter *v1limiter.Counter, headers http.He
 //	- error - Error if there was an unexpcted or encoding issue
 //
 // LisCounters can be used to query any Counters
-func (lc *LimitClient) QueryCounters(query *queryassociatedaction.AssociatedActionQuery, headers http.Header) (v1limiter.Counters, error) {
-	// setup and make the request
-	req, err := lc.client.EncodedRequest("GET", fmt.Sprintf("%s/v1/limiter/counters/query", lc.url), query)
+func (lc *LimitClient) QueryCounters(ctx context.Context, query *queryassociatedaction.AssociatedActionQuery) (v1limiter.Counters, error) {
+	// encode the request
+	data, err := api.ModelEncodeRequest(query)
 	if err != nil {
 		return nil, err
 	}
 
-	clients.AppendHeaders(req, headers)
+	// setup and make the request
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s/v1/limiter/counters/query", lc.url), bytes.NewBuffer(data))
+	if err != nil {
+		return nil, err
+	}
+	clients.AddHeadersFromContext(req, ctx)
 
 	resp, err := lc.client.Do(req)
 	if err != nil {
@@ -80,14 +92,14 @@ func (lc *LimitClient) QueryCounters(query *queryassociatedaction.AssociatedActi
 	switch resp.StatusCode {
 	case http.StatusOK:
 		counters := v1limiter.Counters{}
-		if err := api.DecodeAndValidateHttpResponse(resp, &counters); err != nil {
+		if err := api.ModelDecodeResponse(resp, &counters); err != nil {
 			return nil, err
 		}
 
 		return counters, nil
 	case http.StatusBadRequest, http.StatusInternalServerError:
 		apiError := &errors.Error{}
-		if err := api.DecodeAndValidateHttpResponse(resp, apiError); err != nil {
+		if err := api.ModelDecodeResponse(resp, apiError); err != nil {
 			return nil, err
 		}
 
@@ -105,14 +117,19 @@ func (lc *LimitClient) QueryCounters(query *queryassociatedaction.AssociatedActi
 //	- error - Error if there was a limit reached, or encoding issue
 //
 // SetCounters is used to forcefully set the number of counters for a particual KeyValues without enforcing any rules
-func (lc *LimitClient) SetCounters(counters *v1limiter.Counter, headers http.Header) error {
-	// setup and make the request
-	req, err := lc.client.EncodedRequest("POST", fmt.Sprintf("%s/v1/limiter/counters/set", lc.url), counters)
+func (lc *LimitClient) SetCounters(ctx context.Context, counters *v1limiter.Counter) error {
+	// encode the request
+	data, err := api.ModelEncodeRequest(counters)
 	if err != nil {
 		return err
 	}
 
-	clients.AppendHeaders(req, headers)
+	// setup and make the request
+	req, err := http.NewRequest("POST", fmt.Sprintf("%s/v1/limiter/counters/set", lc.url), bytes.NewBuffer(data))
+	if err != nil {
+		return err
+	}
+	clients.AddHeadersFromContext(req, ctx)
 
 	resp, err := lc.client.Do(req)
 	if err != nil {
@@ -126,7 +143,7 @@ func (lc *LimitClient) SetCounters(counters *v1limiter.Counter, headers http.Hea
 		return nil
 	case http.StatusBadRequest, http.StatusInternalServerError:
 		apiError := &errors.Error{}
-		if err := api.DecodeAndValidateHttpResponse(resp, apiError); err != nil {
+		if err := api.ModelDecodeResponse(resp, apiError); err != nil {
 			return err
 		}
 

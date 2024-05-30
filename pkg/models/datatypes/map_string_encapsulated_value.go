@@ -31,7 +31,7 @@ func (kv KeyValues) SortedKeys() []string {
 	return keys
 }
 
-func (kv KeyValues) Validate(minAllowedKeyType, maxAllowedKeyType DataType) error {
+func (kv KeyValues) Validate(minAllowedKeyType, maxAllowedKeyType DataType) *errors.ModelError {
 	if len(kv) == 0 {
 		return &errors.ModelError{Err: fmt.Errorf("recieved no KeyValues, but requires a length of at least 1")}
 	}

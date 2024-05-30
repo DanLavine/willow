@@ -9,9 +9,6 @@ var (
 	// Server state errors
 	ServerShutdown = &ServerError{Message: "Server is shutting down. Retry the request", StatusCode: http.StatusServiceUnavailable}
 
-	// Storage errors
-	UnknownStorageType = &ServerError{Message: "Unkown storage type", StatusCode: http.StatusInternalServerError}
-
 	// unexpectd errors
 	InternalServerError = &ServerError{Message: "Internal Server Error", StatusCode: http.StatusInternalServerError}
 )
@@ -37,7 +34,14 @@ func ServerErrorEncodingJson(err error) *ServerError {
 	}
 }
 
-func ServerErrorDecodeingJson(err error) *ServerError {
+func ServerErrorDecoder(err error) *ServerError {
+	return &ServerError{
+		Message:    fmt.Sprintf("failed to setup request decoder: %s", err.Error()),
+		StatusCode: http.StatusInternalServerError,
+	}
+}
+
+func ServerErrorDecoding(err error) *ServerError {
 	return &ServerError{
 		Message:    fmt.Sprintf("failed to decode request: %s", err.Error()),
 		StatusCode: http.StatusBadRequest,

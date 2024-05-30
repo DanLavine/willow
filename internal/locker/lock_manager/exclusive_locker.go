@@ -7,8 +7,10 @@ import (
 
 	"github.com/DanLavine/goasync"
 	btreeassociated "github.com/DanLavine/willow/internal/datastructures/btree_associated"
+	"github.com/DanLavine/willow/internal/middleware"
 	"github.com/DanLavine/willow/internal/reporting"
 	"github.com/DanLavine/willow/pkg/models/api/common/errors"
+	dbdefinition "github.com/DanLavine/willow/pkg/models/api/common/v1/db_definition"
 	queryassociatedaction "github.com/DanLavine/willow/pkg/models/api/common/v1/query_associated_action"
 	v1locker "github.com/DanLavine/willow/pkg/models/api/locker/v1"
 
@@ -18,7 +20,7 @@ import (
 
 type ExcluiveLocker interface {
 	// obtain all the locks that make up a collection
-	ObtainLock(ctx context.Context, createRequest *v1locker.LockCreateRequest) *v1locker.LockCreateResponse
+	ObtainLock(ctx context.Context, createRequest *v1locker.Lock) *v1locker.Lock
 
 	// Heartbeat any number of locks so we know they are still running properly
 	Heartbeat(ctx context.Context, lockID string, lockClaim *v1locker.LockClaim) *errors.ServerError
@@ -57,49 +59,18 @@ func (exclusiveLocker *exclusiveLocker) Execute(ctx context.Context) error {
 	return nil
 }
 
-// Helper to find all the currently held locks and the number of clients also wanting to obtain the locks.
-func (exclusiveLocker *exclusiveLocker) LocksQuery(ctx context.Context, query *queryassociatedaction.AssociatedActionQuery) v1locker.Locks {
-	logger := reporting.GetLogger(ctx).Named("LocksQuery")
-	logger.Debug("querying locks")
-	defer logger.Debug("done querying lock")
+func (exclusiveLocker *exclusiveLocker) ObtainLock(ctx context.Context, createLockRequest *v1locker.Lock) *v1locker.Lock {
+	ctx, logger := middleware.GetNamedMiddlewareLogger(ctx, "ObtainLock")
 
-	locks := v1locker.Locks{}
-
-	exclusiveLocker.exclusiveLocks.QueryAction(query, func(associatedKeyValues btreeassociated.AssociatedKeyValues) bool {
-		exclusiveLock := associatedKeyValues.Value().(*exclusiveLock)
-
-		var expireTime time.Duration
-		lastHeartbeatTime := exclusiveLock.getLastHeartbeatTime()
-		if lastHeartbeatTime == (time.Time{}) {
-			expireTime = 0
-		} else {
-			expireTime = time.Since(lastHeartbeatTime)
-		}
-
-		locks = append(locks, &v1locker.Lock{
-			LockID:             associatedKeyValues.AssociatedID(),
-			SessionID:          exclusiveLock.getSessionID(),
-			KeyValues:          associatedKeyValues.KeyValues(),
-			Timeout:            exclusiveLock.getLockTimeout(),
-			TimeTillExipre:     expireTime,
-			LocksHeldOrWaiting: exclusiveLock.clientsWaitingForClaim.Load(),
-		})
-
-		return true
-	})
-
-	return locks
-}
-
-func (exclusiveLocker *exclusiveLocker) ObtainLock(ctx context.Context, createLockRequest *v1locker.LockCreateRequest) *v1locker.LockCreateResponse {
-	logger := reporting.GetLogger(ctx).Named("ObtainLock")
 	logger.Debug("obtaining lock")
 	defer logger.Debug("done obtaining lock")
 
 	var claimChannel <-chan func(time.Duration) string
 
 	onCreate := func() any {
-		lock := newExclusiveLock(func() { exclusiveLocker.timeout(reporting.BaseLogger(logger), createLockRequest.KeyValues) })
+		lock := newExclusiveLock(func() {
+			exclusiveLocker.timeout(reporting.BaseLogger(logger), createLockRequest.Spec.DBDeifinition.ToKeyValues())
+		})
 
 		// add the task to the task manager
 		if err := exclusiveLocker.taskManager.AddExecuteTask("", lock); err == nil {
@@ -120,7 +91,7 @@ func (exclusiveLocker *exclusiveLocker) ObtainLock(ctx context.Context, createLo
 		claimChannel = item.Value().(*exclusiveLock).GetClaimChannel()
 	}
 
-	lockID, err := exclusiveLocker.exclusiveLocks.CreateOrFind(createLockRequest.KeyValues, onCreate, onFind)
+	lockID, err := exclusiveLocker.exclusiveLocks.CreateOrFind(createLockRequest.Spec.DBDeifinition.ToKeyValues(), onCreate, onFind)
 	if err != nil {
 		panic(err)
 	}
@@ -130,7 +101,7 @@ func (exclusiveLocker *exclusiveLocker) ObtainLock(ctx context.Context, createLo
 	case <-ctx.Done():
 		// decrement the claim and remove the object from the tree if there are no other clients waiting
 		logger.Info("client disconnected")
-		_ = exclusiveLocker.exclusiveLocks.Delete(createLockRequest.KeyValues, func(associatedKeyValues btreeassociated.AssociatedKeyValues) bool {
+		_ = exclusiveLocker.exclusiveLocks.Delete(createLockRequest.Spec.DBDeifinition.ToKeyValues(), func(associatedKeyValues btreeassociated.AssociatedKeyValues) bool {
 			return associatedKeyValues.Value().(*exclusiveLock).LostClient()
 		})
 
@@ -145,12 +116,16 @@ func (exclusiveLocker *exclusiveLocker) ObtainLock(ctx context.Context, createLo
 		if ok {
 			// at this point, we have successfuly have the exclusive claim so create the lock
 			logger.Info("claimed the lock")
-			sessionID := processClaim(createLockRequest.LockTimeout)
+			sessionID := processClaim(*createLockRequest.Spec.Timeout)
 
-			return &v1locker.LockCreateResponse{
-				LockID:      lockID,
-				SessionID:   sessionID,
-				LockTimeout: createLockRequest.LockTimeout,
+			return &v1locker.Lock{
+				Spec: createLockRequest.Spec,
+				State: &v1locker.LockState{
+					LockID:             lockID,
+					SessionID:          sessionID,
+					TimeTillExipre:     *createLockRequest.Spec.Timeout,
+					LocksHeldOrWaiting: 1,
+				},
 			}
 		}
 	}
@@ -158,8 +133,47 @@ func (exclusiveLocker *exclusiveLocker) ObtainLock(ctx context.Context, createLo
 	return nil
 }
 
+// Helper to find all the currently held locks and the number of clients also wanting to obtain the locks.
+func (exclusiveLocker *exclusiveLocker) LocksQuery(ctx context.Context, query *queryassociatedaction.AssociatedActionQuery) v1locker.Locks {
+	_, logger := middleware.GetNamedMiddlewareLogger(ctx, "LocksQuery")
+
+	logger.Debug("querying locks")
+	defer logger.Debug("done querying lock")
+
+	locks := v1locker.Locks{}
+
+	exclusiveLocker.exclusiveLocks.QueryAction(query, func(associatedKeyValues btreeassociated.AssociatedKeyValues) bool {
+		exclusiveLock := associatedKeyValues.Value().(*exclusiveLock)
+
+		var expireTime time.Duration
+		lastHeartbeatTime := exclusiveLock.getLastHeartbeatTime()
+		if lastHeartbeatTime == (time.Time{}) {
+			expireTime = 0
+		} else {
+			expireTime = time.Since(lastHeartbeatTime)
+		}
+
+		locks = append(locks, &v1locker.Lock{
+			Spec: &v1locker.LockSpec{
+				DBDeifinition: dbdefinition.KeyValuesToTypedKeyValues(associatedKeyValues.KeyValues()),
+				Timeout:       &exclusiveLock.lockTimeout,
+			},
+			State: &v1locker.LockState{
+				LockID:             associatedKeyValues.AssociatedID(),
+				SessionID:          exclusiveLock.sessionID,
+				TimeTillExipre:     expireTime,
+				LocksHeldOrWaiting: exclusiveLock.clientsWaitingForClaim.Load(),
+			},
+		})
+
+		return true
+	})
+
+	return locks
+}
+
 func (exclusiveLocker *exclusiveLocker) Heartbeat(ctx context.Context, lockID string, claim *v1locker.LockClaim) *errors.ServerError {
-	logger := reporting.GetLogger(ctx).Named("Heartbeat")
+	_, logger := middleware.GetNamedMiddlewareLogger(ctx, "Heartbeat")
 	logger.Debug("attempting to heartbeat")
 
 	heartbeaterErr := &errors.ServerError{Message: "LockID could not be found", StatusCode: http.StatusNotFound}
@@ -186,7 +200,7 @@ func (exclusiveLocker *exclusiveLocker) Heartbeat(ctx context.Context, lockID st
 }
 
 func (exclusiveLocker *exclusiveLocker) Release(ctx context.Context, lockID string, claim *v1locker.LockClaim) *errors.ServerError {
-	logger := reporting.GetLogger(ctx).Named("Release")
+	_, logger := middleware.GetNamedMiddlewareLogger(ctx, "Release")
 	logger.Debug("releasing the lock")
 
 	releaseError := &errors.ServerError{Message: "LockID could not be found", StatusCode: http.StatusNotFound}

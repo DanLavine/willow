@@ -18,7 +18,6 @@ import (
 	"github.com/DanLavine/willow/internal/reporting"
 	"github.com/DanLavine/willow/pkg/clients"
 	lockerclient "github.com/DanLavine/willow/pkg/clients/locker_client"
-	"github.com/DanLavine/willow/pkg/encoding"
 	"go.uber.org/zap"
 
 	v1handlers "github.com/DanLavine/willow/internal/limiter/api/v1/handlers"
@@ -40,11 +39,10 @@ func main() {
 
 	// setup locker client config and validate it
 	clientConfig := &clients.Config{
-		URL:             *cfg.LockerURL,
-		ContentEncoding: encoding.ContentTypeJSON,
-		CAFile:          *cfg.LockerClientCA,
-		ClientKeyFile:   *cfg.LockerClientKey,
-		ClientCRTFile:   *cfg.LockerClientCRT,
+		URL:           *cfg.LockerURL,
+		CAFile:        *cfg.LockerClientCA,
+		ClientKeyFile: *cfg.LockerClientKey,
+		ClientCRTFile: *cfg.LockerClientCRT,
 	}
 	lockerClient, err := lockerclient.NewLockClient(clientConfig)
 	if err != nil {
@@ -95,10 +93,10 @@ func main() {
 
 	// setup server mux that is passed to all handlers
 	mux := urlrouter.New()
-	v1handler := v1handlers.NewGroupRuleHandler(logger, shutdown, clientConfig, rulesClient, countersClient)
+	v1handler := v1handlers.NewGroupRuleHandler(shutdown, clientConfig, rulesClient, countersClient)
 
 	// add v1 routes
-	router.AddV1LimiterRoutes(mux, v1handler)
+	router.AddV1LimiterRoutes(logger, mux, v1handler)
 
 	// setup async handlers
 	//// using strict config ensures that if any process fails, the server will ty and shutdown gracefully

@@ -12,6 +12,7 @@ import (
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 	"go.uber.org/zap"
 
+	"github.com/DanLavine/willow/internal/middleware"
 	"github.com/DanLavine/willow/internal/reporting"
 	"github.com/DanLavine/willow/internal/willow/brokers/queue_channels/constructor"
 
@@ -83,8 +84,7 @@ func (qccl *queueChannelsClientLocal) Execute(ctx context.Context) error {
 }
 
 func (qccl *queueChannelsClientLocal) DestroyChannelsForQueue(ctx context.Context, queueName string) *errors.ServerError {
-	logger := reporting.GetLogger(ctx).Named("DestroyChannelsForQueue")
-	ctx = reporting.UpdateLogger(ctx, logger)
+	ctx, logger := middleware.GetNamedMiddlewareLogger(ctx, "DestroyChannelsForQueue")
 
 	deleteChannel := func(oneToManyItem btreeonetomany.OneToManyItem) bool {
 		queueChannel := oneToManyItem.Value().(constructor.QueueChannel)
@@ -107,8 +107,7 @@ func (qccl *queueChannelsClientLocal) DestroyChannelsForQueue(ctx context.Contex
 }
 
 func (qccl *queueChannelsClientLocal) DeleteChannel(ctx context.Context, queueName string, channelKeyValues datatypes.KeyValues) *errors.ServerError {
-	logger := reporting.GetLogger(ctx).Named("DeleteChannel").With(zap.String("queue_name", queueName), zap.Any("channel_key_values", channelKeyValues))
-	ctx = reporting.UpdateLogger(ctx, logger)
+	ctx, logger := middleware.GetNamedMiddlewareLogger(ctx, "DeleteChannel")
 
 	// delete a channel only if there are no enqueued items
 	deleteChannel := func(oneToManyItem btreeonetomany.OneToManyItem) bool {
@@ -151,8 +150,7 @@ func (qccl *queueChannelsClientLocal) attemptDeleteChannel(logger *zap.Logger, q
 }
 
 func (qccl *queueChannelsClientLocal) EnqueueQueueItem(ctx context.Context, queueName string, enqueueItem *v1willow.EnqueueQueueItem) *errors.ServerError {
-	logger := reporting.GetLogger(ctx).Named("EnqueueQueueItem").With(zap.String("queue_name", queueName), zap.Any("channel_key_values", enqueueItem.KeyValues))
-	ctx = reporting.UpdateLogger(ctx, logger)
+	ctx, logger := middleware.GetNamedMiddlewareLogger(ctx, "EnqueueQueueItem")
 	var enqueueError *errors.ServerError
 
 	//create a new channel to enqueue items to
@@ -214,8 +212,7 @@ func (qccl *queueChannelsClientLocal) EnqueueQueueItem(ctx context.Context, queu
 // Dequeue an item from the queue. This is a blocking operation until an item is found that matches the query. This will also start a heartbeating
 // operation for any succeffully dequeued items
 func (qccl *queueChannelsClientLocal) DequeueQueueItem(ctx context.Context, queueName string, dequeueQuery *queryassociatedaction.AssociatedActionQuery) (*v1willow.DequeueQueueItem, func(), func(), *errors.ServerError) {
-	logger := reporting.GetLogger(ctx).Named("DequeueQueueItem").With(zap.String("queue_name", queueName))
-	ctx = reporting.UpdateLogger(ctx, logger)
+	ctx, logger := middleware.GetNamedMiddlewareLogger(ctx, "DequeueQueueItem")
 
 	// var of the return values
 	var dequeueItem *v1willow.DequeueQueueItem
@@ -283,8 +280,7 @@ func (qccl *queueChannelsClientLocal) DequeueQueueItem(ctx context.Context, queu
 
 // ACK the item in a channel
 func (qccl *queueChannelsClientLocal) ACK(ctx context.Context, queueName string, ack *v1willow.ACK) *errors.ServerError {
-	logger := reporting.GetLogger(ctx).Named("ACK").With(zap.String("queue_name", queueName), zap.Any("item_id", ack.ItemID))
-	ctx = reporting.UpdateLogger(ctx, logger)
+	ctx, logger := middleware.GetNamedMiddlewareLogger(ctx, "ACK")
 
 	ackErr := &errors.ServerError{Message: "Failed to find channel by key values ", StatusCode: http.StatusNotFound}
 
@@ -324,8 +320,8 @@ func (qccl *queueChannelsClientLocal) ACK(ctx context.Context, queueName string,
 
 // Heartbeat an item that has been pulled from the queue
 func (qccl *queueChannelsClientLocal) Heartbeat(ctx context.Context, queueName string, heartbeat *v1willow.Heartbeat) *errors.ServerError {
-	logger := reporting.GetLogger(ctx).Named("Heartbeat").With(zap.String("queue_name", queueName), zap.Any("item_id", heartbeat.ItemID))
-	ctx = reporting.UpdateLogger(ctx, logger)
+	ctx, _ = middleware.GetNamedMiddlewareLogger(ctx, "Heartbeat")
+
 	heartbeatErr := &errors.ServerError{Message: "Failed to find channel for item by key values", StatusCode: http.StatusNotFound}
 
 	performHeartbeat := func(oneToManyItem btreeonetomany.OneToManyItem) bool {
@@ -382,7 +378,7 @@ func (qccl *queueChannelsClientLocal) updateClientsWaiting(queueName string, cha
 
 // read operration for the channel
 func (qccl *queueChannelsClientLocal) Channels(ctx context.Context, queueName string, query *queryassociatedaction.AssociatedActionQuery) v1willow.Channels {
-	logger := reporting.GetLogger(ctx).Named("Channels").With(zap.String("queue_name", queueName))
+	_, logger := middleware.GetNamedMiddlewareLogger(ctx, "Channels")
 	channels := v1willow.Channels{}
 
 	queryChannels := func(oneToManyItem btreeonetomany.OneToManyItem) bool {

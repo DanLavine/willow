@@ -1,6 +1,8 @@
 package lockerclient
 
 import (
+	"bytes"
+	"context"
 	"fmt"
 	"net/http"
 	"sync"
@@ -30,7 +32,7 @@ type Lock interface {
 	//	          as realesed from the client and will eventually time out service side.
 	//
 	// Release the currently held lock
-	Release(headers http.Header) error
+	Release(ctx context.Context) error
 }
 
 type lock struct {
@@ -44,7 +46,7 @@ type lock struct {
 
 	// remote server client configuration
 	url    string
-	client clients.HttpClient
+	client *http.Client
 
 	// record error callback if configured. Can be used to monitor any unexpeded errors
 	// with the remote service and record them
@@ -58,7 +60,7 @@ type lock struct {
 	timeout time.Duration
 }
 
-func newLock(lockResponse *v1locker.LockCreateResponse, url string, client clients.HttpClient, heartbeatErrorCallback func(err error), releaseLockCallback func()) *lock {
+func newLock(lockResponse *v1locker.Lock, url string, client *http.Client, heartbeatErrorCallback func(err error), releaseLockCallback func()) *lock {
 	lock := &lock{
 		doneOnce: new(sync.Once),
 		done:     make(chan struct{}),
@@ -71,9 +73,9 @@ func newLock(lockResponse *v1locker.LockCreateResponse, url string, client clien
 
 		releaseLockCallback: releaseLockCallback,
 
-		lockID:    lockResponse.LockID,
-		sessionID: lockResponse.SessionID,
-		timeout:   lockResponse.LockTimeout,
+		lockID:    lockResponse.State.LockID,
+		sessionID: lockResponse.State.SessionID,
+		timeout:   *lockResponse.Spec.Timeout,
 	}
 
 	go func() {
@@ -84,31 +86,33 @@ func newLock(lockResponse *v1locker.LockCreateResponse, url string, client clien
 		}()
 
 		// set ticker to be ((timeout - 10%) /3). This way we try and heartbeat at least 3 times before a failure occurs
-		lastHeartbeat := time.Now()
-		adjustedTimeout := lockResponse.LockTimeout - (lockResponse.LockTimeout / 10)
+		adjustedTimeout := *lockResponse.Spec.Timeout - (*lockResponse.Spec.Timeout / 10)
 		ticker := time.NewTicker(adjustedTimeout / 3)
+		timeoutTicker := time.NewTicker(lock.timeout)
 
 		for {
 			select {
 			case <-lock.done:
-				// release was called. can just excape
+				// release was called. can just escape
+				return
+			case <-timeoutTicker.C:
+				// the timeout was reached. can just escape
 				return
 			case <-ticker.C:
-				if time.Since(lastHeartbeat) >= adjustedTimeout {
-					if heartbeatErrorCallback != nil {
-						heartbeatErrorCallback(fmt.Errorf("could not heartbeat successfuly since the timeout. Releasing the local Lock since remote is unreachable"))
-					}
+				lockClaimData, err := api.ModelEncodeRequest(&v1locker.LockClaim{SessionID: lockResponse.State.SessionID})
+				if err != nil {
+					heartbeatErrorCallback(fmt.Errorf("failed to encode heartbeat request: %w", err))
 					return
 				}
 
-				req, err := client.EncodedRequest("POST", fmt.Sprintf("%s/v1/locks/%s/heartbeat", url, lockResponse.LockID), &v1locker.LockClaim{SessionID: lockResponse.SessionID})
+				req, err := http.NewRequest("POST", fmt.Sprintf("%s/v1/locks/%s/heartbeat", url, lockResponse.State.LockID), bytes.NewBuffer(lockClaimData))
 				if err != nil {
 					if heartbeatErrorCallback != nil {
-						heartbeatErrorCallback(fmt.Errorf("failed to setup heartbeat requestt: %w", err))
+						heartbeatErrorCallback(fmt.Errorf("failed to setup heartbeat request: %w", err))
 					}
-
-					continue
+					return
 				}
+				req.Header.Add("Content-Type", "application/json")
 
 				resp, err := client.Do(req)
 				if err != nil {
@@ -122,11 +126,11 @@ func newLock(lockResponse *v1locker.LockCreateResponse, url string, client clien
 				switch resp.StatusCode {
 				case http.StatusOK:
 					// this is the success case and the heartbeat passed
-					lastHeartbeat = time.Now()
+					timeoutTicker.Reset(lock.timeout)
 				case http.StatusConflict, http.StatusBadRequest:
 					// there was an error with the request body or session id
 					apiError := &errors.Error{}
-					if err := api.DecodeAndValidateHttpResponse(resp, apiError); err != nil {
+					if err := api.ModelDecodeResponse(resp, apiError); err != nil {
 						if heartbeatErrorCallback != nil {
 							heartbeatErrorCallback(err)
 						}
@@ -158,7 +162,7 @@ func newLock(lockResponse *v1locker.LockCreateResponse, url string, client clien
 //	          as realesed from the client and will eventually time out service side.
 //
 // Release the currently held lock
-func (l *lock) Release(headers http.Header) error {
+func (l *lock) Release(ctx context.Context) error {
 	// release the actual lock
 	if l.released.CompareAndSwap(false, true) {
 		// stop heartbeating
@@ -167,19 +171,25 @@ func (l *lock) Release(headers http.Header) error {
 		// wait for the heartbeat process to stop
 		<-l.heartbeating
 
-		// Delete Lock
-		req, err := l.client.EncodedRequest("DELETE", fmt.Sprintf("%s/v1/locks/%s", l.url, l.lockID), &v1locker.LockClaim{SessionID: l.sessionID})
+		// Delete Lock request
+		lockClaimData, err := api.ModelEncodeRequest(&v1locker.LockClaim{SessionID: l.sessionID})
+		if err != nil {
+			return fmt.Errorf("failed to encode release request. Server will need to timeout: %w", err)
+		}
+
+		req, err := http.NewRequest("DELETE", fmt.Sprintf("%s/v1/locks/%s", l.url, l.lockID), bytes.NewBuffer(lockClaimData))
 		if err != nil {
 			return err
 		}
-
-		clients.AppendHeaders(req, headers)
+		clients.AddHeadersFromContext(req, ctx)
+		req.Header.Add("Content-Type", "application/json")
 
 		resp, err := l.client.Do(req)
 		if err != nil {
 			return err
 		}
 
+		// parse the release response
 		switch resp.StatusCode {
 		case http.StatusNoContent:
 			// this is the success case and the Lock was deleted
@@ -187,7 +197,7 @@ func (l *lock) Release(headers http.Header) error {
 		case http.StatusConflict, http.StatusBadRequest:
 			// there was an error with the request body or seession id
 			apiError := &errors.Error{}
-			if err := api.DecodeAndValidateHttpResponse(resp, apiError); err != nil {
+			if err := api.ModelDecodeResponse(resp, apiError); err != nil {
 				return err
 			}
 

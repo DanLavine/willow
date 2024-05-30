@@ -14,8 +14,9 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func randomEncapsulatedValue(randomNum, index int) datatypes.EncapsulatedValue {
-	selectedType := datatypes.GeneralDatatypesSlice[randomNum%len(datatypes.AllDatatypesSlice)]
+func knownEncapsulatedValue(randomNum, index int) datatypes.EncapsulatedValue {
+	selectedType := datatypes.DataType((randomNum % 13) + 1)
+
 	switch selectedType {
 	case datatypes.T_uint, datatypes.T_uint8, datatypes.T_uint16, datatypes.T_uint32, datatypes.T_uint64:
 		if uint(index) > math.MaxUint32 {
@@ -67,59 +68,6 @@ func randomEncapsulatedValue(randomNum, index int) datatypes.EncapsulatedValue {
 	}
 }
 
-func knownEncapsulatedValue(index int) datatypes.EncapsulatedValue {
-	selectedType := datatypes.GeneralDatatypesSlice[index%(len(datatypes.AllDatatypesSlice)-1)]
-	switch selectedType {
-	case datatypes.T_uint, datatypes.T_uint8, datatypes.T_uint16, datatypes.T_uint32, datatypes.T_uint64:
-		if uint(index) > math.MaxUint32 {
-			selectedType = datatypes.T_uint64
-		} else if uint(index) > math.MaxUint16 {
-			selectedType = datatypes.T_uint32
-		} else if uint(index) > math.MaxUint8 {
-			selectedType = datatypes.T_uint16
-		}
-	case datatypes.T_int, datatypes.T_int8, datatypes.T_int16, datatypes.T_int32, datatypes.T_int64:
-		if index > math.MaxInt32 {
-			selectedType = datatypes.T_int64
-		} else if index > math.MaxUint16 {
-			selectedType = datatypes.T_int32
-		} else if index > math.MaxInt8 {
-			selectedType = datatypes.T_int16
-		}
-	}
-
-	switch selectedType {
-	case datatypes.T_uint8:
-		return datatypes.Uint8(uint8(index))
-	case datatypes.T_uint16:
-		return datatypes.Uint16(uint16(index))
-	case datatypes.T_uint32:
-		return datatypes.Uint32(uint32(index))
-	case datatypes.T_uint64:
-		return datatypes.Uint64(uint64(index))
-	case datatypes.T_uint:
-		return datatypes.Uint8(uint8(index))
-	case datatypes.T_int8:
-		return datatypes.Int8(int8(index))
-	case datatypes.T_int16:
-		return datatypes.Int16(int16(index))
-	case datatypes.T_int32:
-		return datatypes.Int32(int32(index))
-	case datatypes.T_int64:
-		return datatypes.Int64(int64(index))
-	case datatypes.T_int:
-		return datatypes.Int(index)
-	case datatypes.T_float32:
-		return datatypes.Float32(float32(index))
-	case datatypes.T_float64:
-		return datatypes.Float64(float64(index))
-	case datatypes.T_string:
-		return datatypes.String(fmt.Sprintf("%d", index))
-	default:
-		panic(fmt.Errorf("unknown selected number: %d", selectedType))
-	}
-}
-
 func TestBTree_Random_Create(t *testing.T) {
 	g := NewGomegaWithT(t)
 	t.Parallel()
@@ -137,12 +85,12 @@ func TestBTree_Random_Create(t *testing.T) {
 		// create a tree of different types
 		for i := 0; i < iterateCount; i++ {
 			num := iterateCount + i
-			randomNum := randomGenerator.Intn(len(datatypes.GeneralDatatypesSlice))
+			randomNum := randomGenerator.Intn(i + 1)
 
 			wg.Add(1)
 			go func(randomN int, tNum int) {
 				defer wg.Done()
-				g.Expect(bTree.Create(randomEncapsulatedValue(randomN, tNum), NewBTreeTester(fmt.Sprintf("%d", tNum)))).ToNot(HaveOccurred())
+				g.Expect(bTree.Create(knownEncapsulatedValue(randomN, tNum), NewBTreeTester(fmt.Sprintf("%d", tNum)))).ToNot(HaveOccurred())
 			}(randomNum, num)
 		}
 
@@ -190,12 +138,12 @@ func TestBTree_Random_Create(t *testing.T) {
 		// create a tree of different types
 		for i := 0; i < iterateCount; i++ {
 			num := iterateCount + i
-			randomNum := randomGenerator.Intn(len(datatypes.GeneralDatatypesSlice))
+			randomNum := randomGenerator.Intn(i + 1)
 
 			wg.Add(1)
 			go func(randomN int, tNum int) {
 				defer wg.Done()
-				g.Expect(bTree.Create(randomEncapsulatedValue(randomN, tNum), NewBTreeTester(fmt.Sprintf("%d", tNum)))).ToNot(HaveOccurred())
+				g.Expect(bTree.Create(knownEncapsulatedValue(randomN, tNum), NewBTreeTester(fmt.Sprintf("%d", tNum)))).ToNot(HaveOccurred())
 			}(randomNum, num)
 		}
 		// create the any tree
@@ -242,12 +190,12 @@ func TestBTree_Random_Create(t *testing.T) {
 		// create a tree of different types
 		for i := 0; i < iterateCount; i++ {
 			num := iterateCount + i
-			randomNum := randomGenerator.Intn(len(datatypes.GeneralDatatypesSlice))
+			randomNum := randomGenerator.Intn(i + 1)
 
 			wg.Add(1)
 			go func(randomN int, tNum int) {
 				defer wg.Done()
-				g.Expect(bTree.Create(randomEncapsulatedValue(randomN, tNum), NewBTreeTester(fmt.Sprintf("%d", tNum)))).ToNot(HaveOccurred())
+				g.Expect(bTree.Create(knownEncapsulatedValue(randomN, tNum), NewBTreeTester(fmt.Sprintf("%d", tNum)))).ToNot(HaveOccurred())
 			}(randomNum, num)
 		}
 
@@ -308,7 +256,7 @@ func TestBTree_Random_Find(t *testing.T) {
 			wg.Add(1)
 			go func(tNum int) {
 				defer wg.Done()
-				g.Expect(bTree.CreateOrFind(knownEncapsulatedValue(tNum), NewBTreeTester(fmt.Sprintf("%d", tNum)), onFindNoOp)).ToNot(HaveOccurred())
+				g.Expect(bTree.CreateOrFind(knownEncapsulatedValue(tNum, tNum), NewBTreeTester(fmt.Sprintf("%d", tNum)), onFindNoOp)).ToNot(HaveOccurred())
 			}(i)
 		}
 
@@ -339,7 +287,6 @@ func TestBTree_Random_Find(t *testing.T) {
 		}
 
 		for i := 0; i < 10_000; i++ {
-
 			// find of constant keys
 			wg.Add(1)
 			go func(tKey datatypes.EncapsulatedValue, tNum int) {
@@ -351,7 +298,7 @@ func TestBTree_Random_Find(t *testing.T) {
 			wg.Add(1)
 			go func(tNum int) {
 				defer wg.Done()
-				g.Expect(bTree.Find(knownEncapsulatedValue(tNum), noTypesRestriction, onFind)).ToNot(HaveOccurred())
+				g.Expect(bTree.Find(knownEncapsulatedValue(tNum, tNum), noTypesRestriction, onFind)).ToNot(HaveOccurred())
 			}(i)
 		}
 
@@ -387,7 +334,7 @@ func TestBTree_Random_Find(t *testing.T) {
 			wg.Add(1)
 			go func(tNum int) {
 				defer wg.Done()
-				g.Expect(bTree.Find(knownEncapsulatedValue(tNum), noTypesRestriction, onFind)).ToNot(HaveOccurred())
+				g.Expect(bTree.Find(knownEncapsulatedValue(tNum, tNum), noTypesRestriction, onFind)).ToNot(HaveOccurred())
 			}(i)
 		}
 
@@ -423,7 +370,7 @@ func TestBTree_Random_Find(t *testing.T) {
 			wg.Add(1)
 			go func(tNum int) {
 				defer wg.Done()
-				g.Expect(bTree.Find(knownEncapsulatedValue(tNum), noTypesRestriction, onFind)).ToNot(HaveOccurred())
+				g.Expect(bTree.Find(knownEncapsulatedValue(tNum, tNum), noTypesRestriction, onFind)).ToNot(HaveOccurred())
 			}(i)
 		}
 
@@ -459,7 +406,7 @@ func TestBTree_Random_Delete(t *testing.T) {
 			wg.Add(1)
 			go func(tNum int) {
 				defer wg.Done()
-				g.Expect(bTree.CreateOrFind(knownEncapsulatedValue(tNum), NewBTreeTester(fmt.Sprintf("%d", tNum)), onFindNoOp)).ToNot(HaveOccurred())
+				g.Expect(bTree.CreateOrFind(knownEncapsulatedValue(tNum, tNum), NewBTreeTester(fmt.Sprintf("%d", tNum)), onFindNoOp)).ToNot(HaveOccurred())
 			}(i)
 		}
 
@@ -499,7 +446,7 @@ func TestBTree_Random_Delete(t *testing.T) {
 			wg.Add(1)
 			go func(tNum int) {
 				defer wg.Done()
-				g.Expect(bTree.Delete(knownEncapsulatedValue(tNum), delete)).ToNot(HaveOccurred())
+				g.Expect(bTree.Delete(knownEncapsulatedValue(tNum, tNum), delete)).ToNot(HaveOccurred())
 			}(i)
 		}
 
@@ -534,7 +481,7 @@ func TestBTree_Random_Delete(t *testing.T) {
 			wg.Add(1)
 			go func(tNum int) {
 				defer wg.Done()
-				g.Expect(bTree.Delete(knownEncapsulatedValue(tNum), delete)).ToNot(HaveOccurred())
+				g.Expect(bTree.Delete(knownEncapsulatedValue(tNum, tNum), delete)).ToNot(HaveOccurred())
 			}(i)
 		}
 
@@ -569,7 +516,7 @@ func TestBTree_Random_Delete(t *testing.T) {
 			wg.Add(1)
 			go func(tNum int) {
 				defer wg.Done()
-				g.Expect(bTree.Delete(knownEncapsulatedValue(tNum), delete)).ToNot(HaveOccurred())
+				g.Expect(bTree.Delete(knownEncapsulatedValue(tNum, tNum), delete)).ToNot(HaveOccurred())
 			}(i)
 		}
 
@@ -606,7 +553,7 @@ func TestBTree_Random_Destroy(t *testing.T) {
 			wg.Add(1)
 			go func(tNum int) {
 				defer wg.Done()
-				g.Expect(bTree.CreateOrFind(knownEncapsulatedValue(tNum), NewBTreeTester(fmt.Sprintf("%d", tNum)), onFindNoOp)).ToNot(HaveOccurred())
+				g.Expect(bTree.CreateOrFind(knownEncapsulatedValue(tNum, tNum), NewBTreeTester(fmt.Sprintf("%d", tNum)), onFindNoOp)).ToNot(HaveOccurred())
 			}(i)
 		}
 
@@ -646,7 +593,7 @@ func TestBTree_Random_Destroy(t *testing.T) {
 			wg.Add(1)
 			go func(tNum int) {
 				defer wg.Done()
-				g.Expect(bTree.Destroy(knownEncapsulatedValue(tNum), delete)).ToNot(HaveOccurred())
+				g.Expect(bTree.Destroy(knownEncapsulatedValue(tNum, tNum), delete)).ToNot(HaveOccurred())
 			}(i)
 		}
 
@@ -681,7 +628,7 @@ func TestBTree_Random_Destroy(t *testing.T) {
 			wg.Add(1)
 			go func(tNum int) {
 				defer wg.Done()
-				g.Expect(bTree.Destroy(knownEncapsulatedValue(tNum), delete)).ToNot(HaveOccurred())
+				g.Expect(bTree.Destroy(knownEncapsulatedValue(tNum, tNum), delete)).ToNot(HaveOccurred())
 			}(i)
 		}
 
@@ -716,7 +663,7 @@ func TestBTree_Random_Destroy(t *testing.T) {
 			wg.Add(1)
 			go func(tNum int) {
 				defer wg.Done()
-				g.Expect(bTree.Destroy(knownEncapsulatedValue(tNum), delete)).ToNot(HaveOccurred())
+				g.Expect(bTree.Destroy(knownEncapsulatedValue(tNum, tNum), delete)).ToNot(HaveOccurred())
 			}(i)
 		}
 
@@ -765,63 +712,63 @@ func TestBTree_Random_AllActions(t *testing.T) {
 			wg.Add(1)
 			go func(tNum int) {
 				defer wg.Done()
-				g.Expect(bTree.CreateOrFind(knownEncapsulatedValue(tNum), NewBTreeTester(fmt.Sprintf("%d", tNum)), onFindNoOp)).ToNot(HaveOccurred())
+				g.Expect(bTree.CreateOrFind(knownEncapsulatedValue(tNum, tNum), NewBTreeTester(fmt.Sprintf("%d", tNum)), onFindNoOp)).ToNot(HaveOccurred())
 			}(i)
 
 			// create
 			wg.Add(1)
 			go func(tNum int) {
 				defer wg.Done()
-				g.Expect(bTree.Create(knownEncapsulatedValue(tNum), NewBTreeTester(fmt.Sprintf("%d", tNum)))).ToNot(HaveOccurred())
+				g.Expect(bTree.Create(knownEncapsulatedValue(tNum, tNum), NewBTreeTester(fmt.Sprintf("%d", tNum)))).ToNot(HaveOccurred())
 			}(i + iterateCount)
 
 			// find
 			wg.Add(1)
 			go func(tNum int, callback func(_ datatypes.EncapsulatedValue, _ any) bool) {
 				defer wg.Done()
-				g.Expect(bTree.Find(knownEncapsulatedValue(tNum), noTypesRestriction, callback)).ToNot(HaveOccurred())
+				g.Expect(bTree.Find(knownEncapsulatedValue(tNum, tNum), noTypesRestriction, callback)).ToNot(HaveOccurred())
 			}(i, onFindPaginate)
 
 			// find not equal
 			wg.Add(1)
 			go func(tNum int, callback func(_ datatypes.EncapsulatedValue, _ any) bool) {
 				defer wg.Done()
-				g.Expect(bTree.FindNotEqual(knownEncapsulatedValue(tNum), noTypesRestriction, callback)).ToNot(HaveOccurred())
+				g.Expect(bTree.FindNotEqual(knownEncapsulatedValue(tNum, tNum), noTypesRestriction, callback)).ToNot(HaveOccurred())
 			}(i, onFindPaginate)
 
 			// find less than
 			wg.Add(1)
 			go func(tNum int, callback func(datatypes.EncapsulatedValue, any) bool) {
 				defer wg.Done()
-				g.Expect(bTree.FindLessThan(knownEncapsulatedValue(tNum), noTypesRestriction, callback)).ToNot(HaveOccurred())
+				g.Expect(bTree.FindLessThan(knownEncapsulatedValue(tNum, tNum), noTypesRestriction, callback)).ToNot(HaveOccurred())
 			}(i, onFindPaginate)
 
 			// find less than or equal
 			wg.Add(1)
 			go func(tNum int, callback func(datatypes.EncapsulatedValue, any) bool) {
 				defer wg.Done()
-				g.Expect(bTree.FindLessThanOrEqual(knownEncapsulatedValue(tNum), noTypesRestriction, callback)).ToNot(HaveOccurred())
+				g.Expect(bTree.FindLessThanOrEqual(knownEncapsulatedValue(tNum, tNum), noTypesRestriction, callback)).ToNot(HaveOccurred())
 			}(i, onFindPaginate)
 
 			// find greater than
 			wg.Add(1)
 			go func(tNum int, callback func(datatypes.EncapsulatedValue, any) bool) {
 				defer wg.Done()
-				g.Expect(bTree.FindGreaterThan(knownEncapsulatedValue(tNum), noTypesRestriction, callback)).ToNot(HaveOccurred())
+				g.Expect(bTree.FindGreaterThan(knownEncapsulatedValue(tNum, tNum), noTypesRestriction, callback)).ToNot(HaveOccurred())
 			}(i, onFindPaginate)
 
 			// find greater than or equal
 			wg.Add(1)
 			go func(tNum int, callback func(datatypes.EncapsulatedValue, any) bool) {
 				defer wg.Done()
-				g.Expect(bTree.FindGreaterThanOrEqual(knownEncapsulatedValue(tNum), noTypesRestriction, callback)).ToNot(HaveOccurred())
+				g.Expect(bTree.FindGreaterThanOrEqual(knownEncapsulatedValue(tNum, tNum), noTypesRestriction, callback)).ToNot(HaveOccurred())
 			}(i, onFindPaginate)
 
 			// delete
 			wg.Add(1)
 			go func(tNum int) {
 				defer wg.Done()
-				g.Expect(bTree.Delete(knownEncapsulatedValue(tNum), nil)).ToNot(HaveOccurred())
+				g.Expect(bTree.Delete(knownEncapsulatedValue(tNum, tNum), nil)).ToNot(HaveOccurred())
 			}(i)
 		}
 
@@ -857,63 +804,63 @@ func TestBTree_Random_AllActions(t *testing.T) {
 			wg.Add(1)
 			go func(tNum int) {
 				defer wg.Done()
-				g.Expect(bTree.CreateOrFind(knownEncapsulatedValue(tNum), NewBTreeTester(fmt.Sprintf("%d", tNum)), onFindNoOp)).ToNot(HaveOccurred())
+				g.Expect(bTree.CreateOrFind(knownEncapsulatedValue(tNum, tNum), NewBTreeTester(fmt.Sprintf("%d", tNum)), onFindNoOp)).ToNot(HaveOccurred())
 			}(i)
 
 			// create
 			wg.Add(1)
 			go func(tNum int) {
 				defer wg.Done()
-				g.Expect(bTree.Create(knownEncapsulatedValue(tNum), NewBTreeTester(fmt.Sprintf("%d", tNum)))).ToNot(HaveOccurred())
+				g.Expect(bTree.Create(knownEncapsulatedValue(tNum, tNum), NewBTreeTester(fmt.Sprintf("%d", tNum)))).ToNot(HaveOccurred())
 			}(i + iterateCount)
 
 			// find
 			wg.Add(1)
 			go func(tNum int, callback func(_ datatypes.EncapsulatedValue, _ any) bool) {
 				defer wg.Done()
-				g.Expect(bTree.Find(knownEncapsulatedValue(tNum), noTypesRestriction, callback)).ToNot(HaveOccurred())
+				g.Expect(bTree.Find(knownEncapsulatedValue(tNum, tNum), noTypesRestriction, callback)).ToNot(HaveOccurred())
 			}(i, onFindPaginate)
 
 			// find not equal
 			wg.Add(1)
 			go func(tNum int, callback func(_ datatypes.EncapsulatedValue, _ any) bool) {
 				defer wg.Done()
-				g.Expect(bTree.FindNotEqual(knownEncapsulatedValue(tNum), noTypesRestriction, callback)).ToNot(HaveOccurred())
+				g.Expect(bTree.FindNotEqual(knownEncapsulatedValue(tNum, tNum), noTypesRestriction, callback)).ToNot(HaveOccurred())
 			}(i, onFindPaginate)
 
 			// find less than
 			wg.Add(1)
 			go func(tNum int, callback func(datatypes.EncapsulatedValue, any) bool) {
 				defer wg.Done()
-				g.Expect(bTree.FindLessThan(knownEncapsulatedValue(tNum), noTypesRestriction, callback)).ToNot(HaveOccurred())
+				g.Expect(bTree.FindLessThan(knownEncapsulatedValue(tNum, tNum), noTypesRestriction, callback)).ToNot(HaveOccurred())
 			}(i, onFindPaginate)
 
 			// find less than or equal
 			wg.Add(1)
 			go func(tNum int, callback func(datatypes.EncapsulatedValue, any) bool) {
 				defer wg.Done()
-				g.Expect(bTree.FindLessThanOrEqual(knownEncapsulatedValue(tNum), noTypesRestriction, callback)).ToNot(HaveOccurred())
+				g.Expect(bTree.FindLessThanOrEqual(knownEncapsulatedValue(tNum, tNum), noTypesRestriction, callback)).ToNot(HaveOccurred())
 			}(i, onFindPaginate)
 
 			// find greater than
 			wg.Add(1)
 			go func(tNum int, callback func(datatypes.EncapsulatedValue, any) bool) {
 				defer wg.Done()
-				g.Expect(bTree.FindGreaterThan(knownEncapsulatedValue(tNum), noTypesRestriction, callback)).ToNot(HaveOccurred())
+				g.Expect(bTree.FindGreaterThan(knownEncapsulatedValue(tNum, tNum), noTypesRestriction, callback)).ToNot(HaveOccurred())
 			}(i, onFindPaginate)
 
 			// find greater than or equal
 			wg.Add(1)
 			go func(tNum int, callback func(datatypes.EncapsulatedValue, any) bool) {
 				defer wg.Done()
-				g.Expect(bTree.FindGreaterThanOrEqual(knownEncapsulatedValue(tNum), noTypesRestriction, callback)).ToNot(HaveOccurred())
+				g.Expect(bTree.FindGreaterThanOrEqual(knownEncapsulatedValue(tNum, tNum), noTypesRestriction, callback)).ToNot(HaveOccurred())
 			}(i, onFindPaginate)
 
 			// delete
 			wg.Add(1)
 			go func(tNum int) {
 				defer wg.Done()
-				g.Expect(bTree.Delete(knownEncapsulatedValue(tNum), nil)).ToNot(HaveOccurred())
+				g.Expect(bTree.Delete(knownEncapsulatedValue(tNum, tNum), nil)).ToNot(HaveOccurred())
 			}(i)
 		}
 
@@ -950,63 +897,63 @@ func TestBTree_Random_AllActions(t *testing.T) {
 			wg.Add(1)
 			go func(tNum int) {
 				defer wg.Done()
-				g.Expect(bTree.CreateOrFind(knownEncapsulatedValue(tNum), NewBTreeTester(fmt.Sprintf("%d", tNum)), onFindNoOp)).ToNot(HaveOccurred())
+				g.Expect(bTree.CreateOrFind(knownEncapsulatedValue(tNum, tNum), NewBTreeTester(fmt.Sprintf("%d", tNum)), onFindNoOp)).ToNot(HaveOccurred())
 			}(i)
 
 			// create
 			wg.Add(1)
 			go func(tNum int) {
 				defer wg.Done()
-				g.Expect(bTree.Create(knownEncapsulatedValue(tNum), NewBTreeTester(fmt.Sprintf("%d", tNum)))).ToNot(HaveOccurred())
+				g.Expect(bTree.Create(knownEncapsulatedValue(tNum, tNum), NewBTreeTester(fmt.Sprintf("%d", tNum)))).ToNot(HaveOccurred())
 			}(i + iterateCount)
 
 			// find
 			wg.Add(1)
 			go func(tNum int, callback func(_ datatypes.EncapsulatedValue, _ any) bool) {
 				defer wg.Done()
-				g.Expect(bTree.Find(knownEncapsulatedValue(tNum), noTypesRestriction, callback)).ToNot(HaveOccurred())
+				g.Expect(bTree.Find(knownEncapsulatedValue(tNum, tNum), noTypesRestriction, callback)).ToNot(HaveOccurred())
 			}(i, onFindPaginate)
 
 			// find not equal
 			wg.Add(1)
 			go func(tNum int, callback func(_ datatypes.EncapsulatedValue, _ any) bool) {
 				defer wg.Done()
-				g.Expect(bTree.FindNotEqual(knownEncapsulatedValue(tNum), noTypesRestriction, callback)).ToNot(HaveOccurred())
+				g.Expect(bTree.FindNotEqual(knownEncapsulatedValue(tNum, tNum), noTypesRestriction, callback)).ToNot(HaveOccurred())
 			}(i, onFindPaginate)
 
 			// find less than
 			wg.Add(1)
 			go func(tNum int, callback func(datatypes.EncapsulatedValue, any) bool) {
 				defer wg.Done()
-				g.Expect(bTree.FindLessThan(knownEncapsulatedValue(tNum), noTypesRestriction, callback)).ToNot(HaveOccurred())
+				g.Expect(bTree.FindLessThan(knownEncapsulatedValue(tNum, tNum), noTypesRestriction, callback)).ToNot(HaveOccurred())
 			}(i, onFindPaginate)
 
 			// find less than or equal
 			wg.Add(1)
 			go func(tNum int, callback func(datatypes.EncapsulatedValue, any) bool) {
 				defer wg.Done()
-				g.Expect(bTree.FindLessThanOrEqual(knownEncapsulatedValue(tNum), noTypesRestriction, callback)).ToNot(HaveOccurred())
+				g.Expect(bTree.FindLessThanOrEqual(knownEncapsulatedValue(tNum, tNum), noTypesRestriction, callback)).ToNot(HaveOccurred())
 			}(i, onFindPaginate)
 
 			// find greater than
 			wg.Add(1)
 			go func(tNum int, callback func(datatypes.EncapsulatedValue, any) bool) {
 				defer wg.Done()
-				g.Expect(bTree.FindGreaterThan(knownEncapsulatedValue(tNum), noTypesRestriction, callback)).ToNot(HaveOccurred())
+				g.Expect(bTree.FindGreaterThan(knownEncapsulatedValue(tNum, tNum), noTypesRestriction, callback)).ToNot(HaveOccurred())
 			}(i, onFindPaginate)
 
 			// find greater than or equal
 			wg.Add(1)
 			go func(tNum int, callback func(datatypes.EncapsulatedValue, any) bool) {
 				defer wg.Done()
-				g.Expect(bTree.FindGreaterThanOrEqual(knownEncapsulatedValue(tNum), noTypesRestriction, callback)).ToNot(HaveOccurred())
+				g.Expect(bTree.FindGreaterThanOrEqual(knownEncapsulatedValue(tNum, tNum), noTypesRestriction, callback)).ToNot(HaveOccurred())
 			}(i, onFindPaginate)
 
 			// delete
 			wg.Add(1)
 			go func(tNum int) {
 				defer wg.Done()
-				g.Expect(bTree.Delete(knownEncapsulatedValue(tNum), nil)).ToNot(HaveOccurred())
+				g.Expect(bTree.Delete(knownEncapsulatedValue(tNum, tNum), nil)).ToNot(HaveOccurred())
 			}(i)
 		}
 
@@ -1051,63 +998,63 @@ func TestBTree_Random_AllActions_WithDestroyAll(t *testing.T) {
 			wg.Add(1)
 			go func(tNum int) {
 				defer wg.Done()
-				g.Expect(bTree.CreateOrFind(knownEncapsulatedValue(tNum), NewBTreeTester(fmt.Sprintf("%d", tNum)), onFindNoOp)).To(Or(BeNil(), Equal(ErrorTreeDestroying)))
+				g.Expect(bTree.CreateOrFind(knownEncapsulatedValue(tNum, tNum), NewBTreeTester(fmt.Sprintf("%d", tNum)), onFindNoOp)).To(Or(BeNil(), Equal(ErrorTreeDestroying)))
 			}(i)
 
 			// create
 			wg.Add(1)
 			go func(tNum int) {
 				defer wg.Done()
-				g.Expect(bTree.Create(knownEncapsulatedValue(tNum), NewBTreeTester(fmt.Sprintf("%d", tNum)))).To(Or(BeNil(), Equal(ErrorTreeDestroying)))
+				g.Expect(bTree.Create(knownEncapsulatedValue(tNum, tNum), NewBTreeTester(fmt.Sprintf("%d", tNum)))).To(Or(BeNil(), Equal(ErrorTreeDestroying)))
 			}(i + iterateCount)
 
 			// find
 			wg.Add(1)
 			go func(tNum int, callback func(_ datatypes.EncapsulatedValue, _ any) bool) {
 				defer wg.Done()
-				g.Expect(bTree.Find(knownEncapsulatedValue(tNum), noTypesRestriction, callback)).To(Or(BeNil(), Equal(ErrorTreeDestroying)))
+				g.Expect(bTree.Find(knownEncapsulatedValue(tNum, tNum), noTypesRestriction, callback)).To(Or(BeNil(), Equal(ErrorTreeDestroying)))
 			}(i, onFindPaginate)
 
 			// find not equal
 			wg.Add(1)
 			go func(tNum int, callback func(_ datatypes.EncapsulatedValue, _ any) bool) {
 				defer wg.Done()
-				g.Expect(bTree.FindNotEqual(knownEncapsulatedValue(tNum), noTypesRestriction, callback)).To(Or(BeNil(), Equal(ErrorTreeDestroying)))
+				g.Expect(bTree.FindNotEqual(knownEncapsulatedValue(tNum, tNum), noTypesRestriction, callback)).To(Or(BeNil(), Equal(ErrorTreeDestroying)))
 			}(i, onFindPaginate)
 
 			// find less than
 			wg.Add(1)
 			go func(tNum int, callback func(datatypes.EncapsulatedValue, any) bool) {
 				defer wg.Done()
-				g.Expect(bTree.FindLessThan(knownEncapsulatedValue(tNum), noTypesRestriction, callback)).To(Or(BeNil(), Equal(ErrorTreeDestroying)))
+				g.Expect(bTree.FindLessThan(knownEncapsulatedValue(tNum, tNum), noTypesRestriction, callback)).To(Or(BeNil(), Equal(ErrorTreeDestroying)))
 			}(i, onFindPaginate)
 
 			// find less than or equal
 			wg.Add(1)
 			go func(tNum int, callback func(datatypes.EncapsulatedValue, any) bool) {
 				defer wg.Done()
-				g.Expect(bTree.FindLessThanOrEqual(knownEncapsulatedValue(tNum), noTypesRestriction, callback)).To(Or(BeNil(), Equal(ErrorTreeDestroying)))
+				g.Expect(bTree.FindLessThanOrEqual(knownEncapsulatedValue(tNum, tNum), noTypesRestriction, callback)).To(Or(BeNil(), Equal(ErrorTreeDestroying)))
 			}(i, onFindPaginate)
 
 			// find greater than
 			wg.Add(1)
 			go func(tNum int, callback func(datatypes.EncapsulatedValue, any) bool) {
 				defer wg.Done()
-				g.Expect(bTree.FindGreaterThan(knownEncapsulatedValue(tNum), noTypesRestriction, callback)).To(Or(BeNil(), Equal(ErrorTreeDestroying)))
+				g.Expect(bTree.FindGreaterThan(knownEncapsulatedValue(tNum, tNum), noTypesRestriction, callback)).To(Or(BeNil(), Equal(ErrorTreeDestroying)))
 			}(i, onFindPaginate)
 
 			// find greater than or equal
 			wg.Add(1)
 			go func(tNum int, callback func(datatypes.EncapsulatedValue, any) bool) {
 				defer wg.Done()
-				g.Expect(bTree.FindGreaterThanOrEqual(knownEncapsulatedValue(tNum), noTypesRestriction, callback)).To(Or(BeNil(), Equal(ErrorTreeDestroying)))
+				g.Expect(bTree.FindGreaterThanOrEqual(knownEncapsulatedValue(tNum, tNum), noTypesRestriction, callback)).To(Or(BeNil(), Equal(ErrorTreeDestroying)))
 			}(i, onFindPaginate)
 
 			// delete
 			wg.Add(1)
 			go func(tNum int) {
 				defer wg.Done()
-				g.Expect(bTree.Delete(knownEncapsulatedValue(tNum), nil)).To(Or(BeNil(), Equal(ErrorTreeDestroying)))
+				g.Expect(bTree.Delete(knownEncapsulatedValue(tNum, tNum), nil)).To(Or(BeNil(), Equal(ErrorTreeDestroying)))
 			}(i)
 
 			if i == 5_000 {
@@ -1151,63 +1098,63 @@ func TestBTree_Random_AllActions_WithDestroyAll(t *testing.T) {
 			wg.Add(1)
 			go func(tNum int) {
 				defer wg.Done()
-				g.Expect(bTree.CreateOrFind(knownEncapsulatedValue(tNum), NewBTreeTester(fmt.Sprintf("%d", tNum)), onFindNoOp)).To(Or(BeNil(), Equal(ErrorTreeDestroying)))
+				g.Expect(bTree.CreateOrFind(knownEncapsulatedValue(tNum, tNum), NewBTreeTester(fmt.Sprintf("%d", tNum)), onFindNoOp)).To(Or(BeNil(), Equal(ErrorTreeDestroying)))
 			}(i)
 
 			// create
 			wg.Add(1)
 			go func(tNum int) {
 				defer wg.Done()
-				g.Expect(bTree.Create(knownEncapsulatedValue(tNum), NewBTreeTester(fmt.Sprintf("%d", tNum)))).To(Or(BeNil(), Equal(ErrorTreeDestroying)))
+				g.Expect(bTree.Create(knownEncapsulatedValue(tNum, tNum), NewBTreeTester(fmt.Sprintf("%d", tNum)))).To(Or(BeNil(), Equal(ErrorTreeDestroying)))
 			}(i + iterateCount)
 
 			// find
 			wg.Add(1)
 			go func(tNum int, callback func(_ datatypes.EncapsulatedValue, _ any) bool) {
 				defer wg.Done()
-				g.Expect(bTree.Find(knownEncapsulatedValue(tNum), noTypesRestriction, callback)).To(Or(BeNil(), Equal(ErrorTreeDestroying)))
+				g.Expect(bTree.Find(knownEncapsulatedValue(tNum, tNum), noTypesRestriction, callback)).To(Or(BeNil(), Equal(ErrorTreeDestroying)))
 			}(i, onFindPaginate)
 
 			// find not equal
 			wg.Add(1)
 			go func(tNum int, callback func(_ datatypes.EncapsulatedValue, _ any) bool) {
 				defer wg.Done()
-				g.Expect(bTree.FindNotEqual(knownEncapsulatedValue(tNum), noTypesRestriction, callback)).To(Or(BeNil(), Equal(ErrorTreeDestroying)))
+				g.Expect(bTree.FindNotEqual(knownEncapsulatedValue(tNum, tNum), noTypesRestriction, callback)).To(Or(BeNil(), Equal(ErrorTreeDestroying)))
 			}(i, onFindPaginate)
 
 			// find less than
 			wg.Add(1)
 			go func(tNum int, callback func(datatypes.EncapsulatedValue, any) bool) {
 				defer wg.Done()
-				g.Expect(bTree.FindLessThan(knownEncapsulatedValue(tNum), noTypesRestriction, callback)).To(Or(BeNil(), Equal(ErrorTreeDestroying)))
+				g.Expect(bTree.FindLessThan(knownEncapsulatedValue(tNum, tNum), noTypesRestriction, callback)).To(Or(BeNil(), Equal(ErrorTreeDestroying)))
 			}(i, onFindPaginate)
 
 			// find less than or equal
 			wg.Add(1)
 			go func(tNum int, callback func(datatypes.EncapsulatedValue, any) bool) {
 				defer wg.Done()
-				g.Expect(bTree.FindLessThanOrEqual(knownEncapsulatedValue(tNum), noTypesRestriction, callback)).To(Or(BeNil(), Equal(ErrorTreeDestroying)))
+				g.Expect(bTree.FindLessThanOrEqual(knownEncapsulatedValue(tNum, tNum), noTypesRestriction, callback)).To(Or(BeNil(), Equal(ErrorTreeDestroying)))
 			}(i, onFindPaginate)
 
 			// find greater than
 			wg.Add(1)
 			go func(tNum int, callback func(datatypes.EncapsulatedValue, any) bool) {
 				defer wg.Done()
-				g.Expect(bTree.FindGreaterThan(knownEncapsulatedValue(tNum), noTypesRestriction, callback)).To(Or(BeNil(), Equal(ErrorTreeDestroying)))
+				g.Expect(bTree.FindGreaterThan(knownEncapsulatedValue(tNum, tNum), noTypesRestriction, callback)).To(Or(BeNil(), Equal(ErrorTreeDestroying)))
 			}(i, onFindPaginate)
 
 			// find greater than or equal
 			wg.Add(1)
 			go func(tNum int, callback func(datatypes.EncapsulatedValue, any) bool) {
 				defer wg.Done()
-				g.Expect(bTree.FindGreaterThanOrEqual(knownEncapsulatedValue(tNum), noTypesRestriction, callback)).To(Or(BeNil(), Equal(ErrorTreeDestroying)))
+				g.Expect(bTree.FindGreaterThanOrEqual(knownEncapsulatedValue(tNum, tNum), noTypesRestriction, callback)).To(Or(BeNil(), Equal(ErrorTreeDestroying)))
 			}(i, onFindPaginate)
 
 			// delete
 			wg.Add(1)
 			go func(tNum int) {
 				defer wg.Done()
-				g.Expect(bTree.Delete(knownEncapsulatedValue(tNum), nil)).To(Or(BeNil(), Equal(ErrorTreeDestroying)))
+				g.Expect(bTree.Delete(knownEncapsulatedValue(tNum, tNum), nil)).To(Or(BeNil(), Equal(ErrorTreeDestroying)))
 			}(i)
 
 			if i == 5_000 {
@@ -1251,63 +1198,63 @@ func TestBTree_Random_AllActions_WithDestroyAll(t *testing.T) {
 			wg.Add(1)
 			go func(tNum int) {
 				defer wg.Done()
-				g.Expect(bTree.CreateOrFind(knownEncapsulatedValue(tNum), NewBTreeTester(fmt.Sprintf("%d", tNum)), onFindNoOp)).To(Or(BeNil(), Equal(ErrorTreeDestroying)))
+				g.Expect(bTree.CreateOrFind(knownEncapsulatedValue(tNum, tNum), NewBTreeTester(fmt.Sprintf("%d", tNum)), onFindNoOp)).To(Or(BeNil(), Equal(ErrorTreeDestroying)))
 			}(i)
 
 			// create
 			wg.Add(1)
 			go func(tNum int) {
 				defer wg.Done()
-				g.Expect(bTree.Create(knownEncapsulatedValue(tNum), NewBTreeTester(fmt.Sprintf("%d", tNum)))).To(Or(BeNil(), Equal(ErrorTreeDestroying)))
+				g.Expect(bTree.Create(knownEncapsulatedValue(tNum, tNum), NewBTreeTester(fmt.Sprintf("%d", tNum)))).To(Or(BeNil(), Equal(ErrorTreeDestroying)))
 			}(i + iterateCount)
 
 			// find
 			wg.Add(1)
 			go func(tNum int, callback func(_ datatypes.EncapsulatedValue, _ any) bool) {
 				defer wg.Done()
-				g.Expect(bTree.Find(knownEncapsulatedValue(tNum), noTypesRestriction, callback)).To(Or(BeNil(), Equal(ErrorTreeDestroying)))
+				g.Expect(bTree.Find(knownEncapsulatedValue(tNum, tNum), noTypesRestriction, callback)).To(Or(BeNil(), Equal(ErrorTreeDestroying)))
 			}(i, onFindPaginate)
 
 			// find not equal
 			wg.Add(1)
 			go func(tNum int, callback func(_ datatypes.EncapsulatedValue, _ any) bool) {
 				defer wg.Done()
-				g.Expect(bTree.FindNotEqual(knownEncapsulatedValue(tNum), noTypesRestriction, callback)).To(Or(BeNil(), Equal(ErrorTreeDestroying)))
+				g.Expect(bTree.FindNotEqual(knownEncapsulatedValue(tNum, tNum), noTypesRestriction, callback)).To(Or(BeNil(), Equal(ErrorTreeDestroying)))
 			}(i, onFindPaginate)
 
 			// find less than
 			wg.Add(1)
 			go func(tNum int, callback func(datatypes.EncapsulatedValue, any) bool) {
 				defer wg.Done()
-				g.Expect(bTree.FindLessThan(knownEncapsulatedValue(tNum), noTypesRestriction, callback)).To(Or(BeNil(), Equal(ErrorTreeDestroying)))
+				g.Expect(bTree.FindLessThan(knownEncapsulatedValue(tNum, tNum), noTypesRestriction, callback)).To(Or(BeNil(), Equal(ErrorTreeDestroying)))
 			}(i, onFindPaginate)
 
 			// find less than or equal
 			wg.Add(1)
 			go func(tNum int, callback func(datatypes.EncapsulatedValue, any) bool) {
 				defer wg.Done()
-				g.Expect(bTree.FindLessThanOrEqual(knownEncapsulatedValue(tNum), noTypesRestriction, callback)).To(Or(BeNil(), Equal(ErrorTreeDestroying)))
+				g.Expect(bTree.FindLessThanOrEqual(knownEncapsulatedValue(tNum, tNum), noTypesRestriction, callback)).To(Or(BeNil(), Equal(ErrorTreeDestroying)))
 			}(i, onFindPaginate)
 
 			// find greater than
 			wg.Add(1)
 			go func(tNum int, callback func(datatypes.EncapsulatedValue, any) bool) {
 				defer wg.Done()
-				g.Expect(bTree.FindGreaterThan(knownEncapsulatedValue(tNum), noTypesRestriction, callback)).To(Or(BeNil(), Equal(ErrorTreeDestroying)))
+				g.Expect(bTree.FindGreaterThan(knownEncapsulatedValue(tNum, tNum), noTypesRestriction, callback)).To(Or(BeNil(), Equal(ErrorTreeDestroying)))
 			}(i, onFindPaginate)
 
 			// find greater than or equal
 			wg.Add(1)
 			go func(tNum int, callback func(datatypes.EncapsulatedValue, any) bool) {
 				defer wg.Done()
-				g.Expect(bTree.FindGreaterThanOrEqual(knownEncapsulatedValue(tNum), noTypesRestriction, callback)).To(Or(BeNil(), Equal(ErrorTreeDestroying)))
+				g.Expect(bTree.FindGreaterThanOrEqual(knownEncapsulatedValue(tNum, tNum), noTypesRestriction, callback)).To(Or(BeNil(), Equal(ErrorTreeDestroying)))
 			}(i, onFindPaginate)
 
 			// delete
 			wg.Add(1)
 			go func(tNum int) {
 				defer wg.Done()
-				g.Expect(bTree.Delete(knownEncapsulatedValue(tNum), nil)).To(Or(BeNil(), Equal(ErrorTreeDestroying)))
+				g.Expect(bTree.Delete(knownEncapsulatedValue(tNum, tNum), nil)).To(Or(BeNil(), Equal(ErrorTreeDestroying)))
 			}(i)
 
 			if i == 5_000 {

@@ -3,7 +3,6 @@ package memory
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"sync"
 	"testing"
 	"time"
@@ -35,8 +34,8 @@ func setupSuccessFakeLimiter(t *testing.T, count int) (*gomock.Controller, *fake
 	mockController := gomock.NewController(t)
 	mockClient := fakelimiterclient.NewMockLimiterClient(mockController)
 
-	mockClient.EXPECT().UpdateCounter(gomock.Any(), gomock.Any()).DoAndReturn(func(_ *v1limiter.Counter, _ http.Header) error { return nil }).Times(count)
-	mockClient.EXPECT().SetCounters(gomock.Any(), gomock.Any()).DoAndReturn(func(_ *v1limiter.Counter, _ http.Header) error { return nil }).AnyTimes()
+	mockClient.EXPECT().UpdateCounter(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ *v1limiter.Counter) error { return nil }).Times(count)
+	mockClient.EXPECT().SetCounters(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ *v1limiter.Counter) error { return nil }).AnyTimes()
 
 	return mockController, mockClient
 }
@@ -81,7 +80,7 @@ func Test_memoryQueueChannel_Delete(t *testing.T) {
 		}()
 
 		// set limiter client to pass
-		fakeLimiterClient.EXPECT().UpdateCounter(gomock.Any(), gomock.Any()).DoAndReturn(func(_ *v1limiter.Counter, _ http.Header) error { return nil }).Times(1)
+		fakeLimiterClient.EXPECT().UpdateCounter(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ *v1limiter.Counter) error { return nil }).Times(1)
 
 		// create and enqueue an item
 		enqueueItem := &v1willow.EnqueueQueueItem{
@@ -94,7 +93,7 @@ func Test_memoryQueueChannel_Delete(t *testing.T) {
 		}
 		g.Expect(enqueueItem.Validate()).ToNot(HaveOccurred())
 
-		err := memeoryQueueChannel.Enqueue(testhelpers.NewContextWithLogger(), enqueueItem)
+		err := memeoryQueueChannel.Enqueue(testhelpers.NewContextWithMiddlewareSetup(), enqueueItem)
 		g.Expect(err).ToNot(HaveOccurred())
 
 		successfulDelte := memeoryQueueChannel.Delete()
@@ -111,7 +110,7 @@ func Test_memoryQueueChannel_Enqueue(t *testing.T) {
 		defer mockController.Finish()
 
 		// set limiter client to pass
-		fakeLimiterClient.EXPECT().UpdateCounter(gomock.Any(), gomock.Any()).DoAndReturn(func(_ *v1limiter.Counter, _ http.Header) error { return nil }).Times(1)
+		fakeLimiterClient.EXPECT().UpdateCounter(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ *v1limiter.Counter) error { return nil }).Times(1)
 
 		// create queue channel
 		memeoryQueueChannel := New(fakeLimiterClient, func() {}, "test", defaultKeyValues(g))
@@ -127,7 +126,7 @@ func Test_memoryQueueChannel_Enqueue(t *testing.T) {
 		}
 		g.Expect(enqueueItem.Validate()).ToNot(HaveOccurred())
 
-		err := memeoryQueueChannel.Enqueue(testhelpers.NewContextWithLogger(), enqueueItem)
+		err := memeoryQueueChannel.Enqueue(testhelpers.NewContextWithMiddlewareSetup(), enqueueItem)
 		g.Expect(err).ToNot(HaveOccurred())
 	})
 
@@ -136,7 +135,7 @@ func Test_memoryQueueChannel_Enqueue(t *testing.T) {
 		defer mockController.Finish()
 
 		// set limiter client to pass
-		fakeLimiterClient.EXPECT().UpdateCounter(gomock.Any(), gomock.Any()).DoAndReturn(func(_ *v1limiter.Counter, _ http.Header) error { return nil }).Times(1)
+		fakeLimiterClient.EXPECT().UpdateCounter(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ *v1limiter.Counter) error { return nil }).Times(1)
 
 		// create queue channel
 		memeoryQueueChannel := New(fakeLimiterClient, func() {}, "test", defaultKeyValues(g))
@@ -152,7 +151,7 @@ func Test_memoryQueueChannel_Enqueue(t *testing.T) {
 		}
 		g.Expect(enqueueItem.Validate()).ToNot(HaveOccurred())
 
-		err := memeoryQueueChannel.Enqueue(testhelpers.NewContextWithLogger(), enqueueItem)
+		err := memeoryQueueChannel.Enqueue(testhelpers.NewContextWithMiddlewareSetup(), enqueueItem)
 		g.Expect(err).ToNot(HaveOccurred())
 
 		// update the first item in the queue
@@ -166,7 +165,7 @@ func Test_memoryQueueChannel_Enqueue(t *testing.T) {
 		}
 		g.Expect(enqueueItem2.Validate()).ToNot(HaveOccurred())
 
-		err = memeoryQueueChannel.Enqueue(testhelpers.NewContextWithLogger(), enqueueItem2)
+		err = memeoryQueueChannel.Enqueue(testhelpers.NewContextWithMiddlewareSetup(), enqueueItem2)
 		g.Expect(err).ToNot(HaveOccurred())
 
 		// check the available items len
@@ -178,7 +177,7 @@ func Test_memoryQueueChannel_Enqueue(t *testing.T) {
 		defer mockController.Finish()
 
 		// set limiter client to pass
-		fakeLimiterClient.EXPECT().UpdateCounter(gomock.Any(), gomock.Any()).DoAndReturn(func(_ *v1limiter.Counter, _ http.Header) error { return nil }).Times(2)
+		fakeLimiterClient.EXPECT().UpdateCounter(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ *v1limiter.Counter) error { return nil }).Times(2)
 
 		// create queue channel
 		memeoryQueueChannel := New(fakeLimiterClient, func() {}, "test", defaultKeyValues(g))
@@ -194,7 +193,7 @@ func Test_memoryQueueChannel_Enqueue(t *testing.T) {
 		}
 		g.Expect(enqueueItem.Validate()).ToNot(HaveOccurred())
 
-		err := memeoryQueueChannel.Enqueue(testhelpers.NewContextWithLogger(), enqueueItem)
+		err := memeoryQueueChannel.Enqueue(testhelpers.NewContextWithMiddlewareSetup(), enqueueItem)
 		g.Expect(err).ToNot(HaveOccurred())
 
 		// update the first item in the queue
@@ -208,7 +207,7 @@ func Test_memoryQueueChannel_Enqueue(t *testing.T) {
 		}
 		g.Expect(enqueueItem2.Validate()).ToNot(HaveOccurred())
 
-		err = memeoryQueueChannel.Enqueue(testhelpers.NewContextWithLogger(), enqueueItem2)
+		err = memeoryQueueChannel.Enqueue(testhelpers.NewContextWithMiddlewareSetup(), enqueueItem2)
 		g.Expect(err).ToNot(HaveOccurred())
 
 		// check the available items len
@@ -221,7 +220,7 @@ func Test_memoryQueueChannel_Enqueue(t *testing.T) {
 			defer mockController.Finish()
 
 			// set limiter client to fail
-			fakeLimiterClient.EXPECT().UpdateCounter(gomock.Any(), gomock.Any()).DoAndReturn(func(_ *v1limiter.Counter, _ http.Header) error { return fmt.Errorf("failed to update counter") }).Times(1)
+			fakeLimiterClient.EXPECT().UpdateCounter(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ *v1limiter.Counter) error { return fmt.Errorf("failed to update counter") }).Times(1)
 
 			// create queue channel
 			memeoryQueueChannel := New(fakeLimiterClient, func() {}, "test", defaultKeyValues(g))
@@ -237,7 +236,7 @@ func Test_memoryQueueChannel_Enqueue(t *testing.T) {
 			}
 			g.Expect(enqueueItem.Validate()).ToNot(HaveOccurred())
 
-			err := memeoryQueueChannel.Enqueue(testhelpers.NewContextWithLogger(), enqueueItem)
+			err := memeoryQueueChannel.Enqueue(testhelpers.NewContextWithMiddlewareSetup(), enqueueItem)
 			g.Expect(err).To(HaveOccurred())
 			g.Expect(err.Error()).To(ContainSubstring("Queue has reached the total number of allowed queue items"))
 		})
@@ -248,7 +247,7 @@ func Test_memoryQueueChannel_Enqueue(t *testing.T) {
 
 			// set limiter client to fail
 			counter := 0
-			fakeLimiterClient.EXPECT().UpdateCounter(gomock.Any(), gomock.Any()).DoAndReturn(func(_ *v1limiter.Counter, _ http.Header) error {
+			fakeLimiterClient.EXPECT().UpdateCounter(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ *v1limiter.Counter) error {
 				if counter == 0 {
 					counter++
 					return nil
@@ -270,7 +269,7 @@ func Test_memoryQueueChannel_Enqueue(t *testing.T) {
 			}
 			g.Expect(enqueueItem.Validate()).ToNot(HaveOccurred())
 
-			err := memeoryQueueChannel.Enqueue(testhelpers.NewContextWithLogger(), enqueueItem)
+			err := memeoryQueueChannel.Enqueue(testhelpers.NewContextWithMiddlewareSetup(), enqueueItem)
 			g.Expect(err).ToNot(HaveOccurred())
 
 			// update the first item in the queue
@@ -284,7 +283,7 @@ func Test_memoryQueueChannel_Enqueue(t *testing.T) {
 			}
 			g.Expect(enqueueItem2.Validate()).ToNot(HaveOccurred())
 
-			err = memeoryQueueChannel.Enqueue(testhelpers.NewContextWithLogger(), enqueueItem2)
+			err = memeoryQueueChannel.Enqueue(testhelpers.NewContextWithMiddlewareSetup(), enqueueItem2)
 			g.Expect(err).ToNot(HaveOccurred())
 		})
 	})
@@ -334,7 +333,7 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 		g.Consistently(dequeueChan).ShouldNot(Receive())
 
 		// close the deueChan by stopping taskmanager
-		memeoryQueueChannel.ForceDelete(testhelpers.NewContextWithLogger())
+		memeoryQueueChannel.ForceDelete(testhelpers.NewContextWithMiddlewareSetup())
 		g.Eventually(dequeueChan).Should(BeClosed())
 	})
 
@@ -367,7 +366,7 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 					}
 					g.Expect(enqueueItem.Validate()).ToNot(HaveOccurred())
 
-					err := memeoryQueueChannel.Enqueue(testhelpers.NewContextWithLogger(), enqueueItem)
+					err := memeoryQueueChannel.Enqueue(testhelpers.NewContextWithMiddlewareSetup(), enqueueItem)
 					g.Expect(err).ToNot(HaveOccurred())
 				}
 
@@ -377,7 +376,7 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 				dequeueChan := memeoryQueueChannel.Dequeue()
 				select {
 				case dequeueFunc := <-dequeueChan:
-					dequeueItem, success, _ = dequeueFunc(testhelpers.NewContextWithLogger())
+					dequeueItem, success, _ = dequeueFunc(testhelpers.NewContextWithMiddlewareSetup())
 					g.Expect(dequeueItem).ToNot(BeNil())
 
 					g.Expect(dequeueItem.Item).To(Equal([]byte(`data 1`)))
@@ -395,7 +394,7 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 				success()
 				select {
 				case dequeueFunc := <-dequeueChan:
-					dequeueItem, success, _ = dequeueFunc(testhelpers.NewContextWithLogger())
+					dequeueItem, success, _ = dequeueFunc(testhelpers.NewContextWithMiddlewareSetup())
 					defer success()
 					g.Expect(dequeueItem).ToNot(BeNil())
 
@@ -437,7 +436,7 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 					}
 					g.Expect(enqueueItem.Validate()).ToNot(HaveOccurred())
 
-					err := memeoryQueueChannel.Enqueue(testhelpers.NewContextWithLogger(), enqueueItem)
+					err := memeoryQueueChannel.Enqueue(testhelpers.NewContextWithMiddlewareSetup(), enqueueItem)
 					g.Expect(err).ToNot(HaveOccurred())
 				}
 
@@ -447,7 +446,7 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 				dequeueChan := memeoryQueueChannel.Dequeue()
 				select {
 				case dequeueFunc := <-dequeueChan:
-					dequeueItem, _, fail = dequeueFunc(testhelpers.NewContextWithLogger())
+					dequeueItem, _, fail = dequeueFunc(testhelpers.NewContextWithMiddlewareSetup())
 					g.Expect(dequeueItem).ToNot(BeNil())
 
 					g.Expect(dequeueItem.Item).To(Equal([]byte(`data 1`)))
@@ -465,7 +464,7 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 				fail()
 				select {
 				case dequeueFunc := <-dequeueChan:
-					dequeueItem, _, fail = dequeueFunc(testhelpers.NewContextWithLogger())
+					dequeueItem, _, fail = dequeueFunc(testhelpers.NewContextWithMiddlewareSetup())
 					defer fail()
 					g.Expect(dequeueItem).ToNot(BeNil())
 
@@ -487,7 +486,7 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 			defer mockController.Finish()
 
 			count := 0
-			fakeLimiterClient.EXPECT().UpdateCounter(gomock.Any(), gomock.Any()).DoAndReturn(func(_ *v1limiter.Counter, _ http.Header) error {
+			fakeLimiterClient.EXPECT().UpdateCounter(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ *v1limiter.Counter) error {
 				if count == 0 {
 					// allow for a single enqueue
 					count++
@@ -498,7 +497,7 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 			}).Times(2)
 
 			ruleCount := 0
-			fakeLimiterClient.EXPECT().MatchRules(gomock.Any(), gomock.Any()).DoAndReturn(func(_ *querymatchaction.MatchActionQuery, _ http.Header) (v1limiter.Rules, error) {
+			fakeLimiterClient.EXPECT().MatchRules(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ *querymatchaction.MatchActionQuery) (v1limiter.Rules, error) {
 				if ruleCount == 0 {
 					ruleCount++
 
@@ -516,7 +515,7 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 				return nil, nil
 			}).Times(1)
 
-			fakeLimiterClient.EXPECT().MatchOverrides(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ string, _ *querymatchaction.MatchActionQuery, _ http.Header) (v1limiter.Overrides, error) {
+			fakeLimiterClient.EXPECT().MatchOverrides(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ string, _ *querymatchaction.MatchActionQuery) (v1limiter.Overrides, error) {
 				return nil, nil
 			}).Times(1)
 
@@ -542,14 +541,14 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 			}
 			g.Expect(enqueueItem.Validate()).ToNot(HaveOccurred())
 
-			err := memeoryQueueChannel.Enqueue(testhelpers.NewContextWithLogger(), enqueueItem)
+			err := memeoryQueueChannel.Enqueue(testhelpers.NewContextWithMiddlewareSetup(), enqueueItem)
 			g.Expect(err).ToNot(HaveOccurred())
 
 			// grab the first dequeu channel
 			dequeueChan := memeoryQueueChannel.Dequeue()
 			select {
 			case dequeueFunc := <-dequeueChan:
-				dequeueItem, success, fail := dequeueFunc(testhelpers.NewContextWithLogger())
+				dequeueItem, success, fail := dequeueFunc(testhelpers.NewContextWithMiddlewareSetup())
 				g.Expect(dequeueItem).To(BeNil())
 				g.Expect(success).To(BeNil())
 				g.Expect(fail).To(BeNil())
@@ -567,10 +566,10 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 			mockController, fakeLimiterClient := fakeLimiterClient(t)
 			defer mockController.Finish()
 
-			fakeLimiterClient.EXPECT().SetCounters(gomock.Any(), gomock.Any()).DoAndReturn(func(_ *v1limiter.Counter, _ http.Header) error { return nil }).AnyTimes()
+			fakeLimiterClient.EXPECT().SetCounters(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ *v1limiter.Counter) error { return nil }).AnyTimes()
 
 			count := 0
-			fakeLimiterClient.EXPECT().UpdateCounter(gomock.Any(), gomock.Any()).DoAndReturn(func(_ *v1limiter.Counter, _ http.Header) error {
+			fakeLimiterClient.EXPECT().UpdateCounter(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ *v1limiter.Counter) error {
 				if count == 0 {
 					// allow for a single enqueue
 					count++
@@ -581,7 +580,7 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 			}).Times(2)
 
 			ruleCount := 0
-			fakeLimiterClient.EXPECT().MatchRules(gomock.Any(), gomock.Any()).DoAndReturn(func(_ *querymatchaction.MatchActionQuery, _ http.Header) (v1limiter.Rules, error) {
+			fakeLimiterClient.EXPECT().MatchRules(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ *querymatchaction.MatchActionQuery) (v1limiter.Rules, error) {
 				if ruleCount == 0 {
 					ruleCount++
 
@@ -599,7 +598,7 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 				return nil, nil
 			}).Times(1)
 
-			fakeLimiterClient.EXPECT().MatchOverrides(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ string, _ *querymatchaction.MatchActionQuery, _ http.Header) (v1limiter.Overrides, error) {
+			fakeLimiterClient.EXPECT().MatchOverrides(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ string, _ *querymatchaction.MatchActionQuery) (v1limiter.Overrides, error) {
 				return nil, nil
 			}).Times(1)
 
@@ -624,14 +623,14 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 			}
 			g.Expect(enqueueItem.Validate()).ToNot(HaveOccurred())
 
-			err := memeoryQueueChannel.Enqueue(testhelpers.NewContextWithLogger(), enqueueItem)
+			err := memeoryQueueChannel.Enqueue(testhelpers.NewContextWithMiddlewareSetup(), enqueueItem)
 			g.Expect(err).ToNot(HaveOccurred())
 
 			// grab the first dequeu channel
 			dequeueChan := memeoryQueueChannel.Dequeue()
 			select {
 			case dequeueFunc := <-dequeueChan:
-				dequeueItem, success, fail := dequeueFunc(testhelpers.NewContextWithLogger())
+				dequeueItem, success, fail := dequeueFunc(testhelpers.NewContextWithMiddlewareSetup())
 				g.Expect(dequeueItem).To(BeNil())
 				g.Expect(success).To(BeNil())
 				g.Expect(fail).To(BeNil())
@@ -639,7 +638,7 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 				g.Fail("failed to dequeue item")
 			}
 
-			memeoryQueueChannel.ForceDelete(testhelpers.NewContextWithLogger())
+			memeoryQueueChannel.ForceDelete(testhelpers.NewContextWithMiddlewareSetup())
 			g.Eventually(doneExecuting).Should(BeClosed())
 		})
 
@@ -650,7 +649,7 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 				defer mockController.Finish()
 
 				count := 0
-				fakeLimiterClient.EXPECT().UpdateCounter(gomock.Any(), gomock.Any()).DoAndReturn(func(_ *v1limiter.Counter, _ http.Header) error {
+				fakeLimiterClient.EXPECT().UpdateCounter(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ *v1limiter.Counter) error {
 					if count == 1 {
 						count++
 						return fmt.Errorf("error, limit has been reached")
@@ -661,7 +660,7 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 				}).Times(3)
 
 				ruleCount := 0
-				fakeLimiterClient.EXPECT().MatchRules(gomock.Any(), gomock.Any()).DoAndReturn(func(_ *querymatchaction.MatchActionQuery, _ http.Header) (v1limiter.Rules, error) {
+				fakeLimiterClient.EXPECT().MatchRules(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ *querymatchaction.MatchActionQuery) (v1limiter.Rules, error) {
 					if ruleCount == 0 {
 						ruleCount++
 
@@ -679,7 +678,7 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 					return nil, nil
 				}).Times(2)
 
-				fakeLimiterClient.EXPECT().MatchOverrides(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ string, _ *querymatchaction.MatchActionQuery, _ http.Header) (v1limiter.Overrides, error) {
+				fakeLimiterClient.EXPECT().MatchOverrides(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ string, _ *querymatchaction.MatchActionQuery) (v1limiter.Overrides, error) {
 					return nil, nil
 				}).Times(1)
 
@@ -705,7 +704,7 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 				}
 				g.Expect(enqueueItem.Validate()).ToNot(HaveOccurred())
 
-				err := memeoryQueueChannel.Enqueue(testhelpers.NewContextWithLogger(), enqueueItem)
+				err := memeoryQueueChannel.Enqueue(testhelpers.NewContextWithMiddlewareSetup(), enqueueItem)
 				g.Expect(err).ToNot(HaveOccurred())
 
 				// grab the first dequeu channel
@@ -713,7 +712,7 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 				dequeueChan := memeoryQueueChannel.Dequeue()
 				select {
 				case dequeueFunc := <-dequeueChan:
-					dequeueItem, success, fail := dequeueFunc(testhelpers.NewContextWithLogger())
+					dequeueItem, success, fail := dequeueFunc(testhelpers.NewContextWithMiddlewareSetup())
 					g.Expect(dequeueItem).To(BeNil())
 					g.Expect(success).To(BeNil())
 					g.Expect(fail).To(BeNil())
@@ -725,7 +724,7 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 				// second call should return an item as the limiter client now passes
 				select {
 				case dequeueFunc := <-dequeueChan:
-					dequeueItem, success, fail := dequeueFunc(testhelpers.NewContextWithLogger())
+					dequeueItem, success, fail := dequeueFunc(testhelpers.NewContextWithMiddlewareSetup())
 					g.Expect(dequeueItem).ToNot(BeNil())
 					g.Expect(success).ToNot(BeNil())
 					g.Expect(fail).ToNot(BeNil())
@@ -745,7 +744,7 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 				defer mockController.Finish()
 
 				count := 0
-				fakeLimiterClient.EXPECT().UpdateCounter(gomock.Any(), gomock.Any()).DoAndReturn(func(_ *v1limiter.Counter, _ http.Header) error {
+				fakeLimiterClient.EXPECT().UpdateCounter(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ *v1limiter.Counter) error {
 					if count == 0 {
 						// allow for a single enqueue
 						count++
@@ -755,7 +754,7 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 					return fmt.Errorf("error, limit has been reached")
 				}).Times(2)
 
-				fakeLimiterClient.EXPECT().MatchRules(gomock.Any(), gomock.Any()).DoAndReturn(func(_ *querymatchaction.MatchActionQuery, _ http.Header) (v1limiter.Rules, error) {
+				fakeLimiterClient.EXPECT().MatchRules(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ *querymatchaction.MatchActionQuery) (v1limiter.Rules, error) {
 					return v1limiter.Rules{
 						&v1limiter.Rule{
 							Name: "rule1",
@@ -775,7 +774,7 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 					}, nil
 				}).Times(1)
 
-				fakeLimiterClient.EXPECT().MatchOverrides(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ string, _ *querymatchaction.MatchActionQuery, _ http.Header) (v1limiter.Overrides, error) {
+				fakeLimiterClient.EXPECT().MatchOverrides(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ string, _ *querymatchaction.MatchActionQuery) (v1limiter.Overrides, error) {
 					return nil, nil
 				}).Times(2)
 
@@ -801,14 +800,14 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 				}
 				g.Expect(enqueueItem.Validate()).ToNot(HaveOccurred())
 
-				err := memeoryQueueChannel.Enqueue(testhelpers.NewContextWithLogger(), enqueueItem)
+				err := memeoryQueueChannel.Enqueue(testhelpers.NewContextWithMiddlewareSetup(), enqueueItem)
 				g.Expect(err).ToNot(HaveOccurred())
 
 				// grab the first dequeu channel
 				dequeueChan := memeoryQueueChannel.Dequeue()
 				select {
 				case dequeueFunc := <-dequeueChan:
-					dequeueItem, success, fail := dequeueFunc(testhelpers.NewContextWithLogger())
+					dequeueItem, success, fail := dequeueFunc(testhelpers.NewContextWithMiddlewareSetup())
 					g.Expect(dequeueItem).To(BeNil())
 					g.Expect(success).To(BeNil())
 					g.Expect(fail).To(BeNil())
@@ -827,7 +826,7 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 				defer mockController.Finish()
 
 				count := 0
-				fakeLimiterClient.EXPECT().UpdateCounter(gomock.Any(), gomock.Any()).DoAndReturn(func(_ *v1limiter.Counter, _ http.Header) error {
+				fakeLimiterClient.EXPECT().UpdateCounter(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ *v1limiter.Counter) error {
 					if count == 0 {
 						// allow for a single enqueue
 						count++
@@ -837,7 +836,7 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 					return fmt.Errorf("error, limit has been reached")
 				}).Times(2)
 
-				fakeLimiterClient.EXPECT().MatchRules(gomock.Any(), gomock.Any()).DoAndReturn(func(_ *querymatchaction.MatchActionQuery, _ http.Header) (v1limiter.Rules, error) {
+				fakeLimiterClient.EXPECT().MatchRules(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ *querymatchaction.MatchActionQuery) (v1limiter.Rules, error) {
 					return v1limiter.Rules{
 						&v1limiter.Rule{
 							Name: "rule1",
@@ -858,7 +857,7 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 				}).Times(1)
 
 				overrideCounter := 0
-				fakeLimiterClient.EXPECT().MatchOverrides(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ string, _ *querymatchaction.MatchActionQuery, _ http.Header) (v1limiter.Overrides, error) {
+				fakeLimiterClient.EXPECT().MatchOverrides(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ string, _ *querymatchaction.MatchActionQuery) (v1limiter.Overrides, error) {
 					if overrideCounter == 0 {
 						overrideCounter++
 						return v1limiter.Overrides{
@@ -901,7 +900,7 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 				}
 				g.Expect(enqueueItem.Validate()).ToNot(HaveOccurred())
 
-				err := memeoryQueueChannel.Enqueue(testhelpers.NewContextWithLogger(), enqueueItem)
+				err := memeoryQueueChannel.Enqueue(testhelpers.NewContextWithMiddlewareSetup(), enqueueItem)
 				g.Expect(err).ToNot(HaveOccurred())
 
 				// grab the first dequeu channel
@@ -909,7 +908,7 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 				dequeueChan := memeoryQueueChannel.Dequeue()
 				select {
 				case dequeueFunc := <-dequeueChan:
-					dequeueItem, success, fail := dequeueFunc(testhelpers.NewContextWithLogger())
+					dequeueItem, success, fail := dequeueFunc(testhelpers.NewContextWithMiddlewareSetup())
 					g.Expect(dequeueItem).To(BeNil())
 					g.Expect(success).To(BeNil())
 					g.Expect(fail).To(BeNil())
@@ -927,7 +926,7 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 				defer mockController.Finish()
 
 				count := 0
-				fakeLimiterClient.EXPECT().UpdateCounter(gomock.Any(), gomock.Any()).DoAndReturn(func(_ *v1limiter.Counter, _ http.Header) error {
+				fakeLimiterClient.EXPECT().UpdateCounter(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ *v1limiter.Counter) error {
 					if count == 0 {
 						// allow for a single enqueue
 						count++
@@ -937,7 +936,7 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 					return fmt.Errorf("error, limit has been reached")
 				}).Times(2)
 
-				fakeLimiterClient.EXPECT().MatchRules(gomock.Any(), gomock.Any()).DoAndReturn(func(_ *querymatchaction.MatchActionQuery, _ http.Header) (v1limiter.Rules, error) {
+				fakeLimiterClient.EXPECT().MatchRules(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ *querymatchaction.MatchActionQuery) (v1limiter.Rules, error) {
 					return v1limiter.Rules{
 						&v1limiter.Rule{
 							Name: "rule1",
@@ -957,11 +956,11 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 					}, nil
 				}).Times(1)
 
-				fakeLimiterClient.EXPECT().MatchOverrides(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ string, _ *querymatchaction.MatchActionQuery, _ http.Header) (v1limiter.Overrides, error) {
+				fakeLimiterClient.EXPECT().MatchOverrides(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ string, _ *querymatchaction.MatchActionQuery) (v1limiter.Overrides, error) {
 					return nil, nil
 				}).Times(2)
 
-				fakeLimiterClient.EXPECT().QueryCounters(gomock.Any(), gomock.Any()).DoAndReturn(func(_ *queryassociatedaction.AssociatedActionQuery, _ http.Header) (v1limiter.Counters, error) {
+				fakeLimiterClient.EXPECT().QueryCounters(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ *queryassociatedaction.AssociatedActionQuery) (v1limiter.Counters, error) {
 					return v1limiter.Counters{
 						&v1limiter.Counter{
 							Counters:  3,
@@ -996,7 +995,7 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 				}
 				g.Expect(enqueueItem.Validate()).ToNot(HaveOccurred())
 
-				err := memeoryQueueChannel.Enqueue(testhelpers.NewContextWithLogger(), enqueueItem)
+				err := memeoryQueueChannel.Enqueue(testhelpers.NewContextWithMiddlewareSetup(), enqueueItem)
 				g.Expect(err).ToNot(HaveOccurred())
 
 				// grab the first dequeu channel
@@ -1004,7 +1003,7 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 				dequeueChan := memeoryQueueChannel.Dequeue()
 				select {
 				case dequeueFunc := <-dequeueChan:
-					dequeueItem, success, fail := dequeueFunc(testhelpers.NewContextWithLogger())
+					dequeueItem, success, fail := dequeueFunc(testhelpers.NewContextWithMiddlewareSetup())
 					g.Expect(dequeueItem).To(BeNil())
 					g.Expect(success).To(BeNil())
 					g.Expect(fail).To(BeNil())
@@ -1023,7 +1022,7 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 				defer mockController.Finish()
 
 				count := 0
-				fakeLimiterClient.EXPECT().UpdateCounter(gomock.Any(), gomock.Any()).DoAndReturn(func(_ *v1limiter.Counter, _ http.Header) error {
+				fakeLimiterClient.EXPECT().UpdateCounter(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ *v1limiter.Counter) error {
 					if count == 0 {
 						// allow for a single enqueue
 						count++
@@ -1033,7 +1032,7 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 					return fmt.Errorf("error, limit has been reached")
 				}).Times(2)
 
-				fakeLimiterClient.EXPECT().MatchRules(gomock.Any(), gomock.Any()).DoAndReturn(func(_ *querymatchaction.MatchActionQuery, _ http.Header) (v1limiter.Rules, error) {
+				fakeLimiterClient.EXPECT().MatchRules(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ *querymatchaction.MatchActionQuery) (v1limiter.Rules, error) {
 					return v1limiter.Rules{
 						&v1limiter.Rule{
 							Name: "rule1",
@@ -1054,7 +1053,7 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 				}).Times(1)
 
 				overrideCounter := 0
-				fakeLimiterClient.EXPECT().MatchOverrides(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ string, _ *querymatchaction.MatchActionQuery, _ http.Header) (v1limiter.Overrides, error) {
+				fakeLimiterClient.EXPECT().MatchOverrides(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ string, _ *querymatchaction.MatchActionQuery) (v1limiter.Overrides, error) {
 					if overrideCounter == 0 {
 						overrideCounter++
 
@@ -1081,7 +1080,7 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 					}, nil
 				}).Times(2)
 
-				fakeLimiterClient.EXPECT().QueryCounters(gomock.Any(), gomock.Any()).DoAndReturn(func(_ *queryassociatedaction.AssociatedActionQuery, _ http.Header) (v1limiter.Counters, error) {
+				fakeLimiterClient.EXPECT().QueryCounters(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ *queryassociatedaction.AssociatedActionQuery) (v1limiter.Counters, error) {
 					return v1limiter.Counters{
 						&v1limiter.Counter{
 							Counters:  3,
@@ -1116,7 +1115,7 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 				}
 				g.Expect(enqueueItem.Validate()).ToNot(HaveOccurred())
 
-				err := memeoryQueueChannel.Enqueue(testhelpers.NewContextWithLogger(), enqueueItem)
+				err := memeoryQueueChannel.Enqueue(testhelpers.NewContextWithMiddlewareSetup(), enqueueItem)
 				g.Expect(err).ToNot(HaveOccurred())
 
 				// grab the first dequeu channel
@@ -1124,7 +1123,7 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 				dequeueChan := memeoryQueueChannel.Dequeue()
 				select {
 				case dequeueFunc := <-dequeueChan:
-					dequeueItem, success, fail := dequeueFunc(testhelpers.NewContextWithLogger())
+					dequeueItem, success, fail := dequeueFunc(testhelpers.NewContextWithMiddlewareSetup())
 					g.Expect(dequeueItem).To(BeNil())
 					g.Expect(success).To(BeNil())
 					g.Expect(fail).To(BeNil())
@@ -1157,7 +1156,7 @@ func Test_memoryQueueChannel_ACK(t *testing.T) {
 				}
 				g.Expect(enqueueItem.Validate()).ToNot(HaveOccurred())
 
-				err := memeoryQueueChannel.Enqueue(testhelpers.NewContextWithLogger(), enqueueItem)
+				err := memeoryQueueChannel.Enqueue(testhelpers.NewContextWithMiddlewareSetup(), enqueueItem)
 				g.Expect(err).ToNot(HaveOccurred())
 			}
 		}
@@ -1173,7 +1172,7 @@ func Test_memoryQueueChannel_ACK(t *testing.T) {
 		dequeueChan := memeoryQueueChannel.Dequeue()
 		select {
 		case dequeueFunc := <-dequeueChan:
-			dequeueItem, success, _ = dequeueFunc(testhelpers.NewContextWithLogger())
+			dequeueItem, success, _ = dequeueFunc(testhelpers.NewContextWithMiddlewareSetup())
 			g.Expect(dequeueItem).ToNot(BeNil())
 
 			// call success
@@ -1199,7 +1198,7 @@ func Test_memoryQueueChannel_ACK(t *testing.T) {
 		}
 		g.Expect(ack.Validate()).ToNot(HaveOccurred())
 
-		delete, err := memeoryQueueChannel.ACK(testhelpers.NewContextWithLogger(), ack)
+		delete, err := memeoryQueueChannel.ACK(testhelpers.NewContextWithMiddlewareSetup(), ack)
 		g.Expect(err).To(HaveOccurred())
 		g.Expect(err.Error()).To(ContainSubstring("failed to find processing item by id"))
 		g.Expect(delete).To(BeTrue())
@@ -1215,7 +1214,7 @@ func Test_memoryQueueChannel_ACK(t *testing.T) {
 				memeoryQueueChannel := New(fakeLimiterClient, func() {}, "test", defaultKeyValues(g))
 
 				// 1 for enqueue, 1 for dequeue(). 2 for ack
-				fakeLimiterClient.EXPECT().UpdateCounter(gomock.Any(), gomock.Any()).DoAndReturn(func(v1counter *v1limiter.Counter, headers http.Header) error {
+				fakeLimiterClient.EXPECT().UpdateCounter(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ *v1limiter.Counter) error {
 					return nil
 				}).Times(4)
 
@@ -1237,7 +1236,7 @@ func Test_memoryQueueChannel_ACK(t *testing.T) {
 				}
 				g.Expect(ack.Validate()).ToNot(HaveOccurred())
 
-				destroyChannel, err := memeoryQueueChannel.ACK(testhelpers.NewContextWithLogger(), ack)
+				destroyChannel, err := memeoryQueueChannel.ACK(testhelpers.NewContextWithMiddlewareSetup(), ack)
 				g.Expect(err).ToNot(HaveOccurred())
 				g.Expect(destroyChannel).To(BeTrue())
 
@@ -1256,7 +1255,7 @@ func Test_memoryQueueChannel_ACK(t *testing.T) {
 				memeoryQueueChannel := New(fakeLimiterClient, func() {}, "test", defaultKeyValues(g))
 
 				// 2 for enqueue, 1 for dequeue(). 2 for ack
-				fakeLimiterClient.EXPECT().UpdateCounter(gomock.Any(), gomock.Any()).DoAndReturn(func(v1counter *v1limiter.Counter, headers http.Header) error {
+				fakeLimiterClient.EXPECT().UpdateCounter(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ *v1limiter.Counter) error {
 					return nil
 				}).Times(5)
 
@@ -1278,7 +1277,7 @@ func Test_memoryQueueChannel_ACK(t *testing.T) {
 				}
 				g.Expect(ack.Validate()).ToNot(HaveOccurred())
 
-				destroyChannel, err := memeoryQueueChannel.ACK(testhelpers.NewContextWithLogger(), ack)
+				destroyChannel, err := memeoryQueueChannel.ACK(testhelpers.NewContextWithMiddlewareSetup(), ack)
 				g.Expect(err).ToNot(HaveOccurred())
 				g.Expect(destroyChannel).To(BeFalse())
 			})
@@ -1294,7 +1293,7 @@ func Test_memoryQueueChannel_ACK(t *testing.T) {
 			memeoryQueueChannel := New(fakeLimiterClient, func() {}, "test", defaultKeyValues(g))
 
 			// 1 for enqueue, 2 for dequeue(), 1 for failHeartbeat(), 2 for ack
-			fakeLimiterClient.EXPECT().UpdateCounter(gomock.Any(), gomock.Any()).DoAndReturn(func(v1counter *v1limiter.Counter, headers http.Header) error {
+			fakeLimiterClient.EXPECT().UpdateCounter(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ *v1limiter.Counter) error {
 				return nil
 			}).Times(6)
 
@@ -1316,7 +1315,7 @@ func Test_memoryQueueChannel_ACK(t *testing.T) {
 			}
 			g.Expect(ackFalse.Validate()).ToNot(HaveOccurred())
 
-			destroyChannel, err := memeoryQueueChannel.ACK(testhelpers.NewContextWithLogger(), ackFalse)
+			destroyChannel, err := memeoryQueueChannel.ACK(testhelpers.NewContextWithMiddlewareSetup(), ackFalse)
 			g.Expect(err).ToNot(HaveOccurred())
 			g.Expect(destroyChannel).To(BeFalse())
 
@@ -1325,7 +1324,7 @@ func Test_memoryQueueChannel_ACK(t *testing.T) {
 			select {
 			case dequeueFunc := <-dequeueChan:
 				var success func()
-				dequeueItem, success, _ = dequeueFunc(testhelpers.NewContextWithLogger())
+				dequeueItem, success, _ = dequeueFunc(testhelpers.NewContextWithMiddlewareSetup())
 				g.Expect(dequeueItem).ToNot(BeNil())
 
 				// call success for dequeuing the item
@@ -1342,7 +1341,7 @@ func Test_memoryQueueChannel_ACK(t *testing.T) {
 			}
 			g.Expect(ackTrue.Validate()).ToNot(HaveOccurred())
 
-			destroyChannel, err = memeoryQueueChannel.ACK(testhelpers.NewContextWithLogger(), ackTrue)
+			destroyChannel, err = memeoryQueueChannel.ACK(testhelpers.NewContextWithMiddlewareSetup(), ackTrue)
 			g.Expect(err).ToNot(HaveOccurred())
 			g.Expect(destroyChannel).To(BeTrue())
 
@@ -1361,7 +1360,7 @@ func Test_memoryQueueChannel_async(t *testing.T) {
 		defer mockController.Finish()
 
 		// set limiter client to pass
-		fakeLimiterClient.EXPECT().UpdateCounter(gomock.Any(), gomock.Any()).DoAndReturn(func(_ *v1limiter.Counter, _ http.Header) error { return nil }).AnyTimes()
+		fakeLimiterClient.EXPECT().UpdateCounter(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ *v1limiter.Counter) error { return nil }).AnyTimes()
 
 		// create queue channel
 		memeoryQueueChannel := New(fakeLimiterClient, func() {}, "test", defaultKeyValues(g))
@@ -1399,7 +1398,7 @@ func Test_memoryQueueChannel_async(t *testing.T) {
 					TimeoutDuration: time.Second,
 				}
 				g.Expect(enqueueItem.Validate()).ToNot(HaveOccurred())
-				g.Expect(memeoryQueueChannel.Enqueue(testhelpers.NewContextWithLogger(), enqueueItem)).ToNot(HaveOccurred())
+				g.Expect(memeoryQueueChannel.Enqueue(testhelpers.NewContextWithMiddlewareSetup(), enqueueItem)).ToNot(HaveOccurred())
 			}(i)
 		}
 
@@ -1411,7 +1410,7 @@ func Test_memoryQueueChannel_async(t *testing.T) {
 		defer mockController.Finish()
 
 		// set limiter client to pass
-		fakeLimiterClient.EXPECT().UpdateCounter(gomock.Any(), gomock.Any()).DoAndReturn(func(_ *v1limiter.Counter, _ http.Header) error { return nil }).AnyTimes()
+		fakeLimiterClient.EXPECT().UpdateCounter(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ *v1limiter.Counter) error { return nil }).AnyTimes()
 
 		// create queue channel
 		memeoryQueueChannel := New(fakeLimiterClient, func() {}, "test", defaultKeyValues(g))
@@ -1449,7 +1448,7 @@ func Test_memoryQueueChannel_async(t *testing.T) {
 					TimeoutDuration: time.Second,
 				}
 				g.Expect(enqueueItem.Validate()).ToNot(HaveOccurred())
-				g.Expect(memeoryQueueChannel.Enqueue(testhelpers.NewContextWithLogger(), enqueueItem)).ToNot(HaveOccurred())
+				g.Expect(memeoryQueueChannel.Enqueue(testhelpers.NewContextWithMiddlewareSetup(), enqueueItem)).ToNot(HaveOccurred())
 			}(i)
 		}
 		wg.Wait()
@@ -1464,7 +1463,7 @@ func Test_memoryQueueChannel_async(t *testing.T) {
 				// ensure we can dequeue the same item again
 				select {
 				case dequeueFunc := <-dequeueChan:
-					dequeueItem, success, _ := dequeueFunc(testhelpers.NewContextWithLogger())
+					dequeueItem, success, _ := dequeueFunc(testhelpers.NewContextWithMiddlewareSetup())
 					g.Expect(dequeueItem).ToNot(BeNil())
 
 					// call success for dequeuing the item and trigger another item to process
@@ -1482,7 +1481,7 @@ func Test_memoryQueueChannel_async(t *testing.T) {
 						}
 						g.Expect(ackTrue.Validate()).ToNot(HaveOccurred())
 
-						_, err := memeoryQueueChannel.ACK(testhelpers.NewContextWithLogger(), ackTrue)
+						_, err := memeoryQueueChannel.ACK(testhelpers.NewContextWithMiddlewareSetup(), ackTrue)
 						g.Expect(err).ToNot(HaveOccurred())
 					}()
 				case <-time.After(5 * time.Second):
@@ -1499,7 +1498,7 @@ func Test_memoryQueueChannel_async(t *testing.T) {
 		defer mockController.Finish()
 
 		// set limiter client to pass
-		fakeLimiterClient.EXPECT().UpdateCounter(gomock.Any(), gomock.Any()).DoAndReturn(func(_ *v1limiter.Counter, _ http.Header) error { return nil }).AnyTimes()
+		fakeLimiterClient.EXPECT().UpdateCounter(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ *v1limiter.Counter) error { return nil }).AnyTimes()
 
 		// create queue channel
 		memeoryQueueChannel := New(fakeLimiterClient, func() {}, "test", defaultKeyValues(g))
@@ -1537,7 +1536,7 @@ func Test_memoryQueueChannel_async(t *testing.T) {
 					TimeoutDuration: time.Second,
 				}
 				g.Expect(enqueueItem.Validate()).ToNot(HaveOccurred())
-				g.Expect(memeoryQueueChannel.Enqueue(testhelpers.NewContextWithLogger(), enqueueItem)).ToNot(HaveOccurred())
+				g.Expect(memeoryQueueChannel.Enqueue(testhelpers.NewContextWithMiddlewareSetup(), enqueueItem)).ToNot(HaveOccurred())
 			}(i)
 		}
 		wg.Wait()
@@ -1552,7 +1551,7 @@ func Test_memoryQueueChannel_async(t *testing.T) {
 				// ensure we can dequeue the same item again
 				select {
 				case dequeueFunc := <-dequeueChan:
-					dequeueItem, success, failed := dequeueFunc(testhelpers.NewContextWithLogger())
+					dequeueItem, success, failed := dequeueFunc(testhelpers.NewContextWithMiddlewareSetup())
 					g.Expect(dequeueItem).ToNot(BeNil())
 
 					// call success for dequeuing the item and trigger another item to process
@@ -1573,7 +1572,7 @@ func Test_memoryQueueChannel_async(t *testing.T) {
 							}
 							g.Expect(ackTrue.Validate()).ToNot(HaveOccurred())
 
-							_, err := memeoryQueueChannel.ACK(testhelpers.NewContextWithLogger(), ackTrue)
+							_, err := memeoryQueueChannel.ACK(testhelpers.NewContextWithMiddlewareSetup(), ackTrue)
 							g.Expect(err).ToNot(HaveOccurred())
 						}()
 					}
@@ -1592,7 +1591,7 @@ func Test_memoryQueueChannel_async(t *testing.T) {
 		defer mockController.Finish()
 
 		// set limiter client to pass
-		fakeLimiterClient.EXPECT().UpdateCounter(gomock.Any(), gomock.Any()).DoAndReturn(func(_ *v1limiter.Counter, _ http.Header) error { return nil }).AnyTimes()
+		fakeLimiterClient.EXPECT().UpdateCounter(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ *v1limiter.Counter) error { return nil }).AnyTimes()
 
 		// create queue channel
 		memeoryQueueChannel := New(fakeLimiterClient, func() {}, "test", defaultKeyValues(g))
@@ -1625,7 +1624,7 @@ func Test_memoryQueueChannel_async(t *testing.T) {
 					TimeoutDuration: time.Second,
 				}
 				g.Expect(enqueueItem.Validate()).ToNot(HaveOccurred())
-				g.Expect(memeoryQueueChannel.Enqueue(testhelpers.NewContextWithLogger(), enqueueItem)).ToNot(HaveOccurred())
+				g.Expect(memeoryQueueChannel.Enqueue(testhelpers.NewContextWithMiddlewareSetup(), enqueueItem)).ToNot(HaveOccurred())
 			}(i)
 		}
 		wg.Wait()
@@ -1640,7 +1639,7 @@ func Test_memoryQueueChannel_async(t *testing.T) {
 				// ensure we can dequeue the same item again
 				select {
 				case dequeueFunc := <-dequeueChan:
-					dequeueItem, success, failed := dequeueFunc(testhelpers.NewContextWithLogger())
+					dequeueItem, success, failed := dequeueFunc(testhelpers.NewContextWithMiddlewareSetup())
 					g.Expect(dequeueItem).ToNot(BeNil())
 
 					// call success for dequeuing the item and trigger another item to process
@@ -1664,7 +1663,7 @@ func Test_memoryQueueChannel_async(t *testing.T) {
 							}
 							g.Expect(ackTrue.Validate()).ToNot(HaveOccurred())
 
-							_, err := memeoryQueueChannel.ACK(testhelpers.NewContextWithLogger(), ackTrue)
+							_, err := memeoryQueueChannel.ACK(testhelpers.NewContextWithMiddlewareSetup(), ackTrue)
 							g.Expect(err).ToNot(HaveOccurred())
 						}()
 					}
@@ -1683,7 +1682,7 @@ func Test_memoryQueueChannel_async(t *testing.T) {
 		defer mockController.Finish()
 
 		// set limiter client to pass
-		fakeLimiterClient.EXPECT().UpdateCounter(gomock.Any(), gomock.Any()).DoAndReturn(func(_ *v1limiter.Counter, _ http.Header) error { return nil }).AnyTimes()
+		fakeLimiterClient.EXPECT().UpdateCounter(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ *v1limiter.Counter) error { return nil }).AnyTimes()
 
 		// create queue channel
 		memeoryQueueChannel := New(fakeLimiterClient, func() {}, "test", defaultKeyValues(g))
@@ -1722,7 +1721,7 @@ func Test_memoryQueueChannel_async(t *testing.T) {
 					TimeoutDuration: time.Second,
 				}
 				g.Expect(enqueueItem.Validate()).ToNot(HaveOccurred())
-				g.Expect(memeoryQueueChannel.Enqueue(testhelpers.NewContextWithLogger(), enqueueItem)).ToNot(HaveOccurred())
+				g.Expect(memeoryQueueChannel.Enqueue(testhelpers.NewContextWithMiddlewareSetup(), enqueueItem)).ToNot(HaveOccurred())
 			}(i)
 
 			wg.Add(1)
@@ -1732,7 +1731,7 @@ func Test_memoryQueueChannel_async(t *testing.T) {
 				// ensure we can dequeue the same item again
 				select {
 				case dequeueFunc := <-dequeueChan:
-					dequeueItem, success, failed := dequeueFunc(testhelpers.NewContextWithLogger())
+					dequeueItem, success, failed := dequeueFunc(testhelpers.NewContextWithMiddlewareSetup())
 					g.Expect(dequeueItem).ToNot(BeNil())
 
 					// call success for dequeuing the item and trigger another item to process
@@ -1756,7 +1755,7 @@ func Test_memoryQueueChannel_async(t *testing.T) {
 							}
 							g.Expect(ackTrue.Validate()).ToNot(HaveOccurred())
 
-							_, err := memeoryQueueChannel.ACK(testhelpers.NewContextWithLogger(), ackTrue)
+							_, err := memeoryQueueChannel.ACK(testhelpers.NewContextWithMiddlewareSetup(), ackTrue)
 							g.Expect(err).ToNot(HaveOccurred())
 						}()
 					}

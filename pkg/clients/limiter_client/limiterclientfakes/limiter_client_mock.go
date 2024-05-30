@@ -10,7 +10,7 @@
 package limiterclientfakes
 
 import (
-	http "net/http"
+	context "context"
 	reflect "reflect"
 
 	queryassociatedaction "github.com/DanLavine/willow/pkg/models/api/common/v1/query_associated_action"
@@ -43,7 +43,7 @@ func (m *MockLimiterClient) EXPECT() *MockLimiterClientMockRecorder {
 }
 
 // CreateOverride mocks base method.
-func (m *MockLimiterClient) CreateOverride(arg0 string, arg1 *v1.Override, arg2 http.Header) error {
+func (m *MockLimiterClient) CreateOverride(arg0 context.Context, arg1 string, arg2 *v1.Override) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateOverride", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -57,7 +57,7 @@ func (mr *MockLimiterClientMockRecorder) CreateOverride(arg0, arg1, arg2 any) *g
 }
 
 // CreateRule mocks base method.
-func (m *MockLimiterClient) CreateRule(arg0 *v1.Rule, arg1 http.Header) error {
+func (m *MockLimiterClient) CreateRule(arg0 context.Context, arg1 *v1.Rule) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateRule", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -71,7 +71,7 @@ func (mr *MockLimiterClientMockRecorder) CreateRule(arg0, arg1 any) *gomock.Call
 }
 
 // DeleteOverride mocks base method.
-func (m *MockLimiterClient) DeleteOverride(arg0, arg1 string, arg2 http.Header) error {
+func (m *MockLimiterClient) DeleteOverride(arg0 context.Context, arg1, arg2 string) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeleteOverride", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -85,7 +85,7 @@ func (mr *MockLimiterClientMockRecorder) DeleteOverride(arg0, arg1, arg2 any) *g
 }
 
 // DeleteRule mocks base method.
-func (m *MockLimiterClient) DeleteRule(arg0 string, arg1 http.Header) error {
+func (m *MockLimiterClient) DeleteRule(arg0 context.Context, arg1 string) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeleteRule", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -99,7 +99,7 @@ func (mr *MockLimiterClientMockRecorder) DeleteRule(arg0, arg1 any) *gomock.Call
 }
 
 // GetOverride mocks base method.
-func (m *MockLimiterClient) GetOverride(arg0, arg1 string, arg2 http.Header) (*v1.Override, error) {
+func (m *MockLimiterClient) GetOverride(arg0 context.Context, arg1, arg2 string) (*v1.Override, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetOverride", arg0, arg1, arg2)
 	ret0, _ := ret[0].(*v1.Override)
@@ -114,7 +114,7 @@ func (mr *MockLimiterClientMockRecorder) GetOverride(arg0, arg1, arg2 any) *gomo
 }
 
 // GetRule mocks base method.
-func (m *MockLimiterClient) GetRule(arg0 string, arg1 http.Header) (*v1.Rule, error) {
+func (m *MockLimiterClient) GetRule(arg0 context.Context, arg1 string) (*v1.Rule, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetRule", arg0, arg1)
 	ret0, _ := ret[0].(*v1.Rule)
@@ -143,7 +143,7 @@ func (mr *MockLimiterClientMockRecorder) Healthy() *gomock.Call {
 }
 
 // MatchOverrides mocks base method.
-func (m *MockLimiterClient) MatchOverrides(arg0 string, arg1 *querymatchaction.MatchActionQuery, arg2 http.Header) (v1.Overrides, error) {
+func (m *MockLimiterClient) MatchOverrides(arg0 context.Context, arg1 string, arg2 *querymatchaction.MatchActionQuery) (v1.Overrides, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "MatchOverrides", arg0, arg1, arg2)
 	ret0, _ := ret[0].(v1.Overrides)
@@ -158,7 +158,7 @@ func (mr *MockLimiterClientMockRecorder) MatchOverrides(arg0, arg1, arg2 any) *g
 }
 
 // MatchRules mocks base method.
-func (m *MockLimiterClient) MatchRules(arg0 *querymatchaction.MatchActionQuery, arg1 http.Header) (v1.Rules, error) {
+func (m *MockLimiterClient) MatchRules(arg0 context.Context, arg1 *querymatchaction.MatchActionQuery) (v1.Rules, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "MatchRules", arg0, arg1)
 	ret0, _ := ret[0].(v1.Rules)
@@ -173,7 +173,7 @@ func (mr *MockLimiterClientMockRecorder) MatchRules(arg0, arg1 any) *gomock.Call
 }
 
 // QueryCounters mocks base method.
-func (m *MockLimiterClient) QueryCounters(arg0 *queryassociatedaction.AssociatedActionQuery, arg1 http.Header) (v1.Counters, error) {
+func (m *MockLimiterClient) QueryCounters(arg0 context.Context, arg1 *queryassociatedaction.AssociatedActionQuery) (v1.Counters, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "QueryCounters", arg0, arg1)
 	ret0, _ := ret[0].(v1.Counters)
@@ -188,7 +188,7 @@ func (mr *MockLimiterClientMockRecorder) QueryCounters(arg0, arg1 any) *gomock.C
 }
 
 // QueryOverrides mocks base method.
-func (m *MockLimiterClient) QueryOverrides(arg0 string, arg1 *queryassociatedaction.AssociatedActionQuery, arg2 http.Header) (v1.Overrides, error) {
+func (m *MockLimiterClient) QueryOverrides(arg0 context.Context, arg1 string, arg2 *queryassociatedaction.AssociatedActionQuery) (v1.Overrides, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "QueryOverrides", arg0, arg1, arg2)
 	ret0, _ := ret[0].(v1.Overrides)
@@ -203,7 +203,7 @@ func (mr *MockLimiterClientMockRecorder) QueryOverrides(arg0, arg1, arg2 any) *g
 }
 
 // QueryRules mocks base method.
-func (m *MockLimiterClient) QueryRules(arg0 *queryassociatedaction.AssociatedActionQuery, arg1 http.Header) (v1.Rules, error) {
+func (m *MockLimiterClient) QueryRules(arg0 context.Context, arg1 *queryassociatedaction.AssociatedActionQuery) (v1.Rules, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "QueryRules", arg0, arg1)
 	ret0, _ := ret[0].(v1.Rules)
@@ -218,7 +218,7 @@ func (mr *MockLimiterClientMockRecorder) QueryRules(arg0, arg1 any) *gomock.Call
 }
 
 // SetCounters mocks base method.
-func (m *MockLimiterClient) SetCounters(arg0 *v1.Counter, arg1 http.Header) error {
+func (m *MockLimiterClient) SetCounters(arg0 context.Context, arg1 *v1.Counter) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetCounters", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -232,7 +232,7 @@ func (mr *MockLimiterClientMockRecorder) SetCounters(arg0, arg1 any) *gomock.Cal
 }
 
 // UpdateCounter mocks base method.
-func (m *MockLimiterClient) UpdateCounter(arg0 *v1.Counter, arg1 http.Header) error {
+func (m *MockLimiterClient) UpdateCounter(arg0 context.Context, arg1 *v1.Counter) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateCounter", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -246,7 +246,7 @@ func (mr *MockLimiterClientMockRecorder) UpdateCounter(arg0, arg1 any) *gomock.C
 }
 
 // UpdateOverride mocks base method.
-func (m *MockLimiterClient) UpdateOverride(arg0, arg1 string, arg2 *v1.OverrideUpdate, arg3 http.Header) error {
+func (m *MockLimiterClient) UpdateOverride(arg0 context.Context, arg1, arg2 string, arg3 *v1.OverrideUpdate) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateOverride", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
@@ -260,7 +260,7 @@ func (mr *MockLimiterClientMockRecorder) UpdateOverride(arg0, arg1, arg2, arg3 a
 }
 
 // UpdateRule mocks base method.
-func (m *MockLimiterClient) UpdateRule(arg0 string, arg1 *v1.RuleUpdateRquest, arg2 http.Header) error {
+func (m *MockLimiterClient) UpdateRule(arg0 context.Context, arg1 string, arg2 *v1.RuleUpdateRquest) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateRule", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)

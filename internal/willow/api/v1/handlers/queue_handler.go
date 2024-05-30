@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	"github.com/DanLavine/urlrouter"
-	"github.com/DanLavine/willow/internal/reporting"
+	"github.com/DanLavine/willow/internal/middleware"
 	"github.com/DanLavine/willow/internal/willow/brokers/queues"
 	"github.com/DanLavine/willow/pkg/models/api"
 	"go.uber.org/zap"
@@ -33,113 +33,107 @@ type V1QueueHandler interface {
 }
 
 type queueHandler struct {
-	logger *zap.Logger
-
 	queueClient queues.QueuesClient
 }
 
-func NewV1QueueHandler(logger *zap.Logger, queueClient queues.QueuesClient) *queueHandler {
+func NewV1QueueHandler(queueClient queues.QueuesClient) *queueHandler {
 	return &queueHandler{
-		logger:      logger,
 		queueClient: queueClient,
 	}
 }
 
 func (qh queueHandler) Create(w http.ResponseWriter, r *http.Request) {
-	ctx, logger := reporting.SetupContextWithLoggerFromRequest(r.Context(), qh.logger.Named("Create"), r)
+	// grab the request middleware objects
+	ctx, logger := middleware.GetNamedMiddlewareLogger(r.Context(), "Create")
 	logger.Debug("starting request")
 	defer logger.Debug("processed request")
 
 	// parse the create rule request
 	create := &v1willow.QueueCreate{}
-	if err := api.DecodeAndValidateHttpRequest(r, create); err != nil {
+	if err := api.ModelDecodeRequest(r, create); err != nil {
 		logger.Warn("failed to decode and validate request", zap.Error(err))
-		_, _ = api.EncodeAndSendHttpResponse(r.Header, w, err.StatusCode, err)
+		_, _ = api.ModelEncodeResponse(w, err.StatusCode, err)
 		return
 	}
 
 	// create the new rule
 	if err := qh.queueClient.CreateQueue(ctx, create); err != nil {
-		_, _ = api.EncodeAndSendHttpResponse(r.Header, w, err.StatusCode, err)
+		_, _ = api.ModelEncodeResponse(w, err.StatusCode, err)
 		return
 	}
 
-	_, _ = api.EncodeAndSendHttpResponse(r.Header, w, http.StatusCreated, nil)
+	_, _ = api.ModelEncodeResponse(w, http.StatusCreated, nil)
 }
 
 func (qh queueHandler) List(w http.ResponseWriter, r *http.Request) {
-	ctx, logger := reporting.SetupContextWithLoggerFromRequest(r.Context(), qh.logger.Named("List"), r)
+	// grab the request middleware objects
+	ctx, logger := middleware.GetNamedMiddlewareLogger(r.Context(), "List")
 	logger.Debug("starting request")
 	defer logger.Debug("processed request")
 
 	queues, err := qh.queueClient.ListQueues(ctx)
 	if err != nil {
-		_, _ = api.EncodeAndSendHttpResponse(r.Header, w, err.StatusCode, err)
+		_, _ = api.ModelEncodeResponse(w, err.StatusCode, err)
 		return
 	}
 
 	// send the response
-	_, _ = api.EncodeAndSendHttpResponse(r.Header, w, http.StatusOK, &queues)
+	_, _ = api.ModelEncodeResponse(w, http.StatusOK, &queues)
 }
 
 func (qh queueHandler) Get(w http.ResponseWriter, r *http.Request) {
-	ctx, logger := reporting.SetupContextWithLoggerFromRequest(r.Context(), qh.logger.Named("Get"), r)
+	// grab the request middleware objects
+	ctx, logger := middleware.GetNamedMiddlewareLogger(r.Context(), "Get")
 	logger.Debug("starting request")
 	defer logger.Debug("processed request")
 
-	// parse the get rule request
-	// query := &queryassociatedaction.AssociatedActionQuery{}
-	// if err := api.DecodeAndValidateHttpRequest(r, query); err != nil {
-	// 	logger.Warn("failed to decode and validate request", zap.Error(err))
-	// 	_, _ = api.EncodeAndSendHttpResponse(r.Header, w, err.StatusCode, err)
-	// 	return
-	// }
-
 	queue, err := qh.queueClient.GetQueue(ctx, urlrouter.GetNamedParamters(r.Context())["queue_name"])
 	if err != nil {
-		_, _ = api.EncodeAndSendHttpResponse(r.Header, w, err.StatusCode, err)
+		_, _ = api.ModelEncodeResponse(w, err.StatusCode, err)
 		return
 	}
 
 	// send the response
 	if queue == nil {
-		_, _ = api.EncodeAndSendHttpResponse(r.Header, w, http.StatusNotFound, nil)
+		_, _ = api.ModelEncodeResponse(w, http.StatusNotFound, nil)
 	} else {
-		_, _ = api.EncodeAndSendHttpResponse(r.Header, w, http.StatusOK, queue)
+		_, _ = api.ModelEncodeResponse(w, http.StatusOK, queue)
 	}
 }
 
 func (qh queueHandler) Update(w http.ResponseWriter, r *http.Request) {
-	ctx, logger := reporting.SetupContextWithLoggerFromRequest(r.Context(), qh.logger.Named("Update"), r)
+	// grab the request middleware objects
+	ctx, logger := middleware.GetNamedMiddlewareLogger(r.Context(), "Update")
 	logger.Debug("starting request")
 	defer logger.Debug("processed request")
 
 	// parse the update
 	update := &v1willow.QueueUpdate{}
-	if err := api.DecodeAndValidateHttpRequest(r, update); err != nil {
+	if err := api.ModelDecodeRequest(r, update); err != nil {
 		logger.Warn("failed to decode and validate request", zap.Error(err))
-		_, _ = api.EncodeAndSendHttpResponse(r.Header, w, err.StatusCode, err)
+		_, _ = api.ModelEncodeResponse(w, err.StatusCode, err)
 		return
 	}
 
 	if err := qh.queueClient.UpdateQueue(ctx, urlrouter.GetNamedParamters(r.Context())["queue_name"], update); err != nil {
-		_, _ = api.EncodeAndSendHttpResponse(r.Header, w, err.StatusCode, err)
+		_, _ = api.ModelEncodeResponse(w, err.StatusCode, err)
 		return
 	}
 
-	_, _ = api.EncodeAndSendHttpResponse(r.Header, w, http.StatusOK, nil)
+	_, _ = api.ModelEncodeResponse(w, http.StatusOK, nil)
 }
 
 func (qh queueHandler) Delete(w http.ResponseWriter, r *http.Request) {
-	ctx, logger := reporting.SetupContextWithLoggerFromRequest(r.Context(), qh.logger.Named("Delete"), r)
+	// grab the request middleware objects
+	ctx, logger := middleware.GetNamedMiddlewareLogger(r.Context(), "Delete")
 	logger.Debug("starting request")
 	defer logger.Debug("processed request")
 
 	if err := qh.queueClient.DeleteQueue(ctx, urlrouter.GetNamedParamters(r.Context())["queue_name"]); err != nil {
-		_, _ = api.EncodeAndSendHttpResponse(r.Header, w, err.StatusCode, err)
+		_, _ = api.ModelEncodeResponse(w, err.StatusCode, err)
 		return
 	}
 
 	// send the response
-	_, _ = api.EncodeAndSendHttpResponse(r.Header, w, http.StatusNoContent, nil)
+	_, _ = api.ModelEncodeResponse(w, http.StatusNoContent, nil)
 }

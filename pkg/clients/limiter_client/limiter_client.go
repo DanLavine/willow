@@ -1,6 +1,7 @@
 package limiterclient
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 
@@ -19,39 +20,39 @@ type LimiterClient interface {
 
 	// Rule operations
 	// Create a new Rule
-	CreateRule(rule *v1limiter.Rule, headers http.Header) error
+	CreateRule(ctx context.Context, rule *v1limiter.Rule) error
 	// Get a spcific rule by name and query the possible overrides
-	GetRule(ruleName string, headers http.Header) (*v1limiter.Rule, error)
+	GetRule(ctx context.Context, ruleName string) (*v1limiter.Rule, error)
 	// Query Rules for specific key values
-	QueryRules(query *queryassociatedaction.AssociatedActionQuery, headers http.Header) (v1limiter.Rules, error)
+	QueryRules(ctx context.Context, query *queryassociatedaction.AssociatedActionQuery) (v1limiter.Rules, error)
 	// Match any Rules for the provided key values
-	MatchRules(match *querymatchaction.MatchActionQuery, headers http.Header) (v1limiter.Rules, error)
+	MatchRules(ctx context.Context, match *querymatchaction.MatchActionQuery) (v1limiter.Rules, error)
 	// Update a Rule by name
-	UpdateRule(ruleName string, ruleUpdate *v1limiter.RuleUpdateRquest, headers http.Header) error
+	UpdateRule(ctx context.Context, ruleName string, ruleUpdate *v1limiter.RuleUpdateRquest) error
 	// Delete a Rule by name
-	DeleteRule(ruleName string, headers http.Header) error
+	DeleteRule(ctx context.Context, ruleName string) error
 
 	// Override operations
 	// Create an Override for a particular Rule
-	CreateOverride(ruleName string, override *v1limiter.Override, headers http.Header) error
+	CreateOverride(ctx context.Context, ruleName string, override *v1limiter.Override) error
 	// Get an Override for a particular Rule
-	GetOverride(ruleName string, overrideName string, headers http.Header) (*v1limiter.Override, error)
+	GetOverride(ctx context.Context, ruleName string, overrideName string) (*v1limiter.Override, error)
 	// Query Overrides
-	QueryOverrides(ruleName string, query *queryassociatedaction.AssociatedActionQuery, headers http.Header) (v1limiter.Overrides, error)
+	QueryOverrides(ctx context.Context, ruleName string, query *queryassociatedaction.AssociatedActionQuery) (v1limiter.Overrides, error)
 	// Match Overrides
-	MatchOverrides(ruleName string, match *querymatchaction.MatchActionQuery, headers http.Header) (v1limiter.Overrides, error)
+	MatchOverrides(ctx context.Context, ruleName string, match *querymatchaction.MatchActionQuery) (v1limiter.Overrides, error)
 	// Update a particular Override
-	UpdateOverride(ruleName string, overrideName string, overrideUpdate *v1limiter.OverrideUpdate, headers http.Header) error
+	UpdateOverride(ctx context.Context, ruleName string, overrideName string, overrideUpdate *v1limiter.OverrideUpdate) error
 	// Delete an Override for a particual Rule
-	DeleteOverride(ruleName string, overrideName string, headers http.Header) error
+	DeleteOverride(ctx context.Context, ruleName string, overrideName string) error
 
 	// Counter operations
 	// Increment Or Decrement a particual Counter
-	UpdateCounter(counter *v1limiter.Counter, headers http.Header) error
+	UpdateCounter(ctx context.Context, counter *v1limiter.Counter) error
 	// Query Counters
-	QueryCounters(query *queryassociatedaction.AssociatedActionQuery, headers http.Header) (v1limiter.Counters, error)
+	QueryCounters(ctx context.Context, query *queryassociatedaction.AssociatedActionQuery) (v1limiter.Counters, error)
 	// Forcefully set the Counter without enforcing any rules
-	SetCounters(counters *v1limiter.Counter, headers http.Header) error
+	SetCounters(ctx context.Context, counters *v1limiter.Counter) error
 }
 
 // LimiteClient to connect with remote limiter service
@@ -60,10 +61,7 @@ type LimitClient struct {
 	url string
 
 	// client setup with HTTP or HTTPS certs
-	client clients.HttpClient
-
-	// type to understand request/response formats
-	contentType string
+	client *http.Client
 }
 
 //	PARAMATERS
@@ -81,15 +79,14 @@ func NewLimiterClient(cfg *clients.Config) (*LimitClient, error) {
 	}
 
 	return &LimitClient{
-		url:         cfg.URL,
-		client:      httpClient,
-		contentType: cfg.ContentEncoding,
+		url:    cfg.URL,
+		client: httpClient,
 	}, nil
 }
 
 func (lc *LimitClient) Healthy() error {
 	// setup and make the request
-	req, err := lc.client.SetupRequest("GET", fmt.Sprintf("%s/health", lc.url))
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s/health", lc.url), nil)
 	if err != nil {
 		return fmt.Errorf("failed to setup request to healthy api")
 	}

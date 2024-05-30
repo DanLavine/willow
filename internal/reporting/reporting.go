@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 
+	"github.com/DanLavine/willow/internal/middleware"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 )
@@ -49,19 +50,19 @@ func saveTraceHeaders(ctx context.Context, headers http.Header) (context.Context
 	return context.WithValue(ctx, xRequestHeader, traceID), traceID
 }
 
-// Get the headers for a trace
-func GetTraceHeaders(ctx context.Context) http.Header {
-	headers := http.Header{}
+// // Get the headers for a trace
+// func GetTraceHeaders(ctx context.Context) http.Header {
+// 	headers := http.Header{}
 
-	traceHeader := ctx.Value(xRequestHeader)
-	if traceHeader != nil && traceHeader != "" {
-		headers[constTraceHeader] = []string{traceHeader.(string)}
-	}
+// 	traceHeader := ctx.Value(xRequestHeader)
+// 	if traceHeader != nil && traceHeader != "" {
+// 		headers[constTraceHeader] = []string{traceHeader.(string)}
+// 	}
 
-	return headers
-}
+// 	return headers
+// }
 
 // obtain a base context with a base logger. This has no trace headeers
 func StripedContext(logger *zap.Logger) context.Context {
-	return context.WithValue(context.Background(), CustomLogger, zap.New(logger.Core()))
+	return context.WithValue(context.Background(), middleware.LoggerCtxKey, zap.New(logger.Core()))
 }

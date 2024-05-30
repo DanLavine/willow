@@ -2,6 +2,8 @@ package v1
 
 import (
 	"fmt"
+
+	"github.com/DanLavine/willow/pkg/models/api/common/errors"
 )
 
 // Locks show any locks that match an AssociatedQuery.
@@ -14,18 +16,18 @@ type Locks []*Lock
 //	- error - error describing any possible issues and the steps to rectify them
 //
 // Validate ensures the LockQueryResponse has all required fields set
-func (locks *Locks) Validate() error {
-	if len(*locks) == 0 {
+func (locks Locks) Validate() *errors.ModelError {
+	if len(locks) == 0 {
 		return nil
 	}
 
-	for index, lock := range *locks {
+	for index, lock := range locks {
 		if lock == nil {
-			return fmt.Errorf("invalid Lock at index %d: lock cannot be nil", index)
+			return &errors.ModelError{Field: fmt.Sprintf("[%d]", index), Err: fmt.Errorf("Lock cannot be null")}
 		}
 
 		if err := lock.Validate(); err != nil {
-			return fmt.Errorf("invalid Lock at index %d: %w", index, err)
+			return &errors.ModelError{Field: fmt.Sprintf("[%d]", index), Child: err}
 		}
 	}
 
