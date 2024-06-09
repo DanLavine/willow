@@ -13,7 +13,7 @@ import (
 type CounterClient interface {
 	// counter operations
 	//// create or update a particualr counter, checking that no rules are violated
-	IncrementCounters(ctx context.Context, requestContext context.Context, lockerClient lockerclient.LockerClient, counters *v1limiter.Counter) *errors.ServerError
+	IncrementCounters(ctx context.Context, lockerClient lockerclient.LockerClient, counters *v1limiter.Counter) *errors.ServerError
 
 	//// Decrement a prticular counter
 	DecrementCounters(ctx context.Context, counters *v1limiter.Counter) *errors.ServerError

@@ -69,7 +69,7 @@ func (exclusiveLocker *exclusiveLocker) ObtainLock(ctx context.Context, createLo
 
 	onCreate := func() any {
 		lock := newExclusiveLock(func() {
-			exclusiveLocker.timeout(reporting.BaseLogger(logger), createLockRequest.Spec.DBDeifinition.ToKeyValues())
+			exclusiveLocker.timeout(reporting.BaseLogger(logger), createLockRequest.Spec.DBDefinition.KeyValues.ToKeyValues())
 		})
 
 		// add the task to the task manager
@@ -91,7 +91,7 @@ func (exclusiveLocker *exclusiveLocker) ObtainLock(ctx context.Context, createLo
 		claimChannel = item.Value().(*exclusiveLock).GetClaimChannel()
 	}
 
-	lockID, err := exclusiveLocker.exclusiveLocks.CreateOrFind(createLockRequest.Spec.DBDeifinition.ToKeyValues(), onCreate, onFind)
+	lockID, err := exclusiveLocker.exclusiveLocks.CreateOrFind(createLockRequest.Spec.DBDefinition.KeyValues.ToKeyValues(), onCreate, onFind)
 	if err != nil {
 		panic(err)
 	}
@@ -101,7 +101,7 @@ func (exclusiveLocker *exclusiveLocker) ObtainLock(ctx context.Context, createLo
 	case <-ctx.Done():
 		// decrement the claim and remove the object from the tree if there are no other clients waiting
 		logger.Info("client disconnected")
-		_ = exclusiveLocker.exclusiveLocks.Delete(createLockRequest.Spec.DBDeifinition.ToKeyValues(), func(associatedKeyValues btreeassociated.AssociatedKeyValues) bool {
+		_ = exclusiveLocker.exclusiveLocks.Delete(createLockRequest.Spec.DBDefinition.KeyValues.ToKeyValues(), func(associatedKeyValues btreeassociated.AssociatedKeyValues) bool {
 			return associatedKeyValues.Value().(*exclusiveLock).LostClient()
 		})
 
@@ -116,14 +116,14 @@ func (exclusiveLocker *exclusiveLocker) ObtainLock(ctx context.Context, createLo
 		if ok {
 			// at this point, we have successfuly have the exclusive claim so create the lock
 			logger.Info("claimed the lock")
-			sessionID := processClaim(*createLockRequest.Spec.Timeout)
+			sessionID := processClaim(*createLockRequest.Spec.Properties.Timeout)
 
 			return &v1locker.Lock{
 				Spec: createLockRequest.Spec,
 				State: &v1locker.LockState{
 					LockID:             lockID,
 					SessionID:          sessionID,
-					TimeTillExipre:     *createLockRequest.Spec.Timeout,
+					TimeTillExipre:     *createLockRequest.Spec.Properties.Timeout,
 					LocksHeldOrWaiting: 1,
 				},
 			}
@@ -155,8 +155,12 @@ func (exclusiveLocker *exclusiveLocker) LocksQuery(ctx context.Context, query *q
 
 		locks = append(locks, &v1locker.Lock{
 			Spec: &v1locker.LockSpec{
-				DBDeifinition: dbdefinition.KeyValuesToTypedKeyValues(associatedKeyValues.KeyValues()),
-				Timeout:       &exclusiveLock.lockTimeout,
+				DBDefinition: &v1locker.LockDBDefinition{
+					KeyValues: dbdefinition.KeyValuesToTypedKeyValues(associatedKeyValues.KeyValues()),
+				},
+				Properties: &v1locker.LockProperties{
+					Timeout: &exclusiveLock.lockTimeout,
+				},
 			},
 			State: &v1locker.LockState{
 				LockID:             associatedKeyValues.AssociatedID(),

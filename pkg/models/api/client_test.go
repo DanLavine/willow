@@ -41,8 +41,10 @@ func Test_ObjectEncodeRequest(t *testing.T) {
 		// DecodeAndValidateHttpRequest
 		lock := &v1locker.Lock{
 			Spec: &v1locker.LockSpec{
-				DBDeifinition: &dbdefinition.TypedKeyValues{
-					"key1": datatypes.String("1"),
+				DBDefinition: &v1locker.LockDBDefinition{
+					KeyValues: dbdefinition.TypedKeyValues{
+						"key1": datatypes.String("1"),
+					},
 				},
 			},
 		}
@@ -50,7 +52,7 @@ func Test_ObjectEncodeRequest(t *testing.T) {
 		data, err := ObjectEncodeRequest(lock)
 
 		g.Expect(err).ToNot(HaveOccurred())
-		g.Expect(string(data)).To(Equal(`{"Spec":{"DBDefinition":{"key1":{"Type":13,"Data":"1"}}}}`))
+		g.Expect(string(data)).To(Equal(`{"Spec":{"DBDefinition":{"KeyValues":{"key1":{"Type":13,"Data":"1"}}}}}`))
 	})
 }
 

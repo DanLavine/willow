@@ -21,12 +21,16 @@ import (
 func defaultLockCreateRequest() *v1locker.Lock {
 	return &v1locker.Lock{
 		Spec: &v1locker.LockSpec{
-			DBDeifinition: &dbdefinition.TypedKeyValues{
-				"1": datatypes.String("one"),
-				"2": datatypes.Int(2),
-				"3": datatypes.Uint64(3),
+			DBDefinition: &v1locker.LockDBDefinition{
+				KeyValues: dbdefinition.TypedKeyValues{
+					"1": datatypes.String("one"),
+					"2": datatypes.Int(2),
+					"3": datatypes.Uint64(3),
+				},
 			},
-			Timeout: helpers.PointerOf(15 * time.Second),
+			Properties: &v1locker.LockProperties{
+				Timeout: helpers.PointerOf(15 * time.Second),
+			},
 		},
 	}
 }
@@ -35,12 +39,16 @@ func defaultLockCreateRequest() *v1locker.Lock {
 func overlapOneKeyValue() *v1locker.Lock {
 	return &v1locker.Lock{
 		Spec: &v1locker.LockSpec{
-			DBDeifinition: &dbdefinition.TypedKeyValues{
-				"1": datatypes.String("one"),
-				"4": datatypes.Int(2),
-				"5": datatypes.Uint64(3),
+			DBDefinition: &v1locker.LockDBDefinition{
+				KeyValues: dbdefinition.TypedKeyValues{
+					"1": datatypes.String("one"),
+					"4": datatypes.Int(2),
+					"5": datatypes.Uint64(3),
+				},
 			},
-			Timeout: helpers.PointerOf(15 * time.Second),
+			Properties: &v1locker.LockProperties{
+				Timeout: helpers.PointerOf(15 * time.Second),
+			},
 		},
 	}
 }
@@ -59,8 +67,8 @@ func TestExclusiveLocker_ObtainLocks(t *testing.T) {
 
 		lockResp := exclusiveLocker.ObtainLock(ctx, defaultLockCreateRequest())
 		g.Expect(lockResp).ToNot(BeNil())
-		g.Expect(*lockResp.Spec.Timeout).To(Equal(15 * time.Second)) // default values
-		g.Expect(*lockResp.Spec.DBDeifinition).To(Equal(dbdefinition.TypedKeyValues{
+		g.Expect(*lockResp.Spec.Properties.Timeout).To(Equal(15 * time.Second)) // default values
+		g.Expect(*&lockResp.Spec.DBDefinition.KeyValues).To(Equal(dbdefinition.TypedKeyValues{
 			"1": datatypes.String("one"),
 			"2": datatypes.Int(2),
 			"3": datatypes.Uint64(3),
@@ -196,12 +204,16 @@ func TestExclusiveLocker_ObtainLocks(t *testing.T) {
 
 				testReq := &v1locker.Lock{
 					Spec: &v1locker.LockSpec{
-						DBDeifinition: &dbdefinition.TypedKeyValues{
-							fmt.Sprintf("%d", i%5): datatypes.String("doesn't matter 1"),
-							fmt.Sprintf("%d", i%6): datatypes.String("doesn't matter 2"),
-							fmt.Sprintf("%d", i%7): datatypes.String("doesn't matter 3"),
+						DBDefinition: &v1locker.LockDBDefinition{
+							KeyValues: dbdefinition.TypedKeyValues{
+								fmt.Sprintf("%d", i%5): datatypes.String("doesn't matter 1"),
+								fmt.Sprintf("%d", i%6): datatypes.String("doesn't matter 2"),
+								fmt.Sprintf("%d", i%7): datatypes.String("doesn't matter 3"),
+							},
 						},
-						Timeout: helpers.PointerOf(15 * time.Second),
+						Properties: &v1locker.LockProperties{
+							Timeout: helpers.PointerOf(15 * time.Second),
+						},
 					},
 				}
 				g.Expect(testReq.ValidateSpecOnly()).ToNot(HaveOccurred())
@@ -339,24 +351,24 @@ func TestExclusiveLocker_LocksQuery(t *testing.T) {
 		if locks[0].State.SessionID == lock2.State.SessionID {
 			g.Expect(locks[0].State.SessionID).To(Equal(lock2.State.SessionID))
 			g.Expect(locks[0].State.LocksHeldOrWaiting).To(Equal(uint64(1)))
-			g.Expect(locks[0].Spec.DBDeifinition).To(Equal(&dbdefinition.TypedKeyValues{"1": datatypes.String("one"), "4": datatypes.Int(2), "5": datatypes.Uint64(3)}))
-			g.Expect(locks[0].Spec.Timeout).To(Equal(helpers.PointerOf(15 * time.Second)))
+			g.Expect(locks[0].Spec.DBDefinition.KeyValues).To(Equal(dbdefinition.TypedKeyValues{"1": datatypes.String("one"), "4": datatypes.Int(2), "5": datatypes.Uint64(3)}))
+			g.Expect(locks[0].Spec.Properties.Timeout).To(Equal(helpers.PointerOf(15 * time.Second)))
 			g.Expect(locks[0].State.TimeTillExipre).ToNot(Equal(15 * time.Second))
 
-			g.Expect(locks[1].Spec.DBDeifinition).To(Equal(&dbdefinition.TypedKeyValues{"1": datatypes.String("one"), "2": datatypes.Int(2), "3": datatypes.Uint64(3)}))
-			g.Expect(locks[1].Spec.Timeout).To(Equal(helpers.PointerOf(15 * time.Second)))
+			g.Expect(locks[1].Spec.DBDefinition.KeyValues).To(Equal(dbdefinition.TypedKeyValues{"1": datatypes.String("one"), "2": datatypes.Int(2), "3": datatypes.Uint64(3)}))
+			g.Expect(locks[1].Spec.Properties.Timeout).To(Equal(helpers.PointerOf(15 * time.Second)))
 			g.Expect(locks[1].State.SessionID).To(Equal(lock1.State.SessionID))
 			g.Expect(locks[1].State.LocksHeldOrWaiting).To(Equal(uint64(1)))
 			g.Expect(locks[1].State.TimeTillExipre).ToNot(Equal(0))
 		} else {
 			g.Expect(locks[1].State.SessionID).To(Equal(lock2.State.SessionID))
 			g.Expect(locks[1].State.LocksHeldOrWaiting).To(Equal(uint64(1)))
-			g.Expect(locks[1].Spec.DBDeifinition).To(Equal(&dbdefinition.TypedKeyValues{"1": datatypes.String("one"), "4": datatypes.Int(2), "5": datatypes.Uint64(3)}))
-			g.Expect(locks[1].Spec.Timeout).To(Equal(helpers.PointerOf(15 * time.Second)))
+			g.Expect(locks[1].Spec.DBDefinition.KeyValues).To(Equal(dbdefinition.TypedKeyValues{"1": datatypes.String("one"), "4": datatypes.Int(2), "5": datatypes.Uint64(3)}))
+			g.Expect(locks[1].Spec.Properties.Timeout).To(Equal(helpers.PointerOf(15 * time.Second)))
 			g.Expect(locks[1].State.TimeTillExipre).ToNot(Equal(15 * time.Second))
 
-			g.Expect(locks[0].Spec.DBDeifinition).To(Equal(&dbdefinition.TypedKeyValues{"1": datatypes.String("one"), "2": datatypes.Int(2), "3": datatypes.Uint64(3)}))
-			g.Expect(locks[0].Spec.Timeout).To(Equal(helpers.PointerOf(15 * time.Second)))
+			g.Expect(locks[0].Spec.DBDefinition.KeyValues).To(Equal(dbdefinition.TypedKeyValues{"1": datatypes.String("one"), "2": datatypes.Int(2), "3": datatypes.Uint64(3)}))
+			g.Expect(locks[0].Spec.Properties.Timeout).To(Equal(helpers.PointerOf(15 * time.Second)))
 			g.Expect(locks[0].State.SessionID).To(Equal(lock1.State.SessionID))
 			g.Expect(locks[0].State.LocksHeldOrWaiting).To(Equal(uint64(1)))
 			g.Expect(locks[0].State.TimeTillExipre).ToNot(Equal(0))
@@ -420,7 +432,7 @@ func TestExclusiveLocker_Heartbeat(t *testing.T) {
 		}()
 
 		lockRequest := defaultLockCreateRequest()
-		lockRequest.Spec.Timeout = helpers.PointerOf(100 * time.Millisecond)
+		lockRequest.Spec.Properties.Timeout = helpers.PointerOf(100 * time.Millisecond)
 
 		lockResp := exclusiveLocker.ObtainLock(ctx, lockRequest)
 		g.Expect(lockResp).ToNot(BeNil())
@@ -450,7 +462,7 @@ func TestExclusiveLocker_Heartbeat(t *testing.T) {
 		}()
 
 		lockRequest := defaultLockCreateRequest()
-		lockRequest.Spec.Timeout = helpers.PointerOf(100 * time.Millisecond)
+		lockRequest.Spec.Properties.Timeout = helpers.PointerOf(100 * time.Millisecond)
 
 		lockResp := exclusiveLocker.ObtainLock(ctx, lockRequest)
 		g.Expect(lockResp).ToNot(BeNil())
@@ -471,7 +483,7 @@ func TestExclusiveLocker_Heartbeat(t *testing.T) {
 		}()
 
 		lockRequest := defaultLockCreateRequest()
-		lockRequest.Spec.Timeout = helpers.PointerOf(100 * time.Millisecond)
+		lockRequest.Spec.Properties.Timeout = helpers.PointerOf(100 * time.Millisecond)
 
 		locked := make(chan struct{})
 		for i := 0; i < 5; i++ {
@@ -555,7 +567,7 @@ func TestExclusiveLocker_async(t *testing.T) {
 		}()
 
 		defaultLock := defaultLockCreateRequest()
-		defaultLock.Spec.Timeout = helpers.PointerOf(time.Second)
+		defaultLock.Spec.Properties.Timeout = helpers.PointerOf(time.Second)
 
 		wg := new(sync.WaitGroup)
 		for i := 0; i < 1000; i++ {

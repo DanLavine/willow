@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/DanLavine/willow/internal/helpers"
 	v1common "github.com/DanLavine/willow/pkg/models/api/common/v1"
+	dbdefinition "github.com/DanLavine/willow/pkg/models/api/common/v1/db_definition"
 	queryassociatedaction "github.com/DanLavine/willow/pkg/models/api/common/v1/query_associated_action"
 	v1 "github.com/DanLavine/willow/pkg/models/api/limiter/v1"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
@@ -34,12 +36,18 @@ func Test_Limiter_Overrides_Create(t *testing.T) {
 
 		// create rule
 		rule := &v1.Rule{
-			Name: "rule1",
-			GroupByKeyValues: datatypes.KeyValues{
-				"key1": datatypes.Any(),
-				"key2": datatypes.Any(),
+			Spec: &v1.RuleSpec{
+				DBDefinition: &v1.RuleDBDefinition{
+					Name: helpers.PointerOf[string]("rule1"),
+					GroupByKeyValues: dbdefinition.AnyKeyValues{
+						"key1": datatypes.Any(),
+						"key2": datatypes.Any(),
+					},
+				},
+				Properties: &v1.RuleProperties{
+					Limit: helpers.PointerOf[int64](5),
+				},
 			},
-			Limit: 5,
 		}
 
 		err := limiterClient.CreateRule(context.Background(), rule)
@@ -47,12 +55,18 @@ func Test_Limiter_Overrides_Create(t *testing.T) {
 
 		// create override
 		override := &v1.Override{
-			Name:  "override1",
-			Limit: 32,
-			KeyValues: datatypes.KeyValues{
-				"key1":  datatypes.Int(1),
-				"key2":  datatypes.Int(2),
-				"other": datatypes.Float32(32),
+			Spec: &v1.OverrideSpec{
+				DBDefinition: &v1.OverrideDBDefinition{
+					Name: helpers.PointerOf("override1"),
+					GroupByKeyValues: dbdefinition.AnyKeyValues{
+						"key1":  datatypes.Int(1),
+						"key2":  datatypes.Int(2),
+						"other": datatypes.Float32(32),
+					},
+				},
+				Properties: &v1.OverrideProperties{
+					Limit: helpers.PointerOf[int64](32),
+				},
 			},
 		}
 
@@ -80,12 +94,18 @@ func Test_Limiter_Overrides_Get(t *testing.T) {
 
 		// create rule
 		rule := &v1.Rule{
-			Name: "rule1",
-			GroupByKeyValues: datatypes.KeyValues{
-				"key1": datatypes.Any(),
-				"key2": datatypes.Any(),
+			Spec: &v1.RuleSpec{
+				DBDefinition: &v1.RuleDBDefinition{
+					Name: helpers.PointerOf[string]("rule1"),
+					GroupByKeyValues: dbdefinition.AnyKeyValues{
+						"key1": datatypes.Any(),
+						"key2": datatypes.Any(),
+					},
+				},
+				Properties: &v1.RuleProperties{
+					Limit: helpers.PointerOf[int64](5),
+				},
 			},
-			Limit: 5,
 		}
 
 		err := limiterClient.CreateRule(context.Background(), rule)
@@ -94,12 +114,18 @@ func Test_Limiter_Overrides_Get(t *testing.T) {
 		// create a few override
 		for i := 0; i < 17; i++ {
 			override := &v1.Override{
-				Name:  fmt.Sprintf("override%d", i),
-				Limit: int64(i),
-				KeyValues: datatypes.KeyValues{
-					"key1":  datatypes.Int(1),
-					"key2":  datatypes.Int(2),
-					"other": datatypes.Int(i),
+				Spec: &v1.OverrideSpec{
+					DBDefinition: &v1.OverrideDBDefinition{
+						Name: helpers.PointerOf(fmt.Sprintf("override%d", i)),
+						GroupByKeyValues: dbdefinition.AnyKeyValues{
+							"key1":  datatypes.Int(1),
+							"key2":  datatypes.Int(2),
+							"other": datatypes.Int(i),
+						},
+					},
+					Properties: &v1.OverrideProperties{
+						Limit: helpers.PointerOf[int64](int64(i)),
+					},
 				},
 			}
 
@@ -111,9 +137,9 @@ func Test_Limiter_Overrides_Get(t *testing.T) {
 		foundOverride, err := limiterClient.GetOverride(context.Background(), "rule1", "override12")
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(foundOverride).ToNot(BeNil())
-		g.Expect(foundOverride.Name).To(Equal("override12"))
-		g.Expect(foundOverride.Limit).To(Equal(int64(12)))
-		g.Expect(foundOverride.KeyValues).To(Equal(datatypes.KeyValues{
+		g.Expect(*foundOverride.Spec.Properties.Limit).To(Equal(int64(12)))
+		g.Expect(*foundOverride.Spec.DBDefinition.Name).To(Equal("override12"))
+		g.Expect(foundOverride.Spec.DBDefinition.GroupByKeyValues).To(Equal(dbdefinition.AnyKeyValues{
 			"key1":  datatypes.Int(1),
 			"key2":  datatypes.Int(2),
 			"other": datatypes.Int(12),
@@ -140,12 +166,18 @@ func Test_Limiter_Overrides_Update(t *testing.T) {
 
 		// create rule
 		rule := &v1.Rule{
-			Name: "rule1",
-			GroupByKeyValues: datatypes.KeyValues{
-				"key1": datatypes.Any(),
-				"key2": datatypes.Any(),
+			Spec: &v1.RuleSpec{
+				DBDefinition: &v1.RuleDBDefinition{
+					Name: helpers.PointerOf[string]("rule1"),
+					GroupByKeyValues: dbdefinition.AnyKeyValues{
+						"key1": datatypes.Any(),
+						"key2": datatypes.Any(),
+					},
+				},
+				Properties: &v1.RuleProperties{
+					Limit: helpers.PointerOf[int64](5),
+				},
 			},
-			Limit: 5,
 		}
 
 		err := limiterClient.CreateRule(context.Background(), rule)
@@ -153,20 +185,26 @@ func Test_Limiter_Overrides_Update(t *testing.T) {
 
 		// create override
 		override := &v1.Override{
-			Name:  "override1",
-			Limit: 32,
-			KeyValues: datatypes.KeyValues{
-				"key1":  datatypes.Int(1),
-				"key2":  datatypes.Int(2),
-				"other": datatypes.Float32(32),
+			Spec: &v1.OverrideSpec{
+				DBDefinition: &v1.OverrideDBDefinition{
+					Name: helpers.PointerOf("override1"),
+					GroupByKeyValues: dbdefinition.AnyKeyValues{
+						"key1":  datatypes.Int(1),
+						"key2":  datatypes.Int(2),
+						"other": datatypes.Float32(32),
+					},
+				},
+				Properties: &v1.OverrideProperties{
+					Limit: helpers.PointerOf[int64](32),
+				},
 			},
 		}
 		err = limiterClient.CreateOverride(context.Background(), "rule1", override)
 		g.Expect(err).ToNot(HaveOccurred())
 
 		// update override
-		overrideUpdate := &v1.OverrideUpdate{
-			Limit: 18,
+		overrideUpdate := &v1.OverrideProperties{
+			Limit: helpers.PointerOf[int64](18),
 		}
 		err = limiterClient.UpdateOverride(context.Background(), "rule1", "override1", overrideUpdate)
 		g.Expect(err).ToNot(HaveOccurred())
@@ -175,7 +213,7 @@ func Test_Limiter_Overrides_Update(t *testing.T) {
 		foundOverride, err := limiterClient.GetOverride(context.Background(), "rule1", "override1")
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(foundOverride).ToNot(BeNil())
-		g.Expect(foundOverride.Limit).To(Equal(int64(18)))
+		g.Expect(*foundOverride.Spec.Properties.Limit).To(Equal(int64(18)))
 	})
 }
 
@@ -198,23 +236,35 @@ func Test_Limiter_Overrides_Delete(t *testing.T) {
 
 		// create rule
 		rule := &v1.Rule{
-			Name: "rule1",
-			GroupByKeyValues: datatypes.KeyValues{
-				"key1": datatypes.Any(),
-				"key2": datatypes.Any(),
+			Spec: &v1.RuleSpec{
+				DBDefinition: &v1.RuleDBDefinition{
+					Name: helpers.PointerOf[string]("rule1"),
+					GroupByKeyValues: dbdefinition.AnyKeyValues{
+						"key1": datatypes.Any(),
+						"key2": datatypes.Any(),
+					},
+				},
+				Properties: &v1.RuleProperties{
+					Limit: helpers.PointerOf[int64](5),
+				},
 			},
-			Limit: 5,
 		}
 		g.Expect(limiterClient.CreateRule(context.Background(), rule)).ToNot(HaveOccurred())
 
 		// create override
 		override := &v1.Override{
-			Name:  "override1",
-			Limit: 32,
-			KeyValues: datatypes.KeyValues{
-				"key1":  datatypes.Int(1),
-				"key2":  datatypes.Int(2),
-				"other": datatypes.Float32(32),
+			Spec: &v1.OverrideSpec{
+				DBDefinition: &v1.OverrideDBDefinition{
+					Name: helpers.PointerOf("override1"),
+					GroupByKeyValues: dbdefinition.AnyKeyValues{
+						"key1":  datatypes.Int(1),
+						"key2":  datatypes.Int(2),
+						"other": datatypes.Float32(32),
+					},
+				},
+				Properties: &v1.OverrideProperties{
+					Limit: helpers.PointerOf[int64](32),
+				},
 			},
 		}
 		g.Expect(limiterClient.CreateOverride(context.Background(), "rule1", override)).ToNot(HaveOccurred())
@@ -251,12 +301,18 @@ func Test_Limiter_Overrides_Query(t *testing.T) {
 
 		// create rule
 		rule := &v1.Rule{
-			Name: "rule1",
-			GroupByKeyValues: datatypes.KeyValues{
-				"key1": datatypes.Any(),
-				"key2": datatypes.Any(),
+			Spec: &v1.RuleSpec{
+				DBDefinition: &v1.RuleDBDefinition{
+					Name: helpers.PointerOf[string]("rule1"),
+					GroupByKeyValues: dbdefinition.AnyKeyValues{
+						"key1": datatypes.Any(),
+						"key2": datatypes.Any(),
+					},
+				},
+				Properties: &v1.RuleProperties{
+					Limit: helpers.PointerOf[int64](5),
+				},
 			},
-			Limit: 5,
 		}
 
 		err := limiterClient.CreateRule(context.Background(), rule)
@@ -264,34 +320,52 @@ func Test_Limiter_Overrides_Query(t *testing.T) {
 
 		// create overrides
 		override1 := &v1.Override{
-			Name:  "override1",
-			Limit: 32,
-			KeyValues: datatypes.KeyValues{
-				"key1":  datatypes.Int(1),
-				"key2":  datatypes.Int(2),
-				"other": datatypes.Float32(32),
+			Spec: &v1.OverrideSpec{
+				DBDefinition: &v1.OverrideDBDefinition{
+					Name: helpers.PointerOf("override1"),
+					GroupByKeyValues: dbdefinition.AnyKeyValues{
+						"key1":  datatypes.Int(1),
+						"key2":  datatypes.Int(2),
+						"other": datatypes.Float32(32),
+					},
+				},
+				Properties: &v1.OverrideProperties{
+					Limit: helpers.PointerOf[int64](32),
+				},
 			},
 		}
 		g.Expect(limiterClient.CreateOverride(context.Background(), "rule1", override1)).ToNot(HaveOccurred())
 
 		override2 := &v1.Override{
-			Name:  "override2",
-			Limit: 18,
-			KeyValues: datatypes.KeyValues{
-				"key1":  datatypes.String("other"),
-				"key2":  datatypes.Int(2),
-				"other": datatypes.Float32(32),
+			Spec: &v1.OverrideSpec{
+				DBDefinition: &v1.OverrideDBDefinition{
+					Name: helpers.PointerOf("override2"),
+					GroupByKeyValues: dbdefinition.AnyKeyValues{
+						"key1":  datatypes.String("other"),
+						"key2":  datatypes.Int(2),
+						"other": datatypes.Float32(32),
+					},
+				},
+				Properties: &v1.OverrideProperties{
+					Limit: helpers.PointerOf[int64](18),
+				},
 			},
 		}
 		g.Expect(limiterClient.CreateOverride(context.Background(), "rule1", override2)).ToNot(HaveOccurred())
 
 		override3 := &v1.Override{
-			Name:  "override3",
-			Limit: 18,
-			KeyValues: datatypes.KeyValues{
-				"key1":  datatypes.String("other"),
-				"key2":  datatypes.Int(3),
-				"other": datatypes.Float32(32),
+			Spec: &v1.OverrideSpec{
+				DBDefinition: &v1.OverrideDBDefinition{
+					Name: helpers.PointerOf("override3"),
+					GroupByKeyValues: dbdefinition.AnyKeyValues{
+						"key1":  datatypes.String("other"),
+						"key2":  datatypes.Int(3),
+						"other": datatypes.Float32(32),
+					},
+				},
+				Properties: &v1.OverrideProperties{
+					Limit: helpers.PointerOf[int64](18),
+				},
 			},
 		}
 		g.Expect(limiterClient.CreateOverride(context.Background(), "rule1", override3)).ToNot(HaveOccurred())

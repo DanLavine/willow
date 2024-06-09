@@ -27,7 +27,7 @@ import (
 // An error will be returned if there is a Rule that limits the total number of Counters associatted with the KeyValues
 func (lc *LimitClient) UpdateCounter(ctx context.Context, counter *v1limiter.Counter) error {
 	// encode the request
-	data, err := api.ModelEncodeRequest(counter)
+	data, err := api.ObjectEncodeRequest(counter)
 	if err != nil {
 		return err
 	}
@@ -119,13 +119,13 @@ func (lc *LimitClient) QueryCounters(ctx context.Context, query *queryassociated
 // SetCounters is used to forcefully set the number of counters for a particual KeyValues without enforcing any rules
 func (lc *LimitClient) SetCounters(ctx context.Context, counters *v1limiter.Counter) error {
 	// encode the request
-	data, err := api.ModelEncodeRequest(counters)
+	data, err := api.ObjectEncodeRequest(counters)
 	if err != nil {
 		return err
 	}
 
 	// setup and make the request
-	req, err := http.NewRequest("POST", fmt.Sprintf("%s/v1/limiter/counters/set", lc.url), bytes.NewBuffer(data))
+	req, err := http.NewRequest("PUT", fmt.Sprintf("%s/v1/limiter/counters/set", lc.url), bytes.NewBuffer(data))
 	if err != nil {
 		return err
 	}

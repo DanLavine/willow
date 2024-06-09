@@ -159,3 +159,38 @@ components:
           type: nill
           description: |
             This is a catch all object that can be used to match against all other values
+
+
+  # # Collections
+  TypedEncapsulatedValues:
+    oneOf:
+      - $ref: "#/components/schemas/Uint8"
+      - $ref: "#/components/schemas/Uint16"
+      - $ref: "#/components/schemas/Uint32"
+      - $ref: "#/components/schemas/Uint64"
+      - $ref: "#/components/schemas/Uint"
+      - $ref: "#/components/schemas/Int8"
+      - $ref: "#/components/schemas/Int16"
+      - $ref: "#/components/schemas/Int32"
+      - $ref: "#/components/schemas/Int64"
+      - $ref: "#/components/schemas/Int"
+      - $ref: "#/components/schemas/Float32"
+      - $ref: "#/components/schemas/Float64"
+      - $ref: "#/components/schemas/String"
+
+  AnyEncapsulatedValues:
+    oneOf:
+      - $ref: "#/components/schemas/Uint8"
+      - $ref: "#/components/schemas/Uint16"
+      - $ref: "#/components/schemas/Uint32"
+      - $ref: "#/components/schemas/Uint64"
+      - $ref: "#/components/schemas/Uint"
+      - $ref: "#/components/schemas/Int8"
+      - $ref: "#/components/schemas/Int16"
+      - $ref: "#/components/schemas/Int32"
+      - $ref: "#/components/schemas/Int64"
+      - $ref: "#/components/schemas/Int"
+      - $ref: "#/components/schemas/Float32"
+      - $ref: "#/components/schemas/Float64"
+      - $ref: "#/components/schemas/String"
+      - $ref: "#/components/schemas/Any"

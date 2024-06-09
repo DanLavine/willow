@@ -27,7 +27,7 @@ import (
 // that they should be for a specific grouping of KeyValue items.
 func (lc *LimitClient) CreateOverride(ctx context.Context, ruleName string, override *v1limiter.Override) error {
 	// encode the request
-	data, err := api.ModelEncodeRequest(override)
+	data, err := api.ObjectEncodeRequest(override)
 	if err != nil {
 		return err
 	}
@@ -214,7 +214,7 @@ func (lc *LimitClient) GetOverride(ctx context.Context, ruleName string, overrid
 // CreateOverride creates a new Override for a particular rule. It is important to Note that the `Override.KeyValues` must
 // include the `Rule.GroubBy` Keys. At least for now, I like this enforcement to make the Overrides easier to reason about
 // that they should be for a specific grouping of KeyValue items.
-func (lc *LimitClient) UpdateOverride(ctx context.Context, ruleName string, overrideName string, overrideUpdate *v1limiter.OverrideUpdate) error {
+func (lc *LimitClient) UpdateOverride(ctx context.Context, ruleName string, overrideName string, overrideUpdate *v1limiter.OverrideProperties) error {
 	// encode the request
 	data, err := api.ModelEncodeRequest(overrideUpdate)
 	if err != nil {

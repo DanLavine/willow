@@ -173,14 +173,14 @@ func (lc *LockClient) ObtainLock(ctx context.Context, lockRequest *v1locker.Lock
 						return true
 					}
 
-					if err = lc.locks.Delete(lockRequest.Spec.DBDeifinition.ToKeyValues(), canDelete); err != nil {
+					if err = lc.locks.Delete(lockRequest.Spec.DBDefinition.KeyValues.ToKeyValues(), canDelete); err != nil {
 						panic(fmt.Sprintf("failed to relase the lock's memeory footprint: %s", err.Error()))
 					}
 				}
 
 				if heartbeatErrorCallback != nil {
 					errCallback := func(err error) {
-						heartbeatErrorCallback(lockRequest.Spec.DBDeifinition.ToKeyValues(), err)
+						heartbeatErrorCallback(lockRequest.Spec.DBDefinition.KeyValues.ToKeyValues(), err)
 					}
 					returnLock = newLock(createLockResponse, lc.url, lc.client, errCallback, lostLockWrapper)
 				} else {
@@ -214,7 +214,7 @@ func (lc *LockClient) ObtainLock(ctx context.Context, lockRequest *v1locker.Lock
 	}
 
 	// create or find the lock if we already have it
-	_, _ = lc.locks.CreateOrFind(lockRequest.Spec.DBDeifinition.ToKeyValues(), onCreate, onFind)
+	_, _ = lc.locks.CreateOrFind(lockRequest.Spec.DBDefinition.KeyValues.ToKeyValues(), onCreate, onFind)
 
 	return returnLock, lockErr
 }

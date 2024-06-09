@@ -19,8 +19,8 @@ paths:
       operationId: create Lock
       description: |
         Create or obtain a `Lock` for a collection of `KeyValues`. This request blocks if another process
-        already has the lock being requested. It will eventually return if the lock has been freed and
-        claimed, or the server is shutdown. In which case, the client will need to retry claiming the lock
+        already has the lock being requested. It will eventually return if the `Lock` has been freed and
+        claimed, or the server is shutdown. In which case, the client will need to retry claiming the `Lock`
       parameters:
         - in: header
           name: Content-Type
@@ -35,7 +35,7 @@ paths:
               $ref: "#/components/schemas/Lock"
       responses:
         200:
-          description: created or obtained the lock
+          description: created or obtained the `Lock`
           content:
             appplication/json:
               schema:
@@ -56,11 +56,11 @@ paths:
                   ApiError:
                     $ref: "../common/components.yaml#/components/schemas/ApiError"
         503:
-          description: server is shutting down for a restart and client should retry obtaining the lock
+          description: server is shutting down for a restart and client should retry obtaining the `Lock`
     get:
       operationId: query Locks
       description: |
-        List all the locks currently in use by this service that match the query
+        List all the `Locks` currently in use by this service that match the query
       requestBody:
         required: true
         content:
@@ -179,21 +179,41 @@ components:
       type: object
       description: |
         Exclusive `Lock` that can be used to synchronize processes across many different appplications
+      required:
+        - Spec
       properties:
         Spec:
           type: object
-          description: |
-            Specification on the details of how to save the object and fields that dictate any logic
+          required:
+            - DBDefinition
+            - Properties
           properties:
             DBDefinition:
-              allOf:
-                - $ref: "../common/db_definitions.yaml#/components/schemas/TypedKeyValues"
-            Timeout:
-              type: integer
+              type: object
+              required:
+                - KeyValues
               description: |
-                How long the lock should exist before expiring. This can be refreshed with calls to the Heartbeat api
-        Status:
+                Specification on the details of how to save the object and fields that dictate any logic
+              properties:
+                KeyValues:
+                  additionalProperties:
+                    title: Key
+                    x-additionalPropertiesName: Key
+                    $ref: "../common/db_definitions.yaml#/components/schemas/TypedKeyValues"
+            Properties:
+              type: object
+              required:
+                - Timeout
+              description: |
+                Specification of all the fields for logical operations on the `Lock`
+              properties:
+                Timeout:
+                  type: integer
+                  description: |
+                    How long the `Lock` should exist before expiring. This can be refreshed with calls to the Heartbeat api
+        State:
           type: object
+          readOnly: true
           description: |
             Read-Only data about the lock
           properties:

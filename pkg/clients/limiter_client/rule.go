@@ -205,7 +205,7 @@ func (lc *LimitClient) MatchRules(ctx context.Context, match *querymatchaction.M
 //	- error - unexpected errors when updating the Rule
 //
 // UpdateRule can update the default limits for a particular Rule
-func (lc *LimitClient) UpdateRule(ctx context.Context, ruleName string, ruleUpdate *v1limiter.RuleUpdateRquest) error {
+func (lc *LimitClient) UpdateRule(ctx context.Context, ruleName string, ruleUpdate *v1limiter.RuleProperties) error {
 	// encode the request
 	data, err := api.ModelEncodeRequest(ruleUpdate)
 	if err != nil {

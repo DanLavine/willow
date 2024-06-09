@@ -6,9 +6,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/DanLavine/willow/internal/helpers"
 	willowclient "github.com/DanLavine/willow/pkg/clients/willow_client"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 
+	dbdefinition "github.com/DanLavine/willow/pkg/models/api/common/v1/db_definition"
 	queryassociatedaction "github.com/DanLavine/willow/pkg/models/api/common/v1/query_associated_action"
 	v1limiter "github.com/DanLavine/willow/pkg/models/api/limiter/v1"
 	v1willow "github.com/DanLavine/willow/pkg/models/api/willow/v1"
@@ -157,32 +159,59 @@ func Test_Queue_Enqueue(t *testing.T) {
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(len(counters)).To(Equal(3))
 		g.Expect(counters).To(ContainElements(
-			// these are all the enqueued values for the provided items
+			//	these are all the enqueued values for the provided items
 			&v1limiter.Counter{
-				Counters: 1,
-				KeyValues: datatypes.KeyValues{
-					"_willow_queue_name": datatypes.String("test queue"),
-					"_willow_enqueued":   datatypes.String("true"),
-					"_willow_one":        datatypes.Int(1),
+				Spec: &v1limiter.CounterSpec{
+					DBDefinition: &v1limiter.CounterDBDefinition{
+						KeyValues: dbdefinition.TypedKeyValues{
+							"_willow_queue_name": datatypes.String("test queue"),
+							"_willow_enqueued":   datatypes.String("true"),
+							"_willow_one":        datatypes.Int(1),
+						},
+					},
+					Properties: &v1limiter.CounteProperties{
+						Counters: helpers.PointerOf[int64](1),
+					},
+				},
+				State: &v1limiter.CounterState{
+					Deleting: false,
 				},
 			},
 			&v1limiter.Counter{
-				Counters: 1,
-				KeyValues: datatypes.KeyValues{
-					"_willow_queue_name": datatypes.String("test queue"),
-					"_willow_enqueued":   datatypes.String("true"),
-					"_willow_one":        datatypes.Int(1),
-					"_willow_two":        datatypes.Int(2),
+				Spec: &v1limiter.CounterSpec{
+					DBDefinition: &v1limiter.CounterDBDefinition{
+						KeyValues: dbdefinition.TypedKeyValues{
+							"_willow_queue_name": datatypes.String("test queue"),
+							"_willow_enqueued":   datatypes.String("true"),
+							"_willow_one":        datatypes.Int(1),
+							"_willow_two":        datatypes.Int(2),
+						},
+					},
+					Properties: &v1limiter.CounteProperties{
+						Counters: helpers.PointerOf[int64](1),
+					},
+				},
+				State: &v1limiter.CounterState{
+					Deleting: false,
 				},
 			},
 			&v1limiter.Counter{
-				Counters: 2,
-				KeyValues: datatypes.KeyValues{
-					"_willow_queue_name": datatypes.String("test queue"),
-					"_willow_enqueued":   datatypes.String("true"),
-					"_willow_one":        datatypes.Int(1),
-					"_willow_two":        datatypes.Int(2),
-					"_willow_three":      datatypes.String("3"),
+				Spec: &v1limiter.CounterSpec{
+					DBDefinition: &v1limiter.CounterDBDefinition{
+						KeyValues: dbdefinition.TypedKeyValues{
+							"_willow_queue_name": datatypes.String("test queue"),
+							"_willow_enqueued":   datatypes.String("true"),
+							"_willow_one":        datatypes.Int(1),
+							"_willow_two":        datatypes.Int(2),
+							"_willow_three":      datatypes.String("3"),
+						},
+					},
+					Properties: &v1limiter.CounteProperties{
+						Counters: helpers.PointerOf[int64](2),
+					},
+				},
+				State: &v1limiter.CounterState{
+					Deleting: false,
 				},
 			},
 		))
@@ -252,11 +281,20 @@ func Test_Queue_Enqueue(t *testing.T) {
 		g.Expect(len(counters)).To(Equal(1))
 		g.Expect(counters).To(ContainElements(
 			&v1limiter.Counter{
-				Counters: 2,
-				KeyValues: datatypes.KeyValues{
-					"_willow_queue_name": datatypes.String("test queue"),
-					"_willow_enqueued":   datatypes.String("true"),
-					"_willow_one":        datatypes.Int(1),
+				Spec: &v1limiter.CounterSpec{
+					DBDefinition: &v1limiter.CounterDBDefinition{
+						KeyValues: dbdefinition.TypedKeyValues{
+							"_willow_queue_name": datatypes.String("test queue"),
+							"_willow_enqueued":   datatypes.String("true"),
+							"_willow_one":        datatypes.Int(1),
+						},
+					},
+					Properties: &v1limiter.CounteProperties{
+						Counters: helpers.PointerOf[int64](2),
+					},
+				},
+				State: &v1limiter.CounterState{
+					Deleting: false,
 				},
 			},
 		))
@@ -357,19 +395,37 @@ func Test_Queue_Dequeue(t *testing.T) {
 		g.Expect(len(counters)).To(Equal(2))
 		g.Expect(counters).To(ContainElements(
 			&v1limiter.Counter{ // counter for enqueued item
-				Counters: 1,
-				KeyValues: datatypes.KeyValues{
-					"_willow_queue_name": datatypes.String("test queue"),
-					"_willow_enqueued":   datatypes.String("true"),
-					"_willow_one":        datatypes.Int(1),
+				Spec: &v1limiter.CounterSpec{
+					DBDefinition: &v1limiter.CounterDBDefinition{
+						KeyValues: dbdefinition.TypedKeyValues{
+							"_willow_queue_name": datatypes.String("test queue"),
+							"_willow_enqueued":   datatypes.String("true"),
+							"_willow_one":        datatypes.Int(1),
+						},
+					},
+					Properties: &v1limiter.CounteProperties{
+						Counters: helpers.PointerOf[int64](1),
+					},
+				},
+				State: &v1limiter.CounterState{
+					Deleting: false,
 				},
 			},
 			&v1limiter.Counter{ // counter for running item
-				Counters: 1,
-				KeyValues: datatypes.KeyValues{
-					"_willow_queue_name": datatypes.String("test queue"),
-					"_willow_running":    datatypes.String("true"),
-					"one":                datatypes.Int(1),
+				Spec: &v1limiter.CounterSpec{
+					DBDefinition: &v1limiter.CounterDBDefinition{
+						KeyValues: dbdefinition.TypedKeyValues{
+							"_willow_queue_name": datatypes.String("test queue"),
+							"_willow_running":    datatypes.String("true"),
+							"one":                datatypes.Int(1),
+						},
+					},
+					Properties: &v1limiter.CounteProperties{
+						Counters: helpers.PointerOf[int64](1),
+					},
+				},
+				State: &v1limiter.CounterState{
+					Deleting: false,
 				},
 			},
 		))
@@ -437,19 +493,37 @@ func Test_Queue_Dequeue(t *testing.T) {
 		g.Expect(len(counters)).To(Equal(2))
 		g.Expect(counters).To(ContainElements(
 			&v1limiter.Counter{ // counter for enqueued item
-				Counters: 1,
-				KeyValues: datatypes.KeyValues{
-					"_willow_queue_name": datatypes.String("test queue"),
-					"_willow_enqueued":   datatypes.String("true"),
-					"_willow_one":        datatypes.Int(1),
+				Spec: &v1limiter.CounterSpec{
+					DBDefinition: &v1limiter.CounterDBDefinition{
+						KeyValues: dbdefinition.TypedKeyValues{
+							"_willow_queue_name": datatypes.String("test queue"),
+							"_willow_enqueued":   datatypes.String("true"),
+							"_willow_one":        datatypes.Int(1),
+						},
+					},
+					Properties: &v1limiter.CounteProperties{
+						Counters: helpers.PointerOf[int64](1),
+					},
+				},
+				State: &v1limiter.CounterState{
+					Deleting: false,
 				},
 			},
 			&v1limiter.Counter{ // counter for running item
-				Counters: 1,
-				KeyValues: datatypes.KeyValues{
-					"_willow_queue_name": datatypes.String("test queue"),
-					"_willow_running":    datatypes.String("true"),
-					"one":                datatypes.Int(1),
+				Spec: &v1limiter.CounterSpec{
+					DBDefinition: &v1limiter.CounterDBDefinition{
+						KeyValues: dbdefinition.TypedKeyValues{
+							"_willow_queue_name": datatypes.String("test queue"),
+							"_willow_running":    datatypes.String("true"),
+							"one":                datatypes.Int(1),
+						},
+					},
+					Properties: &v1limiter.CounteProperties{
+						Counters: helpers.PointerOf[int64](1),
+					},
+				},
+				State: &v1limiter.CounterState{
+					Deleting: false,
 				},
 			},
 		))
@@ -560,22 +634,40 @@ func Test_Queue_DeleteChannel(t *testing.T) {
 		g.Expect(counters).To(ContainElements(
 			// these are all the enqueued values for the provided items
 			&v1limiter.Counter{
-				Counters: 1,
-				KeyValues: datatypes.KeyValues{
-					"_willow_queue_name": datatypes.String("test queue"),
-					"_willow_enqueued":   datatypes.String("true"),
-					"_willow_one":        datatypes.Int(1),
-					"_willow_two":        datatypes.Int(2),
+				Spec: &v1limiter.CounterSpec{
+					DBDefinition: &v1limiter.CounterDBDefinition{
+						KeyValues: dbdefinition.TypedKeyValues{
+							"_willow_queue_name": datatypes.String("test queue"),
+							"_willow_enqueued":   datatypes.String("true"),
+							"_willow_one":        datatypes.Int(1),
+							"_willow_two":        datatypes.Int(2),
+						},
+					},
+					Properties: &v1limiter.CounteProperties{
+						Counters: helpers.PointerOf[int64](1),
+					},
+				},
+				State: &v1limiter.CounterState{
+					Deleting: false,
 				},
 			},
 			&v1limiter.Counter{
-				Counters: 2,
-				KeyValues: datatypes.KeyValues{
-					"_willow_queue_name": datatypes.String("test queue"),
-					"_willow_enqueued":   datatypes.String("true"),
-					"_willow_one":        datatypes.Int(1),
-					"_willow_two":        datatypes.Int(2),
-					"_willow_three":      datatypes.String("3"),
+				Spec: &v1limiter.CounterSpec{
+					DBDefinition: &v1limiter.CounterDBDefinition{
+						KeyValues: dbdefinition.TypedKeyValues{
+							"_willow_queue_name": datatypes.String("test queue"),
+							"_willow_enqueued":   datatypes.String("true"),
+							"_willow_one":        datatypes.Int(1),
+							"_willow_two":        datatypes.Int(2),
+							"_willow_three":      datatypes.String("3"),
+						},
+					},
+					Properties: &v1limiter.CounteProperties{
+						Counters: helpers.PointerOf[int64](2),
+					},
+				},
+				State: &v1limiter.CounterState{
+					Deleting: false,
 				},
 			},
 		))

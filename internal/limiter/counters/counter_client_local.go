@@ -49,8 +49,17 @@ func (cm *counterClientLocal) QueryCounters(ctx context.Context, query *queryass
 	countersResponse := v1limiter.Counters{}
 	bTreeAssociatedOnIterate := func(item btreeassociated.AssociatedKeyValues) bool {
 		countersResponse = append(countersResponse, &v1limiter.Counter{
-			KeyValues: item.KeyValues(),
-			Counters:  item.Value().(Counter).Load(),
+			Spec: &v1limiter.CounterSpec{
+				DBDefinition: &v1limiter.CounterDBDefinition{
+					KeyValues: dbdefinition.TypedKeyValues(item.KeyValues()),
+				},
+				Properties: &v1limiter.CounteProperties{
+					Counters: helpers.PointerOf(item.Value().(Counter).Load()),
+				},
+			},
+			State: &v1limiter.CounterState{
+				Deleting: false,
+			},
 		})
 
 		return true
@@ -67,11 +76,11 @@ func (cm *counterClientLocal) QueryCounters(ctx context.Context, query *queryass
 	return countersResponse, nil
 }
 
-func (cm *counterClientLocal) IncrementCounters(ctx context.Context, requestContext context.Context, lockerClient lockerclient.LockerClient, counter *v1limiter.Counter) *errors.ServerError {
+func (cm *counterClientLocal) IncrementCounters(ctx context.Context, lockerClient lockerclient.LockerClient, counter *v1limiter.Counter) *errors.ServerError {
 	ctx, logger := middleware.GetNamedMiddlewareLogger(ctx, "IncrementCounters")
 
 	// 1. Find the Rules /w Overrides limts that match the counter's key values
-	rules, limitErrors := cm.rulesClient.FindLimits(ctx, counter.KeyValues)
+	rules, limitErrors := cm.rulesClient.FindLimits(ctx, counter.Spec.DBDefinition.KeyValues.ToKeyValues())
 	if limitErrors != nil {
 		return limitErrors
 	}
@@ -80,26 +89,26 @@ func (cm *counterClientLocal) IncrementCounters(ctx context.Context, requestCont
 	if len(rules) != 0 {
 		// 3. if the last rule or override is 0, then just reject
 		lastRule := rules[len(rules)-1]
-		if len(lastRule.Overrides) == 0 {
-			if lastRule.Limit == 0 {
-				return &errors.ServerError{Message: fmt.Sprintf("Limit has already been reached for rule '%s'", lastRule.Name), StatusCode: http.StatusConflict}
+		if len(lastRule.State.Overrides) == 0 {
+			if *lastRule.Spec.Properties.Limit == 0 {
+				return &errors.ServerError{Message: fmt.Sprintf("Limit has already been reached for rule '%s'", *lastRule.Spec.DBDefinition.Name), StatusCode: http.StatusConflict}
 			}
-		} else if lastRule.Overrides[len(lastRule.Overrides)-1].Limit == 0 {
-			return &errors.ServerError{Message: fmt.Sprintf("Limit has already been reached for rule '%s'", lastRule.Name), StatusCode: http.StatusConflict}
+		} else if *lastRule.State.Overrides[len(lastRule.State.Overrides)-1].Spec.Properties.Limit == 0 {
+			return &errors.ServerError{Message: fmt.Sprintf("Limit has already been reached for rule '%s'", *lastRule.Spec.DBDefinition.Name), StatusCode: http.StatusConflict}
 		}
 
 		// 4. if all limits are unlimited, we can also continue without needing to check limits
 		unlimited := true
 		for _, rule := range rules {
-			if len(rule.Overrides) == 0 {
+			if len(rule.State.Overrides) == 0 {
 				// check the rule
-				if rule.Limit != -1 {
+				if *rule.Spec.Properties.Limit != -1 {
 					unlimited = false
 				}
 			} else {
 				// enforce the overrides
-				for _, override := range rule.Overrides {
-					if override.Limit != -1 {
+				for _, override := range rule.State.Overrides {
+					if *override.Spec.Properties.Limit != -1 {
 						unlimited = false
 						break
 					}
@@ -125,20 +134,24 @@ func (cm *counterClientLocal) IncrementCounters(ctx context.Context, requestCont
 				}
 			}()
 
-			channelOps, chanReceiver := channelops.NewMergeRead[struct{}](true, requestContext)
-			for _, key := range counter.KeyValues.SortedKeys() {
+			channelOps, chanReceiver := channelops.NewMergeRead[struct{}](true, ctx)
+			for _, key := range counter.Spec.DBDefinition.KeyValues.ToKeyValues().SortedKeys() {
 				// setup the group to lock
 				lockKeyValues := &v1locker.Lock{
 					Spec: &v1locker.LockSpec{
-						DBDeifinition: &dbdefinition.TypedKeyValues{
-							key: counter.KeyValues[key],
+						DBDefinition: &v1locker.LockDBDefinition{
+							KeyValues: dbdefinition.TypedKeyValues{
+								key: counter.Spec.DBDefinition.KeyValues[key],
+							},
 						},
-						Timeout: helpers.PointerOf(time.Second),
+						Properties: &v1locker.LockProperties{
+							Timeout: helpers.PointerOf(time.Second),
+						},
 					},
 				}
 
 				// obtain the required lock
-				lockerLock, err := lockerClient.ObtainLock(requestContext, lockKeyValues, func(keyValue datatypes.KeyValues, err error) {
+				lockerLock, err := lockerClient.ObtainLock(ctx, lockKeyValues, func(keyValue datatypes.KeyValues, err error) {
 					logger.Error(err.Error())
 				})
 
@@ -178,36 +191,25 @@ func (cm *counterClientLocal) IncrementCounters(ctx context.Context, requestCont
 			// 6. for each rule, count the possible counters that match and ensure that they are under the current limits
 			for _, rule := range rules {
 				// the limit is for unlimited, don't need to check this limit
-				if len(rule.Overrides) == 0 {
+				if len(rule.State.Overrides) == 0 {
 					// rule enforcement
 					// 1. unlimited so skip
-					if rule.Limit == -1 {
+					if *rule.Spec.Properties.Limit == -1 {
 						continue
 					}
 
-					// 2. setup the key values to searh for
-					// keyValues := datatypes.KeyValues{}
-					// for _, key := range rule.GroupBy {
-					// 	keyValues[key] = counter.KeyValues[key]
-					// }
-
-					// // 3. check the limits
-					// if counterErr := cm.checkCounters(ctx, rule.Name, keyValues, rule.Limit); counterErr != nil {
-					// 	return counterErr
-					// }
-
-					if counterErr := cm.checkCounters(ctx, rule.Name, rule.GroupByKeyValues.Keys(), counter.KeyValues, rule.Limit); counterErr != nil {
+					if counterErr := cm.checkCounters(ctx, *rule.Spec.DBDefinition.Name, rule.Spec.DBDefinition.GroupByKeyValues.ToKeyValues().Keys(), counter.Spec.DBDefinition.KeyValues.ToKeyValues(), *rule.Spec.Properties.Limit); counterErr != nil {
 						return counterErr
 					}
 				} else {
-					for _, override := range rule.Overrides {
+					for _, override := range rule.State.Overrides {
 						// 1. unlimited so skip
-						if override.Limit == -1 {
+						if *override.Spec.Properties.Limit == -1 {
 							continue
 						}
 
 						// 2. check the limt
-						if counterErr := cm.checkCounters(ctx, rule.Name, override.KeyValues.Keys(), counter.KeyValues, override.Limit); counterErr != nil {
+						if counterErr := cm.checkCounters(ctx, *rule.Spec.DBDefinition.Name, override.Spec.DBDefinition.GroupByKeyValues.ToKeyValues().Keys(), counter.Spec.DBDefinition.KeyValues.ToKeyValues(), *override.Spec.Properties.Limit); counterErr != nil {
 							return counterErr
 						}
 					}
@@ -218,14 +220,14 @@ func (cm *counterClientLocal) IncrementCounters(ctx context.Context, requestCont
 
 	// 7. add the new counter
 	createCounter := func() any {
-		return cm.counterConstructor.New(counter)
+		return cm.counterConstructor.New(counter.Spec.Properties)
 	}
 
 	incrementCounter := func(item btreeassociated.AssociatedKeyValues) {
-		item.Value().(Counter).Update(counter.Counters)
+		item.Value().(Counter).Update(counter.Spec.Properties)
 	}
 
-	if _, err := cm.counters.CreateOrFind(counter.KeyValues, createCounter, incrementCounter); err != nil {
+	if _, err := cm.counters.CreateOrFind(counter.Spec.DBDefinition.KeyValues.ToKeyValues(), createCounter, incrementCounter); err != nil {
 		logger.Error("Failed to find or update the counter", zap.Error(err))
 		return errors.InternalServerError
 	}
@@ -283,10 +285,10 @@ func (cm *counterClientLocal) DecrementCounters(ctx context.Context, counter *v1
 	_, logger := middleware.GetNamedMiddlewareLogger(ctx, "DecrementCounters")
 
 	bTreeAssociatedCanDelete := func(item btreeassociated.AssociatedKeyValues) bool {
-		return item.Value().(Counter).Update(counter.Counters) <= 0
+		return item.Value().(Counter).Update(counter.Spec.Properties) <= 0
 	}
 
-	if err := cm.counters.Delete(counter.KeyValues, bTreeAssociatedCanDelete); err != nil {
+	if err := cm.counters.Delete(counter.Spec.DBDefinition.KeyValues.ToKeyValues(), bTreeAssociatedCanDelete); err != nil {
 		logger.Error("Failed to find or update the counter", zap.Error(err))
 		return errors.InternalServerError
 	}
@@ -297,13 +299,13 @@ func (cm *counterClientLocal) DecrementCounters(ctx context.Context, counter *v1
 func (cm *counterClientLocal) SetCounter(ctx context.Context, counter *v1limiter.Counter) *errors.ServerError {
 	_, logger := middleware.GetNamedMiddlewareLogger(ctx, "SetCounter")
 
-	if counter.Counters <= 0 {
+	if *counter.Spec.Properties.Counters <= 0 {
 		// need to remove the key values
 		bTreeAssociatedCanDelete := func(item btreeassociated.AssociatedKeyValues) bool {
 			return true
 		}
 
-		if err := cm.counters.Delete(counter.KeyValues, bTreeAssociatedCanDelete); err != nil {
+		if err := cm.counters.Delete(counter.Spec.DBDefinition.KeyValues.ToKeyValues(), bTreeAssociatedCanDelete); err != nil {
 			logger.Error("Failed to delete the set counters", zap.Error(err))
 			return errors.InternalServerError
 		}
@@ -312,14 +314,14 @@ func (cm *counterClientLocal) SetCounter(ctx context.Context, counter *v1limiter
 	} else {
 		// need to create or set the key values
 		bTreeAssociatedOnCreate := func() any {
-			return cm.counterConstructor.New(counter)
+			return cm.counterConstructor.New(counter.Spec.Properties)
 		}
 
 		bTreeAssociatedOnFind := func(item btreeassociated.AssociatedKeyValues) {
-			item.Value().(Counter).Set(counter.Counters)
+			item.Value().(Counter).Set(counter.Spec.Properties)
 		}
 
-		if _, err := cm.counters.CreateOrFind(counter.KeyValues, bTreeAssociatedOnCreate, bTreeAssociatedOnFind); err != nil {
+		if _, err := cm.counters.CreateOrFind(counter.Spec.DBDefinition.KeyValues.ToKeyValues(), bTreeAssociatedOnCreate, bTreeAssociatedOnFind); err != nil {
 			logger.Error("Failed to find or update the set counter", zap.Error(err))
 			return errors.InternalServerError
 		}

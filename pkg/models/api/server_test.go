@@ -58,10 +58,14 @@ func Test_DecodeRequest(t *testing.T) {
 	t.Run("It can decode an item successfully", func(t *testing.T) {
 		data, err := json.Marshal(&v1locker.Lock{
 			Spec: &v1locker.LockSpec{
-				DBDeifinition: &dbdefinition.TypedKeyValues{
-					"key1": datatypes.Int(1),
+				DBDefinition: &v1locker.LockDBDefinition{
+					KeyValues: dbdefinition.TypedKeyValues{
+						"key1": datatypes.Int(1),
+					},
 				},
-				Timeout: helpers.PointerOf(time.Second),
+				Properties: &v1locker.LockProperties{
+					Timeout: helpers.PointerOf(time.Second),
+				},
 			},
 		})
 		g.Expect(err).ToNot(HaveOccurred())
@@ -75,8 +79,8 @@ func Test_DecodeRequest(t *testing.T) {
 
 		// check the server response
 		g.Expect(err).ToNot(HaveOccurred())
-		g.Expect(lockReq.Spec.DBDeifinition).To(Equal(&dbdefinition.TypedKeyValues{"key1": datatypes.Int(1)}))
-		g.Expect(*lockReq.Spec.Timeout).To(Equal(time.Second))
+		g.Expect(lockReq.Spec.DBDefinition.KeyValues).To(Equal(dbdefinition.TypedKeyValues{"key1": datatypes.Int(1)}))
+		g.Expect(*lockReq.Spec.Properties.Timeout).To(Equal(time.Second))
 	})
 }
 
@@ -97,9 +101,12 @@ func Test_ModelDecodeRequest(t *testing.T) {
 
 	t.Run("It returns an error if the object is invalid", func(t *testing.T) {
 		data, err := json.Marshal(v1locker.Lock{
+
 			Spec: &v1locker.LockSpec{
-				DBDeifinition: &dbdefinition.TypedKeyValues{},
-				Timeout:       helpers.PointerOf(time.Second),
+				DBDefinition: &v1locker.LockDBDefinition{},
+				Properties: &v1locker.LockProperties{
+					Timeout: helpers.PointerOf(time.Second),
+				},
 			},
 		})
 		g.Expect(err).ToNot(HaveOccurred())
@@ -151,8 +158,10 @@ func Test_ObjectDecodeRequest(t *testing.T) {
 	t.Run("It returns an error if the object is invalid", func(t *testing.T) {
 		data, err := json.Marshal(&v1locker.Lock{
 			Spec: &v1locker.LockSpec{
-				DBDeifinition: &dbdefinition.TypedKeyValues{},
-				Timeout:       helpers.PointerOf(time.Second),
+				DBDefinition: &v1locker.LockDBDefinition{},
+				Properties: &v1locker.LockProperties{
+					Timeout: helpers.PointerOf(time.Second),
+				},
 			},
 		})
 		g.Expect(err).ToNot(HaveOccurred())
@@ -172,10 +181,14 @@ func Test_ObjectDecodeRequest(t *testing.T) {
 	t.Run("It can decode an item successfully", func(t *testing.T) {
 		data, err := json.Marshal(v1locker.Lock{
 			Spec: &v1locker.LockSpec{
-				DBDeifinition: &dbdefinition.TypedKeyValues{
-					"key1": datatypes.Int(1),
+				DBDefinition: &v1locker.LockDBDefinition{
+					KeyValues: dbdefinition.TypedKeyValues{
+						"key1": datatypes.Int(1),
+					},
 				},
-				Timeout: helpers.PointerOf(time.Second),
+				Properties: &v1locker.LockProperties{
+					Timeout: helpers.PointerOf(time.Second),
+				},
 			},
 		})
 		g.Expect(err).ToNot(HaveOccurred())
@@ -189,8 +202,8 @@ func Test_ObjectDecodeRequest(t *testing.T) {
 
 		// check the server response
 		g.Expect(err).ToNot(HaveOccurred())
-		g.Expect(lockReq.Spec.DBDeifinition).To(Equal(&dbdefinition.TypedKeyValues{"key1": datatypes.Int(1)}))
-		g.Expect(*lockReq.Spec.Timeout).To(Equal(time.Second))
+		g.Expect(lockReq.Spec.DBDefinition.KeyValues).To(Equal(dbdefinition.TypedKeyValues{"key1": datatypes.Int(1)}))
+		g.Expect(*lockReq.Spec.Properties.Timeout).To(Equal(time.Second))
 	})
 }
 
@@ -241,8 +254,13 @@ func Test_ModelEncodeResponse(t *testing.T) {
 
 			lockCreateResp := &v1locker.Lock{
 				Spec: &v1locker.LockSpec{
-					DBDeifinition: &dbdefinition.TypedKeyValues{
-						"key1": datatypes.String("1"),
+					DBDefinition: &v1locker.LockDBDefinition{
+						KeyValues: dbdefinition.TypedKeyValues{
+							"key1": datatypes.Int(1),
+						},
+					},
+					Properties: &v1locker.LockProperties{
+						Timeout: helpers.PointerOf(time.Second),
 					},
 				},
 				State: &v1locker.LockState{
@@ -268,8 +286,10 @@ func Test_ModelEncodeResponse(t *testing.T) {
 
 			lockCreateResp := &v1locker.Lock{
 				Spec: &v1locker.LockSpec{
-					DBDeifinition: &dbdefinition.TypedKeyValues{
-						"key1": datatypes.String("1"),
+					DBDefinition: &v1locker.LockDBDefinition{
+						KeyValues: dbdefinition.TypedKeyValues{
+							"key1": datatypes.Int(1),
+						},
 					},
 				},
 				State: &v1locker.LockState{
@@ -282,7 +302,7 @@ func Test_ModelEncodeResponse(t *testing.T) {
 
 			// Encode and send the http request
 			dataWritten, serverErr := ModelEncodeResponse(testWriter, http.StatusOK, lockCreateResp)
-			g.Expect(dataWritten).To(Equal(159))
+			g.Expect(dataWritten).To(Equal(173))
 			g.Expect(serverErr).ToNot(HaveOccurred())
 
 			// ensure response recieves proper status code

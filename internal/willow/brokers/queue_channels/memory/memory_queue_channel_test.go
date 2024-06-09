@@ -9,7 +9,9 @@ import (
 
 	"go.uber.org/mock/gomock"
 
+	"github.com/DanLavine/willow/internal/helpers"
 	fakelimiterclient "github.com/DanLavine/willow/pkg/clients/limiter_client/limiterclientfakes"
+	dbdefinition "github.com/DanLavine/willow/pkg/models/api/common/v1/db_definition"
 	queryassociatedaction "github.com/DanLavine/willow/pkg/models/api/common/v1/query_associated_action"
 	querymatchaction "github.com/DanLavine/willow/pkg/models/api/common/v1/query_match_action"
 	v1limiter "github.com/DanLavine/willow/pkg/models/api/limiter/v1"
@@ -503,11 +505,17 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 
 					return v1limiter.Rules{
 						&v1limiter.Rule{
-							Name: "block rule",
-							GroupByKeyValues: datatypes.KeyValues{
-								"one": datatypes.Any(),
+							Spec: &v1limiter.RuleSpec{
+								DBDefinition: &v1limiter.RuleDBDefinition{
+									Name: helpers.PointerOf[string]("block rule"),
+									GroupByKeyValues: dbdefinition.AnyKeyValues{
+										"one": datatypes.Any(),
+									},
+								},
+								Properties: &v1limiter.RuleProperties{
+									Limit: helpers.PointerOf[int64](0),
+								},
 							},
-							Limit: 0,
 						},
 					}, nil
 				}
@@ -586,11 +594,17 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 
 					return v1limiter.Rules{
 						&v1limiter.Rule{
-							Name: "block rule",
-							GroupByKeyValues: datatypes.KeyValues{
-								"one": datatypes.Any(),
+							Spec: &v1limiter.RuleSpec{
+								DBDefinition: &v1limiter.RuleDBDefinition{
+									Name: helpers.PointerOf[string]("block rule"),
+									GroupByKeyValues: dbdefinition.AnyKeyValues{
+										"one": datatypes.Any(),
+									},
+								},
+								Properties: &v1limiter.RuleProperties{
+									Limit: helpers.PointerOf[int64](0),
+								},
 							},
-							Limit: 0,
 						},
 					}, nil
 				}
@@ -666,11 +680,17 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 
 						return v1limiter.Rules{
 							&v1limiter.Rule{
-								Name: "block rule",
-								GroupByKeyValues: datatypes.KeyValues{
-									"one": datatypes.Any(),
+								Spec: &v1limiter.RuleSpec{
+									DBDefinition: &v1limiter.RuleDBDefinition{
+										Name: helpers.PointerOf[string]("block rule"),
+										GroupByKeyValues: dbdefinition.AnyKeyValues{
+											"one": datatypes.Any(),
+										},
+									},
+									Properties: &v1limiter.RuleProperties{
+										Limit: helpers.PointerOf[int64](0),
+									},
 								},
-								Limit: 0,
 							},
 						}, nil
 					}
@@ -757,19 +777,31 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 				fakeLimiterClient.EXPECT().MatchRules(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ *querymatchaction.MatchActionQuery) (v1limiter.Rules, error) {
 					return v1limiter.Rules{
 						&v1limiter.Rule{
-							Name: "rule1",
-							GroupByKeyValues: datatypes.KeyValues{
-								"one": datatypes.Any(),
+							Spec: &v1limiter.RuleSpec{
+								DBDefinition: &v1limiter.RuleDBDefinition{
+									Name: helpers.PointerOf[string]("rule1"),
+									GroupByKeyValues: dbdefinition.AnyKeyValues{
+										"one": datatypes.Any(),
+									},
+								},
+								Properties: &v1limiter.RuleProperties{
+									Limit: helpers.PointerOf[int64](-1),
+								},
 							},
-							Limit: -1,
 						},
 						&v1limiter.Rule{
-							Name: "rule2",
-							GroupByKeyValues: datatypes.KeyValues{
-								"one": datatypes.Any(),
-								"two": datatypes.Any(),
+							Spec: &v1limiter.RuleSpec{
+								DBDefinition: &v1limiter.RuleDBDefinition{
+									Name: helpers.PointerOf[string]("rule2"),
+									GroupByKeyValues: dbdefinition.AnyKeyValues{
+										"one": datatypes.Any(),
+										"two": datatypes.Any(),
+									},
+								},
+								Properties: &v1limiter.RuleProperties{
+									Limit: helpers.PointerOf[int64](-1),
+								},
 							},
-							Limit: -1,
 						},
 					}, nil
 				}).Times(1)
@@ -839,19 +871,31 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 				fakeLimiterClient.EXPECT().MatchRules(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ *querymatchaction.MatchActionQuery) (v1limiter.Rules, error) {
 					return v1limiter.Rules{
 						&v1limiter.Rule{
-							Name: "rule1",
-							GroupByKeyValues: datatypes.KeyValues{
-								"one": datatypes.Any(),
+							Spec: &v1limiter.RuleSpec{
+								DBDefinition: &v1limiter.RuleDBDefinition{
+									Name: helpers.PointerOf[string]("rule1"),
+									GroupByKeyValues: dbdefinition.AnyKeyValues{
+										"one": datatypes.Any(),
+									},
+								},
+								Properties: &v1limiter.RuleProperties{
+									Limit: helpers.PointerOf[int64](1),
+								},
 							},
-							Limit: 1,
 						},
 						&v1limiter.Rule{
-							Name: "rule2",
-							GroupByKeyValues: datatypes.KeyValues{
-								"one": datatypes.Any(),
-								"two": datatypes.Any(),
+							Spec: &v1limiter.RuleSpec{
+								DBDefinition: &v1limiter.RuleDBDefinition{
+									Name: helpers.PointerOf[string]("rule2"),
+									GroupByKeyValues: dbdefinition.AnyKeyValues{
+										"one": datatypes.Any(),
+										"two": datatypes.Any(),
+									},
+								},
+								Properties: &v1limiter.RuleProperties{
+									Limit: helpers.PointerOf[int64](0),
+								},
 							},
-							Limit: 0,
 						},
 					}, nil
 				}).Times(1)
@@ -862,18 +906,35 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 						overrideCounter++
 						return v1limiter.Overrides{
 							&v1limiter.Override{
-								Name:      "override1",
-								KeyValues: datatypes.KeyValues{"one": datatypes.Int(1)},
-								Limit:     -1,
+								Spec: &v1limiter.OverrideSpec{
+									DBDefinition: &v1limiter.OverrideDBDefinition{
+										Name: helpers.PointerOf("override1"),
+										GroupByKeyValues: dbdefinition.AnyKeyValues{
+											"one": datatypes.Int(1),
+										},
+									},
+									Properties: &v1limiter.OverrideProperties{
+										Limit: helpers.PointerOf[int64](-1),
+									},
+								},
 							},
 						}, nil
 					}
 
 					return v1limiter.Overrides{
 						&v1limiter.Override{
-							Name:      "override2",
-							KeyValues: datatypes.KeyValues{"one": datatypes.Int(1), "two": datatypes.Int(2)},
-							Limit:     -1,
+							Spec: &v1limiter.OverrideSpec{
+								DBDefinition: &v1limiter.OverrideDBDefinition{
+									Name: helpers.PointerOf("override2"),
+									GroupByKeyValues: dbdefinition.AnyKeyValues{
+										"one": datatypes.Int(1),
+										"two": datatypes.Int(2),
+									},
+								},
+								Properties: &v1limiter.OverrideProperties{
+									Limit: helpers.PointerOf[int64](-1),
+								},
+							},
 						},
 					}, nil
 				}).Times(2)
@@ -939,19 +1000,31 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 				fakeLimiterClient.EXPECT().MatchRules(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ *querymatchaction.MatchActionQuery) (v1limiter.Rules, error) {
 					return v1limiter.Rules{
 						&v1limiter.Rule{
-							Name: "rule1",
-							GroupByKeyValues: datatypes.KeyValues{
-								"one": datatypes.Any(),
+							Spec: &v1limiter.RuleSpec{
+								DBDefinition: &v1limiter.RuleDBDefinition{
+									Name: helpers.PointerOf[string]("rule1"),
+									GroupByKeyValues: dbdefinition.AnyKeyValues{
+										"one": datatypes.Any(),
+									},
+								},
+								Properties: &v1limiter.RuleProperties{
+									Limit: helpers.PointerOf[int64](8),
+								},
 							},
-							Limit: 8,
 						},
 						&v1limiter.Rule{
-							Name: "rule2",
-							GroupByKeyValues: datatypes.KeyValues{
-								"one": datatypes.Any(),
-								"two": datatypes.Any(),
+							Spec: &v1limiter.RuleSpec{
+								DBDefinition: &v1limiter.RuleDBDefinition{
+									Name: helpers.PointerOf[string]("rule2"),
+									GroupByKeyValues: dbdefinition.AnyKeyValues{
+										"one": datatypes.Any(),
+										"two": datatypes.Any(),
+									},
+								},
+								Properties: &v1limiter.RuleProperties{
+									Limit: helpers.PointerOf[int64](12),
+								},
 							},
-							Limit: 12,
 						},
 					}, nil
 				}).Times(1)
@@ -963,12 +1036,31 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 				fakeLimiterClient.EXPECT().QueryCounters(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ *queryassociatedaction.AssociatedActionQuery) (v1limiter.Counters, error) {
 					return v1limiter.Counters{
 						&v1limiter.Counter{
-							Counters:  3,
-							KeyValues: datatypes.KeyValues{"one": datatypes.Int(1), "zone": datatypes.String("west")},
+							Spec: &v1limiter.CounterSpec{
+								DBDefinition: &v1limiter.CounterDBDefinition{
+									KeyValues: dbdefinition.TypedKeyValues{
+										"one":  datatypes.Int(1),
+										"zone": datatypes.String("west"),
+									},
+								},
+								Properties: &v1limiter.CounteProperties{
+									Counters: helpers.PointerOf[int64](3),
+								},
+							},
 						},
 						&v1limiter.Counter{
-							Counters:  4,
-							KeyValues: datatypes.KeyValues{"one": datatypes.Int(1), "two": datatypes.Int(2), "zone": datatypes.String("west")},
+							Spec: &v1limiter.CounterSpec{
+								DBDefinition: &v1limiter.CounterDBDefinition{
+									KeyValues: dbdefinition.TypedKeyValues{
+										"one":  datatypes.Int(1),
+										"two":  datatypes.Int(2),
+										"zone": datatypes.String("west"),
+									},
+								},
+								Properties: &v1limiter.CounteProperties{
+									Counters: helpers.PointerOf[int64](4),
+								},
+							},
 						},
 					}, nil
 				}).Times(2) // called for each rule
@@ -1035,19 +1127,31 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 				fakeLimiterClient.EXPECT().MatchRules(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ *querymatchaction.MatchActionQuery) (v1limiter.Rules, error) {
 					return v1limiter.Rules{
 						&v1limiter.Rule{
-							Name: "rule1",
-							GroupByKeyValues: datatypes.KeyValues{
-								"one": datatypes.Any(),
+							Spec: &v1limiter.RuleSpec{
+								DBDefinition: &v1limiter.RuleDBDefinition{
+									Name: helpers.PointerOf[string]("rule1"),
+									GroupByKeyValues: dbdefinition.AnyKeyValues{
+										"one": datatypes.Any(),
+									},
+								},
+								Properties: &v1limiter.RuleProperties{
+									Limit: helpers.PointerOf[int64](1),
+								},
 							},
-							Limit: 1,
 						},
 						&v1limiter.Rule{
-							Name: "rule2",
-							GroupByKeyValues: datatypes.KeyValues{
-								"one": datatypes.Any(),
-								"two": datatypes.Any(),
+							Spec: &v1limiter.RuleSpec{
+								DBDefinition: &v1limiter.RuleDBDefinition{
+									Name: helpers.PointerOf[string]("rule2"),
+									GroupByKeyValues: dbdefinition.AnyKeyValues{
+										"one": datatypes.Any(),
+										"two": datatypes.Any(),
+									},
+								},
+								Properties: &v1limiter.RuleProperties{
+									Limit: helpers.PointerOf[int64](0),
+								},
 							},
-							Limit: 0,
 						},
 					}, nil
 				}).Times(1)
@@ -1059,23 +1163,50 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 
 						return v1limiter.Overrides{
 							&v1limiter.Override{
-								Name:      "override1",
-								KeyValues: datatypes.KeyValues{"one": datatypes.Int(1)},
-								Limit:     8,
+								Spec: &v1limiter.OverrideSpec{
+									DBDefinition: &v1limiter.OverrideDBDefinition{
+										Name: helpers.PointerOf("override1"),
+										GroupByKeyValues: dbdefinition.AnyKeyValues{
+											"one": datatypes.Int(1),
+										},
+									},
+									Properties: &v1limiter.OverrideProperties{
+										Limit: helpers.PointerOf[int64](8),
+									},
+								},
 							},
 						}, nil
 					}
 
 					return v1limiter.Overrides{
 						&v1limiter.Override{
-							Name:      "override2",
-							KeyValues: datatypes.KeyValues{"one": datatypes.Int(1), "two": datatypes.Int(2)},
-							Limit:     12,
+							Spec: &v1limiter.OverrideSpec{
+								DBDefinition: &v1limiter.OverrideDBDefinition{
+									Name: helpers.PointerOf("override2"),
+									GroupByKeyValues: dbdefinition.AnyKeyValues{
+										"one": datatypes.Int(1),
+										"two": datatypes.Int(2),
+									},
+								},
+								Properties: &v1limiter.OverrideProperties{
+									Limit: helpers.PointerOf[int64](12),
+								},
+							},
 						},
 						&v1limiter.Override{
-							Name:      "override3",
-							KeyValues: datatypes.KeyValues{"one": datatypes.Int(1), "two": datatypes.Int(2), "zone": datatypes.String("west")},
-							Limit:     9,
+							Spec: &v1limiter.OverrideSpec{
+								DBDefinition: &v1limiter.OverrideDBDefinition{
+									Name: helpers.PointerOf("override3"),
+									GroupByKeyValues: dbdefinition.AnyKeyValues{
+										"one":  datatypes.Int(1),
+										"two":  datatypes.Int(2),
+										"zone": datatypes.String("west"),
+									},
+								},
+								Properties: &v1limiter.OverrideProperties{
+									Limit: helpers.PointerOf[int64](9),
+								},
+							},
 						},
 					}, nil
 				}).Times(2)
@@ -1083,12 +1214,31 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 				fakeLimiterClient.EXPECT().QueryCounters(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ *queryassociatedaction.AssociatedActionQuery) (v1limiter.Counters, error) {
 					return v1limiter.Counters{
 						&v1limiter.Counter{
-							Counters:  3,
-							KeyValues: datatypes.KeyValues{"one": datatypes.Int(1), "zone": datatypes.String("west")},
+							Spec: &v1limiter.CounterSpec{
+								DBDefinition: &v1limiter.CounterDBDefinition{
+									KeyValues: dbdefinition.TypedKeyValues{
+										"one":  datatypes.Int(1),
+										"zone": datatypes.String("west"),
+									},
+								},
+								Properties: &v1limiter.CounteProperties{
+									Counters: helpers.PointerOf[int64](3),
+								},
+							},
 						},
 						&v1limiter.Counter{
-							Counters:  4,
-							KeyValues: datatypes.KeyValues{"one": datatypes.Int(1), "two": datatypes.Int(2), "zone": datatypes.String("west")},
+							Spec: &v1limiter.CounterSpec{
+								DBDefinition: &v1limiter.CounterDBDefinition{
+									KeyValues: dbdefinition.TypedKeyValues{
+										"one":  datatypes.Int(1),
+										"two":  datatypes.Int(2),
+										"zone": datatypes.String("west"),
+									},
+								},
+								Properties: &v1limiter.CounteProperties{
+									Counters: helpers.PointerOf[int64](4),
+								},
+							},
 						},
 					}, nil
 				}).Times(3) // called for each override

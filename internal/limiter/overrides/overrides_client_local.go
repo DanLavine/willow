@@ -6,12 +6,14 @@ import (
 	"net/http"
 
 	"github.com/DanLavine/willow/pkg/models/api/common/errors"
+	dbdefinition "github.com/DanLavine/willow/pkg/models/api/common/v1/db_definition"
 	queryassociatedaction "github.com/DanLavine/willow/pkg/models/api/common/v1/query_associated_action"
 	querymatchaction "github.com/DanLavine/willow/pkg/models/api/common/v1/query_match_action"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 	"go.uber.org/zap"
 
 	btreeonetomany "github.com/DanLavine/willow/internal/datastructures/btree_one_to_many"
+	"github.com/DanLavine/willow/internal/helpers"
 	"github.com/DanLavine/willow/internal/middleware"
 	v1limiter "github.com/DanLavine/willow/pkg/models/api/limiter/v1"
 )
@@ -46,10 +48,10 @@ func (ocl *overridesClientLocal) CreateOverride(ctx context.Context, ruleName st
 	_, logger := middleware.GetNamedMiddlewareLogger(ctx, "CreateOverride")
 
 	onCreate := func() any {
-		return ocl.constructor.New(override)
+		return ocl.constructor.New(override.Spec.Properties)
 	}
 
-	if err := ocl.overrides.CreateWithID(ruleName, override.Name, override.KeyValues, onCreate); err != nil {
+	if err := ocl.overrides.CreateWithID(ruleName, *override.Spec.DBDefinition.Name, override.Spec.DBDefinition.GroupByKeyValues.ToKeyValues(), onCreate); err != nil {
 		switch err {
 		//case datastructures.ErrorOneIDDestroying:
 		// This shouldn't happen as the deletion of the `Rule` should block all these request`
@@ -60,11 +62,11 @@ func (ocl *overridesClientLocal) CreateOverride(ctx context.Context, ruleName st
 		case btreeonetomany.ErrorManyIDAlreadyExists:
 			// override name already exists
 			logger.Warn("override name is already taken")
-			return &errors.ServerError{Message: "override Name alreayd exists", StatusCode: http.StatusConflict}
+			return &errors.ServerError{Message: "override Name already exists", StatusCode: http.StatusConflict}
 		case btreeonetomany.ErrorManyKeyValuesAlreadyExist:
 			// key values for the override already exist
-			logger.Warn("override key values are already taken", zap.Any("key_values", override.KeyValues))
-			return &errors.ServerError{Message: "override KeyValues alreayd exists", StatusCode: http.StatusConflict}
+			logger.Warn("override key values are already taken", zap.Any("key_values", override.Spec.DBDefinition.GroupByKeyValues))
+			return &errors.ServerError{Message: "override KeyValues already exists", StatusCode: http.StatusConflict}
 		default:
 			logger.Error("Unexpected error creating the override", zap.Error(err))
 			return errors.InternalServerError
@@ -84,9 +86,18 @@ func (ocl *overridesClientLocal) GetOverride(ctx context.Context, ruleName strin
 		override := item.Value().(Override)
 
 		limiterOverride = &v1limiter.Override{
-			Name:      item.ManyID(),
-			KeyValues: item.ManyKeyValues(),
-			Limit:     override.Limit(),
+			Spec: &v1limiter.OverrideSpec{
+				DBDefinition: &v1limiter.OverrideDBDefinition{
+					Name:             helpers.PointerOf(item.ManyID()),
+					GroupByKeyValues: dbdefinition.KeyValuesToAnyKeyValues(item.ManyKeyValues()),
+				},
+				Properties: &v1limiter.OverrideProperties{
+					Limit: helpers.PointerOf(override.Limit()),
+				},
+			},
+			State: &v1limiter.OverrideState{
+				Deleting: false,
+			},
 		}
 
 		overrideErr = nil
@@ -115,9 +126,18 @@ func (ocl *overridesClientLocal) QueryOverrides(ctx context.Context, ruleName st
 		override := item.Value().(Override)
 
 		overrides = append(overrides, &v1limiter.Override{
-			Name:      item.ManyID(),
-			KeyValues: item.ManyKeyValues(),
-			Limit:     override.Limit(),
+			Spec: &v1limiter.OverrideSpec{
+				DBDefinition: &v1limiter.OverrideDBDefinition{
+					Name:             helpers.PointerOf(item.ManyID()),
+					GroupByKeyValues: dbdefinition.KeyValuesToAnyKeyValues(item.ManyKeyValues()),
+				},
+				Properties: &v1limiter.OverrideProperties{
+					Limit: helpers.PointerOf(override.Limit()),
+				},
+			},
+			State: &v1limiter.OverrideState{
+				Deleting: false,
+			},
 		})
 
 		return true
@@ -145,9 +165,18 @@ func (ocl *overridesClientLocal) MatchOverrides(ctx context.Context, ruleName st
 		override := item.Value().(Override)
 
 		overrides = append(overrides, &v1limiter.Override{
-			Name:      item.ManyID(),
-			KeyValues: item.ManyKeyValues(),
-			Limit:     override.Limit(),
+			Spec: &v1limiter.OverrideSpec{
+				DBDefinition: &v1limiter.OverrideDBDefinition{
+					Name:             helpers.PointerOf(item.ManyID()),
+					GroupByKeyValues: dbdefinition.KeyValuesToAnyKeyValues(item.ManyKeyValues()),
+				},
+				Properties: &v1limiter.OverrideProperties{
+					Limit: helpers.PointerOf(override.Limit()),
+				},
+			},
+			State: &v1limiter.OverrideState{
+				Deleting: false,
+			},
 		})
 
 		return true
@@ -166,7 +195,7 @@ func (ocl *overridesClientLocal) MatchOverrides(ctx context.Context, ruleName st
 	return overrides, nil
 }
 
-func (ocl *overridesClientLocal) UpdateOverride(ctx context.Context, ruleName string, overrideName string, overrideUpdate *v1limiter.OverrideUpdate) *errors.ServerError {
+func (ocl *overridesClientLocal) UpdateOverride(ctx context.Context, ruleName string, overrideName string, overrideUpdate *v1limiter.OverrideProperties) *errors.ServerError {
 	_, logger := middleware.GetNamedMiddlewareLogger(ctx, "UpdateOverride")
 	overrideErr := errorMissingOverrideName(overrideName)
 
@@ -262,9 +291,18 @@ func (ocl *overridesClientLocal) FindOverrideLimits(ctx context.Context, ruleNam
 		limit := override.Limit()
 
 		overrides = append(overrides, &v1limiter.Override{
-			Name:      item.ManyID(),
-			KeyValues: item.ManyKeyValues(),
-			Limit:     limit,
+			Spec: &v1limiter.OverrideSpec{
+				DBDefinition: &v1limiter.OverrideDBDefinition{
+					Name:             helpers.PointerOf(item.ManyID()),
+					GroupByKeyValues: dbdefinition.KeyValuesToAnyKeyValues(item.ManyKeyValues()),
+				},
+				Properties: &v1limiter.OverrideProperties{
+					Limit: helpers.PointerOf(override.Limit()),
+				},
+			},
+			State: &v1limiter.OverrideState{
+				Deleting: false,
+			},
 		})
 
 		return limit != 0

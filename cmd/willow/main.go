@@ -11,6 +11,7 @@ import (
 	"github.com/DanLavine/goasync"
 	"github.com/DanLavine/urlrouter"
 	"github.com/DanLavine/willow/internal/config"
+	"github.com/DanLavine/willow/internal/helpers"
 	"github.com/DanLavine/willow/internal/reporting"
 	"github.com/DanLavine/willow/internal/willow/api"
 	"github.com/DanLavine/willow/internal/willow/api/v1/handlers"
@@ -22,6 +23,7 @@ import (
 	v1router "github.com/DanLavine/willow/internal/willow/api/v1/router"
 	queuechannels "github.com/DanLavine/willow/internal/willow/brokers/queue_channels"
 	limiterclient "github.com/DanLavine/willow/pkg/clients/limiter_client"
+	dbdefinition "github.com/DanLavine/willow/pkg/models/api/common/v1/db_definition"
 	v1 "github.com/DanLavine/willow/pkg/models/api/limiter/v1"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 )
@@ -69,12 +71,18 @@ func main() {
 
 	// setup the rule if it does not exist for the willow limits
 	err = limiterClient.CreateRule(context.Background(), &v1.Rule{
-		Name: "_willow_queue_enqueued_limits",
-		GroupByKeyValues: datatypes.KeyValues{
-			"_willow_queue_name": datatypes.Any(),
-			"_willow_enqueued":   datatypes.Any(),
+		Spec: &v1.RuleSpec{
+			DBDefinition: &v1.RuleDBDefinition{
+				Name: helpers.PointerOf("_willow_queue_enqueued_limits"),
+				GroupByKeyValues: dbdefinition.AnyKeyValues{
+					"_willow_queue_name": datatypes.Any(),
+					"_willow_enqueued":   datatypes.Any(),
+				},
+			},
+			Properties: &v1.RuleProperties{
+				Limit: helpers.PointerOf[int64](0), // by default, all queues have a limit of 0
+			},
 		},
-		Limit: 0, // by default the limit is 0
 	})
 	if err != nil {
 		logger.Fatal("Failed to setup Limiter enqueue rule", zap.Error(err))

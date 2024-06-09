@@ -15,7 +15,6 @@ import (
 	errors "github.com/DanLavine/willow/pkg/models/api/common/errors"
 	v1 "github.com/DanLavine/willow/pkg/models/api/limiter/v1"
 	gomock "go.uber.org/mock/gomock"
-	zap "go.uber.org/zap"
 )
 
 // MockRule is a mock of Rule interface.
@@ -70,15 +69,15 @@ func (mr *MockRuleMockRecorder) Limit() *gomock.Call {
 }
 
 // Update mocks base method.
-func (m *MockRule) Update(arg0 *zap.Logger, arg1 *v1.RuleUpdateRquest) *errors.ServerError {
+func (m *MockRule) Update(arg0 *v1.RuleProperties) *errors.ServerError {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Update", arg0, arg1)
+	ret := m.ctrl.Call(m, "Update", arg0)
 	ret0, _ := ret[0].(*errors.ServerError)
 	return ret0
 }
 
 // Update indicates an expected call of Update.
-func (mr *MockRuleMockRecorder) Update(arg0, arg1 any) *gomock.Call {
+func (mr *MockRuleMockRecorder) Update(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Update", reflect.TypeOf((*MockRule)(nil).Update), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Update", reflect.TypeOf((*MockRule)(nil).Update), arg0)
 }

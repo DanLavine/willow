@@ -28,7 +28,7 @@ type LimiterClient interface {
 	// Match any Rules for the provided key values
 	MatchRules(ctx context.Context, match *querymatchaction.MatchActionQuery) (v1limiter.Rules, error)
 	// Update a Rule by name
-	UpdateRule(ctx context.Context, ruleName string, ruleUpdate *v1limiter.RuleUpdateRquest) error
+	UpdateRule(ctx context.Context, ruleName string, ruleUpdate *v1limiter.RuleProperties) error
 	// Delete a Rule by name
 	DeleteRule(ctx context.Context, ruleName string) error
 
@@ -42,7 +42,7 @@ type LimiterClient interface {
 	// Match Overrides
 	MatchOverrides(ctx context.Context, ruleName string, match *querymatchaction.MatchActionQuery) (v1limiter.Overrides, error)
 	// Update a particular Override
-	UpdateOverride(ctx context.Context, ruleName string, overrideName string, overrideUpdate *v1limiter.OverrideUpdate) error
+	UpdateOverride(ctx context.Context, ruleName string, overrideName string, overrideUpdate *v1limiter.OverrideProperties) error
 	// Delete an Override for a particual Rule
 	DeleteOverride(ctx context.Context, ruleName string, overrideName string) error
 

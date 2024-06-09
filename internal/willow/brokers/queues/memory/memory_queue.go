@@ -4,8 +4,10 @@ import (
 	"context"
 	"sync/atomic"
 
+	"github.com/DanLavine/willow/internal/helpers"
 	"github.com/DanLavine/willow/internal/middleware"
 	"github.com/DanLavine/willow/pkg/models/api/common/errors"
+	dbdefinition "github.com/DanLavine/willow/pkg/models/api/common/v1/db_definition"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 	"go.uber.org/zap"
 
@@ -32,12 +34,18 @@ func New(ctx context.Context, queue *v1willow.QueueCreate, limiterClient limiter
 
 	// need to create an override for the willow Rules in the limiter
 	err := limiterClient.CreateOverride(ctx, "_willow_queue_enqueued_limits", &v1.Override{
-		Name: queue.Name,
-		KeyValues: datatypes.KeyValues{
-			"_willow_queue_name": datatypes.String(queue.Name),
-			"_willow_enqueued":   datatypes.String("true"),
+		Spec: &v1.OverrideSpec{
+			DBDefinition: &v1.OverrideDBDefinition{
+				Name: helpers.PointerOf(queue.Name),
+				GroupByKeyValues: dbdefinition.AnyKeyValues{
+					"_willow_queue_name": datatypes.String(queue.Name),
+					"_willow_enqueued":   datatypes.String("true"),
+				},
+			},
+			Properties: &v1.OverrideProperties{
+				Limit: helpers.PointerOf(queue.QueueMaxSize),
+			},
 		},
-		Limit: queue.QueueMaxSize,
 	})
 
 	if err != nil {
@@ -60,8 +68,8 @@ func (mq *memoryQueue) Update(ctx context.Context, queueName string, updateReq *
 	mq.configuredLimit.Store(updateReq.QueueMaxSize)
 
 	// need to create an override for the willow Rules in the limiter
-	err := mq.limiterClient.UpdateOverride(ctx, "_willow_queue_enqueued_limits", queueName, &v1.OverrideUpdate{
-		Limit: updateReq.QueueMaxSize,
+	err := mq.limiterClient.UpdateOverride(ctx, "_willow_queue_enqueued_limits", queueName, &v1.OverrideProperties{
+		Limit: helpers.PointerOf(updateReq.QueueMaxSize),
 	})
 	if err != nil {
 		logger.Error("Failed to update the Limiter override", zap.Error(err))

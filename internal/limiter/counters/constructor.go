@@ -10,15 +10,15 @@ import (
 
 //go:generate mockgen -destination=rulefakes/counter_constructor_mock.go -package=rulefakes github.com/DanLavine/willow/internal/limiter/counters CounterConstructor
 type Counter interface {
-	Update(count int64) int64
+	Update(counterProperties *v1limiter.CounteProperties) int64
 
-	Set(count int64)
+	Set(counterProperties *v1limiter.CounteProperties)
 
 	Load() int64
 }
 
 type CounterConstructor interface {
-	New(createRequest *v1limiter.Counter) Counter
+	New(createRequest *v1limiter.CounteProperties) Counter
 }
 
 func NewCountersConstructor(constructorType string) (CounterConstructor, error) {
@@ -32,6 +32,6 @@ func NewCountersConstructor(constructorType string) (CounterConstructor, error) 
 
 type memoryConstrutor struct{}
 
-func (mc *memoryConstrutor) New(counter *v1limiter.Counter) Counter {
+func (mc *memoryConstrutor) New(counter *v1limiter.CounteProperties) Counter {
 	return memory.New(counter)
 }

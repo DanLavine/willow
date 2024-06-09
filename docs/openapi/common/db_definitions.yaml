@@ -1,14 +1,81 @@
 components:
   schemas:
 
-    # Map of encapsulated value for all types but Any
-    TypedKeyValues:
+    TypeUint8:
+      type: integer
+      enum: [1]
+    TypeUint16:
+      type: integer
+      enum: [2]
+    TypeUint32:
+      type: integer
+      enum: [3]
+    TypeUint64:
+      type: integer
+      enum: [4]
+    TypeUint:
+      type: integer
+      enum: [5]
+    TypeInt8:
+      type: integer
+      enum: [6]
+    TypeInt16:
+      type: integer
+      enum: [7]
+    TypeInt32:
+      type: integer
+      enum: [8]
+    TypeInt64:
+      type: integer
+      enum: [9]
+    TypeInt:
+      type: integer
+      enum: [10]
+    TypeFloat32:
+      type: integer
+      enum: [11]
+    TypeFloat64:
+      type: integer
+      enum: [12]
+    TypeString:
+      type: integer
+      enum: [13]
+    TypeAny:
+      type: integer
+      enum: [1024]
+
+    DataType:
+      oneOf:
+        - $ref: "#/components/schemas/TypeUint8"
+        - $ref: "#/components/schemas/TypeUint16"
+        - $ref: "#/components/schemas/TypeUint32"
+        - $ref: "#/components/schemas/TypeUint64"
+        - $ref: "#/components/schemas/TypeUint"
+        - $ref: "#/components/schemas/TypeInt8"
+        - $ref: "#/components/schemas/TypeInt16"
+        - $ref: "#/components/schemas/TypeInt32"
+        - $ref: "#/components/schemas/TypeInt64"
+        - $ref: "#/components/schemas/TypeInt"
+        - $ref: "#/components/schemas/TypeFloat32"
+        - $ref: "#/components/schemas/TypeFloat64"
+        - $ref: "#/components/schemas/TypeString"
+        - $ref: "#/components/schemas/TypeAny"
+
+    TypeRestrictions:
       type: object
       description: |
-        Map of encapsulated value for all types but Any
+        Restriction for valeus to find. Can be used to find or ignore the `Any` keys
+      properties:
+        MinDataType:
+          $ref: "#/components/schemas/DataType"
+        MaxDataType:
+          $ref: "#/components/schemas/DataType"
+
+    # Map of encapsulated value for all types but Any
+    TypedKeyValues:
       additionalProperties:
-        title: TypedKeyValues
-        x-additionalPropertiesName: TypedKeyValues
+        title: Key
+        x-additionalPropertiesName: Key
         oneOf:
           - $ref: "./encapsulated_values.yaml#/components/schemas/Uint8"
           - $ref: "./encapsulated_values.yaml#/components/schemas/Uint16"
@@ -26,13 +93,10 @@ components:
 
     # Map of encapsulated value for all types
     AnyKeyValues:
-      type: object
-      description: |
-        Map of encapsulated value for all types
       additionalProperties:
-        title: TypedKeyValues
-        x-additionalPropertiesName: TypedKeyValues
-        oneOf:
+        title: Key
+        x-additionalPropertiesName: Key
+        oneOf: 
           - $ref: "./encapsulated_values.yaml#/components/schemas/Uint8"
           - $ref: "./encapsulated_values.yaml#/components/schemas/Uint16"
           - $ref: "./encapsulated_values.yaml#/components/schemas/Uint32"

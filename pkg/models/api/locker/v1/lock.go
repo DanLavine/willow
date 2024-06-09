@@ -18,6 +18,21 @@ type Lock struct {
 	State *LockState `json:"State,omitempty"`
 }
 
+// SetDefaultProperties is currently an "easy" way to set defaults for optional values from when the request is parsed.
+// Otherwise, I think I would want to change everything from pointers to proper values after the Spec and State? But
+// I think the Delete operation will become harder? Nother there atm for handling persitence and actual long running delete
+// operations to test the patterns I like. Also This allows for properties to have a "zero/unset" value for different behaviors
+func (lock *Lock) SetDefaultProperties(lockProperties *LockProperties) {
+	if lock.Spec.Properties == nil {
+		lock.Spec.Properties = lockProperties
+		return
+	}
+
+	if lock.Spec.Properties.Timeout == nil {
+		lock.Spec.Properties.Timeout = lockProperties.Timeout
+	}
+}
+
 // Validate the entire Lock's Spec and State fields
 func (lock *Lock) Validate() *errors.ModelError {
 	if lock.Spec == nil {
@@ -54,20 +69,55 @@ func (lock *Lock) ValidateSpecOnly() *errors.ModelError {
 
 // LockSpec defines the specific specifications for the Lock
 type LockSpec struct {
-	// How the object should be saved in the DB. This also drives the query and lookup apis
-	DBDeifinition *dbdefinition.TypedKeyValues `json:"DBDefinition,omitempty"`
+	// DBDefinition defines how to save the item in the Database
+	DBDefinition *LockDBDefinition `json:"DBDefinition,omitempty"`
 
-	// Timeout for the lock
-	Timeout *time.Duration `json:"Timeout,omitempty"`
+	// Properties are the configurable/updateable fields for the Rule
+	//
+	// This is an optional field as all the properties are currently optional
+	Properties *LockProperties `json:"Properties,omitempty"`
 }
 
 func (lockSpec *LockSpec) Validate() *errors.ModelError {
-	if err := lockSpec.DBDeifinition.Validate(); err != nil {
-		return &errors.ModelError{Field: "DBDeifinition", Child: err}
+	if lockSpec.DBDefinition == nil {
+		return &errors.ModelError{Field: "DBDefinition", Err: fmt.Errorf("received a null value")}
+	} else {
+		if err := lockSpec.DBDefinition.Validate(); err != nil {
+			return &errors.ModelError{Field: "DBDefinition", Child: err}
+		}
 	}
 
-	if lockSpec.Timeout != nil {
-		if *lockSpec.Timeout == 0 {
+	if lockSpec.Properties != nil {
+		if err := lockSpec.Properties.Validate(); err != nil {
+			return &errors.ModelError{Field: "Properties", Child: err}
+		}
+	}
+
+	return nil
+}
+
+type LockDBDefinition struct {
+	KeyValues dbdefinition.TypedKeyValues `json:"KeyValues,omitempty"`
+}
+
+func (LockDBDefinition *LockDBDefinition) Validate() *errors.ModelError {
+	if err := LockDBDefinition.KeyValues.Validate(); err != nil {
+		return &errors.ModelError{Field: "KeyValues", Child: err}
+	}
+
+	return nil
+}
+
+type LockProperties struct {
+	// Timeout for the lock
+	//
+	// Optional. If this is not set, then the default configured on the service will be used
+	Timeout *time.Duration `json:"Timeout,omitempty"`
+}
+
+func (lockProperties *LockProperties) Validate() *errors.ModelError {
+	if lockProperties.Timeout != nil {
+		if *lockProperties.Timeout == 0 {
 			return &errors.ModelError{Field: "Timeout", Err: fmt.Errorf("recieved a timeout duration of 0. Requires a valid time duration represented as int64 nanosecond")}
 		}
 	}

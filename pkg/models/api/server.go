@@ -87,7 +87,7 @@ func ModelEncodeResponse(w http.ResponseWriter, statuscode int, obj ApiModel) (i
 		w.WriteHeader(statuscode)
 		return 0, nil
 	default:
-		// validate the response is valid
+		// ensure the response is valid
 		if err := obj.Validate(); err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			w.Write([]byte(fmt.Sprintf(`{"Message":"%s"}`, err.Error())))

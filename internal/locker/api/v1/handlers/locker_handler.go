@@ -58,9 +58,7 @@ func (lh *lockerHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// set the defaults for the lock request
-	if createLockerRequest.Spec.Timeout == nil {
-		createLockerRequest.Spec.Timeout = lh.cfg.LockDefaultTimeout
-	}
+	createLockerRequest.SetDefaultProperties(&v1locker.LockProperties{Timeout: lh.cfg.LockDefaultTimeout})
 
 	if lockResponse := lh.generalLocker.ObtainLock(r.Context(), createLockerRequest); lockResponse != nil {
 		// obtained lock, send response to the client

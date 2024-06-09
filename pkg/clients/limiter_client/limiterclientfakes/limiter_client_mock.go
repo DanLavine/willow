@@ -246,7 +246,7 @@ func (mr *MockLimiterClientMockRecorder) UpdateCounter(arg0, arg1 any) *gomock.C
 }
 
 // UpdateOverride mocks base method.
-func (m *MockLimiterClient) UpdateOverride(arg0 context.Context, arg1, arg2 string, arg3 *v1.OverrideUpdate) error {
+func (m *MockLimiterClient) UpdateOverride(arg0 context.Context, arg1, arg2 string, arg3 *v1.OverrideProperties) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateOverride", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
@@ -260,7 +260,7 @@ func (mr *MockLimiterClientMockRecorder) UpdateOverride(arg0, arg1, arg2, arg3 a
 }
 
 // UpdateRule mocks base method.
-func (m *MockLimiterClient) UpdateRule(arg0 context.Context, arg1 string, arg2 *v1.RuleUpdateRquest) error {
+func (m *MockLimiterClient) UpdateRule(arg0 context.Context, arg1 string, arg2 *v1.RuleProperties) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateRule", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)

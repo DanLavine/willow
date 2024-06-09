@@ -17,7 +17,7 @@ type OverrideClient interface {
 	CreateOverride(ctx context.Context, ruleName string, override *v1limiter.Override) *errors.ServerError
 
 	// Update an override by name
-	UpdateOverride(ctx context.Context, ruleName string, overrideName string, override *v1limiter.OverrideUpdate) *errors.ServerError
+	UpdateOverride(ctx context.Context, ruleName string, overrideName string, override *v1limiter.OverrideProperties) *errors.ServerError
 
 	// read operations
 	GetOverride(ctx context.Context, ruleName string, overrideName string) (*v1limiter.Override, *errors.ServerError)

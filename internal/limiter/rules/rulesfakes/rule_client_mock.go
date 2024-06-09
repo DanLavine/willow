@@ -206,7 +206,7 @@ func (mr *MockRuleClientMockRecorder) QueryRules(arg0, arg1 any) *gomock.Call {
 }
 
 // UpdateOverride mocks base method.
-func (m *MockRuleClient) UpdateOverride(arg0 context.Context, arg1, arg2 string, arg3 *v1.OverrideUpdate) *errors.ServerError {
+func (m *MockRuleClient) UpdateOverride(arg0 context.Context, arg1, arg2 string, arg3 *v1.OverrideProperties) *errors.ServerError {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateOverride", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(*errors.ServerError)
@@ -220,7 +220,7 @@ func (mr *MockRuleClientMockRecorder) UpdateOverride(arg0, arg1, arg2, arg3 any)
 }
 
 // UpdateRule mocks base method.
-func (m *MockRuleClient) UpdateRule(arg0 context.Context, arg1 string, arg2 *v1.RuleUpdateRquest) *errors.ServerError {
+func (m *MockRuleClient) UpdateRule(arg0 context.Context, arg1 string, arg2 *v1.RuleProperties) *errors.ServerError {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateRule", arg0, arg1, arg2)
 	ret0, _ := ret[0].(*errors.ServerError)

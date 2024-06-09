@@ -60,9 +60,11 @@ func Test_Lock(t *testing.T) {
 
 		lockRequest := &v1locker.Lock{
 			Spec: &v1locker.LockSpec{
-				DBDeifinition: &dbdefinition.TypedKeyValues{
-					"key1": datatypes.String("key one"),
-					"key2": datatypes.String("key two"),
+				DBDefinition: &v1locker.LockDBDefinition{
+					KeyValues: dbdefinition.TypedKeyValues{
+						"key1": datatypes.String("key one"),
+						"key2": datatypes.String("key two"),
+					},
 				},
 			},
 		}
@@ -87,18 +89,22 @@ func Test_Lock(t *testing.T) {
 
 		lockRequest1 := &v1locker.Lock{
 			Spec: &v1locker.LockSpec{
-				DBDeifinition: &dbdefinition.TypedKeyValues{
-					"key1": datatypes.String("key one"),
-					"key2": datatypes.String("key two"),
+				DBDefinition: &v1locker.LockDBDefinition{
+					KeyValues: dbdefinition.TypedKeyValues{
+						"key1": datatypes.String("key one"),
+						"key2": datatypes.String("key two"),
+					},
 				},
 			},
 		}
 
 		lockRequest2 := &v1locker.Lock{
 			Spec: &v1locker.LockSpec{
-				DBDeifinition: &dbdefinition.TypedKeyValues{
-					"key1": datatypes.String("key one"),
-					"key3": datatypes.String("key two"),
+				DBDefinition: &v1locker.LockDBDefinition{
+					KeyValues: dbdefinition.TypedKeyValues{
+						"key1": datatypes.String("key one"),
+						"key3": datatypes.String("key two"),
+					},
 				},
 			},
 		}
@@ -132,9 +138,11 @@ func Test_Lock(t *testing.T) {
 
 		lockRequest := &v1locker.Lock{
 			Spec: &v1locker.LockSpec{
-				DBDeifinition: &dbdefinition.TypedKeyValues{
-					"key1": datatypes.String("key one"),
-					"key2": datatypes.String("key two"),
+				DBDefinition: &v1locker.LockDBDefinition{
+					KeyValues: dbdefinition.TypedKeyValues{
+						"key1": datatypes.String("key one"),
+						"key2": datatypes.String("key two"),
+					},
 				},
 			},
 		}
@@ -178,9 +186,11 @@ func Test_Lock(t *testing.T) {
 
 		lockRequest := &v1locker.Lock{
 			Spec: &v1locker.LockSpec{
-				DBDeifinition: &dbdefinition.TypedKeyValues{
-					"key1": datatypes.String("key one"),
-					"key2": datatypes.String("key two"),
+				DBDefinition: &v1locker.LockDBDefinition{
+					KeyValues: dbdefinition.TypedKeyValues{
+						"key1": datatypes.String("key one"),
+						"key2": datatypes.String("key two"),
+					},
 				},
 			},
 		}
@@ -222,11 +232,15 @@ func Test_Lock(t *testing.T) {
 
 		lockRequest := &v1locker.Lock{
 			Spec: &v1locker.LockSpec{
-				DBDeifinition: &dbdefinition.TypedKeyValues{
-					"key1": datatypes.String("key one"),
-					"key2": datatypes.String("key two"),
+				DBDefinition: &v1locker.LockDBDefinition{
+					KeyValues: dbdefinition.TypedKeyValues{
+						"key1": datatypes.String("key one"),
+						"key2": datatypes.String("key two"),
+					},
 				},
-				Timeout: helpers.PointerOf(time.Second),
+				Properties: &v1locker.LockProperties{
+					Timeout: helpers.PointerOf(time.Second),
+				},
 			},
 		}
 
@@ -261,9 +275,11 @@ func TestLocker_List_API(t *testing.T) {
 		// setup the first lock
 		lockRequest := &v1locker.Lock{
 			Spec: &v1locker.LockSpec{
-				DBDeifinition: &dbdefinition.TypedKeyValues{
-					"key1": datatypes.String("key one"),
-					"key2": datatypes.String("key two"),
+				DBDefinition: &v1locker.LockDBDefinition{
+					KeyValues: dbdefinition.TypedKeyValues{
+						"key1": datatypes.String("key one"),
+						"key2": datatypes.String("key two"),
+					},
 				},
 			},
 		}
@@ -278,9 +294,11 @@ func TestLocker_List_API(t *testing.T) {
 		// setup the second lock
 		lockRequest = &v1locker.Lock{
 			Spec: &v1locker.LockSpec{
-				DBDeifinition: &dbdefinition.TypedKeyValues{
-					"key1": datatypes.String("key one"),
-					"key3": datatypes.String("key three"),
+				DBDefinition: &v1locker.LockDBDefinition{
+					KeyValues: dbdefinition.TypedKeyValues{
+						"key1": datatypes.String("key one"),
+						"key3": datatypes.String("key three"),
+					},
 				},
 			},
 		}
@@ -309,10 +327,10 @@ func TestLocker_List_API(t *testing.T) {
 		g.Expect(json.Unmarshal(data, &locks)).ToNot(HaveOccurred())
 		g.Expect(len(locks)).To(Equal(2))
 
-		if reflect.DeepEqual(locks[0].Spec.DBDeifinition.ToKeyValues().SortedKeys(), []string{"key1", "key2"}) {
-			g.Expect(locks[1].Spec.DBDeifinition.ToKeyValues().SortedKeys()).To(Equal([]string{"key1", "key3"}))
+		if reflect.DeepEqual(locks[0].Spec.DBDefinition.KeyValues.ToKeyValues().SortedKeys(), []string{"key1", "key2"}) {
+			g.Expect(locks[1].Spec.DBDefinition.KeyValues.ToKeyValues().SortedKeys()).To(Equal([]string{"key1", "key3"}))
 		} else {
-			g.Expect(locks[1].Spec.DBDeifinition.ToKeyValues().SortedKeys()).To(Equal([]string{"key1", "key2"}))
+			g.Expect(locks[1].Spec.DBDefinition.KeyValues.ToKeyValues().SortedKeys()).To(Equal([]string{"key1", "key2"}))
 		}
 	})
 }
@@ -329,9 +347,11 @@ func TestLocker_Async_API_Threading_Checks(t *testing.T) {
 
 		lockRequest := &v1locker.Lock{
 			Spec: &v1locker.LockSpec{
-				DBDeifinition: &dbdefinition.TypedKeyValues{
-					"key1": datatypes.String("key one"),
-					"key2": datatypes.String("key two"),
+				DBDefinition: &v1locker.LockDBDefinition{
+					KeyValues: dbdefinition.TypedKeyValues{
+						"key1": datatypes.String("key one"),
+						"key2": datatypes.String("key two"),
+					},
 				},
 			},
 		}
@@ -411,9 +431,11 @@ func TestLocker_Async_API_Threading_Checks(t *testing.T) {
 
 				lockRequest := &v1locker.Lock{
 					Spec: &v1locker.LockSpec{
-						DBDeifinition: &dbdefinition.TypedKeyValues{
-							"key1": datatypes.String(fmt.Sprintf("%d", counter%5)),
-							"key2": datatypes.String(fmt.Sprintf("%d", counter%17)),
+						DBDefinition: &v1locker.LockDBDefinition{
+							KeyValues: dbdefinition.TypedKeyValues{
+								"key1": datatypes.String(fmt.Sprintf("%d", counter%5)),
+								"key2": datatypes.String(fmt.Sprintf("%d", counter%17)),
+							},
 						},
 					},
 				}
@@ -425,7 +447,7 @@ func TestLocker_Async_API_Threading_Checks(t *testing.T) {
 				lock, err := lockerClient.ObtainLock(ctx, lockRequest, nil)
 				g.Expect(err).ToNot(HaveOccurred())
 				if lock == nil {
-					fmt.Println("failed key values:", lockRequest.Spec.DBDeifinition)
+					fmt.Println("failed key values:", lockRequest.Spec.DBDefinition)
 				}
 				g.Expect(lock).ToNot(BeNil())
 

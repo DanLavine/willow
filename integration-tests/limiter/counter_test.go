@@ -5,11 +5,13 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/DanLavine/willow/internal/helpers"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 	"github.com/DanLavine/willow/testhelpers/testmodels"
 
 	limiterclient "github.com/DanLavine/willow/pkg/clients/limiter_client"
 	v1common "github.com/DanLavine/willow/pkg/models/api/common/v1"
+	dbdefinition "github.com/DanLavine/willow/pkg/models/api/common/v1/db_definition"
 	queryassociatedaction "github.com/DanLavine/willow/pkg/models/api/common/v1/query_associated_action"
 	v1 "github.com/DanLavine/willow/pkg/models/api/limiter/v1"
 
@@ -25,11 +27,17 @@ func Test_Limiter_Counters_Update(t *testing.T) {
 	createRule := func(g *GomegaWithT, limiterClient limiterclient.LimiterClient) {
 		// create rule
 		rule := &v1.Rule{
-			Name: "rule1",
-			GroupByKeyValues: datatypes.KeyValues{
-				"key0": datatypes.Any(),
+			Spec: &v1.RuleSpec{
+				DBDefinition: &v1.RuleDBDefinition{
+					Name: helpers.PointerOf[string]("rule1"),
+					GroupByKeyValues: dbdefinition.AnyKeyValues{
+						"key0": datatypes.Any(),
+					},
+				},
+				Properties: &v1.RuleProperties{
+					Limit: helpers.PointerOf[int64](5),
+				},
 			},
-			Limit: 5,
 		}
 
 		err := limiterClient.CreateRule(context.Background(), rule)
@@ -56,11 +64,17 @@ func Test_Limiter_Counters_Update(t *testing.T) {
 			//// the first 5 rules should go fine
 			for i := 0; i < 5; i++ {
 				counter := &v1.Counter{
-					KeyValues: datatypes.KeyValues{
-						"key0":                    datatypes.Int(0),
-						fmt.Sprintf("key%d", i+1): datatypes.Int(i),
+					Spec: &v1.CounterSpec{
+						DBDefinition: &v1.CounterDBDefinition{
+							KeyValues: dbdefinition.TypedKeyValues{
+								"key0":                    datatypes.Int(0),
+								fmt.Sprintf("key%d", i+1): datatypes.Int(i),
+							},
+						},
+						Properties: &v1.CounteProperties{
+							Counters: helpers.PointerOf[int64](1),
+						},
 					},
-					Counters: 1,
 				}
 
 				g.Expect(limiterClient.UpdateCounter(context.Background(), counter)).ToNot(HaveOccurred(), fmt.Sprintf("failed on counter %d", i))
@@ -68,11 +82,17 @@ func Test_Limiter_Counters_Update(t *testing.T) {
 
 			// the 6th value should be an error
 			counter := &v1.Counter{
-				KeyValues: datatypes.KeyValues{
-					"key0": datatypes.Int(0),
-					"key6": datatypes.Int(6),
+				Spec: &v1.CounterSpec{
+					DBDefinition: &v1.CounterDBDefinition{
+						KeyValues: dbdefinition.TypedKeyValues{
+							"key0": datatypes.Int(0),
+							"key6": datatypes.Int(7),
+						},
+					},
+					Properties: &v1.CounteProperties{
+						Counters: helpers.PointerOf[int64](1),
+					},
 				},
-				Counters: 1,
 			}
 			err := limiterClient.UpdateCounter(context.Background(), counter)
 			g.Expect(err).To(HaveOccurred())
@@ -95,11 +115,17 @@ func Test_Limiter_Counters_Update(t *testing.T) {
 
 			// decrement
 			counter := &v1.Counter{
-				KeyValues: datatypes.KeyValues{
-					"key0": datatypes.Int(0),
-					"key6": datatypes.Int(6),
+				Spec: &v1.CounterSpec{
+					DBDefinition: &v1.CounterDBDefinition{
+						KeyValues: dbdefinition.TypedKeyValues{
+							"key0": datatypes.Int(0),
+							"key6": datatypes.Int(6),
+						},
+					},
+					Properties: &v1.CounteProperties{
+						Counters: helpers.PointerOf[int64](-1),
+					},
 				},
-				Counters: -1,
 			}
 			err := limiterClient.UpdateCounter(context.Background(), counter)
 			g.Expect(err).ToNot(HaveOccurred())
@@ -124,11 +150,17 @@ func Test_Limiter_Counters_Update(t *testing.T) {
 			//// the first 5 rules should go fine
 			for i := 0; i < 5; i++ {
 				counter := &v1.Counter{
-					KeyValues: datatypes.KeyValues{
-						"key0":                    datatypes.Int(0),
-						fmt.Sprintf("key%d", i+1): datatypes.Int(i + 1),
+					Spec: &v1.CounterSpec{
+						DBDefinition: &v1.CounterDBDefinition{
+							KeyValues: dbdefinition.TypedKeyValues{
+								"key0":                    datatypes.Int(0),
+								fmt.Sprintf("key%d", i+1): datatypes.Int(i + 1),
+							},
+						},
+						Properties: &v1.CounteProperties{
+							Counters: helpers.PointerOf[int64](1),
+						},
 					},
-					Counters: 1,
 				}
 
 				g.Expect(limiterClient.UpdateCounter(context.Background(), counter)).ToNot(HaveOccurred(), fmt.Sprintf("failed on counter %d", i))
@@ -136,11 +168,17 @@ func Test_Limiter_Counters_Update(t *testing.T) {
 
 			// the try incrementing a vlue that already exists
 			incrementCounter := &v1.Counter{
-				KeyValues: datatypes.KeyValues{
-					"key0": datatypes.Int(0),
-					"key5": datatypes.Int(5),
+				Spec: &v1.CounterSpec{
+					DBDefinition: &v1.CounterDBDefinition{
+						KeyValues: dbdefinition.TypedKeyValues{
+							"key0": datatypes.Int(0),
+							"key5": datatypes.Int(5),
+						},
+					},
+					Properties: &v1.CounteProperties{
+						Counters: helpers.PointerOf[int64](1),
+					},
 				},
-				Counters: 1,
 			}
 			err := limiterClient.UpdateCounter(context.Background(), incrementCounter)
 			g.Expect(err).To(HaveOccurred())
@@ -148,11 +186,17 @@ func Test_Limiter_Counters_Update(t *testing.T) {
 
 			// perform a decrement
 			decrementCounter := &v1.Counter{
-				KeyValues: datatypes.KeyValues{
-					"key0": datatypes.Int(0),
-					"key5": datatypes.Int(5),
+				Spec: &v1.CounterSpec{
+					DBDefinition: &v1.CounterDBDefinition{
+						KeyValues: dbdefinition.TypedKeyValues{
+							"key0": datatypes.Int(0),
+							"key5": datatypes.Int(5),
+						},
+					},
+					Properties: &v1.CounteProperties{
+						Counters: helpers.PointerOf[int64](-1),
+					},
 				},
-				Counters: -1,
 			}
 			err = limiterClient.UpdateCounter(context.Background(), decrementCounter)
 			g.Expect(err).ToNot(HaveOccurred())
@@ -182,42 +226,65 @@ func Test_Limiter_Counters_Query(t *testing.T) {
 		limiterClient := setupClient(g, limiterTestConstruct.ServerURL)
 
 		// create a number of counters
-		kv1 := datatypes.KeyValues{
+		kv1 := dbdefinition.TypedKeyValues{
 			"key0": datatypes.Int(0),
 			"key1": datatypes.Int(1),
 			"key2": datatypes.Int(2),
 		}
 		counter1 := &v1.Counter{
-			KeyValues: kv1,
-			Counters:  1,
+			Spec: &v1.CounterSpec{
+				DBDefinition: &v1.CounterDBDefinition{
+					KeyValues: kv1,
+				},
+				Properties: &v1.CounteProperties{
+					Counters: helpers.PointerOf[int64](1),
+				},
+			},
 		}
 		g.Expect(limiterClient.UpdateCounter(context.Background(), counter1)).ToNot(HaveOccurred())
 
-		kv2 := datatypes.KeyValues{
+		kv2 := dbdefinition.TypedKeyValues{
 			"key0": datatypes.String("0"),
 			"key1": datatypes.String("1"),
 			"key2": datatypes.String("2"),
 		}
 		counter2 := &v1.Counter{
-			KeyValues: kv2,
-			Counters:  1,
-		}
+			Spec: &v1.CounterSpec{
+				DBDefinition: &v1.CounterDBDefinition{
+					KeyValues: kv2,
+				},
+				Properties: &v1.CounteProperties{
+					Counters: helpers.PointerOf[int64](1),
+				},
+			}}
 		g.Expect(limiterClient.UpdateCounter(context.Background(), counter2)).ToNot(HaveOccurred())
 		g.Expect(limiterClient.UpdateCounter(context.Background(), counter2)).ToNot(HaveOccurred())
 
 		counter3 := &v1.Counter{
-			KeyValues: datatypes.KeyValues{
-				"key0": datatypes.String("0"),
+			Spec: &v1.CounterSpec{
+				DBDefinition: &v1.CounterDBDefinition{
+					KeyValues: dbdefinition.TypedKeyValues{
+						"key0": datatypes.String("0"),
+					},
+				},
+				Properties: &v1.CounteProperties{
+					Counters: helpers.PointerOf[int64](1),
+				},
 			},
-			Counters: 1,
 		}
 		g.Expect(limiterClient.UpdateCounter(context.Background(), counter3)).ToNot(HaveOccurred())
 
 		counter4 := &v1.Counter{
-			KeyValues: datatypes.KeyValues{
-				"key0": datatypes.Int8(0),
+			Spec: &v1.CounterSpec{
+				DBDefinition: &v1.CounterDBDefinition{
+					KeyValues: dbdefinition.TypedKeyValues{
+						"key0": datatypes.Int8(0),
+					},
+				},
+				Properties: &v1.CounteProperties{
+					Counters: helpers.PointerOf[int64](1),
+				},
 			},
-			Counters: 1,
 		}
 		g.Expect(limiterClient.UpdateCounter(context.Background(), counter4)).ToNot(HaveOccurred())
 
@@ -235,12 +302,30 @@ func Test_Limiter_Counters_Query(t *testing.T) {
 		}
 
 		counterResp1 := &v1.Counter{
-			KeyValues: kv1,
-			Counters:  1,
+			Spec: &v1.CounterSpec{
+				DBDefinition: &v1.CounterDBDefinition{
+					KeyValues: kv1,
+				},
+				Properties: &v1.CounteProperties{
+					Counters: helpers.PointerOf[int64](1),
+				},
+			},
+			State: &v1.CounterState{
+				Deleting: false,
+			},
 		}
 		countersResp2 := &v1.Counter{
-			KeyValues: kv2,
-			Counters:  2,
+			Spec: &v1.CounterSpec{
+				DBDefinition: &v1.CounterDBDefinition{
+					KeyValues: kv2,
+				},
+				Properties: &v1.CounteProperties{
+					Counters: helpers.PointerOf[int64](2),
+				},
+			},
+			State: &v1.CounterState{
+				Deleting: false,
+			},
 		}
 
 		counters, err := limiterClient.QueryCounters(context.Background(), query)
@@ -269,31 +354,52 @@ func Test_Limiter_Counters_Set(t *testing.T) {
 
 		// create a restrictive rule
 		rule := &v1.Rule{
-			Name: "rule1",
-			GroupByKeyValues: datatypes.KeyValues{
-				"key1": datatypes.Any(),
-				"key2": datatypes.Any(),
+			Spec: &v1.RuleSpec{
+				DBDefinition: &v1.RuleDBDefinition{
+					Name: helpers.PointerOf[string]("rule1"),
+					GroupByKeyValues: dbdefinition.AnyKeyValues{
+						"key1": datatypes.Any(),
+						"key2": datatypes.Any(),
+					},
+				},
+				Properties: &v1.RuleProperties{
+					Limit: helpers.PointerOf[int64](5),
+				},
 			},
-			Limit: 5,
 		}
 		g.Expect(limiterClient.CreateRule(context.Background(), rule)).ToNot(HaveOccurred())
 
 		// set a counter for the rule thats above the count
-		kv1 := datatypes.KeyValues{
+		kv1 := dbdefinition.TypedKeyValues{
 			"key0": datatypes.Int(0),
 			"key1": datatypes.Int(1),
 			"key2": datatypes.Int(2),
 		}
 		counter1 := &v1.Counter{
-			KeyValues: kv1,
-			Counters:  32,
+			Spec: &v1.CounterSpec{
+				DBDefinition: &v1.CounterDBDefinition{
+					KeyValues: kv1,
+				},
+				Properties: &v1.CounteProperties{
+					Counters: helpers.PointerOf[int64](32),
+				},
+			},
 		}
 		g.Expect(limiterClient.SetCounters(context.Background(), counter1)).ToNot(HaveOccurred())
 
 		// query the counters
 		countersResp1 := &v1.Counter{
-			KeyValues: kv1,
-			Counters:  32,
+			Spec: &v1.CounterSpec{
+				DBDefinition: &v1.CounterDBDefinition{
+					KeyValues: kv1,
+				},
+				Properties: &v1.CounteProperties{
+					Counters: helpers.PointerOf[int64](32),
+				},
+			},
+			State: &v1.CounterState{
+				Deleting: false,
+			},
 		}
 
 		counters, err := limiterClient.QueryCounters(context.Background(), &queryassociatedaction.AssociatedActionQuery{})
@@ -316,31 +422,49 @@ func Test_Limiter_Counters_Set(t *testing.T) {
 
 		// create a restrictive rule
 		rule := &v1.Rule{
-			Name: "rule1",
-			GroupByKeyValues: datatypes.KeyValues{
-				"key1": datatypes.Any(),
-				"key2": datatypes.Any(),
+			Spec: &v1.RuleSpec{
+				DBDefinition: &v1.RuleDBDefinition{
+					Name: helpers.PointerOf[string]("rule1"),
+					GroupByKeyValues: dbdefinition.AnyKeyValues{
+						"key1": datatypes.Any(),
+						"key2": datatypes.Any(),
+					},
+				},
+				Properties: &v1.RuleProperties{
+					Limit: helpers.PointerOf[int64](5),
+				},
 			},
-			Limit: 5,
 		}
 		g.Expect(limiterClient.CreateRule(context.Background(), rule)).ToNot(HaveOccurred())
 
 		// set a counter for the rule thats above the count
-		kv1 := datatypes.KeyValues{
+		kv1 := dbdefinition.TypedKeyValues{
 			"key0": datatypes.Int(0),
 			"key1": datatypes.Int(1),
 			"key2": datatypes.Int(2),
 		}
 		counter1 := &v1.Counter{
-			KeyValues: kv1,
-			Counters:  32,
+			Spec: &v1.CounterSpec{
+				DBDefinition: &v1.CounterDBDefinition{
+					KeyValues: kv1,
+				},
+				Properties: &v1.CounteProperties{
+					Counters: helpers.PointerOf[int64](32),
+				},
+			},
 		}
 		g.Expect(limiterClient.SetCounters(context.Background(), counter1)).ToNot(HaveOccurred())
 
 		// reset the counters to 0 to remove the item
 		counter3 := &v1.Counter{
-			KeyValues: kv1,
-			Counters:  0,
+			Spec: &v1.CounterSpec{
+				DBDefinition: &v1.CounterDBDefinition{
+					KeyValues: kv1,
+				},
+				Properties: &v1.CounteProperties{
+					Counters: helpers.PointerOf[int64](0),
+				},
+			},
 		}
 		g.Expect(limiterClient.SetCounters(context.Background(), counter3)).ToNot(HaveOccurred())
 

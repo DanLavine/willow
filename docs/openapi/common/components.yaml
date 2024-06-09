@@ -8,132 +8,55 @@ components:
         Error:
           type: string
 
-    # Defines how values should be parsed
-    DataTypeAny:
-      type: integer
+    # Match setup
+    MatchQuery:
+      type: object
       description: |
-        DataType indicates how to parse and convert the provided Value. In this case
-        we are able to use the `Any` type to match against all other `Values`:
-
-        1: uint8\
-        2: uint16\
-        3: uint32\
-        4: uint64\
-        5: uint\
-        6: int8\
-        7: int16\
-        8: int32\
-        9: int64\
-        10: int\
-        11: float32\
-        12: float64\
-        13: string\
-        1024: any
-      enum: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 1024]
+        Match is used to take all permutations of the provided KeyValues and match them against anything
+        found in the database. A match is only found if all the keys of the item in the DB have the permutations
+        of the KeyValues provided
+      required:
+        - KeyValues
+      properties:
+        KeyValues:
+          type: object
+          description: |
+            All combination of possible KeyValue permutations will be used for these values provided
+          additionalProperties:
+            title: KeyValues
+            x-additionalPropertiesName: KeyValues
+            properties:
+              Value:
+                description: |
+                  Encapsulated Value that defines how to parse the object on the service side
+                oneOf:
+                  - $ref: "./encapsulated_values.yaml#/components/schemas/Uint8"
+                  - $ref: "./encapsulated_values.yaml#/components/schemas/Uint16"
+                  - $ref: "./encapsulated_values.yaml#/components/schemas/Uint32"
+                  - $ref: "./encapsulated_values.yaml#/components/schemas/Uint64"
+                  - $ref: "./encapsulated_values.yaml#/components/schemas/Uint"
+                  - $ref: "./encapsulated_values.yaml#/components/schemas/Int8"
+                  - $ref: "./encapsulated_values.yaml#/components/schemas/Int16"
+                  - $ref: "./encapsulated_values.yaml#/components/schemas/Int32"
+                  - $ref: "./encapsulated_values.yaml#/components/schemas/Int64"
+                  - $ref: "./encapsulated_values.yaml#/components/schemas/Int"
+                  - $ref: "./encapsulated_values.yaml#/components/schemas/Float32"
+                  - $ref: "./encapsulated_values.yaml#/components/schemas/Float64"
+                  - $ref: "./encapsulated_values.yaml#/components/schemas/String"
+                  - $ref: "./encapsulated_values.yaml#/components/schemas/Any"
+              TypeRestrictions:
+                $ref: "./db_definitions.yaml#/components/schemas/TypeRestrictions"
+        MinNumberOfPermutationKeyValues:
+          type: integer
+          description: |
+            Minimum Number of Keys that are required for items in the DB
+        MaxNumberOfPermutationKeyValues:
+          type: integer
+          description: |
+            Maximum number of Keys that will be used when matching items in the DB
     
-    # Defines how values should be parsed
-    DataTypeTyped:
-      type: integer
-      description: |
-        DataType indicates how to parse and convert the provided Value:
-
-        1: uint8\
-        2: uint16\
-        3: uint32\
-        4: uint64\
-        5: uint\
-        6: int8\
-        7: int16\
-        8: int32\
-        9: int64\
-        10: int\
-        11: float32\
-        12: float64\
-        13: string
-      enum: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]
-
-
-    # Generic data type wrapper for any Values in a Key Value pairing
-    EncapsulatedValueAny:
-      type: object
-      required:
-        - DataType
-        - Value
-      properties:
-        DataType:
-          $ref: "#/components/schemas/DataTypeAny"
-        Value:
-          description: |
-            String value for the associated DataType that can be convertied into the desribed type
-          type: string
-    EncapsulatedValueTyped:
-      type: object
-      required:
-        - DataType
-        - Value
-      properties:
-        DataType:
-          $ref: "#/components/schemas/DataTypeTyped"
-        Value:
-          description: |
-            String value for the associated DataType that can be convertied into the desribed type
-          type: string
-
-    # Map of encapsulated value for all types but Any
-    KeyValuesTyped:
-      type: object
-      description: |
-        Map of encapsulated value for all types but Any
-      additionalProperties:
-        title: KeyValuesTyped
-        x-additionalPropertiesName: KeyValuesTyped
-        type: object
-        required:
-          - DataType
-          - Value
-        properties:
-          DataType:
-            $ref: "#/components/schemas/DataTypeTyped"
-          Value:
-            description: |
-              String value for the associated DataType that can be convertied into the desribed type
-            type: string
-        #$ref: "#/components/schemas/EncapsulatedValue"
-
-    # Map of encapsulated value for all types but Any
-    KeyValuesAny:
-      type: object
-      description: |
-        Map of encapsulated value for all types but Any
-      additionalProperties:
-        title: KeyValuesAny
-        x-additionalPropertiesName: KeyValuesAny
-        type: object
-        required:
-          - DataType
-          - Value
-        properties:
-          DataType:
-            $ref: "#/components/schemas/DataTypeAny"
-          Value:
-            description: |
-              String value for the associated DataType that can be convertied into the desribed type
-            type: string
-          
-        #$ref: "#/components/schemas/EncapsulatedValue"
-
-
-    # # Match KeyValues
-    # MatchQuery:
-    #   type: object
-    #   properties:
-    #     KeyValues:
-    #       description: |
-    #         Leave this empty to match all possible KeyValues
-    #       allOf:
-    #         - $ref: "#/components/schemas/KeyValues"
-
-    # General query thats used all over the place
+    
+    # assiciation setup
     AssociatedQuery:
       type: object
       description: |
@@ -167,7 +90,18 @@ components:
           items:
             type: string
         KeyValues:
-          $ref: "#/components/schemas/AssociatedQueryKeyValues"
+          description: |
+            Map of Keys with the specifics on what Values to search for
+          additionalProperties:
+            title: Key
+            x-additionalPropertiesName: Key
+            oneOf:
+              - $ref: "#/components/schemas/AssociatedQueryEquals"
+              - $ref: "#/components/schemas/AssociatedQueryNotEquals"
+              - $ref: "#/components/schemas/AssociatedQueryLessThan"
+              - $ref: "#/components/schemas/AssociatedQueryLessThanOrEqual"
+              - $ref: "#/components/schemas/AssociatedQueryGreaterThan"
+              - $ref: "#/components/schemas/AssociatedQueryGreaterThanOrEqual"
         MinNumberOfKeuValues:
           type: integer
           description: |
@@ -177,171 +111,71 @@ components:
           description: |
             Optional parameter that will enforce the max number of KeyValue pairs that make up an object in the DB
           
-    AssociatedQueryKeyValues:
-      type: object
-      description: |
-        Map of Keys with a Query Definition for the `Value`
-      additionalProperties:
-        # title: AssociatedQueryKeyValues
-        # x-additionalPropertiesName: AssociatedQueryKeyValues
-        # type: object
-        # required:
-        #   - Value
-        #   - Comparison
-        #   - TypeRestrictions
-        #properties:
-        oneOf:
-          - $ref: "#/components/schemas/AssociatedQueryEquals"
-          - $ref: "#/components/schemas/AssociatedQueryNotEquals"
-          - $ref: "#/components/schemas/AssociatedQueryLessThan"
-          - $ref: "#/components/schemas/AssociatedQueryLessThanOrEqual"
-          - $ref: "#/components/schemas/AssociatedQueryGreaterThan"
-          - $ref: "#/components/schemas/AssociatedQueryGreaterThanOrEqual"
-
 
     AssociatedQueryEquals:
       title: "Equals"
       type: object
       properties:
         Value:
-          $ref: "#/components/schemas/EncapsulatedValueAny"
+          $ref: "./db_definitions.yaml#/components/schemas/AnyKeyValues"
         Comparison:
           type: string
           enum: ["="]
         TypeRestrictions:
-          $ref: "#/components/schemas/TypeRestrictions"
+          $ref: "./db_definitions.yaml#/components/schemas/TypeRestrictions"
     AssociatedQueryNotEquals:
       title: "Not Equals"
       type: object
       properties:
         Value:
-          $ref: "#/components/schemas/EncapsulatedValueAny"
+          $ref: "./db_definitions.yaml#/components/schemas/AnyKeyValues"
         Comparison:
           type: string
           enum: ["!="]
         TypeRestrictions:
-          $ref: "#/components/schemas/TypeRestrictions"
+          $ref: "./db_definitions.yaml#/components/schemas/TypeRestrictions"
     AssociatedQueryLessThan:
       title: "Less Than"
       type: object
       properties:
         Value:
-          $ref: "#/components/schemas/EncapsulatedValueTyped"
+          $ref: "./db_definitions.yaml#/components/schemas/TypedKeyValues"
         Comparison:
           type: string
           enum: ["<"]
         TypeRestrictions:
-          $ref: "#/components/schemas/TypeRestrictions"
+          $ref: "./db_definitions.yaml#/components/schemas/TypeRestrictions"
     AssociatedQueryLessThanOrEqual:
       title: "Less Than Or Equal"
       type: object
       properties:
         Value:
-          $ref: "#/components/schemas/EncapsulatedValueTyped"
+          $ref: "./db_definitions.yaml#/components/schemas/TypedKeyValues"
         Comparison:
           type: string
           enum: ["<="]
         TypeRestrictions:
-          $ref: "#/components/schemas/TypeRestrictions"
+          $ref: "./db_definitions.yaml#/components/schemas/TypeRestrictions"
     AssociatedQueryGreaterThan:
       title: "Greater Than"
       type: object
       properties:
         Value:
-          $ref: "#/components/schemas/EncapsulatedValueTyped"
+          $ref: "./db_definitions.yaml#/components/schemas/TypedKeyValues"
         Comparison:
           type: string
           enum: [">"]
         TypeRestrictions:
-          $ref: "#/components/schemas/TypeRestrictions"
+          $ref: "./db_definitions.yaml#/components/schemas/TypeRestrictions"
     AssociatedQueryGreaterThanOrEqual:
       title: "Greater Than Or Equal"
       type: object
       properties:
         Value:
-          $ref: "#/components/schemas/EncapsulatedValueTyped"
+          $ref: "./db_definitions.yaml#/components/schemas/TypedKeyValues"
         Comparison:
           type: string
           enum: [">="]
         TypeRestrictions:
-          $ref: "#/components/schemas/TypeRestrictions"        
-     
-     
+          $ref: "./db_definitions.yaml#/components/schemas/TypeRestrictions"
 
-
-    TypeRestrictions:
-      type: object
-      description: |
-        Restrictions to place on possible Value's for the specified key. 
-      properties:
-        MinDataType:
-          description: |
-            Specifies the min types a value in the DB can be compared against 
-          $ref: "#/components/schemas/DataTypeAny" 
-        MaxDataType:
-          description: |
-            Specifies the max types a value in the DB can be compared against 
-          $ref: "#/components/schemas/DataTypeAny" 
-
-    # AssociatedKeyValuesQuery:
-    #   type: object
-    #   description: |
-    #     General query that is used for many list apis. When resolving the query,
-    #     'and' operations have higher precedent than 'or'
-    #   properties:
-    #     AssociatedKeyValues:
-    #       allOf:
-    #         - $ref: "#/components/schemas/AssociatedKeyValues"
-
-    # # Map of KeyValues
-    # KeyValueSelection:
-    #   type: object
-    #   description: |
-    #     Selection of key values to query. The 'Limits' parameter can be used to find the exact
-    #     `KeyValues` to find. If this is not provided, then any saved `KeyValues` will be used
-    #     that match the requested 'KeyValues'
-    #   properties:
-    #     KeyValues:
-    #       type: object
-    #       description: |
-    #         Map of Values
-    #       additionalProperties:
-    #         $ref: "#/components/schemas/Values"
-    #     Limits:
-    #       type: object
-    #       properties:
-    #         KeyLimits:
-    #           type: integer
-
-    # # Values query selection
-    # Values:
-    #   type: object
-    #   description: |
-    #     Query selection that needs to be either 'Exists' or 'Value' check
-    #   properties:
-    #     Exists:
-    #       description: |
-    #         Pointer that can be used to select any value when true, or exclude values when false
-    #       type: bool
-    #     ExistsType:
-    #       $ref: "#/components/schemas/DataType"
-    #     Value:
-    #       $ref: "#/components/schemas/EncapsulatedValue"
-    #     ValueComparison:
-    #       description: |
-    #         parameter that is required when `Value` is set. For any of the comparisons that include
-    #         the 'MATCH' string, it enforces that the `Value's` type matches all results of the query.
-    #       type: string
-    #       enum:
-    #         [
-    #           "=",
-    #           "!=",
-    #           "<",
-    #           "< MATCH",
-    #           "<=",
-    #           "<= MATCH",
-    #           ">",
-    #           "> MATCH",
-    #           ">=",
-    #           ">= MATCH",
-    #         ]

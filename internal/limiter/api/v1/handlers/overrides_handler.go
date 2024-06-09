@@ -22,7 +22,7 @@ func (grh *groupRuleHandler) CreateOverride(w http.ResponseWriter, r *http.Reque
 
 	// parse the override from the request
 	override := &v1limiter.Override{}
-	if err := api.ModelDecodeRequest(r, override); err != nil {
+	if err := api.ObjectDecodeRequest(r, override); err != nil {
 		logger.Warn("failed to decode and validate request", zap.Error(err))
 		_, _ = api.ModelEncodeResponse(w, err.StatusCode, err)
 		return
@@ -122,7 +122,7 @@ func (grh *groupRuleHandler) UpdateOverride(w http.ResponseWriter, r *http.Reque
 	defer logger.Debug("processed request")
 
 	// parse the update parameters
-	overrideUpdate := &v1limiter.OverrideUpdate{}
+	overrideUpdate := &v1limiter.OverrideProperties{}
 	if err := api.ModelDecodeRequest(r, overrideUpdate); err != nil {
 		logger.Warn("failed to decode and validate request", zap.Error(err))
 		_, _ = api.ModelEncodeResponse(w, err.StatusCode, err)

@@ -6,12 +6,14 @@ import (
 	"net/http"
 
 	btreeassociated "github.com/DanLavine/willow/internal/datastructures/btree_associated"
+	"github.com/DanLavine/willow/internal/helpers"
 	"github.com/DanLavine/willow/internal/limiter/overrides"
 	"github.com/DanLavine/willow/internal/middleware"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 	"go.uber.org/zap"
 
 	"github.com/DanLavine/willow/pkg/models/api/common/errors"
+	dbdefinition "github.com/DanLavine/willow/pkg/models/api/common/v1/db_definition"
 	queryassociatedaction "github.com/DanLavine/willow/pkg/models/api/common/v1/query_associated_action"
 	querymatchaction "github.com/DanLavine/willow/pkg/models/api/common/v1/query_match_action"
 	v1limiter "github.com/DanLavine/willow/pkg/models/api/limiter/v1"
@@ -52,11 +54,11 @@ func (rm *localRulesCient) CreateRule(ctx context.Context, rule *v1limiter.Rule)
 	_, logger := middleware.GetNamedMiddlewareLogger(ctx, "CreateRule")
 
 	onCreate := func() any {
-		return rm.ruleConstructor.New(rule)
+		return rm.ruleConstructor.New(rule.Spec.Properties)
 	}
 
 	// create the rule only if the name is free
-	if err := rm.rules.CreateWithID(rule.Name, rule.GroupByKeyValues, onCreate); err != nil {
+	if err := rm.rules.CreateWithID(*rule.Spec.DBDefinition.Name, rule.Spec.DBDefinition.GroupByKeyValues.ToKeyValues(), onCreate); err != nil {
 		switch err {
 		case btreeassociated.ErrorTreeItemDestroying:
 			logger.Warn("failed to create rule. rule is currently being destroy")
@@ -85,9 +87,18 @@ func (rm *localRulesCient) QueryRules(ctx context.Context, ruleQuery *queryassoc
 		rule := associatedKeyValues.Value().(Rule)
 
 		foundRules = append(foundRules, &v1limiter.Rule{
-			Name:             associatedKeyValues.AssociatedID(),
-			GroupByKeyValues: associatedKeyValues.KeyValues(),
-			Limit:            rule.Limit(),
+			Spec: &v1limiter.RuleSpec{
+				DBDefinition: &v1limiter.RuleDBDefinition{
+					Name:             helpers.PointerOf(associatedKeyValues.AssociatedID()),
+					GroupByKeyValues: dbdefinition.KeyValuesToAnyKeyValues(associatedKeyValues.KeyValues()),
+				},
+				Properties: &v1limiter.RuleProperties{
+					Limit: helpers.PointerOf(rule.Limit()),
+				},
+			},
+			State: &v1limiter.RuleState{
+				Overrides: v1limiter.Overrides{},
+			},
 		})
 
 		return true
@@ -110,9 +121,18 @@ func (rm *localRulesCient) MatchRules(ctx context.Context, ruleMatch *querymatch
 		rule := associatedKeyValues.Value().(Rule)
 
 		foundRules = append(foundRules, &v1limiter.Rule{
-			Name:             associatedKeyValues.AssociatedID(),
-			GroupByKeyValues: associatedKeyValues.KeyValues(),
-			Limit:            rule.Limit(),
+			Spec: &v1limiter.RuleSpec{
+				DBDefinition: &v1limiter.RuleDBDefinition{
+					Name:             helpers.PointerOf(associatedKeyValues.AssociatedID()),
+					GroupByKeyValues: dbdefinition.KeyValuesToAnyKeyValues(associatedKeyValues.KeyValues()),
+				},
+				Properties: &v1limiter.RuleProperties{
+					Limit: helpers.PointerOf(rule.Limit()),
+				},
+			},
+			State: &v1limiter.RuleState{
+				Overrides: v1limiter.Overrides{},
+			},
 		})
 
 		return true
@@ -145,9 +165,18 @@ func (rm *localRulesCient) GetRule(ctx context.Context, ruleName string) (*v1lim
 		errorMissingRuleName = nil
 
 		apiRule = &v1limiter.Rule{
-			Name:             associatedKeyValues.AssociatedID(),
-			GroupByKeyValues: associatedKeyValues.KeyValues(),
-			Limit:            rule.Limit(),
+			Spec: &v1limiter.RuleSpec{
+				DBDefinition: &v1limiter.RuleDBDefinition{
+					Name:             helpers.PointerOf(associatedKeyValues.AssociatedID()),
+					GroupByKeyValues: dbdefinition.KeyValuesToAnyKeyValues(associatedKeyValues.KeyValues()),
+				},
+				Properties: &v1limiter.RuleProperties{
+					Limit: helpers.PointerOf(rule.Limit()),
+				},
+			},
+			State: &v1limiter.RuleState{
+				Overrides: v1limiter.Overrides{},
+			},
 		}
 
 		return true
@@ -174,13 +203,13 @@ func (rm *localRulesCient) GetRule(ctx context.Context, ruleName string) (*v1lim
 //	- *errors.ServerError - error response for the client if something unexpected happens
 //
 // Create new Rule
-func (rm *localRulesCient) UpdateRule(ctx context.Context, ruleName string, update *v1limiter.RuleUpdateRquest) *errors.ServerError {
+func (rm *localRulesCient) UpdateRule(ctx context.Context, ruleName string, update *v1limiter.RuleProperties) *errors.ServerError {
 	_, logger := middleware.GetNamedMiddlewareLogger(ctx, "UpdateRule")
 
 	updateErr := errorMissingRuleName(ruleName)
 	bTreeAssociatedOnIterate := func(item btreeassociated.AssociatedKeyValues) bool {
 		rule := item.Value().(Rule)
-		updateErr = rule.Update(logger, update)
+		updateErr = rule.Update(update)
 
 		return false
 	}
@@ -250,7 +279,7 @@ func (rm *localRulesCient) CreateOverride(ctx context.Context, ruleName string, 
 	bTreeAssociatedOnFind := func(item btreeassociated.AssociatedKeyValues) bool {
 		// 1.  ensure that the override has all the group by keys
 		for key, _ := range item.KeyValues() {
-			if _, ok := override.KeyValues[key]; !ok {
+			if _, ok := override.Spec.DBDefinition.GroupByKeyValues[key]; !ok {
 				overrideErr = &errors.ServerError{Message: fmt.Sprintf("Missing Rule's GroubBy keys in the override: %s", key), StatusCode: http.StatusBadRequest}
 				return false
 			}
@@ -377,7 +406,7 @@ func (rm *localRulesCient) GetOverride(ctx context.Context, ruleName string, ove
 }
 
 // Update an override by its name
-func (rm *localRulesCient) UpdateOverride(ctx context.Context, ruleName string, overrideName string, override *v1limiter.OverrideUpdate) *errors.ServerError {
+func (rm *localRulesCient) UpdateOverride(ctx context.Context, ruleName string, overrideName string, override *v1limiter.OverrideProperties) *errors.ServerError {
 	ctx, logger := middleware.GetNamedMiddlewareLogger(ctx, "UpdateOverride")
 
 	overrideErr := errorMissingRuleName(ruleName)
@@ -453,20 +482,28 @@ func (rm localRulesCient) FindLimits(ctx context.Context, keyValues datatypes.Ke
 
 		// 2. append the rule
 		newRule := &v1limiter.Rule{
-			Name:             item.AssociatedID(),
-			GroupByKeyValues: item.KeyValues(),
-			Limit:            item.Value().(Rule).Limit(),
-			Overrides:        overrides,
+			Spec: &v1limiter.RuleSpec{
+				DBDefinition: &v1limiter.RuleDBDefinition{
+					Name:             helpers.PointerOf(item.AssociatedID()),
+					GroupByKeyValues: dbdefinition.KeyValuesToAnyKeyValues(item.KeyValues()),
+				},
+				Properties: &v1limiter.RuleProperties{
+					Limit: helpers.PointerOf(item.Value().(Rule).Limit()),
+				},
+			},
+			State: &v1limiter.RuleState{
+				Overrides: overrides,
+			},
 		}
 		rules = append(rules, newRule)
 
 		// 3. check if we can stop early
-		if len(newRule.Overrides) == 0 {
-			if newRule.Limit == 0 {
+		if len(newRule.State.Overrides) == 0 {
+			if *newRule.Spec.Properties.Limit == 0 {
 				return false
 			}
-		} else if newRule.Limit == 0 {
-			if newRule.Overrides[len(newRule.Overrides)-1].Limit == 0 {
+		} else if *newRule.Spec.Properties.Limit == 0 {
+			if *newRule.State.Overrides[len(newRule.State.Overrides)-1].Spec.Properties.Limit == 0 {
 				return false
 			}
 		}

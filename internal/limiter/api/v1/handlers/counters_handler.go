@@ -23,13 +23,13 @@ func (grh *groupRuleHandler) UpsertCounters(w http.ResponseWriter, r *http.Reque
 
 	// parse the counter increment
 	counter := &v1limiter.Counter{}
-	if err := api.ModelDecodeRequest(r, counter); err != nil {
+	if err := api.ObjectDecodeRequest(r, counter); err != nil {
 		logger.Warn("failed to decode and validate request", zap.Error(err))
 		_, _ = api.ModelEncodeResponse(w, err.StatusCode, err)
 		return
 	}
 
-	if counter.Counters > 0 {
+	if *counter.Spec.Properties.Counters > 0 {
 		// this is an increment request
 
 		// need to always setup a new lock client for each request. This is because each update to the counters
@@ -42,7 +42,10 @@ func (grh *groupRuleHandler) UpsertCounters(w http.ResponseWriter, r *http.Reque
 			return
 		}
 
-		if err := grh.counterClient.IncrementCounters(ctx, contextops.MergeForDone(r.Context(), grh.shutdownContext), lockerClient, counter); err != nil {
+		ctx, cancel := contextops.MergeDone(ctx, grh.shutdownContext)
+		defer cancel()
+
+		if err := grh.counterClient.IncrementCounters(ctx, lockerClient, counter); err != nil {
 			_, _ = api.ModelEncodeResponse(w, err.StatusCode, err)
 			return
 		}
@@ -91,7 +94,7 @@ func (grh *groupRuleHandler) SetCounters(w http.ResponseWriter, r *http.Request)
 
 	// parse the countrs set
 	counter := &v1limiter.Counter{}
-	if err := api.ModelDecodeRequest(r, counter); err != nil {
+	if err := api.ObjectDecodeRequest(r, counter); err != nil {
 		logger.Warn("failed to decode and validate request", zap.Error(err))
 		_, _ = api.ModelEncodeResponse(w, err.StatusCode, err)
 		return

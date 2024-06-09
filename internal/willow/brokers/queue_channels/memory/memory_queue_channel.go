@@ -10,10 +10,12 @@ import (
 	"github.com/DanLavine/goasync"
 	"github.com/DanLavine/gonotify"
 	"github.com/DanLavine/willow/internal/datastructures/btree"
+	"github.com/DanLavine/willow/internal/helpers"
 	"github.com/DanLavine/willow/internal/idgenerator"
 	"github.com/DanLavine/willow/internal/middleware"
 	"github.com/DanLavine/willow/internal/reporting"
 	"github.com/DanLavine/willow/pkg/models/api/common/errors"
+	dbdefinition "github.com/DanLavine/willow/pkg/models/api/common/v1/db_definition"
 	queryassociatedaction "github.com/DanLavine/willow/pkg/models/api/common/v1/query_associated_action"
 	querymatchaction "github.com/DanLavine/willow/pkg/models/api/common/v1/query_match_action"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
@@ -198,7 +200,7 @@ func (mqc *memoryQueueChannel) Execute(ctx context.Context) error {
 					// for each rule, query the counters to know if there is an issue
 					underLimit := true
 					for _, rule := range rules {
-						overrides, err := mqc.limiterClient.MatchOverrides(context.Background(), rule.Name, querymatchaction.KeyValuesToAnyMatchActionQuery(erroredKeyValues))
+						overrides, err := mqc.limiterClient.MatchOverrides(context.Background(), *rule.Spec.DBDefinition.Name, querymatchaction.KeyValuesToAnyMatchActionQuery(erroredKeyValues))
 						if err != nil {
 							panic(err)
 						}
@@ -208,13 +210,13 @@ func (mqc *memoryQueueChannel) Execute(ctx context.Context) error {
 							// check the rule itsel
 
 							// somethign is at a limit of 0 so just stop processing
-							if rule.Limit == 0 {
+							if *rule.Spec.Properties.Limit == 0 {
 								underLimit = false
 								break
 							}
 
 							// unlimited so skip this one
-							if rule.Limit == -1 {
+							if *rule.Spec.Properties.Limit == -1 {
 								continue
 							}
 
@@ -225,7 +227,7 @@ func (mqc *memoryQueueChannel) Execute(ctx context.Context) error {
 								},
 							}
 
-							for key, value := range rule.GroupByKeyValues {
+							for key, value := range rule.Spec.DBDefinition.GroupByKeyValues {
 								query.Selection.KeyValues[key] = queryassociatedaction.ValueQuery{
 									Value:      value,
 									Comparison: v1common.Equals,
@@ -243,8 +245,8 @@ func (mqc *memoryQueueChannel) Execute(ctx context.Context) error {
 
 							totalCount := int64(0)
 							for _, counter := range counters {
-								totalCount += counter.Counters
-								if totalCount >= rule.Limit {
+								totalCount += *counter.Spec.Properties.Counters
+								if totalCount >= *rule.Spec.Properties.Limit {
 									underLimit = false
 									break
 								}
@@ -254,13 +256,13 @@ func (mqc *memoryQueueChannel) Execute(ctx context.Context) error {
 
 							for _, override := range overrides {
 								// somethign is at a limit of 0 so just stop processing
-								if override.Limit == 0 {
+								if *override.Spec.Properties.Limit == 0 {
 									underLimit = false
 									break
 								}
 
 								// unlimited so skip this one
-								if override.Limit == -1 {
+								if *override.Spec.Properties.Limit == -1 {
 									continue
 								}
 
@@ -271,7 +273,7 @@ func (mqc *memoryQueueChannel) Execute(ctx context.Context) error {
 									},
 								}
 
-								for key, value := range override.KeyValues {
+								for key, value := range override.Spec.DBDefinition.GroupByKeyValues {
 									query.Selection.KeyValues[key] = queryassociatedaction.ValueQuery{
 										Value:      value,
 										Comparison: v1common.Equals,
@@ -289,8 +291,8 @@ func (mqc *memoryQueueChannel) Execute(ctx context.Context) error {
 
 								totalCount := int64(0)
 								for _, counter := range counters {
-									totalCount += counter.Counters
-									if totalCount >= override.Limit {
+									totalCount += *counter.Spec.Properties.Counters
+									if totalCount >= *override.Spec.Properties.Limit {
 										underLimit = false
 										break
 									}
@@ -767,8 +769,14 @@ func (mqc *memoryQueueChannel) limiterUpdateEnqueuedValue(ctx context.Context, c
 	}
 
 	err := mqc.limiterClient.UpdateCounter(ctx, &v1limiter.Counter{
-		KeyValues: enqueueKeyValues,
-		Counters:  counterUpdate,
+		Spec: &v1limiter.CounterSpec{
+			DBDefinition: &v1limiter.CounterDBDefinition{
+				KeyValues: dbdefinition.KeyValuesToTypedKeyValues(enqueueKeyValues),
+			},
+			Properties: &v1limiter.CounteProperties{
+				Counters: &counterUpdate,
+			},
+		},
 	})
 
 	if err != nil {
@@ -793,8 +801,14 @@ func (mqc *memoryQueueChannel) limterUpdateRunningValue(ctx context.Context, cou
 	}
 
 	counter := &v1limiter.Counter{
-		KeyValues: counterKeyValues,
-		Counters:  counterUpdate,
+		Spec: &v1limiter.CounterSpec{
+			DBDefinition: &v1limiter.CounterDBDefinition{
+				KeyValues: dbdefinition.KeyValuesToTypedKeyValues(counterKeyValues),
+			},
+			Properties: &v1limiter.CounteProperties{
+				Counters: &counterUpdate,
+			},
+		},
 	}
 
 	if err := mqc.limiterClient.UpdateCounter(ctx, counter); err != nil {
@@ -817,8 +831,14 @@ func (mqc *memoryQueueChannel) setLimiterEnqueuedValue(ctx context.Context) *err
 	}
 
 	err := mqc.limiterClient.SetCounters(ctx, &v1limiter.Counter{
-		KeyValues: enqueueKeyValues,
-		Counters:  0,
+		Spec: &v1limiter.CounterSpec{
+			DBDefinition: &v1limiter.CounterDBDefinition{
+				KeyValues: dbdefinition.KeyValuesToTypedKeyValues(enqueueKeyValues),
+			},
+			Properties: &v1limiter.CounteProperties{
+				Counters: helpers.PointerOf[int64](0),
+			},
+		},
 	})
 
 	if err != nil {
@@ -841,8 +861,14 @@ func (mqc *memoryQueueChannel) setLimterRunningValue(ctx context.Context) error 
 	}
 
 	counter := &v1limiter.Counter{
-		KeyValues: counterKeyValues,
-		Counters:  0,
+		Spec: &v1limiter.CounterSpec{
+			DBDefinition: &v1limiter.CounterDBDefinition{
+				KeyValues: dbdefinition.KeyValuesToTypedKeyValues(counterKeyValues),
+			},
+			Properties: &v1limiter.CounteProperties{
+				Counters: helpers.PointerOf[int64](0),
+			},
+		},
 	}
 
 	if err := mqc.limiterClient.SetCounters(ctx, counter); err != nil {

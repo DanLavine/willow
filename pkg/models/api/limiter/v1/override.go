@@ -4,43 +4,118 @@ import (
 	"fmt"
 
 	"github.com/DanLavine/willow/pkg/models/api/common/errors"
-	"github.com/DanLavine/willow/pkg/models/datatypes"
+	dbdefinition "github.com/DanLavine/willow/pkg/models/api/common/v1/db_definition"
 )
 
 // Override can be thought of as a "sub query" for a Rule's KeyValues. Any request that matches all the
 // given tags for an override will use the new override value. If multiple overrides match a particular set of tags,
 // then each override will be validated for their KeyValue group.
 type Override struct {
-	// Name for the Override. Must be unique for all overrides attached to a rule
-	Name string
+	Spec *OverrideSpec `json:"Spec"`
 
-	// When checking a rule, if it has these exact keys, then the limit will be applied.
-	// In the case of an override matchin many key values, all Overrides will be checked
-	// unless the Limit is 0. In this case all Overrides can be ignored as the request
-	// is guranteed to reject adding the counter
-	KeyValues datatypes.KeyValues
-
-	// The new limit to use for the paricular KeyValues
-	// Setting this value to -1 means unlimited
-	Limit int64
+	State *OverrideState `json:"State,omitempty"`
 }
 
-//	RETURNS:
-//	- error - any errors encountered with the response object
-//
-// Validate is used to ensure that Override has all required fields set
 func (override *Override) Validate() *errors.ModelError {
-	if override.Name == "" {
-		return &errors.ModelError{Field: "Name", Err: fmt.Errorf("is the empty string")}
+	if err := override.ValidateSpecOnly(); err != nil {
+		return err
 	}
 
-	if len(override.KeyValues) == 0 {
-		return &errors.ModelError{Field: "KeyValue", Err: fmt.Errorf("needs at least a length of at least 1")}
+	if override.State == nil {
+		return &errors.ModelError{Field: "State", Err: fmt.Errorf("received a null value")}
+	} else {
+		if err := override.State.Validate(); err != nil {
+			return &errors.ModelError{Field: "State", Child: err}
+		}
 	}
 
-	if err := override.KeyValues.Validate(datatypes.MinDataType, datatypes.MaxDataType); err != nil {
-		return &errors.ModelError{Field: "KeyValues", Child: err}
+	return nil
+}
+
+func (override *Override) ValidateSpecOnly() *errors.ModelError {
+	if override.Spec == nil {
+		return &errors.ModelError{Field: "Spec", Err: fmt.Errorf("received a null value")}
+	} else {
+		if err := override.Spec.Validate(); err != nil {
+			return &errors.ModelError{Field: "Spec", Child: err}
+		}
 	}
 
+	return nil
+}
+
+type OverrideSpec struct {
+	// DBDefinition defines how to save the item in the Database
+	DBDefinition *OverrideDBDefinition `json:"DBDefinition,omitempty"`
+
+	// Properties are the configurable/updateable fields for the Rule
+	Properties *OverrideProperties `json:"Properties,omitempty"`
+}
+
+func (overrideSpec *OverrideSpec) Validate() *errors.ModelError {
+	if overrideSpec.DBDefinition == nil {
+		return &errors.ModelError{Field: "DBDefinition", Err: fmt.Errorf("received a null value")}
+	} else {
+		if err := overrideSpec.DBDefinition.Validate(); err != nil {
+			return &errors.ModelError{Field: "DBDefinition", Child: err}
+		}
+	}
+
+	if overrideSpec.Properties == nil {
+		return &errors.ModelError{Field: "Properties", Err: fmt.Errorf("received a null value")}
+	} else {
+		if err := overrideSpec.Properties.Validate(); err != nil {
+			return &errors.ModelError{Field: "Properties", Child: err}
+		}
+	}
+
+	return nil
+}
+
+type OverrideDBDefinition struct {
+	// The name of the override
+	Name *string `json:"Name,omitempty"`
+
+	// GroupByKeyValues match against the Counter's KeyValues to ensure that they are under the limit
+	GroupByKeyValues dbdefinition.AnyKeyValues `json:"GroupByKeyValues,omitempty"`
+}
+
+func (overrideDBDefinition *OverrideDBDefinition) Validate() *errors.ModelError {
+	if overrideDBDefinition.Name == nil {
+		return &errors.ModelError{Field: "Name", Err: fmt.Errorf("received a null value")}
+	} else {
+		if *overrideDBDefinition.Name == "" {
+			return &errors.ModelError{Field: "Name", Err: fmt.Errorf("received an empty string")}
+		}
+	}
+
+	if err := overrideDBDefinition.GroupByKeyValues.Validate(); err != nil {
+		return &errors.ModelError{Field: "GroupByKeyValues", Child: err}
+	}
+
+	return nil
+}
+
+type OverrideProperties struct {
+	Limit *int64 `json:"Limit,omitempty"`
+}
+
+func (overrideProperties *OverrideProperties) Validate() *errors.ModelError {
+	if overrideProperties.Limit == nil {
+		return &errors.ModelError{Field: "Limit", Err: fmt.Errorf("received a null value")}
+	} else {
+		if *overrideProperties.Limit < -1 {
+			return &errors.ModelError{Field: "Limit", Err: fmt.Errorf("is set below the minimum value of -1. Value must be [-1 (ulimited) | 0+ (zero or more specific limit)")}
+		}
+	}
+
+	return nil
+}
+
+type OverrideState struct {
+	Deleting bool `json:"Deleting"`
+}
+
+func (overrideState *OverrideState) Validate() *errors.ModelError {
 	return nil
 }

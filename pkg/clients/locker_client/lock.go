@@ -75,7 +75,7 @@ func newLock(lockResponse *v1locker.Lock, url string, client *http.Client, heart
 
 		lockID:    lockResponse.State.LockID,
 		sessionID: lockResponse.State.SessionID,
-		timeout:   *lockResponse.Spec.Timeout,
+		timeout:   *lockResponse.Spec.Properties.Timeout,
 	}
 
 	go func() {
@@ -86,7 +86,7 @@ func newLock(lockResponse *v1locker.Lock, url string, client *http.Client, heart
 		}()
 
 		// set ticker to be ((timeout - 10%) /3). This way we try and heartbeat at least 3 times before a failure occurs
-		adjustedTimeout := *lockResponse.Spec.Timeout - (*lockResponse.Spec.Timeout / 10)
+		adjustedTimeout := *lockResponse.Spec.Properties.Timeout - (*lockResponse.Spec.Properties.Timeout / 10)
 		ticker := time.NewTicker(adjustedTimeout / 3)
 		timeoutTicker := time.NewTicker(lock.timeout)
 

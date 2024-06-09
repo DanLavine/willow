@@ -22,7 +22,7 @@ func (grh *groupRuleHandler) CreateRule(w http.ResponseWriter, r *http.Request) 
 
 	// parse the rule create request
 	rule := &v1limiter.Rule{}
-	if err := api.ModelDecodeRequest(r, rule); err != nil {
+	if err := api.ObjectDecodeRequest(r, rule); err != nil {
 		logger.Warn("failed to decode and validate request", zap.Error(err))
 		_, _ = api.ModelEncodeResponse(w, err.StatusCode, err)
 		return
@@ -113,7 +113,7 @@ func (grh *groupRuleHandler) UpdateRule(w http.ResponseWriter, r *http.Request) 
 	defer logger.Debug("processed request")
 
 	// parse the update request
-	ruleUpdate := &v1limiter.RuleUpdateRquest{}
+	ruleUpdate := &v1limiter.RuleProperties{}
 	if err := api.ModelDecodeRequest(r, ruleUpdate); err != nil {
 		logger.Warn("failed to decode and validate request", zap.Error(err))
 		_, _ = api.ModelEncodeResponse(w, err.StatusCode, err)

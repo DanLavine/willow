@@ -23,7 +23,7 @@ type RuleClient interface {
 	//// create
 	CreateRule(ctx context.Context, rule *v1limiter.Rule) *errors.ServerError
 	//// update
-	UpdateRule(ctx context.Context, ruleName string, update *v1limiter.RuleUpdateRquest) *errors.ServerError
+	UpdateRule(ctx context.Context, ruleName string, update *v1limiter.RuleProperties) *errors.ServerError
 	//// read
 	QueryRules(ctx context.Context, query *queryassociatedaction.AssociatedActionQuery) (v1limiter.Rules, *errors.ServerError)
 	MatchRules(ctx context.Context, match *querymatchaction.MatchActionQuery) (v1limiter.Rules, *errors.ServerError)
@@ -35,7 +35,7 @@ type RuleClient interface {
 	//// create
 	CreateOverride(ctx context.Context, ruleName string, override *v1limiter.Override) *errors.ServerError
 	//// update
-	UpdateOverride(ctx context.Context, ruleName string, overrideName string, override *v1limiter.OverrideUpdate) *errors.ServerError
+	UpdateOverride(ctx context.Context, ruleName string, overrideName string, override *v1limiter.OverrideProperties) *errors.ServerError
 	//// read
 	QueryOverrides(ctx context.Context, ruleName string, query *queryassociatedaction.AssociatedActionQuery) (v1limiter.Overrides, *errors.ServerError)
 	MatchOverrides(ctx context.Context, ruleName string, match *querymatchaction.MatchActionQuery) (v1limiter.Overrides, *errors.ServerError)

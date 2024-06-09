@@ -18,7 +18,7 @@ type Override interface {
 	Limit() int64
 
 	// update the saved override
-	Update(OverrideUpdate *v1limiter.OverrideUpdate)
+	Update(OverrideUpdate *v1limiter.OverrideProperties)
 
 	// Delete the override
 	Delete() *errors.ServerError
@@ -26,7 +26,7 @@ type Override interface {
 
 //go:generate mockgen -destination=rulefakes/constructor_mock.go -package=rulefakes github.com/DanLavine/willow/internal/limiter/rules RuleConstructor
 type OverrideConstructor interface {
-	New(override *v1limiter.Override) Override
+	New(override *v1limiter.OverrideProperties) Override
 }
 
 func NewOverrideConstructor(constructorType string) (OverrideConstructor, error) {
@@ -40,6 +40,6 @@ func NewOverrideConstructor(constructorType string) (OverrideConstructor, error)
 
 type memoryConstrutor struct{}
 
-func (mc *memoryConstrutor) New(override *v1limiter.Override) Override {
+func (mc *memoryConstrutor) New(override *v1limiter.OverrideProperties) Override {
 	return memory.New(override)
 }

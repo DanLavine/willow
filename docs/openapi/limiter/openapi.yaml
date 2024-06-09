@@ -17,9 +17,9 @@ paths:
     post:
       operationId: create Rule
       description: |
-        `Rules` are the definied restrictive resource for the `Counters` API. Each `Rule.GroupByKeyValues` that matches against the `Counter.KeyValues`
-        request is evaluated to ensure that the specific `Rule.GroupByKeyValues` selection has not hit the provided limit. It is important to
-        note that if multiple `Rules` all match the same `Counter`, then each `Rule` will be evaluated unless one fails which stops the processing
+        `Rules` are the definied restrictive resource for the `Counters` API. The `Rule.Spec.DBDefinitions.GroupByKeyValues`
+        property defines an enforcement policy for all the `Counters.Spec.DBDefinitions.KeyValues` to adhear to. If the
+        `Counters` contains all the KeyValue pairs defined by this `Rule`, then it counts against the Limit
       parameters:
         - in: header
           name: Content-Type
@@ -117,7 +117,7 @@ paths:
         content:
           appplication/json:
             schema:
-              $ref: "../common/components.yaml#/components/schemas/KeyValuesTyped"
+              $ref: "../common/components.yaml#/components/schemas/MatchQuery"
       responses:
         200:
           description: Successfully searched for any rules that matched the KeyValues
@@ -213,7 +213,7 @@ paths:
         content:
           appplication/json:
             schema:
-              $ref: "#/components/schemas/UpdateRule"
+              $ref: "#/components/schemas/RuleProperties"
       responses:
         200:
           description: Successfully updated the `Rule`
@@ -340,7 +340,7 @@ paths:
                     $ref: "../common/components.yaml#/components/schemas/ApiError"
   /v1/limiter/rules/:rule_name/overrides/query:
     get:
-      operationId: list Overrides
+      operationId: query Overrides
       description: |
         List any `Overrides` that match the particular `KeyValues`
       parameters:
@@ -394,7 +394,7 @@ paths:
                     $ref: "../common/components.yaml#/components/schemas/ApiError"
   /v1/limiter/rules/:rule_name/overrides/match:
     get:
-      operationId: list Overrides
+      operationId: match Overrides
       description: |
         List any `Overrides` that match the particular `KeyValues`
       parameters:
@@ -411,7 +411,7 @@ paths:
         content:
           appplication/json:
             schema:
-              $ref: "../common/components.yaml#/components/schemas/KeyValuesTyped"
+              $ref: "../common/components.yaml#/components/schemas/MatchQuery "
       responses:
         200:
           description: Successfully searched for any rules that matched the query
@@ -504,7 +504,7 @@ paths:
         content:
           appplication/json:
             schema:
-              $ref: "#/components/schemas/UpdateOverride"
+              $ref: "#/components/schemas/OverrideProperties"
       responses:
         200:
           description: Successfully updated the `Override`
@@ -724,109 +724,187 @@ paths:
 components:
   schemas:
     # Rule operations
-    Rule:
-      type: object
-      required:
-        - Name
-        - GroupByKeyValues
-        - Limit
-        - Overrides
-      properties:
-        Name:
-          description: "Name of the rule to create"
-          type: string
-        GroupByKeyValues:
-          description: |
-            GroupByKeyValues defines the KeyValues to match against `Counters.KeyValues`. As long as the `Counters.KeyValues`
-            has all the KeyValue pairs defined in this `Rule`, then it is treated as a match.
-          minLength: 1
-          allOf:
-            - $ref: "../common/components.yaml#/components/schemas/KeyValuesAny"
-        Limit:
-          description: |
-            Max limit for any Key Value Group. If this is set to -1, then the value is treated a 'unlimited'
-          type: integer
-          format: int64
-        Overrides:
-          description: |
-            Read only overides that are returned from some of the query apis.
-          allOf:
-            - $ref: "#/components/schemas/Overrides"
-
     Rules:
       type: array
       items:
         $ref: "#/components/schemas/Rule"
 
-    UpdateRule:
+    Rule:
       type: object
+      description: |
+        `Rule.Spec.DBDefinitions.GroupByKeyValues` defines an enforcement policy for all the 
+        `Counters.Spec.DBDefinitions.KeyValues` to adhear to. If they `Counters` contains
+        all the KeyValue pairs defined by this `Rule`, then it counts against the Limit
       required:
-        - Limit
+        - Spec
+      properties:
+        Spec:
+          type: object
+          description: |
+            Spec contains all the details on how to store the `Rule` in the DB and any properties
+            that define the actions for a `Rule`
+          required:
+            - DBDefinition
+            - Properties
+          properties:
+            DBDefinition:
+              type: object
+              description: |
+                Specification for how to save the rule in the DB. Each of the fields must be unique
+              required:
+                - Name
+                - GroupByKeyValues
+              properties:
+                Name:
+                  type: string
+                  description: |
+                    Unique human readable name for the Rule. This is also the url encoded value for operations
+                GroupByKeyValues:
+                  $ref: "../common/db_definitions.yaml#/components/schemas/AnyKeyValues"
+            Properties:
+              $ref: "#/components/schemas/RuleProperties"
+        State:
+          type: object
+          readOnly: true
+          description: |
+            The State contains all the Read-Only details for the Rule that might be interesting to
+          properties:
+            Overrides:
+              $ref: "#/components/schemas/Overrides"
+
+    RuleProperties:
+      type: object
+      description: |
+        Specification of all the fields for logical operation
       properties:
         Limit:
           type: integer
           format: int64
           description: |
-            default limit that all `Rules` match `Counters.KeyValues` against. If this is set to -1, then the value is treated a 'unlimited'
+            Total limit for `Counters` that can be created where any of their KeyValues make up
+            those of the `Rule's` GroupByKeyValues
 
-    # create a new rule request
-    Override:
-      type: object
-      required:
-        - Name
-        - KeyValues
-        - Limit
-      properties:
-        Name:
-          description: "Name of the Override"
-          type: string
-        KeyValues:
-          description: |
-            The `KeyValues` must at a minimum include the `Rule's` GroupBy Keys with a Value.
-          $ref: "../common/components.yaml#/components/schemas/KeyValuesAny"
-        Limit:
-          description: |
-            Limit to match `Overrides.KeyValues` against. If this is set to -1, then the value is treated a 'unlimited'
-          type: integer
-          format: int64
-
+    # Overide operations
     Overrides:
       type: array
       items:
         $ref: "#/components/schemas/Override"
 
-    UpdateOverride:
+    Override:
       type: object
+      description: |
+        `Override` defines a custom enforcement policy for a `Rule`, overriding the Limts for possible `Counters` KeyValues.
+        If they `Counters` contains at least the KeyValue pairs defined by this `Override`, then it counts against the Limit
       required:
-        - Limit
+        - Spec
+      properties:
+        Spec:
+          type: object
+          description: |
+            Spec contains all the details on how to store the `Object` in the DB and any properties
+            that define the actions for the `Override`
+          required:
+            - DBDefinition
+            - Properties
+          properties:
+            DBDefinition:
+              type: object
+              description: |
+                Specification for how to save the `Override` in the DB. Each of the fields must be unique
+              required:
+                - Name
+                - GroupByKeyValues
+              properties:
+                Name:
+                  type: string
+                  description: |
+                    Unique human readable name for the `Override`. This is also the url encoded value for action operations
+                GroupByKeyValues:
+                  description: |
+                    The minimum number of GroupByKeyValues must match the parent's `Rule` GroupByKeyValues
+                  allOf:
+                    - $ref: "../common/db_definitions.yaml#/components/schemas/AnyKeyValues"
+            Properties:
+              $ref: "#/components/schemas/RuleProperties"
+        State:
+          type: object
+          readOnly: true
+          description: |
+            The State contains all the Read-Only details for the `Override` that might be interesting to
+          properties:
+            Deleting:
+              type: boolean
+
+    OverrideProperties:
+      type: object
+      description: |
+        Specification of all the fields for logical operation
       properties:
         Limit:
           type: integer
           format: int64
           description: |
-            default limit that all `Overrides` match `Counters.KeyValues` against. If this is set to -1, then the value is treated a 'unlimited'
-
+            Total limit for `Counters` that can be created where any of their KeyValues make up
+            those of the `Overrides` GroupByKeyValues
 
     # Counter operations
-    Counter:
-      type: object
-      required:
-        - KeyValues
-        - Counters
-      properties:
-        KeyValues:
-          $ref: "../common/components.yaml#/components/schemas/KeyValuesTyped"
-        Counters:
-          description: |
-            1. On incrment, increase the counters for the associated `KeyValues`.\
-            2. On Decrement, decrease the counters for the associated `KeyValues`.\
-            3. On set, these are forcefully setting the counters for the associated `KeyValues`.
-
-            When ever updating the counters, if the count is less than or equal to 0, the counters
-            is removed service side
-          type: integer
-
     Counters:
       type: array
       items:
         $ref: "#/components/schemas/Counter"
+
+    Counter:
+      type: object
+      description: |
+        `Counter` contains all the KeyValues that are checkd against the enforcement policies for `Rules` and `Overrides`
+      required:
+        - Spec
+      properties:
+        Spec:
+          type: object
+          description: |
+            Spec contains all the details on how to store the `Counter` in the DB and any properties
+            that define the actions for the `Counter`
+          required:
+            - DBDefinition
+            - Properties
+          properties:
+            DBDefinition:
+              type: object
+              description: |
+                Specification for how to save the `Counter` in the DB. Each of the fields must be unique
+              required:
+                - KeyValues
+              properties:
+                KeyValues:
+                  description: |
+                    The KeyValues are match against the `Rule` and `Override` GroupByKeyValues. If all the KeyValue pairs
+                    are present in the other enforcement object, it is considered a match. When adding the `Counter`, it
+                    checks all other `Counters` to ensure we are under the Limits
+                  allOf:
+                    -  $ref: "../common/db_definitions.yaml#/components/schemas/TypedKeyValues"
+            Properties:
+              type: object
+              description: |
+                Specification of all the logical operation fields
+              required:
+                - Counters
+              properties:
+                Counters:
+                  type: integer
+                  format: int64
+                  description: |
+                    1. On positive values, increase the counters for the associated `KeyValues`.\
+                    2. On negative values, decrease the counters for the associated `KeyValues`.\
+                    3. On set, these are forcefully setting the counters for the associated `KeyValues`.
+
+                    When ever updating the counters, if the count is less than or equal to 0, the counters
+                    is removed service side and removed from the DB
+        State:
+          type: object
+          readOnly: true
+          description: |
+            The State contains all the Read-Only details for the `Override` that might be interesting to
+          properties:
+            Deleting:
+              type: boolean
