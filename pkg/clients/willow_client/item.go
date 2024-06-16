@@ -9,10 +9,10 @@ import (
 
 	"github.com/DanLavine/willow/pkg/clients"
 	"github.com/DanLavine/willow/pkg/models/api"
-	"github.com/DanLavine/willow/pkg/models/datatypes"
 	"golang.org/x/net/context"
 
 	"github.com/DanLavine/willow/pkg/models/api/common/errors"
+	dbdefinition "github.com/DanLavine/willow/pkg/models/api/common/v1/db_definition"
 	v1willow "github.com/DanLavine/willow/pkg/models/api/willow/v1"
 )
 
@@ -35,7 +35,7 @@ type Item struct {
 
 	data             []byte
 	itemID           string
-	keyValues        datatypes.KeyValues
+	keyValues        dbdefinition.TypedKeyValues
 	queueName        string
 	heartbeatTimeout time.Duration
 
@@ -43,7 +43,7 @@ type Item struct {
 	heartbeatErrorCallback func(err error)
 }
 
-func newItem(url string, client *http.Client, queueName string, dequeueItem *v1willow.DequeueQueueItem) *Item {
+func newItem(url string, client *http.Client, queueName string, dequeueItem *v1willow.Item) *Item {
 	item := &Item{
 		doneOnce: new(sync.Once),
 		done:     make(chan struct{}),
@@ -51,11 +51,11 @@ func newItem(url string, client *http.Client, queueName string, dequeueItem *v1w
 		url:    url,
 		client: client,
 
-		data:             dequeueItem.Item,
-		itemID:           dequeueItem.ItemID,
-		keyValues:        dequeueItem.KeyValues,
+		data:             dequeueItem.Spec.Properties.Data,
+		itemID:           dequeueItem.State.ID,
+		keyValues:        dequeueItem.Spec.DBDefinition.KeyValues,
 		queueName:        queueName,
-		heartbeatTimeout: dequeueItem.TimeoutDuration,
+		heartbeatTimeout: *dequeueItem.Spec.Properties.TimeoutDuration,
 
 		heartbeatErrorLock: new(sync.RWMutex),
 	}

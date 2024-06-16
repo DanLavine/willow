@@ -10,8 +10,8 @@ import (
 	"github.com/DanLavine/willow/pkg/clients"
 	"github.com/DanLavine/willow/pkg/models/api"
 	"github.com/DanLavine/willow/pkg/models/api/common/errors"
+	dbdefinition "github.com/DanLavine/willow/pkg/models/api/common/v1/db_definition"
 	queryassociatedaction "github.com/DanLavine/willow/pkg/models/api/common/v1/query_associated_action"
-	"github.com/DanLavine/willow/pkg/models/datatypes"
 
 	v1willow "github.com/DanLavine/willow/pkg/models/api/willow/v1"
 )
@@ -25,15 +25,15 @@ import (
 //	- error - error creating the queue
 //
 // EnqueueQueueItem enqueus an item to the proper channel for clients to dequeue and process
-func (wc *WillowClient) EnqueueQueueItem(ctx context.Context, queueName string, item *v1willow.EnqueueQueueItem) error {
+func (wc *WillowClient) EnqueueQueueItem(ctx context.Context, queueName string, item *v1willow.Item) error {
 	// encode the request
-	data, err := api.ModelEncodeRequest(item)
+	data, err := api.ObjectEncodeRequest(item)
 	if err != nil {
 		return err
 	}
 
 	// setup and make the request
-	req, err := http.NewRequest("POST", fmt.Sprintf("%s/v1/queues/%s/channels", wc.url, queueName), bytes.NewBuffer(data))
+	req, err := http.NewRequest("POST", fmt.Sprintf("%s/v1/queues/%s/channels/items", wc.url, queueName), bytes.NewBuffer(data))
 	if err != nil {
 		return err
 	}
@@ -79,7 +79,7 @@ func (wc *WillowClient) DequeueQueueItem(ctx context.Context, queueName string, 
 	}
 
 	// setup and make the request
-	req, err := http.NewRequestWithContext(ctx, "GET", fmt.Sprintf("%s/v1/queues/%s/channels", wc.url, queueName), bytes.NewBuffer(data))
+	req, err := http.NewRequestWithContext(ctx, "GET", fmt.Sprintf("%s/v1/queues/%s/channels/items", wc.url, queueName), bytes.NewBuffer(data))
 	if err != nil {
 		return nil, err
 	}
@@ -93,7 +93,7 @@ func (wc *WillowClient) DequeueQueueItem(ctx context.Context, queueName string, 
 	// parse the response
 	switch resp.StatusCode {
 	case http.StatusOK:
-		dequeueItem := &v1willow.DequeueQueueItem{}
+		dequeueItem := &v1willow.Item{}
 		if err := api.ModelDecodeResponse(resp, dequeueItem); err != nil {
 			return nil, err
 		}
@@ -120,9 +120,9 @@ func (wc *WillowClient) DequeueQueueItem(ctx context.Context, queueName string, 
 //	- error - error creating the queue
 //
 // DeleteQueueChannel removes a specific channel and any items enqueued
-func (wc *WillowClient) DeleteQueueChannel(ctx context.Context, queueName string, channelDelete datatypes.KeyValues) error {
+func (wc *WillowClient) DeleteQueueChannel(ctx context.Context, queueName string, channelDelete dbdefinition.TypedKeyValues) error {
 	// encode the request
-	if err := channelDelete.Validate(datatypes.MinDataType, datatypes.MaxWithoutAnyDataType); err != nil {
+	if err := channelDelete.Validate(); err != nil {
 		return err
 	}
 

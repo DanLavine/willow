@@ -8,6 +8,7 @@ import (
 	"github.com/DanLavine/channelops"
 	"github.com/DanLavine/goasync"
 	"github.com/DanLavine/willow/pkg/models/api/common/errors"
+	dbdefinition "github.com/DanLavine/willow/pkg/models/api/common/v1/db_definition"
 	queryassociatedaction "github.com/DanLavine/willow/pkg/models/api/common/v1/query_associated_action"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 	"go.uber.org/zap"
@@ -26,7 +27,7 @@ type clientWaiting struct {
 	// query is used to match any channels against to see if they can provide values for the client
 	query *queryassociatedaction.AssociatedActionQuery
 	// channelOPS is the collection of channels attempting to be read
-	channelOPS channelops.RepeatableMergeReadChannelOperator[func(ctx context.Context) (*v1willow.DequeueQueueItem, func(), func())]
+	channelOPS channelops.RepeatableMergeReadChannelOperator[func(ctx context.Context) (*v1willow.Item, func(), func())]
 }
 
 type queueChannelsClientLocal struct {
@@ -149,7 +150,7 @@ func (qccl *queueChannelsClientLocal) attemptDeleteChannel(logger *zap.Logger, q
 	}
 }
 
-func (qccl *queueChannelsClientLocal) EnqueueQueueItem(ctx context.Context, queueName string, enqueueItem *v1willow.EnqueueQueueItem) *errors.ServerError {
+func (qccl *queueChannelsClientLocal) EnqueueQueueItem(ctx context.Context, queueName string, enqueueItem *v1willow.Item) *errors.ServerError {
 	ctx, logger := middleware.GetNamedMiddlewareLogger(ctx, "EnqueueQueueItem")
 	var enqueueError *errors.ServerError
 
@@ -157,10 +158,9 @@ func (qccl *queueChannelsClientLocal) EnqueueQueueItem(ctx context.Context, queu
 	bTreeOneToManyOnCreate := func() any {
 		destroyCallback := func() {
 			// on a timeout we can attempt to delete the channel
-			qccl.attemptDeleteChannel(reporting.BaseLogger(logger), queueName, enqueueItem.KeyValues)
+			qccl.attemptDeleteChannel(reporting.BaseLogger(logger), queueName, enqueueItem.Spec.DBDefinition.KeyValues.ToKeyValues())
 		}
-
-		queueChannel := qccl.queueChannelsConstructor.New(destroyCallback, queueName, enqueueItem.KeyValues)
+		queueChannel := qccl.queueChannelsConstructor.New(destroyCallback, queueName, enqueueItem.Spec.DBDefinition.KeyValues.ToKeyValues())
 		enqueueError = queueChannel.Enqueue(ctx, enqueueItem)
 
 		// break early because we failed to enqueue the item and return nil because nothing was saved
@@ -172,7 +172,7 @@ func (qccl *queueChannelsClientLocal) EnqueueQueueItem(ctx context.Context, queu
 		// server is shutting down so don't add it to any waiting clients.
 		if err := qccl.asyncManager.AddExecuteTask(queueName, queueChannel); err == nil {
 			// when a new channel is created, inform any clients currently waiting to process that there is something they might care about
-			qccl.updateClientsWaiting(queueName, enqueueItem.KeyValues, queueChannel.Dequeue())
+			qccl.updateClientsWaiting(queueName, enqueueItem.Spec.DBDefinition.KeyValues.ToKeyValues(), queueChannel.Dequeue())
 		}
 
 		return queueChannel
@@ -184,7 +184,7 @@ func (qccl *queueChannelsClientLocal) EnqueueQueueItem(ctx context.Context, queu
 		enqueueError = queueChannel.Enqueue(ctx, enqueueItem)
 	}
 
-	if _, err := qccl.queueChannels.CreateOrFind(queueName, enqueueItem.KeyValues, bTreeOneToManyOnCreate, bTreeOneToManyOnFind); err != nil {
+	if _, err := qccl.queueChannels.CreateOrFind(queueName, enqueueItem.Spec.DBDefinition.KeyValues.ToKeyValues(), bTreeOneToManyOnCreate, bTreeOneToManyOnFind); err != nil {
 		switch err {
 		//case btreeonetomany.ErrorOneIDDestroying:
 		// This shouldn't happen as the 'Queue' should ensure these don't process once it starts destroying
@@ -211,18 +211,18 @@ func (qccl *queueChannelsClientLocal) EnqueueQueueItem(ctx context.Context, queu
 //
 // Dequeue an item from the queue. This is a blocking operation until an item is found that matches the query. This will also start a heartbeating
 // operation for any succeffully dequeued items
-func (qccl *queueChannelsClientLocal) DequeueQueueItem(ctx context.Context, queueName string, dequeueQuery *queryassociatedaction.AssociatedActionQuery) (*v1willow.DequeueQueueItem, func(), func(), *errors.ServerError) {
+func (qccl *queueChannelsClientLocal) DequeueQueueItem(ctx context.Context, queueName string, dequeueQuery *queryassociatedaction.AssociatedActionQuery) (*v1willow.Item, func(), func(), *errors.ServerError) {
 	ctx, logger := middleware.GetNamedMiddlewareLogger(ctx, "DequeueQueueItem")
 
 	// var of the return values
-	var dequeueItem *v1willow.DequeueQueueItem
+	var dequeueItem *v1willow.Item
 	var successCallback func()
 	var failureCallback func()
 
 	// setup our client so that any possible channels created after these calls are automatically added.
 	// this is important to do before we traverse the queues so we don't miss any duplicate channels.
 	// Duplicate channels added the the channelops will be dropped
-	channelOperations, reader := channelops.NewRepeatableMergeRead[func(ctx context.Context) (*v1willow.DequeueQueueItem, func(), func())](false, ctx, qccl.shutdownCtx)
+	channelOperations, reader := channelops.NewRepeatableMergeRead[func(ctx context.Context) (*v1willow.Item, func(), func())](false, ctx, qccl.shutdownCtx)
 	qccl.addClientWaiting(queueName, dequeueQuery, channelOperations)
 	defer qccl.removeClientWaiting(channelOperations)
 
@@ -294,7 +294,7 @@ func (qccl *queueChannelsClientLocal) ACK(ctx context.Context, queueName string,
 
 	// ack the item in the queue channel
 	// NOTE: this could be a delete, but with the locks i think that will be slower than I want so use 1 find and then 1 delete
-	if err := qccl.queueChannels.QueryAction(queueName, queryassociatedaction.KeyValuesToExactAssociatedActionQuery(ack.KeyValues), performAck); err != nil {
+	if err := qccl.queueChannels.QueryAction(queueName, queryassociatedaction.KeyValuesToExactAssociatedActionQuery(ack.KeyValues.ToKeyValues()), performAck); err != nil {
 		panic(err)
 	}
 
@@ -305,7 +305,7 @@ func (qccl *queueChannelsClientLocal) ACK(ctx context.Context, queueName string,
 			return queueChannel.Delete()
 		}
 
-		if err := qccl.queueChannels.DeleteOneOfManyByKeyValues(queueName, ack.KeyValues, deleteChannel); err != nil {
+		if err := qccl.queueChannels.DeleteOneOfManyByKeyValues(queueName, ack.KeyValues.ToKeyValues(), deleteChannel); err != nil {
 			switch err {
 			case btreeonetomany.ErrorManyIDDestroying:
 				logger.Debug("Not deleting the channel after ack as queue is being deleted")
@@ -333,7 +333,7 @@ func (qccl *queueChannelsClientLocal) Heartbeat(ctx context.Context, queueName s
 
 	// ack the item in the queue channel
 	// NOTE: this could be a delete, but with the locks i think that will be slower than I want so use 1 find and then 1 delete
-	if err := qccl.queueChannels.QueryAction(queueName, queryassociatedaction.KeyValuesToExactAssociatedActionQuery(heartbeat.KeyValues), performHeartbeat); err != nil {
+	if err := qccl.queueChannels.QueryAction(queueName, queryassociatedaction.KeyValuesToExactAssociatedActionQuery(heartbeat.KeyValues.ToKeyValues()), performHeartbeat); err != nil {
 		panic(err)
 	}
 
@@ -341,7 +341,7 @@ func (qccl *queueChannelsClientLocal) Heartbeat(ctx context.Context, queueName s
 }
 
 // on dequeue, we add a client waiting to capture any newly created channels
-func (qccl *queueChannelsClientLocal) addClientWaiting(queueName string, channelQuery *queryassociatedaction.AssociatedActionQuery, channelOps *channelops.RepeatableMergeReadChannelOps[func(ctx context.Context) (*v1willow.DequeueQueueItem, func(), func())]) {
+func (qccl *queueChannelsClientLocal) addClientWaiting(queueName string, channelQuery *queryassociatedaction.AssociatedActionQuery, channelOps *channelops.RepeatableMergeReadChannelOps[func(ctx context.Context) (*v1willow.Item, func(), func())]) {
 	qccl.clientsWaitingLock.Lock()
 	defer qccl.clientsWaitingLock.Unlock()
 
@@ -349,7 +349,7 @@ func (qccl *queueChannelsClientLocal) addClientWaiting(queueName string, channel
 }
 
 // when a client finishes dequeue, it removes itself from the clients waiting to process an item
-func (qccl *queueChannelsClientLocal) removeClientWaiting(channelOps *channelops.RepeatableMergeReadChannelOps[func(ctx context.Context) (*v1willow.DequeueQueueItem, func(), func())]) {
+func (qccl *queueChannelsClientLocal) removeClientWaiting(channelOps *channelops.RepeatableMergeReadChannelOps[func(ctx context.Context) (*v1willow.Item, func(), func())]) {
 	qccl.clientsWaitingLock.Lock()
 	defer qccl.clientsWaitingLock.Unlock()
 
@@ -363,7 +363,7 @@ func (qccl *queueChannelsClientLocal) removeClientWaiting(channelOps *channelops
 }
 
 // when a new channel is created, check any clients currently waiting that might be interested in the channel
-func (qccl *queueChannelsClientLocal) updateClientsWaiting(queueName string, channelTags datatypes.KeyValues, channel <-chan func(ctx context.Context) (*v1willow.DequeueQueueItem, func(), func())) {
+func (qccl *queueChannelsClientLocal) updateClientsWaiting(queueName string, channelTags datatypes.KeyValues, channel <-chan func(ctx context.Context) (*v1willow.Item, func(), func())) {
 	qccl.clientsWaitingLock.Lock()
 	defer qccl.clientsWaitingLock.Unlock()
 
@@ -382,10 +382,17 @@ func (qccl *queueChannelsClientLocal) Channels(ctx context.Context, queueName st
 	channels := v1willow.Channels{}
 
 	queryChannels := func(oneToManyItem btreeonetomany.OneToManyItem) bool {
-		channels = append(channels, v1willow.Channel{
-			KeyValues:     oneToManyItem.ManyKeyValues(),
-			EnqueuedItems: -1,
-			RunningItems:  -1,
+		channels = append(channels, &v1willow.Channel{
+			Spec: &v1willow.ChannelSpec{
+				DBDefinition: &v1willow.ChannelDBDefinition{
+					KeyValues: dbdefinition.KeyValuesToTypedKeyValues(oneToManyItem.ManyKeyValues()),
+				},
+			},
+			State: &v1willow.ChannelState{
+				// #TODO: have these be actual values
+				EnqueuedItems:   -1,
+				ProcessingItems: -1,
+			},
 		})
 
 		return true

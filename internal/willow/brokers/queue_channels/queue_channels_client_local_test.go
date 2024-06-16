@@ -18,6 +18,7 @@ import (
 	"github.com/DanLavine/willow/pkg/clients/limiter_client/limiterclientfakes"
 	"github.com/DanLavine/willow/pkg/models/api/common/errors"
 	v1 "github.com/DanLavine/willow/pkg/models/api/common/v1"
+	dbdefinition "github.com/DanLavine/willow/pkg/models/api/common/v1/db_definition"
 	queryassociatedaction "github.com/DanLavine/willow/pkg/models/api/common/v1/query_associated_action"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 	"github.com/DanLavine/willow/testhelpers"
@@ -29,20 +30,24 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var checkTrue = true
-
-func defaultEnqueueItem(g *GomegaWithT) *v1willow.EnqueueQueueItem {
-	enqueuItem := &v1willow.EnqueueQueueItem{
-		Item: []byte(`item to queue`),
-		KeyValues: datatypes.KeyValues{
-			"one": datatypes.Int(1),
+func defaultEnqueueItem(g *GomegaWithT) *v1willow.Item {
+	enqueuItem := &v1willow.Item{
+		Spec: &v1willow.ItemSpec{
+			DBDefinition: &v1willow.ItemDBDefinition{
+				KeyValues: dbdefinition.TypedKeyValues{
+					"one": datatypes.Int(1),
+				},
+			},
+			Properties: &v1willow.ItemProperties{
+				Data:            []byte(`item to queue`),
+				Updateable:      helpers.PointerOf(true),
+				RetryAttempts:   helpers.PointerOf[uint64](0),
+				RetryPosition:   helpers.PointerOf("front"),
+				TimeoutDuration: helpers.PointerOf(time.Second),
+			},
 		},
-		Updateable:      true,
-		RetryAttempts:   0,
-		RetryPosition:   "front",
-		TimeoutDuration: time.Second,
 	}
-	g.Expect(enqueuItem.Validate()).ToNot(HaveOccurred())
+	g.Expect(enqueuItem.ValidateSpecOnly()).ToNot(HaveOccurred())
 
 	return enqueuItem
 }
@@ -73,8 +78,8 @@ func Test_queueChannelsClientLocal_EnqueueQueueItem(t *testing.T) {
 
 			// setup fake queue channel
 			mockQueueChannel := constructorfakes.NewMockQueueChannel(mockController)
-			mockQueueChannel.EXPECT().Enqueue(gomock.Any(), gomock.Any()).DoAndReturn(func(context.Context, *v1willow.EnqueueQueueItem) *errors.ServerError { return nil }).Times(1)
-			mockQueueChannel.EXPECT().Dequeue().DoAndReturn(func() (channel <-chan func(logger context.Context) (*v1willow.DequeueQueueItem, func(), func())) {
+			mockQueueChannel.EXPECT().Enqueue(gomock.Any(), gomock.Any()).DoAndReturn(func(context.Context, *v1willow.Item) *errors.ServerError { return nil }).Times(1)
+			mockQueueChannel.EXPECT().Dequeue().DoAndReturn(func() (channel <-chan func(logger context.Context) (*v1willow.Item, func(), func())) {
 				return nil
 			}).Times(1)
 
@@ -96,8 +101,8 @@ func Test_queueChannelsClientLocal_EnqueueQueueItem(t *testing.T) {
 
 			// setup fake queue channel
 			mockQueueChannel := constructorfakes.NewMockQueueChannel(mockController)
-			mockQueueChannel.EXPECT().Enqueue(gomock.Any(), gomock.Any()).DoAndReturn(func(context.Context, *v1willow.EnqueueQueueItem) *errors.ServerError { return nil }).Times(5)
-			mockQueueChannel.EXPECT().Dequeue().DoAndReturn(func() (channel <-chan func(logger context.Context) (*v1willow.DequeueQueueItem, func(), func())) {
+			mockQueueChannel.EXPECT().Enqueue(gomock.Any(), gomock.Any()).DoAndReturn(func(context.Context, *v1willow.Item) *errors.ServerError { return nil }).Times(5)
+			mockQueueChannel.EXPECT().Dequeue().DoAndReturn(func() (channel <-chan func(logger context.Context) (*v1willow.Item, func(), func())) {
 				return nil
 			}).Times(5)
 
@@ -122,8 +127,8 @@ func Test_queueChannelsClientLocal_EnqueueQueueItem(t *testing.T) {
 
 			// setup fake queue channel
 			mockQueueChannel := constructorfakes.NewMockQueueChannel(mockController)
-			mockQueueChannel.EXPECT().Enqueue(gomock.Any(), gomock.Any()).DoAndReturn(func(context.Context, *v1willow.EnqueueQueueItem) *errors.ServerError { return nil }).Times(5)
-			mockQueueChannel.EXPECT().Dequeue().DoAndReturn(func() (channel <-chan func(logger context.Context) (*v1willow.DequeueQueueItem, func(), func())) {
+			mockQueueChannel.EXPECT().Enqueue(gomock.Any(), gomock.Any()).DoAndReturn(func(context.Context, *v1willow.Item) *errors.ServerError { return nil }).Times(5)
+			mockQueueChannel.EXPECT().Dequeue().DoAndReturn(func() (channel <-chan func(logger context.Context) (*v1willow.Item, func(), func())) {
 				return nil
 			}).Times(5)
 
@@ -135,17 +140,23 @@ func Test_queueChannelsClientLocal_EnqueueQueueItem(t *testing.T) {
 			queueChannelClentLocal := NewLocalQueueChannelsClient(mockConstructor)
 
 			for i := 0; i < 5; i++ {
-				enqueuItem := &v1willow.EnqueueQueueItem{
-					Item: []byte(`item to queue`),
-					KeyValues: datatypes.KeyValues{
-						"one": datatypes.Int(i),
+				enqueuItem := &v1willow.Item{
+					Spec: &v1willow.ItemSpec{
+						DBDefinition: &v1willow.ItemDBDefinition{
+							KeyValues: dbdefinition.TypedKeyValues{
+								"one": datatypes.Int(i),
+							},
+						},
+						Properties: &v1willow.ItemProperties{
+							Data:            []byte(`item to queue`),
+							Updateable:      helpers.PointerOf(true),
+							RetryAttempts:   helpers.PointerOf[uint64](0),
+							RetryPosition:   helpers.PointerOf("front"),
+							TimeoutDuration: helpers.PointerOf(time.Second),
+						},
 					},
-					Updateable:      true,
-					RetryAttempts:   0,
-					RetryPosition:   "front",
-					TimeoutDuration: time.Second,
 				}
-				g.Expect(enqueuItem.Validate()).ToNot(HaveOccurred())
+				g.Expect(enqueuItem.ValidateSpecOnly()).ToNot(HaveOccurred())
 				g.Expect(queueChannelClentLocal.EnqueueQueueItem(testhelpers.NewContextWithMiddlewareSetup(), "queue name", enqueuItem))
 			}
 		})
@@ -157,7 +168,7 @@ func Test_queueChannelsClientLocal_EnqueueQueueItem(t *testing.T) {
 
 			// setup fake queue channel
 			mockQueueChannel := constructorfakes.NewMockQueueChannel(mockController)
-			mockQueueChannel.EXPECT().Enqueue(gomock.Any(), gomock.Any()).DoAndReturn(func(context.Context, *v1willow.EnqueueQueueItem) *errors.ServerError {
+			mockQueueChannel.EXPECT().Enqueue(gomock.Any(), gomock.Any()).DoAndReturn(func(context.Context, *v1willow.Item) *errors.ServerError {
 				return &errors.ServerError{Message: "failed to enqueue item"}
 			}).Times(1)
 
@@ -182,8 +193,8 @@ func Test_queueChannelsClientLocal_EnqueueQueueItem(t *testing.T) {
 
 			// setup fake queue channel
 			mockQueueChannel := constructorfakes.NewMockQueueChannel(mockController)
-			mockQueueChannel.EXPECT().Enqueue(gomock.Any(), gomock.Any()).DoAndReturn(func(context.Context, *v1willow.EnqueueQueueItem) *errors.ServerError { return nil }).Times(5)
-			mockQueueChannel.EXPECT().Dequeue().DoAndReturn(func() (channel <-chan func(logger context.Context) (*v1willow.DequeueQueueItem, func(), func())) {
+			mockQueueChannel.EXPECT().Enqueue(gomock.Any(), gomock.Any()).DoAndReturn(func(context.Context, *v1willow.Item) *errors.ServerError { return nil }).Times(5)
+			mockQueueChannel.EXPECT().Dequeue().DoAndReturn(func() (channel <-chan func(logger context.Context) (*v1willow.Item, func(), func())) {
 				return nil
 			}).Times(1)
 
@@ -229,7 +240,7 @@ func Test_queueChannelsClientLocal_DequeueQueueItem(t *testing.T) {
 			g.Expect(query.Validate()).ToNot(HaveOccurred())
 
 			done := make(chan struct{})
-			var dequeueItem *v1willow.DequeueQueueItem
+			var dequeueItem *v1willow.Item
 			var success func()
 			var failure func()
 			var dequeueErr *errors.ServerError
@@ -276,7 +287,7 @@ func Test_queueChannelsClientLocal_DequeueQueueItem(t *testing.T) {
 			g.Expect(query.Validate()).ToNot(HaveOccurred())
 
 			done := make(chan struct{})
-			var dequeueItem *v1willow.DequeueQueueItem
+			var dequeueItem *v1willow.Item
 			var success func()
 			var failure func()
 			var dequeueErr *errors.ServerError
@@ -329,7 +340,7 @@ func Test_queueChannelsClientLocal_DequeueQueueItem(t *testing.T) {
 
 			// run dequeue and wait till it has checked all current channels
 			done := make(chan struct{})
-			var dequeueItem *v1willow.DequeueQueueItem
+			var dequeueItem *v1willow.Item
 			var success func()
 			var failure func()
 			var dequeueErr *errors.ServerError
@@ -349,10 +360,10 @@ func Test_queueChannelsClientLocal_DequeueQueueItem(t *testing.T) {
 
 			g.Eventually(done).Should(BeClosed())
 			g.Expect(dequeueItem).ToNot(BeNil())
-			g.Expect(dequeueItem.Item).To(Equal([]byte(`item to queue`)))
-			g.Expect(dequeueItem.ItemID).ToNot(Equal(""))
-			g.Expect(dequeueItem.KeyValues).To(Equal(datatypes.KeyValues{"one": datatypes.Int(1)}))
-			g.Expect(dequeueItem.TimeoutDuration).To(Equal(time.Second))
+			g.Expect(dequeueItem.Spec.DBDefinition.KeyValues).To(Equal(dbdefinition.TypedKeyValues{"one": datatypes.Int(1)}))
+			g.Expect(dequeueItem.Spec.Properties.Data).To(Equal([]byte(`item to queue`)))
+			g.Expect(*dequeueItem.Spec.Properties.TimeoutDuration).To(Equal(time.Second))
+			g.Expect(dequeueItem.State.ID).ToNot(Equal(""))
 			g.Expect(success).ToNot(BeNil())
 			g.Expect(failure).ToNot(BeNil())
 			g.Expect(dequeueErr).To(BeNil())
@@ -397,7 +408,7 @@ func Test_queueChannelsClientLocal_DequeueQueueItem(t *testing.T) {
 
 			// run dequeue and wait till it has checked all current channels
 			done := make(chan struct{})
-			var dequeueItem *v1willow.DequeueQueueItem
+			var dequeueItem *v1willow.Item
 			var success func()
 			var failure func()
 			var dequeueErr *errors.ServerError
@@ -417,31 +428,37 @@ func Test_queueChannelsClientLocal_DequeueQueueItem(t *testing.T) {
 			g.Consistently(done).ShouldNot(BeClosed())
 
 			// enqueue an item that should not trigger the request
-			enqueueItem := &v1willow.EnqueueQueueItem{
-				Item: []byte(`data to pull`),
-				KeyValues: datatypes.KeyValues{
-					"one":   datatypes.Float32(3.2),
-					"two":   datatypes.Int(2),
-					"three": datatypes.String("other"),
+			enqueueItem := &v1willow.Item{
+				Spec: &v1willow.ItemSpec{
+					DBDefinition: &v1willow.ItemDBDefinition{
+						KeyValues: dbdefinition.TypedKeyValues{
+							"one":   datatypes.Float32(3.2),
+							"two":   datatypes.Int(2),
+							"three": datatypes.String("other"),
+						},
+					},
+					Properties: &v1willow.ItemProperties{
+						Data:            []byte(`data to pull`),
+						Updateable:      helpers.PointerOf(false),
+						RetryAttempts:   helpers.PointerOf[uint64](2),
+						RetryPosition:   helpers.PointerOf("back"),
+						TimeoutDuration: helpers.PointerOf(time.Second),
+					},
 				},
-				Updateable:      false,
-				RetryAttempts:   2,
-				RetryPosition:   "back",
-				TimeoutDuration: time.Second,
 			}
-			g.Expect(enqueueItem.Validate()).ToNot(HaveOccurred())
+			g.Expect(enqueueItem.ValidateSpecOnly()).ToNot(HaveOccurred())
 			g.Expect(queueChannelClentLocal.EnqueueQueueItem(testhelpers.NewContextWithMiddlewareSetup(), "test queue", enqueueItem))
 
 			g.Eventually(done).Should(BeClosed())
 			g.Expect(dequeueItem).ToNot(BeNil())
-			g.Expect(dequeueItem.Item).To(Equal([]byte(`data to pull`)))
-			g.Expect(dequeueItem.ItemID).ToNot(Equal(""))
-			g.Expect(dequeueItem.KeyValues).To(Equal(datatypes.KeyValues{
+			g.Expect(dequeueItem.Spec.Properties.Data).To(Equal([]byte(`data to pull`)))
+			g.Expect(dequeueItem.State.ID).ToNot(Equal(""))
+			g.Expect(dequeueItem.Spec.DBDefinition.KeyValues).To(Equal(dbdefinition.TypedKeyValues{
 				"one":   datatypes.Float32(3.2),
 				"two":   datatypes.Int(2),
 				"three": datatypes.String("other"),
 			}))
-			g.Expect(dequeueItem.TimeoutDuration).To(Equal(time.Second))
+			g.Expect(*dequeueItem.Spec.Properties.TimeoutDuration).To(Equal(time.Second))
 			g.Expect(success).ToNot(BeNil())
 			g.Expect(failure).ToNot(BeNil())
 			g.Expect(dequeueErr).To(BeNil())
@@ -482,10 +499,10 @@ func Test_queueChannelsClientLocal_DequeueQueueItem(t *testing.T) {
 
 			dequeueItem, success, failure, dequeueErr := queueChannelClentLocal.DequeueQueueItem(testhelpers.NewContextWithMiddlewareSetup(), "test queue", query)
 			g.Expect(dequeueItem).ToNot(BeNil())
-			g.Expect(dequeueItem.Item).To(Equal([]byte(`item to queue`)))
-			g.Expect(dequeueItem.ItemID).ToNot(Equal(""))
-			g.Expect(dequeueItem.KeyValues).To(Equal(datatypes.KeyValues{"one": datatypes.Int(1)}))
-			g.Expect(dequeueItem.TimeoutDuration).To(Equal(time.Second))
+			g.Expect(dequeueItem.Spec.Properties.Data).To(Equal([]byte(`item to queue`)))
+			g.Expect(dequeueItem.State.ID).ToNot(Equal(""))
+			g.Expect(dequeueItem.Spec.DBDefinition.KeyValues).To(Equal(dbdefinition.TypedKeyValues{"one": datatypes.Int(1)}))
+			g.Expect(*dequeueItem.Spec.Properties.TimeoutDuration).To(Equal(time.Second))
 			g.Expect(success).ToNot(BeNil())
 			g.Expect(failure).ToNot(BeNil())
 			g.Expect(dequeueErr).To(BeNil())
@@ -507,19 +524,25 @@ func Test_queueChannelsClientLocal_DequeueQueueItem(t *testing.T) {
 			g.Expect(queueChannelClentLocal.EnqueueQueueItem(testhelpers.NewContextWithMiddlewareSetup(), "test queue", defaultEnqueueItem(g)))
 
 			// enqueue an item that will not dequeue
-			enqueueItem := &v1willow.EnqueueQueueItem{
-				Item: []byte(`data to pull`),
-				KeyValues: datatypes.KeyValues{
-					"one":   datatypes.Int(1),
-					"two":   datatypes.Int(2),
-					"three": datatypes.String("other"),
+			enqueueItem := &v1willow.Item{
+				Spec: &v1willow.ItemSpec{
+					DBDefinition: &v1willow.ItemDBDefinition{
+						KeyValues: dbdefinition.TypedKeyValues{
+							"one":   datatypes.Int(1),
+							"two":   datatypes.Int(2),
+							"three": datatypes.String("other"),
+						},
+					},
+					Properties: &v1willow.ItemProperties{
+						Data:            []byte(`data to pull`),
+						Updateable:      helpers.PointerOf(false),
+						RetryAttempts:   helpers.PointerOf[uint64](2),
+						RetryPosition:   helpers.PointerOf("back"),
+						TimeoutDuration: helpers.PointerOf(time.Second),
+					},
 				},
-				Updateable:      false,
-				RetryAttempts:   2,
-				RetryPosition:   "back",
-				TimeoutDuration: time.Second,
 			}
-			g.Expect(enqueueItem.Validate()).ToNot(HaveOccurred())
+			g.Expect(enqueueItem.ValidateSpecOnly()).ToNot(HaveOccurred())
 			g.Expect(queueChannelClentLocal.EnqueueQueueItem(testhelpers.NewContextWithMiddlewareSetup(), "test queue", enqueueItem))
 
 			query := &queryassociatedaction.AssociatedActionQuery{
@@ -538,10 +561,10 @@ func Test_queueChannelsClientLocal_DequeueQueueItem(t *testing.T) {
 
 			dequeueItem, success, failure, dequeueErr := queueChannelClentLocal.DequeueQueueItem(testhelpers.NewContextWithMiddlewareSetup(), "test queue", query)
 			g.Expect(dequeueItem).ToNot(BeNil())
-			g.Expect(dequeueItem.Item).To(Equal([]byte(`item to queue`)))
-			g.Expect(dequeueItem.ItemID).ToNot(Equal(""))
-			g.Expect(dequeueItem.KeyValues).To(Equal(datatypes.KeyValues{"one": datatypes.Int(1)}))
-			g.Expect(dequeueItem.TimeoutDuration).To(Equal(time.Second))
+			g.Expect(dequeueItem.Spec.Properties.Data).To(Equal([]byte(`item to queue`)))
+			g.Expect(dequeueItem.State.ID).ToNot(Equal(""))
+			g.Expect(dequeueItem.Spec.DBDefinition.KeyValues).To(Equal(dbdefinition.TypedKeyValues{"one": datatypes.Int(1)}))
+			g.Expect(*dequeueItem.Spec.Properties.TimeoutDuration).To(Equal(time.Second))
 			g.Expect(success).ToNot(BeNil())
 			g.Expect(failure).ToNot(BeNil())
 			g.Expect(dequeueErr).To(BeNil())
@@ -573,11 +596,11 @@ func Test_queueChannelsClientLocal_DequeueQueueItem(t *testing.T) {
 
 			// setup the channel
 			count := 0
-			dequeueChanOne := make(chan func(logger context.Context) (*v1willow.DequeueQueueItem, func(), func()))
-			dequeueChanTwo := make(chan func(logger context.Context) (*v1willow.DequeueQueueItem, func(), func()))
+			dequeueChanOne := make(chan func(logger context.Context) (*v1willow.Item, func(), func()))
+			dequeueChanTwo := make(chan func(logger context.Context) (*v1willow.Item, func(), func()))
 
-			fakeQueueChannel.EXPECT().Enqueue(gomock.Any(), gomock.Any()).DoAndReturn(func(context.Context, *v1willow.EnqueueQueueItem) *errors.ServerError { return nil }).AnyTimes()
-			fakeQueueChannel.EXPECT().Dequeue().DoAndReturn(func() <-chan (func(logger context.Context) (*v1willow.DequeueQueueItem, func(), func())) {
+			fakeQueueChannel.EXPECT().Enqueue(gomock.Any(), gomock.Any()).DoAndReturn(func(context.Context, *v1willow.Item) *errors.ServerError { return nil }).AnyTimes()
+			fakeQueueChannel.EXPECT().Dequeue().DoAndReturn(func() <-chan (func(logger context.Context) (*v1willow.Item, func(), func())) {
 				// IMPORTANT TO HAVE THIS BE 2. the enqueue calls dequeue 1 time each to update any clients currently waiting
 				if count <= 2 {
 					count++
@@ -590,15 +613,29 @@ func Test_queueChannelsClientLocal_DequeueQueueItem(t *testing.T) {
 			// setup the response for the dequeue chan
 			go func() {
 				// first reponse is all nil (mimic the limiter blocking a request)
-				dequeueChanOne <- func(logger context.Context) (*v1willow.DequeueQueueItem, func(), func()) { return nil, nil, nil }
+				dequeueChanOne <- func(logger context.Context) (*v1willow.Item, func(), func()) { return nil, nil, nil }
 
 				// second response over same channel now should pass
-				dequeueChanTwo <- func(logger context.Context) (*v1willow.DequeueQueueItem, func(), func()) {
-					return &v1willow.DequeueQueueItem{
-						KeyValues:       datatypes.KeyValues{"one": datatypes.Int(1), "two": datatypes.Float32(2.0)},
-						ItemID:          "something",
-						Item:            []byte(`doesn't matter 2`),
-						TimeoutDuration: time.Second,
+				dequeueChanTwo <- func(logger context.Context) (*v1willow.Item, func(), func()) {
+					return &v1willow.Item{
+						Spec: &v1willow.ItemSpec{
+							DBDefinition: &v1willow.ItemDBDefinition{
+								KeyValues: dbdefinition.TypedKeyValues{
+									"one": datatypes.Int(1),
+									"two": datatypes.Float32(2.0),
+								},
+							},
+							Properties: &v1willow.ItemProperties{
+								Data:            []byte(`doesn't matter 2`),
+								Updateable:      helpers.PointerOf(true),
+								RetryAttempts:   helpers.PointerOf[uint64](0),
+								RetryPosition:   helpers.PointerOf("front"),
+								TimeoutDuration: helpers.PointerOf(time.Second),
+							},
+						},
+						State: &v1willow.ItemState{
+							ID: "something",
+						},
 					}, func() {}, func() {}
 				}
 			}()
@@ -606,22 +643,39 @@ func Test_queueChannelsClientLocal_DequeueQueueItem(t *testing.T) {
 			queueChannelClentLocal := NewLocalQueueChannelsClient(constructor)
 
 			// enqueue our fake chan twice
-			g.Expect(queueChannelClentLocal.EnqueueQueueItem(testhelpers.NewContextWithMiddlewareSetup(), "test queue", &v1willow.EnqueueQueueItem{
-				Item:            []byte(`doesn't matter 1`),
-				KeyValues:       datatypes.KeyValues{"one": datatypes.Int(1)},
-				Updateable:      false,
-				RetryAttempts:   0,
-				RetryPosition:   "front",
-				TimeoutDuration: time.Second,
+			g.Expect(queueChannelClentLocal.EnqueueQueueItem(testhelpers.NewContextWithMiddlewareSetup(), "test queue", &v1willow.Item{
+				Spec: &v1willow.ItemSpec{
+					DBDefinition: &v1willow.ItemDBDefinition{
+						KeyValues: dbdefinition.TypedKeyValues{
+							"one": datatypes.Int(1),
+						},
+					},
+					Properties: &v1willow.ItemProperties{
+						Data:            []byte(`doesn't matter 1`),
+						Updateable:      helpers.PointerOf(false),
+						RetryAttempts:   helpers.PointerOf[uint64](0),
+						RetryPosition:   helpers.PointerOf("front"),
+						TimeoutDuration: helpers.PointerOf(time.Second),
+					},
+				},
 			})).ToNot(HaveOccurred())
 
-			g.Expect(queueChannelClentLocal.EnqueueQueueItem(testhelpers.NewContextWithMiddlewareSetup(), "test queue", &v1willow.EnqueueQueueItem{
-				Item:            []byte(`doesn't matter 2`),
-				KeyValues:       datatypes.KeyValues{"one": datatypes.Int(1), "two": datatypes.Float32(2.0)},
-				Updateable:      false,
-				RetryAttempts:   0,
-				RetryPosition:   "front",
-				TimeoutDuration: time.Second,
+			g.Expect(queueChannelClentLocal.EnqueueQueueItem(testhelpers.NewContextWithMiddlewareSetup(), "test queue", &v1willow.Item{
+				Spec: &v1willow.ItemSpec{
+					DBDefinition: &v1willow.ItemDBDefinition{
+						KeyValues: dbdefinition.TypedKeyValues{
+							"one": datatypes.Int(1),
+							"two": datatypes.Float32(2.0),
+						},
+					},
+					Properties: &v1willow.ItemProperties{
+						Data:            []byte(`doesn't matter 2`),
+						Updateable:      helpers.PointerOf(false),
+						RetryAttempts:   helpers.PointerOf[uint64](0),
+						RetryPosition:   helpers.PointerOf("front"),
+						TimeoutDuration: helpers.PointerOf(time.Second),
+					},
+				},
 			})).ToNot(HaveOccurred())
 
 			// run the server in async mode
@@ -647,7 +701,7 @@ func Test_queueChannelsClientLocal_DequeueQueueItem(t *testing.T) {
 
 			// run dequeue and wait till it has checked all current channels
 			done := make(chan struct{})
-			var dequeueItem *v1willow.DequeueQueueItem
+			var dequeueItem *v1willow.Item
 			var success func()
 			var failure func()
 			var dequeueErr *errors.ServerError
@@ -658,10 +712,10 @@ func Test_queueChannelsClientLocal_DequeueQueueItem(t *testing.T) {
 
 			g.Eventually(done).Should(BeClosed())
 			g.Expect(dequeueItem).ToNot(BeNil())
-			g.Expect(dequeueItem.Item).To(Equal([]byte(`doesn't matter 2`)))
-			g.Expect(dequeueItem.ItemID).To(Equal("something"))
-			g.Expect(dequeueItem.KeyValues).To(Equal(datatypes.KeyValues{"one": datatypes.Int(1), "two": datatypes.Float32(2.0)}))
-			g.Expect(dequeueItem.TimeoutDuration).To(Equal(time.Second))
+			g.Expect(dequeueItem.Spec.Properties.Data).To(Equal([]byte(`doesn't matter 2`)))
+			g.Expect(dequeueItem.State.ID).To(Equal("something"))
+			g.Expect(dequeueItem.Spec.DBDefinition.KeyValues).To(Equal(dbdefinition.TypedKeyValues{"one": datatypes.Int(1), "two": datatypes.Float32(2.0)}))
+			g.Expect(*dequeueItem.Spec.Properties.TimeoutDuration).To(Equal(time.Second))
 			g.Expect(success).ToNot(BeNil())
 			g.Expect(failure).ToNot(BeNil())
 			g.Expect(dequeueErr).To(BeNil())
@@ -675,9 +729,9 @@ func Test_queueChannelsClientLocal_DequeueQueueItem(t *testing.T) {
 			defer mockController.Finish()
 
 			// setup the channel
-			dequeueChan := make(chan func(logger context.Context) (*v1willow.DequeueQueueItem, func(), func()))
-			fakeQueueChannel.EXPECT().Enqueue(gomock.Any(), gomock.Any()).DoAndReturn(func(context.Context, *v1willow.EnqueueQueueItem) *errors.ServerError { return nil }).Times(1)
-			fakeQueueChannel.EXPECT().Dequeue().DoAndReturn(func() <-chan (func(logger context.Context) (*v1willow.DequeueQueueItem, func(), func())) {
+			dequeueChan := make(chan func(logger context.Context) (*v1willow.Item, func(), func()))
+			fakeQueueChannel.EXPECT().Enqueue(gomock.Any(), gomock.Any()).DoAndReturn(func(context.Context, *v1willow.Item) *errors.ServerError { return nil }).Times(1)
+			fakeQueueChannel.EXPECT().Dequeue().DoAndReturn(func() <-chan (func(logger context.Context) (*v1willow.Item, func(), func())) {
 				return dequeueChan
 			}).AnyTimes()
 			fakeQueueChannel.EXPECT().Execute(gomock.Any()).DoAndReturn(func(ctx context.Context) error { return nil }).Times(1)
@@ -685,16 +739,29 @@ func Test_queueChannelsClientLocal_DequeueQueueItem(t *testing.T) {
 			// setup the response for the dequeue chan
 			go func() {
 				// first reponse is all nil (mimic the limiter blocking a request)
-				empty := func(logger context.Context) (*v1willow.DequeueQueueItem, func(), func()) { return nil, nil, nil }
+				empty := func(logger context.Context) (*v1willow.Item, func(), func()) { return nil, nil, nil }
 				dequeueChan <- empty
 
 				// second response over same channel now should pass
-				item := func(logger context.Context) (*v1willow.DequeueQueueItem, func(), func()) {
-					return &v1willow.DequeueQueueItem{
-						KeyValues:       datatypes.KeyValues{"one": datatypes.Int(1)},
-						ItemID:          "something",
-						Item:            []byte(`data`),
-						TimeoutDuration: time.Second,
+				item := func(logger context.Context) (*v1willow.Item, func(), func()) {
+					return &v1willow.Item{
+						Spec: &v1willow.ItemSpec{
+							DBDefinition: &v1willow.ItemDBDefinition{
+								KeyValues: dbdefinition.TypedKeyValues{
+									"one": datatypes.Int(1),
+								},
+							},
+							Properties: &v1willow.ItemProperties{
+								Data:            []byte(`data`),
+								Updateable:      helpers.PointerOf(true),
+								RetryAttempts:   helpers.PointerOf[uint64](0),
+								RetryPosition:   helpers.PointerOf("front"),
+								TimeoutDuration: helpers.PointerOf(time.Second),
+							},
+						},
+						State: &v1willow.ItemState{
+							ID: "something",
+						},
 					}, func() {}, func() {}
 				}
 				dequeueChan <- item
@@ -703,13 +770,21 @@ func Test_queueChannelsClientLocal_DequeueQueueItem(t *testing.T) {
 			queueChannelClentLocal := NewLocalQueueChannelsClient(constructor)
 
 			// enqueue our fake chan
-			g.Expect(queueChannelClentLocal.EnqueueQueueItem(testhelpers.NewContextWithMiddlewareSetup(), "test queue", &v1willow.EnqueueQueueItem{
-				Item:            []byte(`doesn't matter`),
-				KeyValues:       datatypes.KeyValues{"one": datatypes.Int(1)},
-				Updateable:      false,
-				RetryAttempts:   0,
-				RetryPosition:   "front",
-				TimeoutDuration: time.Second,
+			g.Expect(queueChannelClentLocal.EnqueueQueueItem(testhelpers.NewContextWithMiddlewareSetup(), "test queue", &v1willow.Item{
+				Spec: &v1willow.ItemSpec{
+					DBDefinition: &v1willow.ItemDBDefinition{
+						KeyValues: dbdefinition.TypedKeyValues{
+							"one": datatypes.Int(1),
+						},
+					},
+					Properties: &v1willow.ItemProperties{
+						Data:            []byte(`doesn't matter`),
+						Updateable:      helpers.PointerOf(false),
+						RetryAttempts:   helpers.PointerOf[uint64](0),
+						RetryPosition:   helpers.PointerOf("front"),
+						TimeoutDuration: helpers.PointerOf(time.Second),
+					},
+				},
 			})).ToNot(HaveOccurred())
 
 			// run the server in async mode
@@ -735,7 +810,7 @@ func Test_queueChannelsClientLocal_DequeueQueueItem(t *testing.T) {
 
 			// run dequeue and wait till it has checked all current channels
 			done := make(chan struct{})
-			var dequeueItem *v1willow.DequeueQueueItem
+			var dequeueItem *v1willow.Item
 			var success func()
 			var failure func()
 			var dequeueErr *errors.ServerError
@@ -746,10 +821,10 @@ func Test_queueChannelsClientLocal_DequeueQueueItem(t *testing.T) {
 
 			g.Eventually(done).Should(BeClosed())
 			g.Expect(dequeueItem).ToNot(BeNil())
-			g.Expect(dequeueItem.Item).To(Equal([]byte(`data`)))
-			g.Expect(dequeueItem.ItemID).To(Equal("something"))
-			g.Expect(dequeueItem.KeyValues).To(Equal(datatypes.KeyValues{"one": datatypes.Int(1)}))
-			g.Expect(dequeueItem.TimeoutDuration).To(Equal(time.Second))
+			g.Expect(dequeueItem.Spec.Properties.Data).To(Equal([]byte(`data`)))
+			g.Expect(dequeueItem.State.ID).To(Equal("something"))
+			g.Expect(dequeueItem.Spec.DBDefinition.KeyValues).To(Equal(dbdefinition.TypedKeyValues{"one": datatypes.Int(1)}))
+			g.Expect(*dequeueItem.Spec.Properties.TimeoutDuration).To(Equal(time.Second))
 			g.Expect(success).ToNot(BeNil())
 			g.Expect(failure).ToNot(BeNil())
 			g.Expect(dequeueErr).To(BeNil())
@@ -783,7 +858,7 @@ func Test_queueChannelsClientLocal_ACK(t *testing.T) {
 
 		ack := &v1willow.ACK{
 			ItemID: "some id",
-			KeyValues: datatypes.KeyValues{
+			KeyValues: dbdefinition.TypedKeyValues{
 				"one": datatypes.Int(1),
 			},
 			Passed: true,
@@ -806,28 +881,34 @@ func Test_queueChannelsClientLocal_ACK(t *testing.T) {
 		}
 
 		enqueueItem := func(g *GomegaWithT, queueChannelClentLocal *queueChannelsClientLocal) {
-			enqueuItem := &v1willow.EnqueueQueueItem{
-				Item: []byte(`item to queue`),
-				KeyValues: datatypes.KeyValues{
-					"one": datatypes.Int(1),
+			enqueuItem := &v1willow.Item{
+				Spec: &v1willow.ItemSpec{
+					DBDefinition: &v1willow.ItemDBDefinition{
+						KeyValues: dbdefinition.TypedKeyValues{
+							"one": datatypes.Int(1),
+						},
+					},
+					Properties: &v1willow.ItemProperties{
+						Data:            []byte(`item to queue`),
+						Updateable:      helpers.PointerOf(false),
+						RetryAttempts:   helpers.PointerOf[uint64](0),
+						RetryPosition:   helpers.PointerOf("front"),
+						TimeoutDuration: helpers.PointerOf(time.Second),
+					},
 				},
-				Updateable:      false,
-				RetryAttempts:   0,
-				RetryPosition:   "front",
-				TimeoutDuration: time.Second,
 			}
-			g.Expect(enqueuItem.Validate()).ToNot(HaveOccurred())
+			g.Expect(enqueuItem.ValidateSpecOnly()).ToNot(HaveOccurred())
 
 			err := queueChannelClentLocal.EnqueueQueueItem(testhelpers.NewContextWithMiddlewareSetup(), "queue name", enqueuItem)
 			g.Expect(err).ToNot(HaveOccurred())
 		}
 
-		dequeueItem := func(g *GomegaWithT, queueChannelClentLocal *queueChannelsClientLocal) *v1willow.DequeueQueueItem {
+		dequeueItem := func(g *GomegaWithT, queueChannelClentLocal *queueChannelsClientLocal) *v1willow.Item {
 			query := &queryassociatedaction.AssociatedActionQuery{} // select all
 			g.Expect(query.Validate()).ToNot(HaveOccurred())
 
 			done := make(chan struct{})
-			var dequeueItem *v1willow.DequeueQueueItem
+			var dequeueItem *v1willow.Item
 			var success func()
 			var failure func()
 			var dequeueErr *errors.ServerError
@@ -867,8 +948,8 @@ func Test_queueChannelsClientLocal_ACK(t *testing.T) {
 
 			// ack the item dequeued with true
 			ack := &v1willow.ACK{
-				ItemID:    item.ItemID,
-				KeyValues: item.KeyValues,
+				ItemID:    item.State.ID,
+				KeyValues: item.Spec.DBDefinition.KeyValues,
 				Passed:    true,
 			}
 			g.Expect(ack.Validate()).ToNot(HaveOccurred())
@@ -909,8 +990,8 @@ func Test_queueChannelsClientLocal_ACK(t *testing.T) {
 
 			// ack the item dequeued with true
 			ack := &v1willow.ACK{
-				ItemID:    item.ItemID,
-				KeyValues: item.KeyValues,
+				ItemID:    item.State.ID,
+				KeyValues: item.Spec.DBDefinition.KeyValues,
 				Passed:    true,
 			}
 			g.Expect(ack.Validate()).ToNot(HaveOccurred())
@@ -952,8 +1033,8 @@ func Test_queueChannelsClientLocal_ACK(t *testing.T) {
 
 			// ack the item dequeued with true
 			ack := &v1willow.ACK{
-				ItemID:    item1.ItemID,
-				KeyValues: item1.KeyValues,
+				ItemID:    item1.State.ID,
+				KeyValues: item1.Spec.DBDefinition.KeyValues,
 				Passed:    true,
 			}
 			g.Expect(ack.Validate()).ToNot(HaveOccurred())
@@ -975,8 +1056,8 @@ func Test_queueChannelsClientLocal_ACK(t *testing.T) {
 
 			// ack the second item dequeued with true
 			ack2 := &v1willow.ACK{
-				ItemID:    item2.ItemID,
-				KeyValues: item2.KeyValues,
+				ItemID:    item2.State.ID,
+				KeyValues: item2.Spec.DBDefinition.KeyValues,
 				Passed:    true,
 			}
 			g.Expect(ack.Validate()).ToNot(HaveOccurred())
@@ -1027,28 +1108,34 @@ func Test_queueChannelsClientLocal_Heartbeat(t *testing.T) {
 	}
 
 	enqueueItem := func(g *GomegaWithT, queueChannelClentLocal *queueChannelsClientLocal) {
-		enqueuItem := &v1willow.EnqueueQueueItem{
-			Item: []byte(`item to queue`),
-			KeyValues: datatypes.KeyValues{
-				"one": datatypes.Int(1),
+		enqueuItem := &v1willow.Item{
+			Spec: &v1willow.ItemSpec{
+				DBDefinition: &v1willow.ItemDBDefinition{
+					KeyValues: dbdefinition.TypedKeyValues{
+						"one": datatypes.Int(1),
+					},
+				},
+				Properties: &v1willow.ItemProperties{
+					Data:            []byte(`item to queue`),
+					Updateable:      helpers.PointerOf(false),
+					RetryAttempts:   helpers.PointerOf[uint64](1),
+					RetryPosition:   helpers.PointerOf("front"),
+					TimeoutDuration: helpers.PointerOf(time.Second),
+				},
 			},
-			Updateable:      false,
-			RetryAttempts:   1,
-			RetryPosition:   "front",
-			TimeoutDuration: time.Second,
 		}
-		g.Expect(enqueuItem.Validate()).ToNot(HaveOccurred())
+		g.Expect(enqueuItem.ValidateSpecOnly()).ToNot(HaveOccurred())
 
 		err := queueChannelClentLocal.EnqueueQueueItem(testhelpers.NewContextWithMiddlewareSetup(), "queue name", enqueuItem)
 		g.Expect(err).ToNot(HaveOccurred())
 	}
 
-	dequeueItem := func(g *GomegaWithT, queueChannelClentLocal *queueChannelsClientLocal) *v1willow.DequeueQueueItem {
+	dequeueItem := func(g *GomegaWithT, queueChannelClentLocal *queueChannelsClientLocal) *v1willow.Item {
 		query := &queryassociatedaction.AssociatedActionQuery{} // select all
 		g.Expect(query.Validate()).ToNot(HaveOccurred())
 
 		done := make(chan struct{})
-		var dequeueItem *v1willow.DequeueQueueItem
+		var dequeueItem *v1willow.Item
 		var success func()
 		var failure func()
 		var dequeueErr *errors.ServerError
@@ -1075,7 +1162,7 @@ func Test_queueChannelsClientLocal_Heartbeat(t *testing.T) {
 
 		hearbeat := &v1willow.Heartbeat{
 			ItemID: "not found",
-			KeyValues: datatypes.KeyValues{
+			KeyValues: dbdefinition.TypedKeyValues{
 				"one": datatypes.Int(1),
 			},
 		}
@@ -1107,8 +1194,8 @@ func Test_queueChannelsClientLocal_Heartbeat(t *testing.T) {
 
 		// heartbeat the item
 		hearbeat := &v1willow.Heartbeat{
-			ItemID:    item.ItemID,
-			KeyValues: item.KeyValues,
+			ItemID:    item.State.ID,
+			KeyValues: item.Spec.DBDefinition.KeyValues,
 		}
 		g.Expect(hearbeat.Validate()).ToNot(HaveOccurred())
 
@@ -1121,8 +1208,8 @@ func Test_queueChannelsClientLocal_Heartbeat(t *testing.T) {
 
 		// can still ack the item
 		ack := &v1willow.ACK{
-			ItemID:    item.ItemID,
-			KeyValues: item.KeyValues,
+			ItemID:    item.State.ID,
+			KeyValues: item.Spec.DBDefinition.KeyValues,
 			Passed:    true,
 		}
 		g.Expect(ack.Validate()).ToNot(HaveOccurred())
@@ -1147,8 +1234,8 @@ func Test_queueChannelsClientLocal_Heartbeat(t *testing.T) {
 			enqueueItem(g, queueChannelClentLocal)
 
 			// dequeue the single item and let it time out twice to trigger the retry
-			g.Eventually(func() *v1willow.DequeueQueueItem { return dequeueItem(g, queueChannelClentLocal) }, 2*time.Second).ShouldNot(BeNil())
-			g.Eventually(func() *v1willow.DequeueQueueItem { return dequeueItem(g, queueChannelClentLocal) }, 2*time.Second).ShouldNot(BeNil())
+			g.Eventually(func() *v1willow.Item { return dequeueItem(g, queueChannelClentLocal) }, 2*time.Second).ShouldNot(BeNil())
+			g.Eventually(func() *v1willow.Item { return dequeueItem(g, queueChannelClentLocal) }, 2*time.Second).ShouldNot(BeNil())
 
 			// ensure channel is destroyed
 			g.Eventually(func() int {
@@ -1189,34 +1276,46 @@ func Test_queueChannelsClientLocal_DestroyChannelsForQueue(t *testing.T) {
 
 		// enqueue a number of items all to 1 queue
 		for i := 0; i < 10; i++ {
-			enqueuItem := &v1willow.EnqueueQueueItem{
-				Item: []byte(`item to queue`),
-				KeyValues: datatypes.KeyValues{
-					fmt.Sprintf("%d", i): datatypes.Int(i),
+			enqueuItem := &v1willow.Item{
+				Spec: &v1willow.ItemSpec{
+					DBDefinition: &v1willow.ItemDBDefinition{
+						KeyValues: dbdefinition.TypedKeyValues{
+							fmt.Sprintf("%d", i): datatypes.Int(i),
+						},
+					},
+					Properties: &v1willow.ItemProperties{
+						Data:            []byte(`item to queue`),
+						Updateable:      helpers.PointerOf(false),
+						RetryAttempts:   helpers.PointerOf[uint64](1),
+						RetryPosition:   helpers.PointerOf("front"),
+						TimeoutDuration: helpers.PointerOf(time.Second),
+					},
 				},
-				Updateable:      false,
-				RetryAttempts:   1,
-				RetryPosition:   "front",
-				TimeoutDuration: time.Second,
 			}
-			g.Expect(enqueuItem.Validate()).ToNot(HaveOccurred())
+			g.Expect(enqueuItem.ValidateSpecOnly()).ToNot(HaveOccurred())
 
 			err := queueChannelClentLocal.EnqueueQueueItem(testhelpers.NewContextWithMiddlewareSetup(), "queue name", enqueuItem)
 			g.Expect(err).ToNot(HaveOccurred())
 		}
 
 		// enque another item to another queue
-		enqueuItem := &v1willow.EnqueueQueueItem{
-			Item: []byte(`item to queue`),
-			KeyValues: datatypes.KeyValues{
-				"one": datatypes.Int(1),
+		enqueuItem := &v1willow.Item{
+			Spec: &v1willow.ItemSpec{
+				DBDefinition: &v1willow.ItemDBDefinition{
+					KeyValues: dbdefinition.TypedKeyValues{
+						"one": datatypes.Int(1),
+					},
+				},
+				Properties: &v1willow.ItemProperties{
+					Data:            []byte(`item to queue`),
+					Updateable:      helpers.PointerOf(false),
+					RetryAttempts:   helpers.PointerOf[uint64](1),
+					RetryPosition:   helpers.PointerOf("front"),
+					TimeoutDuration: helpers.PointerOf(time.Second),
+				},
 			},
-			Updateable:      false,
-			RetryAttempts:   1,
-			RetryPosition:   "front",
-			TimeoutDuration: time.Second,
 		}
-		g.Expect(enqueuItem.Validate()).ToNot(HaveOccurred())
+		g.Expect(enqueuItem.ValidateSpecOnly()).ToNot(HaveOccurred())
 		g.Expect(queueChannelClentLocal.EnqueueQueueItem(testhelpers.NewContextWithMiddlewareSetup(), "queue name 2", enqueuItem)).ToNot(HaveOccurred())
 
 		err := queueChannelClentLocal.DestroyChannelsForQueue(testhelpers.NewContextWithMiddlewareSetup(), "queue name")

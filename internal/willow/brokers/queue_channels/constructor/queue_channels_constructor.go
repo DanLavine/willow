@@ -23,9 +23,9 @@ type QueueChannel interface {
 
 	Execute(ctx context.Context) error
 
-	Enqueue(ctx context.Context, enqueueItem *v1willow.EnqueueQueueItem) *errors.ServerError
+	Enqueue(ctx context.Context, enqueueItem *v1willow.Item) *errors.ServerError
 
-	Dequeue() <-chan func(ctx context.Context) (*v1willow.DequeueQueueItem, func(), func())
+	Dequeue() <-chan func(ctx context.Context) (*v1willow.Item, func(), func())
 
 	ACK(ctx context.Context, ack *v1willow.ACK) (bool, *errors.ServerError)
 

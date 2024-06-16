@@ -85,15 +85,23 @@ func Test_memoryQueueChannel_Delete(t *testing.T) {
 		fakeLimiterClient.EXPECT().UpdateCounter(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ *v1limiter.Counter) error { return nil }).Times(1)
 
 		// create and enqueue an item
-		enqueueItem := &v1willow.EnqueueQueueItem{
-			Item:            []byte(`data`),
-			KeyValues:       datatypes.KeyValues{"one": datatypes.Int(1)},
-			Updateable:      true,
-			RetryAttempts:   2,
-			RetryPosition:   "front",
-			TimeoutDuration: time.Second,
+		enqueueItem := &v1willow.Item{
+			Spec: &v1willow.ItemSpec{
+				DBDefinition: &v1willow.ItemDBDefinition{
+					KeyValues: dbdefinition.TypedKeyValues{
+						"one": datatypes.Int(1),
+					},
+				},
+				Properties: &v1willow.ItemProperties{
+					Data:            []byte(`data`),
+					Updateable:      helpers.PointerOf(true),
+					RetryAttempts:   helpers.PointerOf[uint64](2),
+					RetryPosition:   helpers.PointerOf("front"),
+					TimeoutDuration: helpers.PointerOf(time.Second),
+				},
+			},
 		}
-		g.Expect(enqueueItem.Validate()).ToNot(HaveOccurred())
+		g.Expect(enqueueItem.ValidateSpecOnly()).ToNot(HaveOccurred())
 
 		err := memeoryQueueChannel.Enqueue(testhelpers.NewContextWithMiddlewareSetup(), enqueueItem)
 		g.Expect(err).ToNot(HaveOccurred())
@@ -118,15 +126,23 @@ func Test_memoryQueueChannel_Enqueue(t *testing.T) {
 		memeoryQueueChannel := New(fakeLimiterClient, func() {}, "test", defaultKeyValues(g))
 
 		// create and enqueue the item
-		enqueueItem := &v1willow.EnqueueQueueItem{
-			Item:            []byte(`data`),
-			KeyValues:       datatypes.KeyValues{"one": datatypes.Int(1)},
-			Updateable:      true,
-			RetryAttempts:   2,
-			RetryPosition:   "front",
-			TimeoutDuration: time.Second,
+		enqueueItem := &v1willow.Item{
+			Spec: &v1willow.ItemSpec{
+				DBDefinition: &v1willow.ItemDBDefinition{
+					KeyValues: dbdefinition.TypedKeyValues{
+						"one": datatypes.Int(1),
+					},
+				},
+				Properties: &v1willow.ItemProperties{
+					Data:            []byte(`data`),
+					Updateable:      helpers.PointerOf(true),
+					RetryAttempts:   helpers.PointerOf[uint64](2),
+					RetryPosition:   helpers.PointerOf("front"),
+					TimeoutDuration: helpers.PointerOf(time.Second),
+				},
+			},
 		}
-		g.Expect(enqueueItem.Validate()).ToNot(HaveOccurred())
+		g.Expect(enqueueItem.ValidateSpecOnly()).ToNot(HaveOccurred())
 
 		err := memeoryQueueChannel.Enqueue(testhelpers.NewContextWithMiddlewareSetup(), enqueueItem)
 		g.Expect(err).ToNot(HaveOccurred())
@@ -143,29 +159,45 @@ func Test_memoryQueueChannel_Enqueue(t *testing.T) {
 		memeoryQueueChannel := New(fakeLimiterClient, func() {}, "test", defaultKeyValues(g))
 
 		// create and enqueue the item
-		enqueueItem := &v1willow.EnqueueQueueItem{
-			Item:            []byte(`data`),
-			KeyValues:       datatypes.KeyValues{"one": datatypes.Int(1)},
-			Updateable:      true,
-			RetryAttempts:   2,
-			RetryPosition:   "front",
-			TimeoutDuration: time.Second,
+		enqueueItem := &v1willow.Item{
+			Spec: &v1willow.ItemSpec{
+				DBDefinition: &v1willow.ItemDBDefinition{
+					KeyValues: dbdefinition.TypedKeyValues{
+						"one": datatypes.Int(1),
+					},
+				},
+				Properties: &v1willow.ItemProperties{
+					Data:            []byte(`data`),
+					Updateable:      helpers.PointerOf(true),
+					RetryAttempts:   helpers.PointerOf[uint64](2),
+					RetryPosition:   helpers.PointerOf("front"),
+					TimeoutDuration: helpers.PointerOf(time.Second),
+				},
+			},
 		}
-		g.Expect(enqueueItem.Validate()).ToNot(HaveOccurred())
+		g.Expect(enqueueItem.ValidateSpecOnly()).ToNot(HaveOccurred())
 
 		err := memeoryQueueChannel.Enqueue(testhelpers.NewContextWithMiddlewareSetup(), enqueueItem)
 		g.Expect(err).ToNot(HaveOccurred())
 
 		// update the first item in the queue
-		enqueueItem2 := &v1willow.EnqueueQueueItem{
-			Item:            []byte(`data 2`),
-			KeyValues:       datatypes.KeyValues{"one": datatypes.Int(1)},
-			Updateable:      true,
-			RetryAttempts:   0,
-			RetryPosition:   "front",
-			TimeoutDuration: time.Second,
+		enqueueItem2 := &v1willow.Item{
+			Spec: &v1willow.ItemSpec{
+				DBDefinition: &v1willow.ItemDBDefinition{
+					KeyValues: dbdefinition.TypedKeyValues{
+						"one": datatypes.Int(1),
+					},
+				},
+				Properties: &v1willow.ItemProperties{
+					Data:            []byte(`data 2`),
+					Updateable:      helpers.PointerOf(true),
+					RetryAttempts:   helpers.PointerOf[uint64](0),
+					RetryPosition:   helpers.PointerOf("front"),
+					TimeoutDuration: helpers.PointerOf(time.Second),
+				},
+			},
 		}
-		g.Expect(enqueueItem2.Validate()).ToNot(HaveOccurred())
+		g.Expect(enqueueItem2.ValidateSpecOnly()).ToNot(HaveOccurred())
 
 		err = memeoryQueueChannel.Enqueue(testhelpers.NewContextWithMiddlewareSetup(), enqueueItem2)
 		g.Expect(err).ToNot(HaveOccurred())
@@ -185,29 +217,45 @@ func Test_memoryQueueChannel_Enqueue(t *testing.T) {
 		memeoryQueueChannel := New(fakeLimiterClient, func() {}, "test", defaultKeyValues(g))
 
 		// create and enqueue the item
-		enqueueItem := &v1willow.EnqueueQueueItem{
-			Item:            []byte(`data`),
-			KeyValues:       datatypes.KeyValues{"one": datatypes.Int(1)},
-			Updateable:      false,
-			RetryAttempts:   2,
-			RetryPosition:   "front",
-			TimeoutDuration: time.Second,
+		enqueueItem := &v1willow.Item{
+			Spec: &v1willow.ItemSpec{
+				DBDefinition: &v1willow.ItemDBDefinition{
+					KeyValues: dbdefinition.TypedKeyValues{
+						"one": datatypes.Int(1),
+					},
+				},
+				Properties: &v1willow.ItemProperties{
+					Data:            []byte(`data`),
+					Updateable:      helpers.PointerOf(false),
+					RetryAttempts:   helpers.PointerOf[uint64](2),
+					RetryPosition:   helpers.PointerOf("front"),
+					TimeoutDuration: helpers.PointerOf(time.Second),
+				},
+			},
 		}
-		g.Expect(enqueueItem.Validate()).ToNot(HaveOccurred())
+		g.Expect(enqueueItem.ValidateSpecOnly()).ToNot(HaveOccurred())
 
 		err := memeoryQueueChannel.Enqueue(testhelpers.NewContextWithMiddlewareSetup(), enqueueItem)
 		g.Expect(err).ToNot(HaveOccurred())
 
 		// update the first item in the queue
-		enqueueItem2 := &v1willow.EnqueueQueueItem{
-			Item:            []byte(`data 2`),
-			KeyValues:       datatypes.KeyValues{"one": datatypes.Int(1)},
-			Updateable:      true,
-			RetryAttempts:   0,
-			RetryPosition:   "front",
-			TimeoutDuration: time.Second,
+		enqueueItem2 := &v1willow.Item{
+			Spec: &v1willow.ItemSpec{
+				DBDefinition: &v1willow.ItemDBDefinition{
+					KeyValues: dbdefinition.TypedKeyValues{
+						"one": datatypes.Int(1),
+					},
+				},
+				Properties: &v1willow.ItemProperties{
+					Data:            []byte(`data 2`),
+					Updateable:      helpers.PointerOf(true),
+					RetryAttempts:   helpers.PointerOf[uint64](0),
+					RetryPosition:   helpers.PointerOf("front"),
+					TimeoutDuration: helpers.PointerOf(time.Second),
+				},
+			},
 		}
-		g.Expect(enqueueItem2.Validate()).ToNot(HaveOccurred())
+		g.Expect(enqueueItem2.ValidateSpecOnly()).ToNot(HaveOccurred())
 
 		err = memeoryQueueChannel.Enqueue(testhelpers.NewContextWithMiddlewareSetup(), enqueueItem2)
 		g.Expect(err).ToNot(HaveOccurred())
@@ -228,15 +276,23 @@ func Test_memoryQueueChannel_Enqueue(t *testing.T) {
 			memeoryQueueChannel := New(fakeLimiterClient, func() {}, "test", defaultKeyValues(g))
 
 			// create and enqueue the item
-			enqueueItem := &v1willow.EnqueueQueueItem{
-				Item:            []byte(`data`),
-				KeyValues:       datatypes.KeyValues{"one": datatypes.Int(1)},
-				Updateable:      true,
-				RetryAttempts:   2,
-				RetryPosition:   "front",
-				TimeoutDuration: time.Second,
+			enqueueItem := &v1willow.Item{
+				Spec: &v1willow.ItemSpec{
+					DBDefinition: &v1willow.ItemDBDefinition{
+						KeyValues: dbdefinition.TypedKeyValues{
+							"one": datatypes.Int(1),
+						},
+					},
+					Properties: &v1willow.ItemProperties{
+						Data:            []byte(`data`),
+						Updateable:      helpers.PointerOf(true),
+						RetryAttempts:   helpers.PointerOf[uint64](2),
+						RetryPosition:   helpers.PointerOf("front"),
+						TimeoutDuration: helpers.PointerOf(time.Second),
+					},
+				},
 			}
-			g.Expect(enqueueItem.Validate()).ToNot(HaveOccurred())
+			g.Expect(enqueueItem.ValidateSpecOnly()).ToNot(HaveOccurred())
 
 			err := memeoryQueueChannel.Enqueue(testhelpers.NewContextWithMiddlewareSetup(), enqueueItem)
 			g.Expect(err).To(HaveOccurred())
@@ -261,29 +317,45 @@ func Test_memoryQueueChannel_Enqueue(t *testing.T) {
 			memeoryQueueChannel := New(fakeLimiterClient, func() {}, "test", defaultKeyValues(g))
 
 			// create and enqueue the item
-			enqueueItem := &v1willow.EnqueueQueueItem{
-				Item:            []byte(`data`),
-				KeyValues:       datatypes.KeyValues{"one": datatypes.Int(1)},
-				Updateable:      true,
-				RetryAttempts:   2,
-				RetryPosition:   "front",
-				TimeoutDuration: time.Second,
+			enqueueItem := &v1willow.Item{
+				Spec: &v1willow.ItemSpec{
+					DBDefinition: &v1willow.ItemDBDefinition{
+						KeyValues: dbdefinition.TypedKeyValues{
+							"one": datatypes.Int(1),
+						},
+					},
+					Properties: &v1willow.ItemProperties{
+						Data:            []byte(`data`),
+						Updateable:      helpers.PointerOf(true),
+						RetryAttempts:   helpers.PointerOf[uint64](2),
+						RetryPosition:   helpers.PointerOf("front"),
+						TimeoutDuration: helpers.PointerOf(time.Second),
+					},
+				},
 			}
-			g.Expect(enqueueItem.Validate()).ToNot(HaveOccurred())
+			g.Expect(enqueueItem.ValidateSpecOnly()).ToNot(HaveOccurred())
 
 			err := memeoryQueueChannel.Enqueue(testhelpers.NewContextWithMiddlewareSetup(), enqueueItem)
 			g.Expect(err).ToNot(HaveOccurred())
 
 			// update the first item in the queue
-			enqueueItem2 := &v1willow.EnqueueQueueItem{
-				Item:            []byte(`data 2`),
-				KeyValues:       datatypes.KeyValues{"one": datatypes.Int(1)},
-				Updateable:      true,
-				RetryAttempts:   0,
-				RetryPosition:   "front",
-				TimeoutDuration: time.Second,
+			enqueueItem2 := &v1willow.Item{
+				Spec: &v1willow.ItemSpec{
+					DBDefinition: &v1willow.ItemDBDefinition{
+						KeyValues: dbdefinition.TypedKeyValues{
+							"one": datatypes.Int(1),
+						},
+					},
+					Properties: &v1willow.ItemProperties{
+						Data:            []byte(`data 2`),
+						Updateable:      helpers.PointerOf(true),
+						RetryAttempts:   helpers.PointerOf[uint64](0),
+						RetryPosition:   helpers.PointerOf("front"),
+						TimeoutDuration: helpers.PointerOf(time.Second),
+					},
+				},
 			}
-			g.Expect(enqueueItem2.Validate()).ToNot(HaveOccurred())
+			g.Expect(enqueueItem2.ValidateSpecOnly()).ToNot(HaveOccurred())
 
 			err = memeoryQueueChannel.Enqueue(testhelpers.NewContextWithMiddlewareSetup(), enqueueItem2)
 			g.Expect(err).ToNot(HaveOccurred())
@@ -358,22 +430,30 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 
 				// create and enqueue multiple items
 				for i := 1; i <= 5; i++ {
-					enqueueItem := &v1willow.EnqueueQueueItem{
-						Item:            []byte(fmt.Sprintf(`data %d`, i)),
-						KeyValues:       datatypes.KeyValues{"one": datatypes.Int(1)},
-						Updateable:      false,
-						RetryAttempts:   uint64(i),
-						RetryPosition:   "front",
-						TimeoutDuration: time.Duration(i) * time.Second,
+					enqueueItem := &v1willow.Item{
+						Spec: &v1willow.ItemSpec{
+							DBDefinition: &v1willow.ItemDBDefinition{
+								KeyValues: dbdefinition.TypedKeyValues{
+									"one": datatypes.Int(1),
+								},
+							},
+							Properties: &v1willow.ItemProperties{
+								Data:            []byte(fmt.Sprintf("data %d", i)),
+								Updateable:      helpers.PointerOf(false),
+								RetryAttempts:   helpers.PointerOf[uint64](uint64(i)),
+								RetryPosition:   helpers.PointerOf("front"),
+								TimeoutDuration: helpers.PointerOf(time.Duration(i) * time.Second),
+							},
+						},
 					}
-					g.Expect(enqueueItem.Validate()).ToNot(HaveOccurred())
+					g.Expect(enqueueItem.ValidateSpecOnly()).ToNot(HaveOccurred())
 
 					err := memeoryQueueChannel.Enqueue(testhelpers.NewContextWithMiddlewareSetup(), enqueueItem)
 					g.Expect(err).ToNot(HaveOccurred())
 				}
 
 				// grab the first dequeu channel
-				var dequeueItem *v1willow.DequeueQueueItem
+				var dequeueItem *v1willow.Item
 				var success func()
 				dequeueChan := memeoryQueueChannel.Dequeue()
 				select {
@@ -381,10 +461,10 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 					dequeueItem, success, _ = dequeueFunc(testhelpers.NewContextWithMiddlewareSetup())
 					g.Expect(dequeueItem).ToNot(BeNil())
 
-					g.Expect(dequeueItem.Item).To(Equal([]byte(`data 1`)))
-					g.Expect(dequeueItem.ItemID).ToNot(Equal(""))
-					g.Expect(dequeueItem.KeyValues).To(Equal(defaultKeyValues(g)))
-					g.Expect(dequeueItem.TimeoutDuration).To(Equal(time.Second))
+					g.Expect(dequeueItem.Spec.Properties.Data).To(Equal([]byte(`data 1`)))
+					g.Expect(dequeueItem.State.ID).ToNot(Equal(""))
+					g.Expect(dequeueItem.Spec.DBDefinition.KeyValues).To(Equal(dbdefinition.KeyValuesToTypedKeyValues(defaultKeyValues(g))))
+					g.Expect(*dequeueItem.Spec.Properties.TimeoutDuration).To(Equal(time.Second))
 				case <-time.After(time.Second):
 					g.Fail("failed to dequeue item")
 				}
@@ -400,10 +480,10 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 					defer success()
 					g.Expect(dequeueItem).ToNot(BeNil())
 
-					g.Expect(dequeueItem.Item).To(Equal([]byte(`data 2`)))
-					g.Expect(dequeueItem.ItemID).ToNot(Equal(""))
-					g.Expect(dequeueItem.KeyValues).To(Equal(defaultKeyValues(g)))
-					g.Expect(dequeueItem.TimeoutDuration).To(Equal(2 * time.Second))
+					g.Expect(dequeueItem.Spec.Properties.Data).To(Equal([]byte(`data 2`)))
+					g.Expect(dequeueItem.State.ID).ToNot(Equal(""))
+					g.Expect(dequeueItem.Spec.DBDefinition.KeyValues).To(Equal(dbdefinition.KeyValuesToTypedKeyValues(defaultKeyValues(g))))
+					g.Expect(*dequeueItem.Spec.Properties.TimeoutDuration).To(Equal(2 * time.Second))
 				case <-time.After(time.Second):
 					g.Fail("failed to dequeue item")
 				}
@@ -428,22 +508,30 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 
 				// create and enqueue multiple items
 				for i := 1; i <= 5; i++ {
-					enqueueItem := &v1willow.EnqueueQueueItem{
-						Item:            []byte(fmt.Sprintf(`data %d`, i)),
-						KeyValues:       datatypes.KeyValues{"one": datatypes.Int(1)},
-						Updateable:      false,
-						RetryAttempts:   uint64(i),
-						RetryPosition:   "front",
-						TimeoutDuration: time.Duration(i) * time.Second,
+					enqueueItem := &v1willow.Item{
+						Spec: &v1willow.ItemSpec{
+							DBDefinition: &v1willow.ItemDBDefinition{
+								KeyValues: dbdefinition.TypedKeyValues{
+									"one": datatypes.Int(1),
+								},
+							},
+							Properties: &v1willow.ItemProperties{
+								Data:            []byte(fmt.Sprintf("data %d", i)),
+								Updateable:      helpers.PointerOf(false),
+								RetryAttempts:   helpers.PointerOf[uint64](uint64(i)),
+								RetryPosition:   helpers.PointerOf("front"),
+								TimeoutDuration: helpers.PointerOf(time.Duration(i) * time.Second),
+							},
+						},
 					}
-					g.Expect(enqueueItem.Validate()).ToNot(HaveOccurred())
+					g.Expect(enqueueItem.ValidateSpecOnly()).ToNot(HaveOccurred())
 
 					err := memeoryQueueChannel.Enqueue(testhelpers.NewContextWithMiddlewareSetup(), enqueueItem)
 					g.Expect(err).ToNot(HaveOccurred())
 				}
 
 				// grab the first dequeu channel
-				var dequeueItem *v1willow.DequeueQueueItem
+				var dequeueItem *v1willow.Item
 				var fail func()
 				dequeueChan := memeoryQueueChannel.Dequeue()
 				select {
@@ -451,10 +539,10 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 					dequeueItem, _, fail = dequeueFunc(testhelpers.NewContextWithMiddlewareSetup())
 					g.Expect(dequeueItem).ToNot(BeNil())
 
-					g.Expect(dequeueItem.Item).To(Equal([]byte(`data 1`)))
-					g.Expect(dequeueItem.ItemID).ToNot(Equal(""))
-					g.Expect(dequeueItem.KeyValues).To(Equal(defaultKeyValues(g)))
-					g.Expect(dequeueItem.TimeoutDuration).To(Equal(time.Second))
+					g.Expect(dequeueItem.Spec.Properties.Data).To(Equal([]byte(`data 1`)))
+					g.Expect(dequeueItem.State.ID).ToNot(Equal(""))
+					g.Expect(dequeueItem.Spec.DBDefinition.KeyValues).To(Equal(dbdefinition.KeyValuesToTypedKeyValues(defaultKeyValues(g))))
+					g.Expect(*dequeueItem.Spec.Properties.TimeoutDuration).To(Equal(time.Second))
 				case <-time.After(time.Second):
 					g.Fail("failed to dequeue item")
 				}
@@ -470,10 +558,10 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 					defer fail()
 					g.Expect(dequeueItem).ToNot(BeNil())
 
-					g.Expect(dequeueItem.Item).To(Equal([]byte(`data 1`)))
-					g.Expect(dequeueItem.ItemID).ToNot(Equal(""))
-					g.Expect(dequeueItem.KeyValues).To(Equal(defaultKeyValues(g)))
-					g.Expect(dequeueItem.TimeoutDuration).To(Equal(time.Second))
+					g.Expect(dequeueItem.Spec.Properties.Data).To(Equal([]byte(`data 1`)))
+					g.Expect(dequeueItem.State.ID).ToNot(Equal(""))
+					g.Expect(dequeueItem.Spec.DBDefinition.KeyValues).To(Equal(dbdefinition.KeyValuesToTypedKeyValues(defaultKeyValues(g))))
+					g.Expect(*dequeueItem.Spec.Properties.TimeoutDuration).To(Equal(time.Second))
 				case <-time.After(time.Second):
 					g.Fail("failed to dequeue item")
 				}
@@ -539,15 +627,23 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 			}()
 
 			// create and enqueue an item
-			enqueueItem := &v1willow.EnqueueQueueItem{
-				Item:            []byte(`data`),
-				KeyValues:       datatypes.KeyValues{"one": datatypes.Int(1)},
-				Updateable:      false,
-				RetryAttempts:   1,
-				RetryPosition:   "front",
-				TimeoutDuration: time.Second,
+			enqueueItem := &v1willow.Item{
+				Spec: &v1willow.ItemSpec{
+					DBDefinition: &v1willow.ItemDBDefinition{
+						KeyValues: dbdefinition.TypedKeyValues{
+							"one": datatypes.Int(1),
+						},
+					},
+					Properties: &v1willow.ItemProperties{
+						Data:            []byte(`data`),
+						Updateable:      helpers.PointerOf(false),
+						RetryAttempts:   helpers.PointerOf[uint64](1),
+						RetryPosition:   helpers.PointerOf("front"),
+						TimeoutDuration: helpers.PointerOf(time.Second),
+					},
+				},
 			}
-			g.Expect(enqueueItem.Validate()).ToNot(HaveOccurred())
+			g.Expect(enqueueItem.ValidateSpecOnly()).ToNot(HaveOccurred())
 
 			err := memeoryQueueChannel.Enqueue(testhelpers.NewContextWithMiddlewareSetup(), enqueueItem)
 			g.Expect(err).ToNot(HaveOccurred())
@@ -627,15 +723,23 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 			}()
 
 			// create and enqueue an item
-			enqueueItem := &v1willow.EnqueueQueueItem{
-				Item:            []byte(`data`),
-				KeyValues:       datatypes.KeyValues{"one": datatypes.Int(1)},
-				Updateable:      false,
-				RetryAttempts:   1,
-				RetryPosition:   "front",
-				TimeoutDuration: time.Second,
+			enqueueItem := &v1willow.Item{
+				Spec: &v1willow.ItemSpec{
+					DBDefinition: &v1willow.ItemDBDefinition{
+						KeyValues: dbdefinition.TypedKeyValues{
+							"one": datatypes.Int(1),
+						},
+					},
+					Properties: &v1willow.ItemProperties{
+						Data:            []byte(`data`),
+						Updateable:      helpers.PointerOf(false),
+						RetryAttempts:   helpers.PointerOf[uint64](1),
+						RetryPosition:   helpers.PointerOf("front"),
+						TimeoutDuration: helpers.PointerOf(time.Second),
+					},
+				},
 			}
-			g.Expect(enqueueItem.Validate()).ToNot(HaveOccurred())
+			g.Expect(enqueueItem.ValidateSpecOnly()).ToNot(HaveOccurred())
 
 			err := memeoryQueueChannel.Enqueue(testhelpers.NewContextWithMiddlewareSetup(), enqueueItem)
 			g.Expect(err).ToNot(HaveOccurred())
@@ -714,15 +818,23 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 				}()
 
 				// create and enqueue an item
-				enqueueItem := &v1willow.EnqueueQueueItem{
-					Item:            []byte(`data`),
-					KeyValues:       datatypes.KeyValues{"one": datatypes.Int(1)},
-					Updateable:      false,
-					RetryAttempts:   1,
-					RetryPosition:   "front",
-					TimeoutDuration: time.Second,
+				enqueueItem := &v1willow.Item{
+					Spec: &v1willow.ItemSpec{
+						DBDefinition: &v1willow.ItemDBDefinition{
+							KeyValues: dbdefinition.TypedKeyValues{
+								"one": datatypes.Int(1),
+							},
+						},
+						Properties: &v1willow.ItemProperties{
+							Data:            []byte(`data`),
+							Updateable:      helpers.PointerOf(false),
+							RetryAttempts:   helpers.PointerOf[uint64](1),
+							RetryPosition:   helpers.PointerOf("front"),
+							TimeoutDuration: helpers.PointerOf(time.Second),
+						},
+					},
 				}
-				g.Expect(enqueueItem.Validate()).ToNot(HaveOccurred())
+				g.Expect(enqueueItem.ValidateSpecOnly()).ToNot(HaveOccurred())
 
 				err := memeoryQueueChannel.Enqueue(testhelpers.NewContextWithMiddlewareSetup(), enqueueItem)
 				g.Expect(err).ToNot(HaveOccurred())
@@ -822,15 +934,23 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 				}()
 
 				// create and enqueue an item
-				enqueueItem := &v1willow.EnqueueQueueItem{
-					Item:            []byte(`data`),
-					KeyValues:       datatypes.KeyValues{"one": datatypes.Int(1)},
-					Updateable:      false,
-					RetryAttempts:   1,
-					RetryPosition:   "front",
-					TimeoutDuration: time.Second,
+				enqueueItem := &v1willow.Item{
+					Spec: &v1willow.ItemSpec{
+						DBDefinition: &v1willow.ItemDBDefinition{
+							KeyValues: dbdefinition.TypedKeyValues{
+								"one": datatypes.Int(1),
+							},
+						},
+						Properties: &v1willow.ItemProperties{
+							Data:            []byte(`data`),
+							Updateable:      helpers.PointerOf(false),
+							RetryAttempts:   helpers.PointerOf[uint64](1),
+							RetryPosition:   helpers.PointerOf("front"),
+							TimeoutDuration: helpers.PointerOf(time.Second),
+						},
+					},
 				}
-				g.Expect(enqueueItem.Validate()).ToNot(HaveOccurred())
+				g.Expect(enqueueItem.ValidateSpecOnly()).ToNot(HaveOccurred())
 
 				err := memeoryQueueChannel.Enqueue(testhelpers.NewContextWithMiddlewareSetup(), enqueueItem)
 				g.Expect(err).ToNot(HaveOccurred())
@@ -951,15 +1071,23 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 				}()
 
 				// create and enqueue an item
-				enqueueItem := &v1willow.EnqueueQueueItem{
-					Item:            []byte(`data`),
-					KeyValues:       datatypes.KeyValues{"one": datatypes.Int(1)},
-					Updateable:      false,
-					RetryAttempts:   1,
-					RetryPosition:   "front",
-					TimeoutDuration: time.Second,
+				enqueueItem := &v1willow.Item{
+					Spec: &v1willow.ItemSpec{
+						DBDefinition: &v1willow.ItemDBDefinition{
+							KeyValues: dbdefinition.TypedKeyValues{
+								"one": datatypes.Int(1),
+							},
+						},
+						Properties: &v1willow.ItemProperties{
+							Data:            []byte(`data`),
+							Updateable:      helpers.PointerOf(false),
+							RetryAttempts:   helpers.PointerOf[uint64](1),
+							RetryPosition:   helpers.PointerOf("front"),
+							TimeoutDuration: helpers.PointerOf(time.Second),
+						},
+					},
 				}
-				g.Expect(enqueueItem.Validate()).ToNot(HaveOccurred())
+				g.Expect(enqueueItem.ValidateSpecOnly()).ToNot(HaveOccurred())
 
 				err := memeoryQueueChannel.Enqueue(testhelpers.NewContextWithMiddlewareSetup(), enqueueItem)
 				g.Expect(err).ToNot(HaveOccurred())
@@ -1077,15 +1205,23 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 				}()
 
 				// create and enqueue an item
-				enqueueItem := &v1willow.EnqueueQueueItem{
-					Item:            []byte(`data`),
-					KeyValues:       datatypes.KeyValues{"one": datatypes.Int(1)},
-					Updateable:      false,
-					RetryAttempts:   1,
-					RetryPosition:   "front",
-					TimeoutDuration: time.Second,
+				enqueueItem := &v1willow.Item{
+					Spec: &v1willow.ItemSpec{
+						DBDefinition: &v1willow.ItemDBDefinition{
+							KeyValues: dbdefinition.TypedKeyValues{
+								"one": datatypes.Int(1),
+							},
+						},
+						Properties: &v1willow.ItemProperties{
+							Data:            []byte(`data`),
+							Updateable:      helpers.PointerOf(false),
+							RetryAttempts:   helpers.PointerOf[uint64](1),
+							RetryPosition:   helpers.PointerOf("front"),
+							TimeoutDuration: helpers.PointerOf(time.Second),
+						},
+					},
 				}
-				g.Expect(enqueueItem.Validate()).ToNot(HaveOccurred())
+				g.Expect(enqueueItem.ValidateSpecOnly()).ToNot(HaveOccurred())
 
 				err := memeoryQueueChannel.Enqueue(testhelpers.NewContextWithMiddlewareSetup(), enqueueItem)
 				g.Expect(err).ToNot(HaveOccurred())
@@ -1255,15 +1391,23 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 				}()
 
 				// create and enqueue an item
-				enqueueItem := &v1willow.EnqueueQueueItem{
-					Item:            []byte(`data`),
-					KeyValues:       datatypes.KeyValues{"one": datatypes.Int(1)},
-					Updateable:      false,
-					RetryAttempts:   1,
-					RetryPosition:   "front",
-					TimeoutDuration: time.Second,
+				enqueueItem := &v1willow.Item{
+					Spec: &v1willow.ItemSpec{
+						DBDefinition: &v1willow.ItemDBDefinition{
+							KeyValues: dbdefinition.TypedKeyValues{
+								"one": datatypes.Int(1),
+							},
+						},
+						Properties: &v1willow.ItemProperties{
+							Data:            []byte(`data`),
+							Updateable:      helpers.PointerOf(false),
+							RetryAttempts:   helpers.PointerOf[uint64](1),
+							RetryPosition:   helpers.PointerOf("front"),
+							TimeoutDuration: helpers.PointerOf(time.Second),
+						},
+					},
 				}
-				g.Expect(enqueueItem.Validate()).ToNot(HaveOccurred())
+				g.Expect(enqueueItem.ValidateSpecOnly()).ToNot(HaveOccurred())
 
 				err := memeoryQueueChannel.Enqueue(testhelpers.NewContextWithMiddlewareSetup(), enqueueItem)
 				g.Expect(err).ToNot(HaveOccurred())
@@ -1296,15 +1440,23 @@ func Test_memoryQueueChannel_ACK(t *testing.T) {
 		return func() {
 			for i := 0; i < enqueueCount; i++ {
 				// create and enqueue an items
-				enqueueItem := &v1willow.EnqueueQueueItem{
-					Item:            []byte(fmt.Sprintf(`data %d`, i)),
-					KeyValues:       datatypes.KeyValues{"one": datatypes.Int(1)},
-					Updateable:      updateable,
-					RetryAttempts:   uint64(retryAttempts),
-					RetryPosition:   retryPosition,
-					TimeoutDuration: time.Second,
+				enqueueItem := &v1willow.Item{
+					Spec: &v1willow.ItemSpec{
+						DBDefinition: &v1willow.ItemDBDefinition{
+							KeyValues: dbdefinition.TypedKeyValues{
+								"one": datatypes.Int(1),
+							},
+						},
+						Properties: &v1willow.ItemProperties{
+							Data:            []byte(fmt.Sprintf("data %d", i)),
+							Updateable:      helpers.PointerOf(updateable),
+							RetryAttempts:   helpers.PointerOf[uint64](uint64(retryAttempts)),
+							RetryPosition:   helpers.PointerOf(retryPosition),
+							TimeoutDuration: helpers.PointerOf(time.Second),
+						},
+					},
 				}
-				g.Expect(enqueueItem.Validate()).ToNot(HaveOccurred())
+				g.Expect(enqueueItem.ValidateSpecOnly()).ToNot(HaveOccurred())
 
 				err := memeoryQueueChannel.Enqueue(testhelpers.NewContextWithMiddlewareSetup(), enqueueItem)
 				g.Expect(err).ToNot(HaveOccurred())
@@ -1312,11 +1464,11 @@ func Test_memoryQueueChannel_ACK(t *testing.T) {
 		}
 	}
 
-	enqueueAndDequeue := func(g *GomegaWithT, memeoryQueueChannel *memoryQueueChannel, enqueue func()) *v1willow.DequeueQueueItem {
+	enqueueAndDequeue := func(g *GomegaWithT, memeoryQueueChannel *memoryQueueChannel, enqueue func()) *v1willow.Item {
 		enqueue()
 
 		// grab the first item
-		var dequeueItem *v1willow.DequeueQueueItem
+		var dequeueItem *v1willow.Item
 		var success func()
 
 		dequeueChan := memeoryQueueChannel.Dequeue()
@@ -1343,7 +1495,7 @@ func Test_memoryQueueChannel_ACK(t *testing.T) {
 
 		ack := &v1willow.ACK{
 			ItemID:    "item not found",
-			KeyValues: datatypes.KeyValues{"one": datatypes.Int(1)},
+			KeyValues: dbdefinition.TypedKeyValues{"one": datatypes.Int(1)},
 			Passed:    true,
 		}
 		g.Expect(ack.Validate()).ToNot(HaveOccurred())
@@ -1380,8 +1532,8 @@ func Test_memoryQueueChannel_ACK(t *testing.T) {
 
 				// ack the dequeued item
 				ack := &v1willow.ACK{
-					ItemID:    dequeueItem.ItemID,
-					KeyValues: dequeueItem.KeyValues,
+					ItemID:    dequeueItem.State.ID,
+					KeyValues: dequeueItem.Spec.DBDefinition.KeyValues,
 					Passed:    true,
 				}
 				g.Expect(ack.Validate()).ToNot(HaveOccurred())
@@ -1421,8 +1573,8 @@ func Test_memoryQueueChannel_ACK(t *testing.T) {
 
 				// ack the dequeued item
 				ack := &v1willow.ACK{
-					ItemID:    dequeueItem.ItemID,
-					KeyValues: dequeueItem.KeyValues,
+					ItemID:    dequeueItem.State.ID,
+					KeyValues: dequeueItem.Spec.DBDefinition.KeyValues,
 					Passed:    true,
 				}
 				g.Expect(ack.Validate()).ToNot(HaveOccurred())
@@ -1459,8 +1611,8 @@ func Test_memoryQueueChannel_ACK(t *testing.T) {
 
 			// ack the dequeued item
 			ackFalse := &v1willow.ACK{
-				ItemID:    dequeueItem.ItemID,
-				KeyValues: dequeueItem.KeyValues,
+				ItemID:    dequeueItem.State.ID,
+				KeyValues: dequeueItem.Spec.DBDefinition.KeyValues,
 				Passed:    false,
 			}
 			g.Expect(ackFalse.Validate()).ToNot(HaveOccurred())
@@ -1485,8 +1637,8 @@ func Test_memoryQueueChannel_ACK(t *testing.T) {
 
 			// 2nd call to ack can remove the item since there are no more retry attempts
 			ackTrue := &v1willow.ACK{
-				ItemID:    dequeueItem.ItemID,
-				KeyValues: dequeueItem.KeyValues,
+				ItemID:    dequeueItem.State.ID,
+				KeyValues: dequeueItem.Spec.DBDefinition.KeyValues,
 				Passed:    false,
 			}
 			g.Expect(ackTrue.Validate()).ToNot(HaveOccurred())
@@ -1539,15 +1691,23 @@ func Test_memoryQueueChannel_async(t *testing.T) {
 					updateable = true
 				}
 
-				enqueueItem := &v1willow.EnqueueQueueItem{
-					Item:            []byte(fmt.Sprintf(`data %d`, count)),
-					KeyValues:       datatypes.KeyValues{"one": datatypes.Int(1)},
-					Updateable:      updateable,
-					RetryAttempts:   2,
-					RetryPosition:   location,
-					TimeoutDuration: time.Second,
+				enqueueItem := &v1willow.Item{
+					Spec: &v1willow.ItemSpec{
+						DBDefinition: &v1willow.ItemDBDefinition{
+							KeyValues: dbdefinition.TypedKeyValues{
+								"one": datatypes.Int(1),
+							},
+						},
+						Properties: &v1willow.ItemProperties{
+							Data:            []byte(fmt.Sprintf("data %d", i)),
+							Updateable:      helpers.PointerOf(updateable),
+							RetryAttempts:   helpers.PointerOf[uint64](uint64(2)),
+							RetryPosition:   helpers.PointerOf(location),
+							TimeoutDuration: helpers.PointerOf(time.Second),
+						},
+					},
 				}
-				g.Expect(enqueueItem.Validate()).ToNot(HaveOccurred())
+				g.Expect(enqueueItem.ValidateSpecOnly()).ToNot(HaveOccurred())
 				g.Expect(memeoryQueueChannel.Enqueue(testhelpers.NewContextWithMiddlewareSetup(), enqueueItem)).ToNot(HaveOccurred())
 			}(i)
 		}
@@ -1589,15 +1749,23 @@ func Test_memoryQueueChannel_async(t *testing.T) {
 					updateable = true
 				}
 
-				enqueueItem := &v1willow.EnqueueQueueItem{
-					Item:            []byte(fmt.Sprintf(`data %d`, count)),
-					KeyValues:       datatypes.KeyValues{"one": datatypes.Int(1)},
-					Updateable:      updateable,
-					RetryAttempts:   2,
-					RetryPosition:   location,
-					TimeoutDuration: time.Second,
+				enqueueItem := &v1willow.Item{
+					Spec: &v1willow.ItemSpec{
+						DBDefinition: &v1willow.ItemDBDefinition{
+							KeyValues: dbdefinition.TypedKeyValues{
+								"one": datatypes.Int(1),
+							},
+						},
+						Properties: &v1willow.ItemProperties{
+							Data:            []byte(fmt.Sprintf("data %d", i)),
+							Updateable:      helpers.PointerOf(updateable),
+							RetryAttempts:   helpers.PointerOf[uint64](uint64(2)),
+							RetryPosition:   helpers.PointerOf(location),
+							TimeoutDuration: helpers.PointerOf(time.Second),
+						},
+					},
 				}
-				g.Expect(enqueueItem.Validate()).ToNot(HaveOccurred())
+				g.Expect(enqueueItem.ValidateSpecOnly()).ToNot(HaveOccurred())
 				g.Expect(memeoryQueueChannel.Enqueue(testhelpers.NewContextWithMiddlewareSetup(), enqueueItem)).ToNot(HaveOccurred())
 			}(i)
 		}
@@ -1625,8 +1793,8 @@ func Test_memoryQueueChannel_async(t *testing.T) {
 
 						// ack the item that was dequeued
 						ackTrue := &v1willow.ACK{
-							ItemID:    dequeueItem.ItemID,
-							KeyValues: dequeueItem.KeyValues,
+							ItemID:    dequeueItem.State.ID,
+							KeyValues: dequeueItem.Spec.DBDefinition.KeyValues,
 							Passed:    true,
 						}
 						g.Expect(ackTrue.Validate()).ToNot(HaveOccurred())
@@ -1677,15 +1845,23 @@ func Test_memoryQueueChannel_async(t *testing.T) {
 					updateable = true
 				}
 
-				enqueueItem := &v1willow.EnqueueQueueItem{
-					Item:            []byte(fmt.Sprintf(`data %d`, count)),
-					KeyValues:       datatypes.KeyValues{"one": datatypes.Int(1)},
-					Updateable:      updateable,
-					RetryAttempts:   2,
-					RetryPosition:   location,
-					TimeoutDuration: time.Second,
+				enqueueItem := &v1willow.Item{
+					Spec: &v1willow.ItemSpec{
+						DBDefinition: &v1willow.ItemDBDefinition{
+							KeyValues: dbdefinition.TypedKeyValues{
+								"one": datatypes.Int(1),
+							},
+						},
+						Properties: &v1willow.ItemProperties{
+							Data:            []byte(fmt.Sprintf("data %d", i)),
+							Updateable:      helpers.PointerOf(updateable),
+							RetryAttempts:   helpers.PointerOf[uint64](uint64(2)),
+							RetryPosition:   helpers.PointerOf(location),
+							TimeoutDuration: helpers.PointerOf(time.Second),
+						},
+					},
 				}
-				g.Expect(enqueueItem.Validate()).ToNot(HaveOccurred())
+				g.Expect(enqueueItem.ValidateSpecOnly()).ToNot(HaveOccurred())
 				g.Expect(memeoryQueueChannel.Enqueue(testhelpers.NewContextWithMiddlewareSetup(), enqueueItem)).ToNot(HaveOccurred())
 			}(i)
 		}
@@ -1716,8 +1892,8 @@ func Test_memoryQueueChannel_async(t *testing.T) {
 
 							// ack the item that was dequeued
 							ackTrue := &v1willow.ACK{
-								ItemID:    dequeueItem.ItemID,
-								KeyValues: dequeueItem.KeyValues,
+								ItemID:    dequeueItem.State.ID,
+								KeyValues: dequeueItem.Spec.DBDefinition.KeyValues,
 								Passed:    true,
 							}
 							g.Expect(ackTrue.Validate()).ToNot(HaveOccurred())
@@ -1765,15 +1941,23 @@ func Test_memoryQueueChannel_async(t *testing.T) {
 					updateable = true
 				}
 
-				enqueueItem := &v1willow.EnqueueQueueItem{
-					Item:            []byte(fmt.Sprintf(`data %d`, count)),
-					KeyValues:       datatypes.KeyValues{"one": datatypes.Int(1)},
-					Updateable:      updateable,
-					RetryAttempts:   2,
-					RetryPosition:   "front",
-					TimeoutDuration: time.Second,
+				enqueueItem := &v1willow.Item{
+					Spec: &v1willow.ItemSpec{
+						DBDefinition: &v1willow.ItemDBDefinition{
+							KeyValues: dbdefinition.TypedKeyValues{
+								"one": datatypes.Int(1),
+							},
+						},
+						Properties: &v1willow.ItemProperties{
+							Data:            []byte(fmt.Sprintf("data %d", i)),
+							Updateable:      helpers.PointerOf(updateable),
+							RetryAttempts:   helpers.PointerOf[uint64](uint64(2)),
+							RetryPosition:   helpers.PointerOf("front"),
+							TimeoutDuration: helpers.PointerOf(time.Second),
+						},
+					},
 				}
-				g.Expect(enqueueItem.Validate()).ToNot(HaveOccurred())
+				g.Expect(enqueueItem.ValidateSpecOnly()).ToNot(HaveOccurred())
 				g.Expect(memeoryQueueChannel.Enqueue(testhelpers.NewContextWithMiddlewareSetup(), enqueueItem)).ToNot(HaveOccurred())
 			}(i)
 		}
@@ -1807,8 +1991,8 @@ func Test_memoryQueueChannel_async(t *testing.T) {
 
 							// ack the item that was dequeued
 							ackTrue := &v1willow.ACK{
-								ItemID:    dequeueItem.ItemID,
-								KeyValues: dequeueItem.KeyValues,
+								ItemID:    dequeueItem.State.ID,
+								KeyValues: dequeueItem.Spec.DBDefinition.KeyValues,
 								Passed:    true,
 							}
 							g.Expect(ackTrue.Validate()).ToNot(HaveOccurred())
@@ -1862,15 +2046,23 @@ func Test_memoryQueueChannel_async(t *testing.T) {
 					updateable = true
 				}
 
-				enqueueItem := &v1willow.EnqueueQueueItem{
-					Item:            []byte(fmt.Sprintf(`data %d`, count)),
-					KeyValues:       datatypes.KeyValues{"one": datatypes.Int(1)},
-					Updateable:      updateable,
-					RetryAttempts:   2,
-					RetryPosition:   location,
-					TimeoutDuration: time.Second,
+				enqueueItem := &v1willow.Item{
+					Spec: &v1willow.ItemSpec{
+						DBDefinition: &v1willow.ItemDBDefinition{
+							KeyValues: dbdefinition.TypedKeyValues{
+								"one": datatypes.Int(1),
+							},
+						},
+						Properties: &v1willow.ItemProperties{
+							Data:            []byte(fmt.Sprintf("data %d", i)),
+							Updateable:      helpers.PointerOf(updateable),
+							RetryAttempts:   helpers.PointerOf[uint64](uint64(2)),
+							RetryPosition:   helpers.PointerOf(location),
+							TimeoutDuration: helpers.PointerOf(time.Second),
+						},
+					},
 				}
-				g.Expect(enqueueItem.Validate()).ToNot(HaveOccurred())
+				g.Expect(enqueueItem.ValidateSpecOnly()).ToNot(HaveOccurred())
 				g.Expect(memeoryQueueChannel.Enqueue(testhelpers.NewContextWithMiddlewareSetup(), enqueueItem)).ToNot(HaveOccurred())
 			}(i)
 
@@ -1899,8 +2091,8 @@ func Test_memoryQueueChannel_async(t *testing.T) {
 
 							// ack the item that was dequeued
 							ackTrue := &v1willow.ACK{
-								ItemID:    dequeueItem.ItemID,
-								KeyValues: dequeueItem.KeyValues,
+								ItemID:    dequeueItem.State.ID,
+								KeyValues: dequeueItem.Spec.DBDefinition.KeyValues,
 								Passed:    true,
 							}
 							g.Expect(ackTrue.Validate()).ToNot(HaveOccurred())

@@ -18,7 +18,7 @@ paths:
     post:
       operationId: create Queue
       description: |
-        Create a new `Queue`.
+        Create a new `Queue`
       parameters:
         - in: header
           name: Content-Type
@@ -30,7 +30,7 @@ paths:
         content:
           appplication/json:
             schema:
-              $ref: "#/components/schemas/QueueCreate"
+              $ref: "#/components/schemas/Queue"
       responses:
         201:
           description: Created a new `Queue`
@@ -88,22 +88,17 @@ paths:
     get:
       operationId: get Queue
       description: |
-        Get the `Queue` and possible `Channels`
+        Get a specific `Queue` by name
       parameters:
         - in: header
           name: Content-Type
           schema:
             type: string
             enum: ["application/json"]
-      requestBody:
-        content:
-          appplication/json:
-            schema:
-              $ref: "../common/components.yaml#/components/schemas/AssociatedKeyValuesQuery"
       responses:
         200:
           description: |
-            Retrieved a single `Queue` and optional `Channels`
+            Retrieved a single `Queue`
           content:
             appplication/json:
               schema:
@@ -119,13 +114,6 @@ paths:
                     $ref: "../common/components.yaml#/components/schemas/ApiError"
         404:
           description: The `Queue` could not be found
-          content:
-            appplication/json:
-              schema:
-                type: object
-                properties:
-                  ApiError:
-                    $ref: "../common/components.yaml#/components/schemas/ApiError"
         409:
           description: The `Queue` is currently being destroyed
           content:
@@ -159,7 +147,7 @@ paths:
         content:
           appplication/json:
             schema:
-              $ref: "#/components/schemas/QueueUpdate"
+              $ref: "#/components/schemas/QueueProperties"
       responses:
         200:
           description: Successfully updated the `Queue`
@@ -174,13 +162,6 @@ paths:
                     $ref: "../common/components.yaml#/components/schemas/ApiError"
         404:
           description: The original `Queue` could not be found
-          content:
-            appplication/json:
-              schema:
-                type: object
-                properties:
-                  ApiError:
-                    $ref: "../common/components.yaml#/components/schemas/ApiError"
         409:
           description: The `Queue` is currently being destroyed
           content:
@@ -226,7 +207,7 @@ paths:
                 properties:
                   ApiError:
                     $ref: "../common/components.yaml#/components/schemas/ApiError"
-  /v1/queues/:queue_name/channels:
+  /v1/queues/:queue_name/channels/items:
     post:
       operationId: enqueu Item
       description: |
@@ -244,7 +225,7 @@ paths:
         content:
           appplication/json:
             schema:
-              $ref: "#/components/schemas/EnqueueItem"
+              $ref: "#/components/schemas/Item"
       responses:
         201:
           description: Enqueued the `Item` into a `Channel`
@@ -256,10 +237,6 @@ paths:
                 $ref: "../common/components.yaml#/components/schemas/ApiError"
         404:
           description: returned if the `Queue` name cannot be found
-          content:
-            appplication/json:
-              schema:
-                $ref: "../common/components.yaml#/components/schemas/ApiError"
         409:
           description: |
             Conflict if the `Rule` has reached the max queue limit or some other api limitation
@@ -294,14 +271,14 @@ paths:
         content:
           appplication/json:
             schema:
-              $ref: "../common/components.yaml#/components/schemas/AssociatedKeyValuesQuery"
+              $ref: "../common/components.yaml#/components/schemas/AssociatedQuery"
       responses:
         200:
           description: Successfully dequeued an item
           content:
             appplication/json:
               schema:
-                $ref: "#/components/schemas/DequeueItem"
+                $ref: "#/components/schemas/Item"
         400:
           description: Error parsing or validating the request
           content:
@@ -312,11 +289,7 @@ paths:
                   ApiError:
                     $ref: "../common/components.yaml#/components/schemas/ApiError"
         404:
-          description: returned if the `Queue` name cannot be found or is deleted while waiting for an item to dequeue
-          content:
-            appplication/json:
-              schema:
-                $ref: "../common/components.yaml#/components/schemas/ApiError"
+          description: returned if the `Queue` name cannot be found
         409:
           description: |
             Conflict if the `Rule` has been deleted while a client is waiting to dequeue an item
@@ -336,9 +309,9 @@ paths:
         503:
           description: Service has gone down for a restart and the client should retry the reuest
     delete:
-      operationId: delete Channels
+      operationId: delete Channel
       description: |
-        Delete any channels that match the query
+        Delete they channel that matches the exact KeyValues
       parameters:
         - in: header
           name: Content-Type
@@ -348,11 +321,11 @@ paths:
       requestBody:
         required: true
         description: |
-          Query all `Channels.KeyValues` to delete.
+          `Channel.Spec.DBDefinition.KeyValues` to delete
         content:
           appplication/json:
             schema:
-              $ref: "../common/components.yaml#/components/schemas/KeyValues"
+              $ref: "../common/db_definitions.yaml#/components/schemas/TypedKeyValues"
       responses:
         204:
           description: Successfully deleted all the channels
@@ -367,10 +340,6 @@ paths:
                     $ref: "../common/components.yaml#/components/schemas/ApiError"
         404:
           description: returned if the `Queue` name cannot be found or is already deleted
-          content:
-            appplication/json:
-              schema:
-                $ref: "../common/components.yaml#/components/schemas/ApiError"
         409:
           description: |
             Conflict if the `Rule` or `Channel` is already being destroyed
@@ -389,7 +358,7 @@ paths:
                     $ref: "../common/components.yaml#/components/schemas/ApiError"
         503:
           description: Service has gone down for a restart and the client should retry the reuest
-  /v1/queus/:queue_name/channels/ack:
+  /v1/queus/:queue_name/channels/items/ack:
     post:
       operationId: ack Item
       description: |
@@ -405,7 +374,7 @@ paths:
         content:
           appplication/json:
             schema:
-              $ref: "#/components/schemas/AckItem"
+              $ref: "#/components/schemas/ItemAck"
       responses:
         200:
           description: Item was successfully acked
@@ -417,10 +386,6 @@ paths:
                 $ref: "../common/components.yaml#/components/schemas/ApiError"
         404:
           description: returned if the `Queue` or `Item` cannot be found to ACK
-          content:
-            appplication/json:
-              schema:
-                $ref: "../common/components.yaml#/components/schemas/ApiError"
         409:
           description: |
             Conflict if the `Rule` is being deleted
@@ -437,7 +402,7 @@ paths:
                 properties:
                   ApiError:
                     $ref: "../common/components.yaml#/components/schemas/ApiError"
-  /v1/queus/:queue_name/channels/heartbeat:
+  /v1/queus/:queue_name/channels/items/heartbeat:
     post:
       operationId: heartbeat Item
       description: |
@@ -454,7 +419,7 @@ paths:
         content:
           appplication/json:
             schema:
-              $ref: "#/components/schemas/HeartbeatItem"
+              $ref: "#/components/schemas/ItemHeartbeat"
       responses:
         200:
           description: Item was successfully heartbeat
@@ -466,10 +431,6 @@ paths:
                 $ref: "../common/components.yaml#/components/schemas/ApiError"
         404:
           description: returned if the `Queue` name or `Item` ID cannot be found
-          content:
-            appplication/json:
-              schema:
-                $ref: "../common/components.yaml#/components/schemas/ApiError"
         409:
           description: |
             Conflict if the `Rule` is being deleted
@@ -488,74 +449,83 @@ paths:
                     $ref: "../common/components.yaml#/components/schemas/ApiError"
 components:
   schemas:
-    EnqueueItem:
+    # Item models
+    Item:
       type: object
+      description: |
+        `Item` to save in the queue. This value is used as part of the Enqueue and Dequeue operations
       required:
-        - KeyValues
+        - Spec
       properties:
-        Item:
-          description: |
-            Item to save in the queue. The value will be returned on the Dequeue response
-          type: string
-          format: bytes
-        KeyValues:
-          $ref: "../common/components.yaml#/components/schemas/KeyValues"
-        Updateable:
-          description: |
-            If true, this item in the queue can be replced on a subsequent request as long as
-            no clients are processing this item. If set to false, this item will not be updated
-            on a subsequent request
-          type: boolean
-          default: false
-        RetryCount:
-          description: |
-            Number of times to retry an item. If the item is updateable and can be retried. There
-            is a chance that the item will be updated before a retry operation takes place.
-          type: integer
-          format: uint64
-          default: 0
-        RetryPosition:
-          description: |
-            In the case of a retry. This indicates where to position the failed item for retrying.
-            `front` will position the item at the front of the queue to immediately be picked up again.
-            However, if the item is updateable, this operation can removed the `Item` if there is another item in the queue.
-            `back` will put the item at the back of the queue to eventually be processed again.
-          type: string
-          default: front
-          enum:
-            - front
-            - back
-        TimeoutDuration:
-          description: |
-            How long an item should last befor it is considered a 'failure' on the service side if no
-            heartbeats were received for the item. This is the time in nanoseconds for how long to wait.
-            If this set as 0, then the server's configuration will be used as the default.
+        Spec:
+          type: object
+          required:
+            - DBDefinition
+            - Properties
+          properties:
+            DBDefinition:
+              type: object
+              required:
+                - KeyValues
+              description: |
+                Specification on the details of how to save the object and fields that dictate any logic
+              properties:
+                KeyValues:
+                  additionalProperties:
+                    title: Key
+                    x-additionalPropertiesName: Key
+                    $ref: "../common/db_definitions.yaml#/components/schemas/TypedKeyValues"
+            Properties:
+              type: object
+              required:
+                - Timeout
+              description: |
+                Specification of all the fields for logical operations on the `Item`
+              properties:
+                Updateable:
+                  description: |
+                    If true, this item in the queue can be replced on another Enqueue request long as
+                    no clients are processing this item. If set to false, this item will not be updated
+                    on a subsequent request
+                  type: boolean
+                RetryCount:
+                  description: |
+                    Number of times to retry an item. If the item is updateable and can be retried. There
+                    is a chance that the item will be updated before a retry operation takes place.
+                  type: integer
+                  format: uint64
+                RetryPosition:
+                  description: |
+                    In the case of a retry. This indicates where to position the failed item for retrying.
+                    `front` will position the item at the front of the queue to immediately be picked up again.
+                    However, if the item is updateable, this operation can removed the `Item` if there is another
+                    item in the queue. `back` will put the item at the back of the queue to eventually be processed again.
+                  type: string
+                  default: front
+                  enum:
+                    - front
+                    - back
+                TimeoutDuration:
+                  description: |
+                    How long an item should last befor it is considered a 'failure' on the service side if no
+                    heartbeats were received for the item. This is the time in nanoseconds for how long to wait.
+                    If this set as 0, then the server's configuration will be used as the default.
 
-            NOTE: this is the time in nanoseconds so `1000000000` = 1 second
-          type: integer
-          format: int64
-
-    DequeueItem:
-      type: object
-      properties:
-        Item:
+                    NOTE: this is the time in nanoseconds so `1000000000` = 1 second
+                  type: integer
+                  format: int64
+        State:
+          type: object
+          readOnly: true
           description: |
-            Original item enqueued to the service
-          type: string
-          format: bytes
-        ItemID:
-          type: string
-        HeartbeatTimeout:
-          description: |
-            How long the Item is valid for until the service counts it as failed and attempts to re-queue the `Item`
-            if configured. The client is responsible for ensuring heartbeats go back to the service if still being worked
-            on. Or an ACK message is supplied to indicate the `Item` is done processing
-          type: integer
-          format: int64
-        KeyValues:
-          $ref: "../common/components.yaml#/components/schemas/KeyValues"
-
-    AckItem:
+            Read-Only data about the `Item`
+          properties:
+            ID:
+              type: string
+              description: |
+                ID of the Item save in the DB. Can be used as the `ID` field in other apis (ACK and Heartbeat).
+    
+    ItemAck:
       type: object
       required:
         - ItemID
@@ -567,9 +537,9 @@ components:
         Success:
           type: boolean
         KeyValues:
-          $ref: "../common/components.yaml#/components/schemas/KeyValues"
+          $ref: "../common/db_definitions.yaml#/components/schemas/TypedKeyValues"
 
-    HeartbeatItem:
+    ItemHeartbeat:
       type: object
       required:
         - ItemID
@@ -578,69 +548,102 @@ components:
         ItemID:
           type: string
         KeyValues:
-          $ref: "../common/components.yaml#/components/schemas/KeyValues"
+          $ref: "../common/db_definitions.yaml#/components/schemas/TypedKeyValues"
 
+    # Channel models
     Channels:
+      type: array
+      items:
+        $ref: "#/components/schemas/Channel"
+    
+    Channel:
       type: object
+      description: |
+        Channels are not directly created, but generated on the fly if no from an Item's KeyValues specification.
+        Similarly, they are automatically deleted if no items are left for the same collection of KeyValues
       properties:
-        KeyValues:
-          $ref: "../common/components.yaml#/components/schemas/KeyValues"
-        EnqueuedItems:
+        Spec:
+          type: object
+          required:
+            - DBDefinition
+            - Properties
+          properties:
+            DBDefinition:
+              type: object
+              required:
+                - KeyValues
+              description: |
+                Specification on the details of how to save the object and fields that dictate any logic
+              properties:
+                KeyValues:
+                  additionalProperties:
+                    title: Key
+                    x-additionalPropertiesName: Key
+                    $ref: "../common/db_definitions.yaml#/components/schemas/TypedKeyValues"
+        State:
+          type: object
+          readOnly: true
           description: |
-            Number of items enqued that are not processing
-          type: integer
-          format: uint64
-        RunningItems:
-          description: |
-            Number of items currently processing
-          type: integer
-          format: uint64
+            Read-Only data about the `Item`
+          properties:
+            EnqueuedItems:
+              type: integer
+              format: int64
+              description: |
+                Number of items currently enqueued that are not processing
+            ProcessingItems:
+              type: integer
+              format: int64
+              description: |
+                Number of items currently being processed
+    
 
-    Queue:
-      type: object
-      properties:
-        Name:
-          description: |
-            Unique name for the queue
-          type: string
-        QueueMaxSize:
-          description: |
-            Max number of items that can be enqueued and or processing for the queue
-          type: integer
-          format: int64
-        Channels:
-          type: array
-          items:
-            $ref: "#/components/schemas/Channels"
-
+    # Queue Models
     Queues:
       type: array
       items:
         $ref: "#/components/schemas/Queue"
 
-    QueueCreate:
+    Queue:
       type: object
+      description: |
+        `Queue` to save in the DB that all other actions will work with
       required:
-        - Name
-        - QueueMaxSize
+        - Spec
       properties:
-        Name:
+        Spec:
+          type: object
+          required:
+            - DBDefinition
+            - Properties
+          properties:
+            DBDefinition:
+              type: object
+              required:
+                - Name
+              description: |
+                Specification on the details of how to save the object and fields that dictate any logic
+              properties:
+                Name:
+                  type: string
+            Properties:
+              $ref: "#/components/schemas/QueueProperties"
+        State:
+          type: object
+          readOnly: true
           description: |
-            Unique name for the queue
-          type: string
-        QueueMaxSize:
-          description: |
-            Max number of items that can be enqueued and or processing for the queue
+            Read-Only data about the `Item`
+          properties:
+            ID:
+              type: string
+              description: |
+                ID of the Item save in the DB. Can be used as the `ID` field in other apis (ACK and Heartbeat).
+    
+    QueueProperties:
+      type: object
+      properties:
+        MaxItems:
           type: integer
           format: int64
-
-    QueueUpdate:
-      type: object
-      required:
-        - QueueMaxSize
-      properties:
-        QueueMaxSize:
           description: |
-            Max number of items that can be enqueued and or processing for the queue
-          type: integer
-          format: int64
+            Max number of `Items` that can be both enqueued and running for a Queue

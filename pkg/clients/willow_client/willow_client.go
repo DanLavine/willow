@@ -7,9 +7,9 @@ import (
 
 	"github.com/DanLavine/willow/pkg/clients"
 
+	dbdefinition "github.com/DanLavine/willow/pkg/models/api/common/v1/db_definition"
 	queryassociatedaction "github.com/DanLavine/willow/pkg/models/api/common/v1/query_associated_action"
 	v1willow "github.com/DanLavine/willow/pkg/models/api/willow/v1"
-	"github.com/DanLavine/willow/pkg/models/datatypes"
 )
 
 // All Client operations for interacting with the Willow Service
@@ -21,23 +21,23 @@ type WillowServiceClient interface {
 
 	// Queue Operations
 	//// Create a new queue
-	CreateQueue(ctx context.Context, queue *v1willow.QueueCreate) error
+	CreateQueue(ctx context.Context, queue *v1willow.Queue) error
 	//// Get a spcific queue by name and query the possible channels
 	GetQueue(ctx context.Context, queueName string, query *queryassociatedaction.AssociatedActionQuery) (*v1willow.Queue, error)
 	//// List all possible queues without their channels
 	ListQueues(ctx context.Context) (v1willow.Queues, error)
 	//// Update a particualr queue
-	UpdateQueue(ctx context.Context, queueName string, update *v1willow.QueueUpdate) error
+	UpdateQueue(ctx context.Context, queueName string, update *v1willow.QueueProperties) error
 	//// Delete a particualr queue
 	DeleteQueue(ctx context.Context, queueName string) error
 
 	// channel operations
 	//// enqueue a new item to a particular queue's channels
-	EnqueueQueueItem(ctx context.Context, queueName string, item *v1willow.EnqueueQueueItem) error
+	EnqueueQueueItem(ctx context.Context, queueName string, item *v1willow.Item) error
 	//// dequeue an item from a queue's channels that match the query
 	DequeueQueueItem(ctx context.Context, queueName string, query *queryassociatedaction.AssociatedActionQuery) (*Item, error)
 	//// delete a particu;ar channel and all enqueued items
-	DeleteQueueChannel(ctx context.Context, queueName string, channelKeyValues datatypes.KeyValues) error
+	DeleteQueueChannel(ctx context.Context, queueName string, channelKeyValues dbdefinition.TypedKeyValues) error
 }
 
 // LimiteClient to connect with remote limiter service

@@ -40,22 +40,34 @@ func Test_Queue_Enqueue(t *testing.T) {
 		limiterClient := setupLimitterClient(g, limiterTestConstruct.ServerURL)
 
 		// setup queue
-		createQueue := &v1willow.QueueCreate{
-			Name:         "test queue",
-			QueueMaxSize: 5,
+		createQueue := &v1willow.Queue{
+			Spec: &v1willow.QueueSpec{
+				DBDefinition: &v1willow.QueueDBDefinition{
+					Name: helpers.PointerOf[string]("test queue"),
+				},
+				Properties: &v1willow.QueueProperties{
+					MaxItems: helpers.PointerOf[int64](5),
+				},
+			},
 		}
 		g.Expect(willowClient.CreateQueue(context.Background(), createQueue)).ToNot(HaveOccurred())
 
 		// enqueue the item
-		enqueueQueueItem := &v1willow.EnqueueQueueItem{
-			Item: []byte(`data for first item`),
-			KeyValues: datatypes.KeyValues{
-				"one": datatypes.Int(1),
+		enqueueQueueItem := &v1willow.Item{
+			Spec: &v1willow.ItemSpec{
+				DBDefinition: &v1willow.ItemDBDefinition{
+					KeyValues: dbdefinition.TypedKeyValues{
+						"one": datatypes.Int(1),
+					},
+				},
+				Properties: &v1willow.ItemProperties{
+					Data:            []byte(`data for first item`),
+					Updateable:      helpers.PointerOf(true),
+					RetryAttempts:   helpers.PointerOf[uint64](1),
+					RetryPosition:   helpers.PointerOf("front"),
+					TimeoutDuration: helpers.PointerOf(5 * time.Second),
+				},
 			},
-			Updateable:      true,
-			RetryAttempts:   1,
-			RetryPosition:   "front",
-			TimeoutDuration: 5 * time.Second,
 		}
 		err := willowClient.EnqueueQueueItem(context.Background(), "test queue", enqueueQueueItem)
 		g.Expect(err).ToNot(HaveOccurred())
@@ -82,75 +94,111 @@ func Test_Queue_Enqueue(t *testing.T) {
 		limiterClient := setupLimitterClient(g, limiterTestConstruct.ServerURL)
 
 		// setup queue
-		createQueue := &v1willow.QueueCreate{
-			Name:         "test queue",
-			QueueMaxSize: 5,
+		createQueue := &v1willow.Queue{
+			Spec: &v1willow.QueueSpec{
+				DBDefinition: &v1willow.QueueDBDefinition{
+					Name: helpers.PointerOf[string]("test queue"),
+				},
+				Properties: &v1willow.QueueProperties{
+					MaxItems: helpers.PointerOf[int64](5),
+				},
+			},
 		}
 		g.Expect(willowClient.CreateQueue(context.Background(), createQueue)).ToNot(HaveOccurred())
 
 		// enqueue multiple item
-		enqueueQueueItem1 := &v1willow.EnqueueQueueItem{
-			Item: []byte(`data for first item`),
-			KeyValues: datatypes.KeyValues{
-				"one": datatypes.Int(1),
+		enqueueQueueItem1 := &v1willow.Item{
+			Spec: &v1willow.ItemSpec{
+				DBDefinition: &v1willow.ItemDBDefinition{
+					KeyValues: dbdefinition.TypedKeyValues{
+						"one": datatypes.Int(1),
+					},
+				},
+				Properties: &v1willow.ItemProperties{
+					Data:            []byte(`data for first item`),
+					Updateable:      helpers.PointerOf(true),
+					RetryAttempts:   helpers.PointerOf[uint64](1),
+					RetryPosition:   helpers.PointerOf("front"),
+					TimeoutDuration: helpers.PointerOf(5 * time.Second),
+				},
 			},
-			Updateable:      true,
-			RetryAttempts:   1,
-			RetryPosition:   "front",
-			TimeoutDuration: 5 * time.Second,
 		}
 		g.Expect(willowClient.EnqueueQueueItem(context.Background(), "test queue", enqueueQueueItem1)).ToNot(HaveOccurred())
 
-		enqueueQueueItem2 := &v1willow.EnqueueQueueItem{ // updates the previous item
-			Item: []byte(`data for second item`),
-			KeyValues: datatypes.KeyValues{
-				"one": datatypes.Int(1),
+		enqueueQueueItem2 := &v1willow.Item{ // updates the previous item
+			Spec: &v1willow.ItemSpec{
+				DBDefinition: &v1willow.ItemDBDefinition{
+					KeyValues: dbdefinition.TypedKeyValues{
+						"one": datatypes.Int(1),
+					},
+				},
+				Properties: &v1willow.ItemProperties{
+					Data:            []byte(`data for second item`),
+					Updateable:      helpers.PointerOf(true),
+					RetryAttempts:   helpers.PointerOf[uint64](1),
+					RetryPosition:   helpers.PointerOf("front"),
+					TimeoutDuration: helpers.PointerOf(5 * time.Second),
+				},
 			},
-			Updateable:      true,
-			RetryAttempts:   1,
-			RetryPosition:   "front",
-			TimeoutDuration: 5 * time.Second,
 		}
 		g.Expect(willowClient.EnqueueQueueItem(context.Background(), "test queue", enqueueQueueItem2)).ToNot(HaveOccurred())
 
-		enqueueQueueItem3 := &v1willow.EnqueueQueueItem{
-			Item: []byte(`data for third item`),
-			KeyValues: datatypes.KeyValues{
-				"one": datatypes.Int(1),
-				"two": datatypes.Int(2),
+		enqueueQueueItem3 := &v1willow.Item{
+			Spec: &v1willow.ItemSpec{
+				DBDefinition: &v1willow.ItemDBDefinition{
+					KeyValues: dbdefinition.TypedKeyValues{
+						"one": datatypes.Int(1),
+						"two": datatypes.Int(2),
+					},
+				},
+				Properties: &v1willow.ItemProperties{
+					Data:            []byte(`data for third item`),
+					Updateable:      helpers.PointerOf(true),
+					RetryAttempts:   helpers.PointerOf[uint64](1),
+					RetryPosition:   helpers.PointerOf("front"),
+					TimeoutDuration: helpers.PointerOf(5 * time.Second),
+				},
 			},
-			Updateable:      true,
-			RetryAttempts:   1,
-			RetryPosition:   "front",
-			TimeoutDuration: 5 * time.Second,
 		}
 		g.Expect(willowClient.EnqueueQueueItem(context.Background(), "test queue", enqueueQueueItem3)).ToNot(HaveOccurred())
 
-		enqueueQueueItem4 := &v1willow.EnqueueQueueItem{
-			Item: []byte(`data for fourth item`),
-			KeyValues: datatypes.KeyValues{
-				"one":   datatypes.Int(1),
-				"two":   datatypes.Int(2),
-				"three": datatypes.String("3"),
+		enqueueQueueItem4 := &v1willow.Item{
+			Spec: &v1willow.ItemSpec{
+				DBDefinition: &v1willow.ItemDBDefinition{
+					KeyValues: dbdefinition.TypedKeyValues{
+						"one":   datatypes.Int(1),
+						"two":   datatypes.Int(2),
+						"three": datatypes.String("3"),
+					},
+				},
+				Properties: &v1willow.ItemProperties{
+					Data:            []byte(`data for fourth item`),
+					Updateable:      helpers.PointerOf(false),
+					RetryAttempts:   helpers.PointerOf[uint64](1),
+					RetryPosition:   helpers.PointerOf("front"),
+					TimeoutDuration: helpers.PointerOf(5 * time.Second),
+				},
 			},
-			Updateable:      false,
-			RetryAttempts:   1,
-			RetryPosition:   "front",
-			TimeoutDuration: 5 * time.Second,
 		}
 		g.Expect(willowClient.EnqueueQueueItem(context.Background(), "test queue", enqueueQueueItem4)).ToNot(HaveOccurred())
 
-		enqueueQueueItem5 := &v1willow.EnqueueQueueItem{
-			Item: []byte(`data for fifth item`),
-			KeyValues: datatypes.KeyValues{
-				"one":   datatypes.Int(1),
-				"two":   datatypes.Int(2),
-				"three": datatypes.String("3"),
+		enqueueQueueItem5 := &v1willow.Item{
+			Spec: &v1willow.ItemSpec{
+				DBDefinition: &v1willow.ItemDBDefinition{
+					KeyValues: dbdefinition.TypedKeyValues{
+						"one":   datatypes.Int(1),
+						"two":   datatypes.Int(2),
+						"three": datatypes.String("3"),
+					},
+				},
+				Properties: &v1willow.ItemProperties{
+					Data:            []byte(`data for fifth item`),
+					Updateable:      helpers.PointerOf(true),
+					RetryAttempts:   helpers.PointerOf[uint64](1),
+					RetryPosition:   helpers.PointerOf("front"),
+					TimeoutDuration: helpers.PointerOf(5 * time.Second),
+				},
 			},
-			Updateable:      true,
-			RetryAttempts:   1,
-			RetryPosition:   "front",
-			TimeoutDuration: 5 * time.Second,
 		}
 		g.Expect(willowClient.EnqueueQueueItem(context.Background(), "test queue", enqueueQueueItem5)).ToNot(HaveOccurred())
 
@@ -233,9 +281,15 @@ func Test_Queue_Enqueue(t *testing.T) {
 		limiterClient := setupLimitterClient(g, limiterTestConstruct.ServerURL)
 
 		// setup queue
-		createQueue := &v1willow.QueueCreate{
-			Name:         "test queue",
-			QueueMaxSize: 2,
+		createQueue := &v1willow.Queue{
+			Spec: &v1willow.QueueSpec{
+				DBDefinition: &v1willow.QueueDBDefinition{
+					Name: helpers.PointerOf[string]("test queue"),
+				},
+				Properties: &v1willow.QueueProperties{
+					MaxItems: helpers.PointerOf[int64](2),
+				},
+			},
 		}
 		g.Expect(willowClient.CreateQueue(context.Background(), createQueue)).ToNot(HaveOccurred())
 
@@ -247,29 +301,41 @@ func Test_Queue_Enqueue(t *testing.T) {
 				updateable = true
 			}
 
-			enqueueQueueItem := &v1willow.EnqueueQueueItem{
-				Item: []byte(fmt.Sprintf(`data for item %d`, i)),
-				KeyValues: datatypes.KeyValues{
-					"one": datatypes.Int(1),
+			enqueueQueueItem := &v1willow.Item{
+				Spec: &v1willow.ItemSpec{
+					DBDefinition: &v1willow.ItemDBDefinition{
+						KeyValues: dbdefinition.TypedKeyValues{
+							"one": datatypes.Int(1),
+						},
+					},
+					Properties: &v1willow.ItemProperties{
+						Data:            []byte(fmt.Sprintf("data for item %d", i)),
+						Updateable:      helpers.PointerOf(updateable),
+						RetryAttempts:   helpers.PointerOf[uint64](1),
+						RetryPosition:   helpers.PointerOf("front"),
+						TimeoutDuration: helpers.PointerOf(5 * time.Second),
+					},
 				},
-				Updateable:      updateable,
-				RetryAttempts:   1,
-				RetryPosition:   "front",
-				TimeoutDuration: 5 * time.Second,
 			}
 			g.Expect(willowClient.EnqueueQueueItem(context.Background(), "test queue", enqueueQueueItem)).ToNot(HaveOccurred())
 		}
 
 		// next item enqueued should error
-		enqueueQueueItem := &v1willow.EnqueueQueueItem{
-			Item: []byte(`data for item 3`),
-			KeyValues: datatypes.KeyValues{
-				"one": datatypes.Int(1),
+		enqueueQueueItem := &v1willow.Item{
+			Spec: &v1willow.ItemSpec{
+				DBDefinition: &v1willow.ItemDBDefinition{
+					KeyValues: dbdefinition.TypedKeyValues{
+						"one": datatypes.Int(1),
+					},
+				},
+				Properties: &v1willow.ItemProperties{
+					Data:            []byte(`data for item 3`),
+					Updateable:      helpers.PointerOf(false),
+					RetryAttempts:   helpers.PointerOf[uint64](1),
+					RetryPosition:   helpers.PointerOf("front"),
+					TimeoutDuration: helpers.PointerOf(5 * time.Second),
+				},
 			},
-			Updateable:      false,
-			RetryAttempts:   1,
-			RetryPosition:   "front",
-			TimeoutDuration: 5 * time.Second,
 		}
 		err := willowClient.EnqueueQueueItem(context.Background(), "test queue", enqueueQueueItem)
 		g.Expect(err).To(HaveOccurred())
@@ -321,9 +387,15 @@ func Test_Queue_Dequeue(t *testing.T) {
 		willowClient := setupWillowClient(g, willowTestConstruct.ServerURL)
 
 		// setup queue
-		createQueue := &v1willow.QueueCreate{
-			Name:         "test queue",
-			QueueMaxSize: 5,
+		createQueue := &v1willow.Queue{
+			Spec: &v1willow.QueueSpec{
+				DBDefinition: &v1willow.QueueDBDefinition{
+					Name: helpers.PointerOf[string]("test queue"),
+				},
+				Properties: &v1willow.QueueProperties{
+					MaxItems: helpers.PointerOf[int64](5),
+				},
+			},
 		}
 		g.Expect(willowClient.CreateQueue(context.Background(), createQueue)).ToNot(HaveOccurred())
 
@@ -363,22 +435,34 @@ func Test_Queue_Dequeue(t *testing.T) {
 		limiterClient := setupLimitterClient(g, limiterTestConstruct.ServerURL)
 
 		// setup queue
-		createQueue := &v1willow.QueueCreate{
-			Name:         "test queue",
-			QueueMaxSize: 5,
+		createQueue := &v1willow.Queue{
+			Spec: &v1willow.QueueSpec{
+				DBDefinition: &v1willow.QueueDBDefinition{
+					Name: helpers.PointerOf[string]("test queue"),
+				},
+				Properties: &v1willow.QueueProperties{
+					MaxItems: helpers.PointerOf[int64](5),
+				},
+			},
 		}
 		g.Expect(willowClient.CreateQueue(context.Background(), createQueue)).ToNot(HaveOccurred())
 
 		// enqueue the item
-		enqueueQueueItem := &v1willow.EnqueueQueueItem{
-			Item: []byte(`data for first item`),
-			KeyValues: datatypes.KeyValues{
-				"one": datatypes.Int(1),
+		enqueueQueueItem := &v1willow.Item{
+			Spec: &v1willow.ItemSpec{
+				DBDefinition: &v1willow.ItemDBDefinition{
+					KeyValues: dbdefinition.TypedKeyValues{
+						"one": datatypes.Int(1),
+					},
+				},
+				Properties: &v1willow.ItemProperties{
+					Data:            []byte(`data for first item`),
+					Updateable:      helpers.PointerOf(true),
+					RetryAttempts:   helpers.PointerOf[uint64](1),
+					RetryPosition:   helpers.PointerOf("front"),
+					TimeoutDuration: helpers.PointerOf(5 * time.Second),
+				},
 			},
-			Updateable:      true,
-			RetryAttempts:   1,
-			RetryPosition:   "front",
-			TimeoutDuration: 5 * time.Second,
 		}
 		err := willowClient.EnqueueQueueItem(context.Background(), "test queue", enqueueQueueItem)
 		g.Expect(err).ToNot(HaveOccurred())
@@ -447,9 +531,15 @@ func Test_Queue_Dequeue(t *testing.T) {
 		limiterClient := setupLimitterClient(g, limiterTestConstruct.ServerURL)
 
 		// setup queue
-		createQueue := &v1willow.QueueCreate{
-			Name:         "test queue",
-			QueueMaxSize: 5,
+		createQueue := &v1willow.Queue{
+			Spec: &v1willow.QueueSpec{
+				DBDefinition: &v1willow.QueueDBDefinition{
+					Name: helpers.PointerOf[string]("test queue"),
+				},
+				Properties: &v1willow.QueueProperties{
+					MaxItems: helpers.PointerOf[int64](5),
+				},
+			},
 		}
 		g.Expect(willowClient.CreateQueue(context.Background(), createQueue)).ToNot(HaveOccurred())
 
@@ -469,15 +559,21 @@ func Test_Queue_Dequeue(t *testing.T) {
 		}).Should(ContainSubstring("waiting for available item"))
 
 		// enqueue the item
-		enqueueQueueItem := &v1willow.EnqueueQueueItem{
-			Item: []byte(`data for first item`),
-			KeyValues: datatypes.KeyValues{
-				"one": datatypes.Int(1),
+		enqueueQueueItem := &v1willow.Item{
+			Spec: &v1willow.ItemSpec{
+				DBDefinition: &v1willow.ItemDBDefinition{
+					KeyValues: dbdefinition.TypedKeyValues{
+						"one": datatypes.Int(1),
+					},
+				},
+				Properties: &v1willow.ItemProperties{
+					Data:            []byte(`data for first item`),
+					Updateable:      helpers.PointerOf(true),
+					RetryAttempts:   helpers.PointerOf[uint64](1),
+					RetryPosition:   helpers.PointerOf("front"),
+					TimeoutDuration: helpers.PointerOf(5 * time.Second),
+				},
 			},
-			Updateable:      true,
-			RetryAttempts:   1,
-			RetryPosition:   "front",
-			TimeoutDuration: 5 * time.Second,
 		}
 		err := willowClient.EnqueueQueueItem(context.Background(), "test queue", enqueueQueueItem)
 		g.Expect(err).ToNot(HaveOccurred())
@@ -551,80 +647,116 @@ func Test_Queue_DeleteChannel(t *testing.T) {
 		limiterClient := setupLimitterClient(g, limiterTestConstruct.ServerURL)
 
 		// setup queue
-		createQueue := &v1willow.QueueCreate{
-			Name:         "test queue",
-			QueueMaxSize: 5,
+		createQueue := &v1willow.Queue{
+			Spec: &v1willow.QueueSpec{
+				DBDefinition: &v1willow.QueueDBDefinition{
+					Name: helpers.PointerOf[string]("test queue"),
+				},
+				Properties: &v1willow.QueueProperties{
+					MaxItems: helpers.PointerOf[int64](5),
+				},
+			},
 		}
 		g.Expect(willowClient.CreateQueue(context.Background(), createQueue)).ToNot(HaveOccurred())
 
 		// enqueue multiple item
-		enqueueQueueItem1 := &v1willow.EnqueueQueueItem{
-			Item: []byte(`data for first item`),
-			KeyValues: datatypes.KeyValues{
-				"one": datatypes.Int(1),
+		enqueueQueueItem1 := &v1willow.Item{
+			Spec: &v1willow.ItemSpec{
+				DBDefinition: &v1willow.ItemDBDefinition{
+					KeyValues: dbdefinition.TypedKeyValues{
+						"one": datatypes.Int(1),
+					},
+				},
+				Properties: &v1willow.ItemProperties{
+					Data:            []byte(`data for first item`),
+					Updateable:      helpers.PointerOf(true),
+					RetryAttempts:   helpers.PointerOf[uint64](1),
+					RetryPosition:   helpers.PointerOf("front"),
+					TimeoutDuration: helpers.PointerOf(5 * time.Second),
+				},
 			},
-			Updateable:      true,
-			RetryAttempts:   1,
-			RetryPosition:   "front",
-			TimeoutDuration: 5 * time.Second,
 		}
 		g.Expect(willowClient.EnqueueQueueItem(context.Background(), "test queue", enqueueQueueItem1)).ToNot(HaveOccurred())
 
-		enqueueQueueItem2 := &v1willow.EnqueueQueueItem{ // updates the previous item
-			Item: []byte(`data for second item`),
-			KeyValues: datatypes.KeyValues{
-				"one": datatypes.Int(1),
+		enqueueQueueItem2 := &v1willow.Item{ // updates the previous item
+			Spec: &v1willow.ItemSpec{
+				DBDefinition: &v1willow.ItemDBDefinition{
+					KeyValues: dbdefinition.TypedKeyValues{
+						"one": datatypes.Int(1),
+					},
+				},
+				Properties: &v1willow.ItemProperties{
+					Data:            []byte(`data for second item`),
+					Updateable:      helpers.PointerOf(true),
+					RetryAttempts:   helpers.PointerOf[uint64](1),
+					RetryPosition:   helpers.PointerOf("front"),
+					TimeoutDuration: helpers.PointerOf(5 * time.Second),
+				},
 			},
-			Updateable:      true,
-			RetryAttempts:   1,
-			RetryPosition:   "front",
-			TimeoutDuration: 5 * time.Second,
 		}
 		g.Expect(willowClient.EnqueueQueueItem(context.Background(), "test queue", enqueueQueueItem2)).ToNot(HaveOccurred())
 
-		enqueueQueueItem3 := &v1willow.EnqueueQueueItem{
-			Item: []byte(`data for third item`),
-			KeyValues: datatypes.KeyValues{
-				"one": datatypes.Int(1),
-				"two": datatypes.Int(2),
+		enqueueQueueItem3 := &v1willow.Item{
+			Spec: &v1willow.ItemSpec{
+				DBDefinition: &v1willow.ItemDBDefinition{
+					KeyValues: dbdefinition.TypedKeyValues{
+						"one": datatypes.Int(1),
+						"two": datatypes.Int(2),
+					},
+				},
+				Properties: &v1willow.ItemProperties{
+					Data:            []byte(`data for third item`),
+					Updateable:      helpers.PointerOf(true),
+					RetryAttempts:   helpers.PointerOf[uint64](1),
+					RetryPosition:   helpers.PointerOf("front"),
+					TimeoutDuration: helpers.PointerOf(5 * time.Second),
+				},
 			},
-			Updateable:      true,
-			RetryAttempts:   1,
-			RetryPosition:   "front",
-			TimeoutDuration: 5 * time.Second,
 		}
 		g.Expect(willowClient.EnqueueQueueItem(context.Background(), "test queue", enqueueQueueItem3)).ToNot(HaveOccurred())
 
-		enqueueQueueItem4 := &v1willow.EnqueueQueueItem{
-			Item: []byte(`data for fourth item`),
-			KeyValues: datatypes.KeyValues{
-				"one":   datatypes.Int(1),
-				"two":   datatypes.Int(2),
-				"three": datatypes.String("3"),
+		enqueueQueueItem4 := &v1willow.Item{
+			Spec: &v1willow.ItemSpec{
+				DBDefinition: &v1willow.ItemDBDefinition{
+					KeyValues: dbdefinition.TypedKeyValues{
+						"one":   datatypes.Int(1),
+						"two":   datatypes.Int(2),
+						"three": datatypes.String("3"),
+					},
+				},
+				Properties: &v1willow.ItemProperties{
+					Data:            []byte(`data for fourth item`),
+					Updateable:      helpers.PointerOf(false),
+					RetryAttempts:   helpers.PointerOf[uint64](1),
+					RetryPosition:   helpers.PointerOf("front"),
+					TimeoutDuration: helpers.PointerOf(5 * time.Second),
+				},
 			},
-			Updateable:      false,
-			RetryAttempts:   1,
-			RetryPosition:   "front",
-			TimeoutDuration: 5 * time.Second,
 		}
 		g.Expect(willowClient.EnqueueQueueItem(context.Background(), "test queue", enqueueQueueItem4)).ToNot(HaveOccurred())
 
-		enqueueQueueItem5 := &v1willow.EnqueueQueueItem{
-			Item: []byte(`data for fifth item`),
-			KeyValues: datatypes.KeyValues{
-				"one":   datatypes.Int(1),
-				"two":   datatypes.Int(2),
-				"three": datatypes.String("3"),
+		enqueueQueueItem5 := &v1willow.Item{
+			Spec: &v1willow.ItemSpec{
+				DBDefinition: &v1willow.ItemDBDefinition{
+					KeyValues: dbdefinition.TypedKeyValues{
+						"one":   datatypes.Int(1),
+						"two":   datatypes.Int(2),
+						"three": datatypes.String("3"),
+					},
+				},
+				Properties: &v1willow.ItemProperties{
+					Data:            []byte(`data for fifth item`),
+					Updateable:      helpers.PointerOf(true),
+					RetryAttempts:   helpers.PointerOf[uint64](1),
+					RetryPosition:   helpers.PointerOf("front"),
+					TimeoutDuration: helpers.PointerOf(5 * time.Second),
+				},
 			},
-			Updateable:      true,
-			RetryAttempts:   1,
-			RetryPosition:   "front",
-			TimeoutDuration: 5 * time.Second,
 		}
 		g.Expect(willowClient.EnqueueQueueItem(context.Background(), "test queue", enqueueQueueItem5)).ToNot(HaveOccurred())
 
 		// delete a channel
-		err := willowClient.DeleteQueueChannel(context.Background(), "test queue", datatypes.KeyValues{"one": datatypes.Int(1)})
+		err := willowClient.DeleteQueueChannel(context.Background(), "test queue", dbdefinition.TypedKeyValues{"one": datatypes.Int(1)})
 		g.Expect(err).ToNot(HaveOccurred())
 
 		// ensure the counters are setup properly

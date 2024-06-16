@@ -22,9 +22,9 @@ import (
 //	- error - error creating the queue
 //
 // CreateQueue creates a new Queue. This will return an error if the queue name already exists
-func (wc *WillowClient) CreateQueue(ctx context.Context, queue *v1willow.QueueCreate) error {
+func (wc *WillowClient) CreateQueue(ctx context.Context, queue *v1willow.Queue) error {
 	// encode the request
-	data, err := api.ModelEncodeRequest(queue)
+	data, err := api.ObjectEncodeRequest(queue)
 	if err != nil {
 		return err
 	}
@@ -157,7 +157,7 @@ func (wc *WillowClient) GetQueue(ctx context.Context, queueName string, channels
 //	- error - error creating the queue
 //
 // UpdateQueue is used to upadte the queue's specific properties
-func (wc *WillowClient) UpdateQueue(ctx context.Context, queueName string, queueUpdate *v1willow.QueueUpdate) error {
+func (wc *WillowClient) UpdateQueue(ctx context.Context, queueName string, queueUpdate *v1willow.QueueProperties) error {
 	// encode the request
 	data, err := api.ModelEncodeRequest(queueUpdate)
 	if err != nil {

@@ -17,8 +17,8 @@ type QueueChannelsClient interface {
 
 	// channel operations
 	Channels(ctx context.Context, queueName string, channelQuery *queryassociatedaction.AssociatedActionQuery) v1willow.Channels
-	EnqueueQueueItem(ctx context.Context, queueName string, enqueueItem *v1willow.EnqueueQueueItem) *errors.ServerError
-	DequeueQueueItem(ctx context.Context, queueName string, dequeueQuery *queryassociatedaction.AssociatedActionQuery) (*v1willow.DequeueQueueItem, func(), func(), *errors.ServerError)
+	EnqueueQueueItem(ctx context.Context, queueName string, enqueueItem *v1willow.Item) *errors.ServerError
+	DequeueQueueItem(ctx context.Context, queueName string, dequeueQuery *queryassociatedaction.AssociatedActionQuery) (*v1willow.Item, func(), func(), *errors.ServerError)
 	DestroyChannelsForQueue(ctx context.Context, queueName string) *errors.ServerError
 	DeleteChannel(ctx context.Context, queueName string, channelKeyValues datatypes.KeyValues) *errors.ServerError
 

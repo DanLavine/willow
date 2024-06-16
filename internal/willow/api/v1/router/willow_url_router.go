@@ -42,12 +42,13 @@ func AddV1WillowRoutes(baseLogger *zap.Logger, mux *urlrouter.Router, v1QueueHan
 
 	// message channels
 	//// queues
-	mux.HandleFunc("POST", "/v1/queues/:queue_name/channels", middleware.SetupTracer(middleware.AddLogger(baseLogger, middleware.ValidateReqHeaders(v1QueueHandler.ChannelEnqueue))))
-	mux.HandleFunc("GET", "/v1/queues/:queue_name/channels", middleware.SetupTracer(middleware.AddLogger(baseLogger, middleware.ValidateReqHeaders(v1QueueHandler.ChannelDequeue))))
+	mux.HandleFunc("GET", "/v1/queues/:queue_name/channels", middleware.SetupTracer(middleware.AddLogger(baseLogger, middleware.ValidateReqHeaders(v1QueueHandler.ChannelQuery))))     // Get a channel's details
 	mux.HandleFunc("DELETE", "/v1/queues/:queue_name/channels", middleware.SetupTracer(middleware.AddLogger(baseLogger, middleware.ValidateReqHeaders(v1QueueHandler.ChannelDelete)))) // Delete a channel by key values
 
 	// item handlers
 	//// queues
-	mux.HandleFunc("POST", "/v1/queues/:queue_name/channels/items/ack", middleware.SetupTracer(middleware.AddLogger(baseLogger, middleware.ValidateReqHeaders(v1QueueHandler.ItemACK))))             // think this is ok? enqueue and dequeue will drive this out
-	mux.HandleFunc("POST", "/v1/queues/:queue_name/channels/items/heartbeat", middleware.SetupTracer(middleware.AddLogger(baseLogger, middleware.ValidateReqHeaders(v1QueueHandler.ItemHeartbeat)))) // think this is ok? enqueue and dequeue will drive this out
+	mux.HandleFunc("POST", "/v1/queues/:queue_name/channels/items", middleware.SetupTracer(middleware.AddLogger(baseLogger, middleware.ValidateReqHeaders(v1QueueHandler.ChannelEnqueue))))
+	mux.HandleFunc("GET", "/v1/queues/:queue_name/channels/items", middleware.SetupTracer(middleware.AddLogger(baseLogger, middleware.ValidateReqHeaders(v1QueueHandler.ChannelDequeue))))
+	mux.HandleFunc("POST", "/v1/queues/:queue_name/channels/items/ack", middleware.SetupTracer(middleware.AddLogger(baseLogger, middleware.ValidateReqHeaders(v1QueueHandler.ItemACK))))
+	mux.HandleFunc("POST", "/v1/queues/:queue_name/channels/items/heartbeat", middleware.SetupTracer(middleware.AddLogger(baseLogger, middleware.ValidateReqHeaders(v1QueueHandler.ItemHeartbeat))))
 }

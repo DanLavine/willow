@@ -16,7 +16,7 @@ type Queue interface {
 	ConfiguredLimit() int64
 
 	// Update the queue parameters
-	Update(ctx context.Context, queueName string, updateRequest *v1willow.QueueUpdate) *errors.ServerError
+	Update(ctx context.Context, queueName string, updateRequest *v1willow.QueueProperties) *errors.ServerError
 
 	//	PARAMETERS:
 	//	- logger - Logger to record any encountered errors
@@ -33,7 +33,7 @@ type Queue interface {
 }
 
 type QueueConstructor interface {
-	New(ctx context.Context, queue *v1willow.QueueCreate) (Queue, *errors.ServerError)
+	New(ctx context.Context, queue *v1willow.Queue) (Queue, *errors.ServerError)
 }
 
 func NewQueueConstructor(constructorType string, limiterClient limiterclient.LimiterClient) (QueueConstructor, error) {
@@ -51,6 +51,6 @@ type memoryConstrutor struct {
 	limiterClient limiterclient.LimiterClient
 }
 
-func (mc *memoryConstrutor) New(ctx context.Context, queue *v1willow.QueueCreate) (Queue, *errors.ServerError) {
+func (mc *memoryConstrutor) New(ctx context.Context, queue *v1willow.Queue) (Queue, *errors.ServerError) {
 	return memory.New(ctx, queue, mc.limiterClient)
 }

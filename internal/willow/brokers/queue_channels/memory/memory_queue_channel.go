@@ -49,8 +49,8 @@ type memoryQueueChannel struct {
 	notifier *gonotify.Notify
 
 	// channel all items will be dequeued from
-	dequeueChan         chan func(ctx context.Context) (*v1willow.DequeueQueueItem, func(), func()) // func() (*v1willow.DequeueQueueItem, func(), func())
-	dequeueResponseChan chan bool                                                                   // indicates if there is an issue with the limiter on the last request. need to wait for this to be lower
+	dequeueChan         chan func(ctx context.Context) (*v1willow.Item, func(), func()) // func() (*v1willow.DequeueQueueItem, func(), func())
+	dequeueResponseChan chan bool                                                       // indicates if there is an issue with the limiter on the last request. need to wait for this to be lower
 
 	// all the saved items are a QueueItem
 	idGenerator idgenerator.UniqueIDs
@@ -82,7 +82,7 @@ func New(limiterClient limiterclient.LimiterClient, deleteCallback func(), queue
 
 		limiterClient:       limiterClient,
 		notifier:            gonotify.New(),
-		dequeueChan:         make(chan func(ctx context.Context) (*v1willow.DequeueQueueItem, func(), func())),
+		dequeueChan:         make(chan func(ctx context.Context) (*v1willow.Item, func(), func())),
 		dequeueResponseChan: make(chan bool),
 
 		idGenerator: idgenerator.UUID(),
@@ -339,7 +339,7 @@ BREAK_DEQUEUE:
 }
 
 // Try to Enqueue an item and record on the limiter what is being saved
-func (mqc *memoryQueueChannel) Enqueue(ctx context.Context, enqueueItem *v1willow.EnqueueQueueItem) *errors.ServerError {
+func (mqc *memoryQueueChannel) Enqueue(ctx context.Context, enqueueItem *v1willow.Item) *errors.ServerError {
 	ctx, _ = middleware.GetNamedMiddlewareLogger(ctx, "Enqueue")
 
 	mqc.itemsLock.Lock() // need this lock so multiple enqueue requests can all be squashed into 1
@@ -361,10 +361,10 @@ func (mqc *memoryQueueChannel) Enqueue(ctx context.Context, enqueueItem *v1willo
 			if queueItem.updateable {
 				updated = true
 
-				queueItem.data = enqueueItem.Item
-				queueItem.updateable = enqueueItem.Updateable
-				queueItem.maxRetryAttempts = enqueueItem.RetryAttempts
-				queueItem.retryPosition = enqueueItem.RetryPosition
+				queueItem.data = enqueueItem.Spec.Properties.Data
+				queueItem.updateable = *enqueueItem.Spec.Properties.Updateable
+				queueItem.maxRetryAttempts = *enqueueItem.Spec.Properties.RetryAttempts
+				queueItem.retryPosition = *enqueueItem.Spec.Properties.RetryPosition
 				queueItem.retryCount = 0
 			}
 
@@ -392,11 +392,11 @@ func (mqc *memoryQueueChannel) Enqueue(ctx context.Context, enqueueItem *v1willo
 	newId := mqc.idGenerator.ID()
 	onCreate := func() any {
 		return newItem(
-			enqueueItem.Item,
-			enqueueItem.Updateable,
-			enqueueItem.RetryAttempts,
-			enqueueItem.RetryPosition,
-			enqueueItem.TimeoutDuration,
+			enqueueItem.Spec.Properties.Data,
+			*enqueueItem.Spec.Properties.Updateable,
+			*enqueueItem.Spec.Properties.RetryAttempts,
+			*enqueueItem.Spec.Properties.RetryPosition,
+			*enqueueItem.Spec.Properties.TimeoutDuration,
 		)
 	}
 
@@ -583,12 +583,12 @@ func (mqc *memoryQueueChannel) failItem(ctx context.Context, itemID string, time
 //
 // The callback functions are used to ensure that the item being processed is gurranted to at least once be sent
 // to a client
-func (mqc *memoryQueueChannel) Dequeue() <-chan func(ctx context.Context) (*v1willow.DequeueQueueItem, func(), func()) {
+func (mqc *memoryQueueChannel) Dequeue() <-chan func(ctx context.Context) (*v1willow.Item, func(), func()) {
 	return mqc.dequeueChan
 }
 
 // callback passed to the 'dequeueChan' when there is something to dequeue
-func (mqc *memoryQueueChannel) dequeue(ctx context.Context) (*v1willow.DequeueQueueItem, func(), func()) {
+func (mqc *memoryQueueChannel) dequeue(ctx context.Context) (*v1willow.Item, func(), func()) {
 	ctx, logger := middleware.GetNamedMiddlewareLogger(ctx, "dequeue")
 
 	// 1. ensure that the item can be dequeued when running. This just forwards the key values that define the channel
@@ -610,14 +610,27 @@ func (mqc *memoryQueueChannel) dequeue(ctx context.Context) (*v1willow.DequeueQu
 	mqc.itemsLock.Unlock()
 
 	// 2. successfully incremented the counters, pull an item off for the client
-	dequeueItem := &v1willow.DequeueQueueItem{}
+	dequeueItem := &v1willow.Item{}
 
 	onFind := func(key datatypes.EncapsulatedValue, treeItem any) bool {
 		queueItem := treeItem.(*item)
-		dequeueItem.ItemID = firtItemID
-		dequeueItem.Item = queueItem.data
-		dequeueItem.KeyValues = mqc.channelKeyValues
-		dequeueItem.TimeoutDuration = queueItem.heartbeatTimeout
+		dequeueItem = &v1willow.Item{
+			Spec: &v1willow.ItemSpec{
+				DBDefinition: &v1willow.ItemDBDefinition{
+					KeyValues: dbdefinition.KeyValuesToTypedKeyValues(mqc.channelKeyValues),
+				},
+				Properties: &v1willow.ItemProperties{
+					Data:            queueItem.data,
+					Updateable:      &queueItem.updateable,
+					RetryAttempts:   &queueItem.maxRetryAttempts,
+					RetryPosition:   &queueItem.retryPosition,
+					TimeoutDuration: &queueItem.heartbeatTimeout,
+				},
+			},
+			State: &v1willow.ItemState{
+				ID: firtItemID,
+			},
+		}
 
 		// create the heartbeat operation in the background
 
@@ -628,7 +641,7 @@ func (mqc *memoryQueueChannel) dequeue(ctx context.Context) (*v1willow.DequeueQu
 
 		// The timeout function is the same behavior as a failed ACK operation + the parent callback to try and destroy this queue channel
 		onTimeout := func() {
-			_ = mqc.failItem(reporting.StripedContext(logger), dequeueItem.ItemID, true)
+			_ = mqc.failItem(reporting.StripedContext(logger), firtItemID, true)
 
 			// if this times out, call the client to try and delete this channel
 			mqc.deleteCallback()

@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/DanLavine/willow/internal/datastructures/btree"
+	"github.com/DanLavine/willow/internal/helpers"
 	"github.com/DanLavine/willow/internal/middleware"
 	"github.com/DanLavine/willow/pkg/models/api/common/errors"
 	v1 "github.com/DanLavine/willow/pkg/models/api/common/v1"
@@ -46,7 +47,7 @@ func NewLocalQueueClient(queueConstructor QueueConstructor, queueChannelsClient 
 }
 
 // Create the main queue and setup the limts on the Limiter service
-func (qcl *queueClientLocal) CreateQueue(ctx context.Context, queueCreate *v1willow.QueueCreate) *errors.ServerError {
+func (qcl *queueClientLocal) CreateQueue(ctx context.Context, queueCreate *v1willow.Queue) *errors.ServerError {
 	ctx, logger := middleware.GetNamedMiddlewareLogger(ctx, "CreateQueue")
 
 	var createQueueError *errors.ServerError
@@ -60,14 +61,14 @@ func (qcl *queueClientLocal) CreateQueue(ctx context.Context, queueCreate *v1wil
 		return queue
 	}
 
-	if err := qcl.queues.Create(datatypes.String(queueCreate.Name), bTreeOnCreate); err != nil {
+	if err := qcl.queues.Create(datatypes.String(*queueCreate.Spec.DBDefinition.Name), bTreeOnCreate); err != nil {
 		switch err {
 		case btree.ErrorKeyAlreadyExists:
 			logger.Warn("failed to create queue. Queue already exists by that name")
-			return &errors.ServerError{Message: fmt.Sprintf("Queue already exists with name '%s'", queueCreate.Name), StatusCode: http.StatusConflict}
+			return &errors.ServerError{Message: fmt.Sprintf("Queue already exists with name '%s'", *queueCreate.Spec.DBDefinition.Name), StatusCode: http.StatusConflict}
 		case btree.ErrorKeyDestroying:
 			logger.Warn("failed to create queue. Queue by that name is currenly destroying")
-			return &errors.ServerError{Message: fmt.Sprintf("Queue with name '%s' is currently being destroyed. Try again later", queueCreate.Name), StatusCode: http.StatusConflict}
+			return &errors.ServerError{Message: fmt.Sprintf("Queue with name '%s' is currently being destroyed. Try again later", *queueCreate.Spec.DBDefinition.Name), StatusCode: http.StatusConflict}
 		default:
 			logger.Error("failed to create a queue in the tree for some reason", zap.Error(err))
 			return errors.InternalServerError
@@ -85,9 +86,17 @@ func (qcl *queueClientLocal) ListQueues(ctx context.Context) (v1willow.Queues, *
 		queue := item.(Queue)
 
 		queues = append(queues, &v1willow.Queue{
-			Name:         key.Data.(string), // Will not have the T_any so this should be safe
-			QueueMaxSize: queue.ConfiguredLimit(),
-			Channels:     nil,
+			Spec: &v1willow.QueueSpec{
+				DBDefinition: &v1willow.QueueDBDefinition{
+					Name: helpers.PointerOf[string](key.Data.(string)),
+				},
+				Properties: &v1willow.QueueProperties{
+					MaxItems: helpers.PointerOf(queue.ConfiguredLimit()),
+				},
+			},
+			State: &v1willow.QueueState{
+				Deleting: false,
+			},
 		})
 
 		return true
@@ -110,8 +119,17 @@ func (qcl *queueClientLocal) GetQueue(ctx context.Context, queueName string) (*v
 		willowQueue := item.(Queue)
 
 		queue = &v1willow.Queue{
-			Name:         queueName,
-			QueueMaxSize: willowQueue.ConfiguredLimit(),
+			Spec: &v1willow.QueueSpec{
+				DBDefinition: &v1willow.QueueDBDefinition{
+					Name: helpers.PointerOf[string](queueName),
+				},
+				Properties: &v1willow.QueueProperties{
+					MaxItems: helpers.PointerOf(willowQueue.ConfiguredLimit()),
+				},
+			},
+			State: &v1willow.QueueState{
+				Deleting: false,
+			},
 		}
 
 		return false
@@ -135,7 +153,7 @@ func (qcl *queueClientLocal) GetQueue(ctx context.Context, queueName string) (*v
 	return queue, nil
 }
 
-func (qcl *queueClientLocal) UpdateQueue(ctx context.Context, queueName string, queueUpdate *v1willow.QueueUpdate) *errors.ServerError {
+func (qcl *queueClientLocal) UpdateQueue(ctx context.Context, queueName string, queueUpdate *v1willow.QueueProperties) *errors.ServerError {
 	ctx, logger := middleware.GetNamedMiddlewareLogger(ctx, "UpdateQueue")
 	updateQueueError := errorMissingQueueName(queueName)
 
@@ -187,7 +205,30 @@ func (qcl *queueClientLocal) DeleteQueue(ctx context.Context, queueName string) 
 	return deleteQueueError
 }
 
-func (qcl *queueClientLocal) Enqueue(ctx context.Context, queueName string, enqueueItem *v1willow.EnqueueQueueItem) *errors.ServerError {
+func (qcl *queueClientLocal) QueryChannels(ctx context.Context, queueName string, query *queryassociatedaction.AssociatedActionQuery) (v1willow.Channels, *errors.ServerError) {
+	ctx, logger := middleware.GetNamedMiddlewareLogger(ctx, "QueryChannels")
+	channels := v1willow.Channels{}
+
+	onIterate := func(key datatypes.EncapsulatedValue, item any) bool {
+		channels = qcl.queueChannelsClient.Channels(ctx, queueName, query)
+		return false
+	}
+
+	if err := qcl.queues.Find(datatypes.String(queueName), v1.TypeRestrictions{MinDataType: datatypes.T_string, MaxDataType: datatypes.T_string}, onIterate); err != nil {
+		switch err {
+		case btree.ErrorKeyDestroying:
+			logger.Warn("failed to ack item. Queue by that name is currenly destroying")
+			return channels, &errors.ServerError{Message: fmt.Sprintf("Queue with name '%s' is currently being destroyed. Refusing to acck the item since it is being destroyed too", queueName), StatusCode: http.StatusConflict}
+		default:
+			logger.Error("failed to find the queue in the tree for some reason", zap.Error(err))
+			return channels, errorMissingQueueName(queueName)
+		}
+	}
+
+	return channels, nil
+}
+
+func (qcl *queueClientLocal) Enqueue(ctx context.Context, queueName string, enqueueItem *v1willow.Item) *errors.ServerError {
 	ctx, logger := middleware.GetNamedMiddlewareLogger(ctx, "Enqueue")
 	enqueueQueueError := errorMissingQueueName(queueName)
 
@@ -205,12 +246,12 @@ func (qcl *queueClientLocal) Enqueue(ctx context.Context, queueName string, enqu
 	return enqueueQueueError
 }
 
-func (qcl *queueClientLocal) Dequeue(ctx context.Context, queueName string, dequeueQuery *queryassociatedaction.AssociatedActionQuery) (*v1willow.DequeueQueueItem, func(), func(), *errors.ServerError) {
+func (qcl *queueClientLocal) Dequeue(ctx context.Context, queueName string, dequeueQuery *queryassociatedaction.AssociatedActionQuery) (*v1willow.Item, func(), func(), *errors.ServerError) {
 	ctx, logger := middleware.GetNamedMiddlewareLogger(ctx, "Dequeue")
 	dequeueQueueError := errorMissingQueueName(queueName)
 
 	// nothing for the item to do. but use the bTree as a guard to ensure no delete operations are happening at the same time
-	var dequeueItem *v1willow.DequeueQueueItem
+	var dequeueItem *v1willow.Item
 	var onSuccess func()
 	var onFailure func()
 	onFind := func(key datatypes.EncapsulatedValue, item any) bool {

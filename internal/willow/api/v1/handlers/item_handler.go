@@ -1,18 +1,14 @@
 package handlers
 
 import (
-	"encoding/json"
 	"net/http"
 
 	"github.com/DanLavine/urlrouter"
 	"github.com/DanLavine/willow/internal/middleware"
 	"github.com/DanLavine/willow/pkg/models/api"
-	"github.com/DanLavine/willow/pkg/models/datatypes"
-	"go.uber.org/zap"
-
-	"github.com/DanLavine/willow/pkg/models/api/common/errors"
 	queryassociatedaction "github.com/DanLavine/willow/pkg/models/api/common/v1/query_associated_action"
 	v1willow "github.com/DanLavine/willow/pkg/models/api/willow/v1"
+	"go.uber.org/zap"
 )
 
 func (qh queueHandler) ChannelEnqueue(w http.ResponseWriter, r *http.Request) {
@@ -22,8 +18,8 @@ func (qh queueHandler) ChannelEnqueue(w http.ResponseWriter, r *http.Request) {
 	defer logger.Debug("processed request")
 
 	// parse the enueue item
-	queueItem := &v1willow.EnqueueQueueItem{}
-	if err := api.ModelDecodeRequest(r, queueItem); err != nil {
+	queueItem := &v1willow.Item{}
+	if err := api.ObjectDecodeRequest(r, queueItem); err != nil {
 		logger.Warn("failed to decode and validate request", zap.Error(err))
 		_, _ = api.ModelEncodeResponse(w, err.StatusCode, err)
 		return
@@ -65,28 +61,46 @@ func (qh queueHandler) ChannelDequeue(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (qh queueHandler) ChannelDelete(w http.ResponseWriter, r *http.Request) {
+func (qh queueHandler) ItemACK(w http.ResponseWriter, r *http.Request) {
 	// grab the request middleware objects
-	ctx, logger := middleware.GetNamedMiddlewareLogger(r.Context(), "ChannelDelete")
+	ctx, logger := middleware.GetNamedMiddlewareLogger(r.Context(), "ItemACK")
 	logger.Debug("starting request")
 	defer logger.Debug("processed request")
 
-	// parse the delte request
-	keyValues := datatypes.KeyValues{}
-	if err := json.NewDecoder(r.Body).Decode(&keyValues); err != nil {
-		logger.Warn("failed to decode request", zap.Error(err))
-		_, _ = api.ModelEncodeResponse(w, http.StatusBadRequest, errors.ServerErrorModelRequestValidation(err))
-	}
-
-	if err := keyValues.Validate(datatypes.MinDataType, datatypes.MaxWithoutAnyDataType); err != nil {
-		logger.Warn("failed to validated request", zap.Error(err))
-		_, _ = api.ModelEncodeResponse(w, http.StatusBadRequest, errors.ServerErrorModelRequestValidation(err))
-	}
-
-	if err := qh.queueClient.DeleteChannel(ctx, urlrouter.GetNamedParamters(r.Context())["queue_name"], keyValues); err != nil {
+	// parse the enueue item
+	ack := &v1willow.ACK{}
+	if err := api.ModelDecodeRequest(r, ack); err != nil {
+		logger.Warn("failed to decode and validate request", zap.Error(err))
 		_, _ = api.ModelEncodeResponse(w, err.StatusCode, err)
 		return
 	}
 
-	_, _ = api.ModelEncodeResponse(w, http.StatusNoContent, nil)
+	if err := qh.queueClient.Ack(ctx, urlrouter.GetNamedParamters(r.Context())["queue_name"], ack); err != nil {
+		_, _ = api.ModelEncodeResponse(w, err.StatusCode, err)
+		return
+	}
+
+	_, _ = api.ModelEncodeResponse(w, http.StatusOK, nil)
+}
+
+func (qh queueHandler) ItemHeartbeat(w http.ResponseWriter, r *http.Request) {
+	// grab the request middleware objects
+	ctx, logger := middleware.GetNamedMiddlewareLogger(r.Context(), "ItemHeartbeat")
+	logger.Debug("starting request")
+	defer logger.Debug("processed request")
+
+	// parse the enueue item
+	heartbeat := &v1willow.Heartbeat{}
+	if err := api.ModelDecodeRequest(r, heartbeat); err != nil {
+		logger.Warn("failed to decode and validate request", zap.Error(err))
+		_, _ = api.ModelEncodeResponse(w, err.StatusCode, err)
+		return
+	}
+
+	if err := qh.queueClient.Heartbeat(ctx, urlrouter.GetNamedParamters(r.Context())["queue_name"], heartbeat); err != nil {
+		_, _ = api.ModelEncodeResponse(w, err.StatusCode, err)
+		return
+	}
+
+	_, _ = api.ModelEncodeResponse(w, http.StatusOK, nil)
 }

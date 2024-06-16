@@ -6,7 +6,7 @@ import (
 	"github.com/DanLavine/willow/pkg/models/api/common/errors"
 )
 
-type Channels []Channel
+type Channels []*Channel
 
 //	RETURNS:
 //	- error - any errors encountered with the response object

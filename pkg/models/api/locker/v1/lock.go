@@ -36,7 +36,7 @@ func (lock *Lock) SetDefaultProperties(lockProperties *LockProperties) {
 // Validate the entire Lock's Spec and State fields
 func (lock *Lock) Validate() *errors.ModelError {
 	if lock.Spec == nil {
-		return &errors.ModelError{Field: "Spec", Err: fmt.Errorf("recieved an empty spcification")}
+		return &errors.ModelError{Field: "Spec", Err: fmt.Errorf("received an empty specification")}
 	} else {
 		if err := lock.Spec.Validate(); err != nil {
 			return err
@@ -44,7 +44,7 @@ func (lock *Lock) Validate() *errors.ModelError {
 	}
 
 	if lock.State == nil {
-		return &errors.ModelError{Field: "State", Err: fmt.Errorf("recieved an empty state")}
+		return &errors.ModelError{Field: "State", Err: fmt.Errorf("received an empty state")}
 	} else {
 		if err := lock.State.Validate(); err != nil {
 			return err
@@ -56,8 +56,12 @@ func (lock *Lock) Validate() *errors.ModelError {
 
 // Validate the Lock's Spec fields
 func (lock *Lock) ValidateSpecOnly() *errors.ModelError {
-	if err := lock.Spec.Validate(); err != nil {
-		return &errors.ModelError{Field: "Spec", Child: err}
+	if lock.Spec == nil {
+		return &errors.ModelError{Field: "Spec", Err: fmt.Errorf("received an empty specification")}
+	} else {
+		if err := lock.Spec.Validate(); err != nil {
+			return &errors.ModelError{Field: "Spec", Child: err}
+		}
 	}
 
 	if lock.State != nil {
@@ -73,8 +77,6 @@ type LockSpec struct {
 	DBDefinition *LockDBDefinition `json:"DBDefinition,omitempty"`
 
 	// Properties are the configurable/updateable fields for the Rule
-	//
-	// This is an optional field as all the properties are currently optional
 	Properties *LockProperties `json:"Properties,omitempty"`
 }
 
@@ -118,7 +120,7 @@ type LockProperties struct {
 func (lockProperties *LockProperties) Validate() *errors.ModelError {
 	if lockProperties.Timeout != nil {
 		if *lockProperties.Timeout == 0 {
-			return &errors.ModelError{Field: "Timeout", Err: fmt.Errorf("recieved a timeout duration of 0. Requires a valid time duration represented as int64 nanosecond")}
+			return &errors.ModelError{Field: "Timeout", Err: fmt.Errorf("received a timeout duration of 0. Requires a valid time duration represented as int64 nanosecond")}
 		}
 	}
 
