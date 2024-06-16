@@ -3,7 +3,7 @@ openapi: "3.0.0"
 info:
   description: Willow API
   title: Willow
-  version: poc 0.0.1
+  version: poc 0.0.2
 
 paths:
   /health:

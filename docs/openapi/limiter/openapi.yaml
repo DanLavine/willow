@@ -3,7 +3,7 @@ openapi: "3.0.0"
 info:
   description: Limiter API
   title: Limiter
-  version: poc 0.0.1
+  version: poc 0.0.2
 
 paths:
   /health:
