@@ -51,10 +51,16 @@ builds, while all branches can build Linux.
 
 	We can first create a new queue responsible for pushing possible git Commits to that any CICD runner can pull from
 	```
-	# POST /v1/brokers/queues
+	# POST /v1/queues
 	{
-	"Name": "git commits",
-	"QueueMaxSize": 50, // across all channels, how many items can be enqueued. Setup with a Limiter Rule + Override
+		"Spec": {
+			"DBDefinition": {
+				"Name": "git commits"
+			},
+			"Properties": {
+				"MaxItems": 50  // across all channels, how many items can be enqueued. Setup with a Limiter Rule + Override
+			}
+		}
 	}
 	```
 
@@ -62,53 +68,74 @@ builds, while all branches can build Linux.
 
 	When Enqueuing an **Item** each **Channel** is created on the fly if it does not currently exist
 	```
-	# POST /v1/brokers/queues/git%20commits/channel
+	# POST /v1/queues/git%20commits/channels/item
 	{
-	"Item": []byte(`[git commit to build]`),
-	  "KeyValues": {
-	    "repo_name": `{"Type": 13, "Data": "willow"}`,
-	    "branch_name": `{"Type": 13, "Data": "new_feature_72"}`,
-	    "os": `{"Type": 13, "Data": "Linux"}`,
-	  },
-	"Updatable": true, // if this is true and no item is processing. another request that comes in will overwrite the 'Item' field
-	"RetryAttempts": 0,
-	"RetryPosition": "front", // 0 retry attempts so does not matter
-	"TimeoutDuration": 1000000000, // 1 second represented as nanoseconds
+		"Spec": {
+			"DBDefinition": {
+				"KeyValues": {
+					"repo_name": {"Type": 13, "Data": "willow"},
+					"branch_name": {"Type": 13, "Data": "new_feature_72"},
+					"os": {"Type": 13, "Data": "linux"},
+				}
+			},
+			"Properties": {
+				"Item": [git commit to build], // bytes
+				"Updateable": true,            // if this is true and no item is processing. another request that comes in will overwrite the entire Item
+				"RetryAttempts": 1,            // how many times to attempt a retry
+				"RetryPosition": "front",      // if it fails and there is another item in the queue. This Item will be dropped as it is 'updated'
+				"TimeoutDuration: 1000000000,  // 1 second represented as nanoseconds. Refreshed via heartbeats
+
+			}
+		}
 	}
 	```
 	So in this case, the **Channel** is defined as the values for `{KeyValues: ...}`.
 	
 	Item number two:
 	```
-	# POST /v1/brokers/queues/git%20commits/channel
+	# POST /v1/brokers/queues/git%20commits/channels/items
 	{
-	"Item": []byte(`[git commit to build]`),
-	  "KeyValues": {
-	    "repo_name": `{"Type": 13, "Data": "willow"}`,
-	    "branch_name": `{"Type": 13, "Data": "main"}`,
-	    "os": `{"Type": 13, "Data": "windows"}`,
-	  },
-	"Updatable": true, // if this is true and no item is processing. another request that comes in will overwrite the 'Item' field
-	"RetryAttemps": 0,
-	"RetryPosition": "front", // 0 retry attempts so does not matter
-	"TimeoutDuration": 1000000000, // 1 second represented as nanoseconds
+		"Spec": {
+			"DBDefinition": {
+				"KeyValues": {
+					"repo_name": {"Type": 13, "Data": "willow"},
+					"branch_name": {"Type": 13, "Data": "main"},
+					"os": {"Type": 13, "Data": "windows"},
+				}
+			},
+			"Properties": {
+				"Item": [git commit to build], // bytes
+				"Updateable": true,            // if this is true and no item is processing. another request that comes in will overwrite the entire Item
+				"RetryAttempts": 0,            // how many times to attempt a retry
+				"RetryPosition": "front",      // if it fails and there is another item in the queue. This Item will be dropped as it is 'updated'
+				"TimeoutDuration: 1000000000,  // 1 second represented as nanoseconds. Refreshed via heartbeats
+
+			}
+		}
 	}
 	```
 	
 	Item number three:
 	```
-	# POST /v1/brokers/queues/git%20commits/channel
+	# POST /v1/queues/git%20commits/channels/items
 	{
-	"Item": []byte(`[git commit to build]`),
-	  "KeyValues": {
-	    "repo_name": `{"Type": 13, "Data": "willow"}`,
-	    "branch_name": `{"Type": 13, "Data": "main"}`,
-	    "os": `{"Type": 13, "Data": "Linux"}`,
-	  },
-	"Updatable": true, // if this is true and no item is processing. another request that comes in will overwrite the 'Item' field
-	"RetryAttempts": 0,
-	"RetryPosition": "front", // 0 retry attempts so does not matter
-	"TimeoutDuration": 1000000000, // 1 second represented as nanoseconds
+		"Spec": {
+			"DBDefinition": {
+				"KeyValues": {
+					"repo_name": {"Type": 13, "Data": "willow"},
+					"branch_name": {"Type": 13, "Data": "main"},
+					"os": {"Type": 13, "Data": "linux"},
+				}
+			},
+			"Properties": {
+				"Item": [git commit to build], // bytes
+				"Updateable": true,            // if this is true and no item is processing. another request that comes in will overwrite the entire Item
+				"RetryAttempts": 0,            // how many times to attempt a retry
+				"RetryPosition": "front",      // if it fails and there is another item in the queue. This Item will be dropped as it is 'updated'
+				"TimeoutDuration: 1000000000,  // 1 second represented as nanoseconds. Refreshed via heartbeats
+
+			}
+		}
 	}
 	```
 
@@ -116,34 +143,38 @@ builds, while all branches can build Linux.
 
 	Now a runner on the Linux runner can run a general query to pull any of the Branches that are on the Linux runner:
 	```
+	# GET /v1/queues/git%20commits/channels/items
 	{
-	"AssociatedKeyValues": {
-	"KeyValuesSelection": {
-	"KeyValues": {
-	  "os": {"Value": {"Type":13, "Data": "Linux"}, "ValueComparison": "="},
-	},
-	},
-	},
-	
-	// TODO: one of the features I want is additional query parameters for channels to start with for example
-	// I.E. Last "branch_name" = "main" so attempt to chose the next value first as 'priority'
-	//
-	// But this is a lot of work that I need to figure out what makes sense. See the "general" todo docs
+		"Selections": {
+			"KeyValues": {
+				"os": {
+					"Value":{"Type": 13, "Data": "linux"},                     // specificaly look for any values with 'linux'
+					"Comparison": "=",                                         // only use values that match exactly
+					"TypeRestrictions": {"MinDataType": 13, "MaxDataType": 13} // ensure that when selecting keys, we don't select 'Any' saved in the DB
+				}
+			}
+		}
 	}
 	```
 	So in this case **Item** one or three can be dequeued because they both have the 'os' set to 'Linux'
 	
-	If however we wanted to ensure that we pull the Windows builds (from the Limiter example these are also only the Main branch)
+	If however we wanted to ensure that we pull the main branch builds, we can add the desire key value
 	```
 	{
-	"AssociatedKeyValues": {
-	"KeyValuesSelection": {
-	"KeyValues": {
-	  "os": {"Value": {"Type":13, "Data": "Windows"}, "ValueComparison": "="},
-	  "branch_name": {"Value": {"Type":13, "Data": "Main"}, "ValueComparison": "="},
-	},
-	},
-	},
+		"Selections": {
+			"KeyValues": {
+				"os": {
+					"Value":{"Type": 13, "Data": "linux"},                     // specificaly look for any values with 'linux'
+					"Comparison": "=",                                         // only use values that match exactly
+					"TypeRestrictions": {"MinDataType": 13, "MaxDataType": 13} // ensure that when selecting keys, we don't select 'Any' saved in the DB
+				},
+				"branch_name" {
+					"Value":{"Type": 13, "Data": "main"},                     
+					"Comparison": "=",                                        
+					"TypeRestrictions": {"MinDataType": 13, "MaxDataType": 13}
+				}
+			}
+		}
 	}
 	```
 	Now in this case, the Consumer is also enforcing that the branch_name is for the Main brach.
@@ -153,19 +184,6 @@ builds, while all branches can build Linux.
 	dequeued and Willow will take care of resuming the **Channel** when Items are acknowledged by the clients or time out
 	to decrement the Counters.
 	
-	Example Dequeue Response
-	```
-	{
-	"ItemID": "[guid]",
-	"Item": []byte(`[git commit to build]`),
-	"KeyValues": {
-	    "repo_name": `{"Type": 13, "Data": "willow"}`,
-	    "branch_name": `{"Type": 13, "Data": "main"}`,
-	    "os": `{"Type": 13, "Data": "Linux"}`,
-	  },
-	"TimeoutDuration": 1000000000,
-	}
-	```
 	The clients provided in the `pkg` folder will take care of automatically heartbeat this item for you.
 
 4. Lastly we want to report the Item has finished processing
@@ -177,14 +195,14 @@ builds, while all branches can build Linux.
 	discarded since it would just be updated anyway. See the API docs for all the logical workflows.
 	
 	```
-	# POST /v1/brokers/queues/git%20commits/channel/items/ack
+	# POST /v1/queues/git%20commits/channel/items/ack
 	{
-	"ItemID": "[guid]",
-	"KeyValues": { // so Willow knows which channel to route to
-	    "repo_name": `{"Type": 13, "Data": "willow"}`,
-	    "branch_name": `{"Type": 13, "Data": "main"}`,
-	    "os": `{"Type": 13, "Data": "Linux"}`,
-	  },
-	"Passed": true,
+		"ItemID": "[guid]", // reported on the State, when dequing an item
+		"Success": true,
+		"KeyValues": {
+			"repo_name": {"Type": 13, "Data": "willow"},
+			"branch_name": {"Type": 13, "Data": "main"},
+			"os": {"Type": 13, "Data": "linux"},
+		}	
 	}
 	```

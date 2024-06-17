@@ -43,9 +43,18 @@ To try and explain this workflow, I think it is easiest to go through an example
 	```Rule
 	# POST /v1/limiter/rules
 	{
-		"Name": "limit branch builds",
-		"GroupBy": []string{"repo_name", "branch_name"},
-		"Limit": 1,
+		"Spec": {
+			"DBDefinition": {
+				"Name": "limit branch builds",
+				"GroupByKeyValues": {
+					"repo_name": { "Type": 1024 }, // 1024 means 'Any'
+					"branch_name": { "Type": 1024}
+				}
+			},
+			"Properties": {
+				"Limit": 1
+			}
+		}
 	}
 	```
 	
@@ -53,12 +62,18 @@ To try and explain this workflow, I think it is easiest to go through an example
 	```
 	# PUT /v1/limiter/counters
 	{
-	    "KeyValues": {
-	        "repo_name": `{"Type": 13, "Data": "willow"}`,  // type indicate string, data is the actual value. see api docs
-	        "branch_name": `{"Type": 13, "Data": "new_feature_72"}`,
-	        "os": `{"Type": 13, "Data": "windows"}`,
-	    },
-	    "Counters": 1,
+		"Spec": {
+			"DBDefinition": {
+				"KeyValues": {
+					"repo_name": {"Type": 13, "Data": "willow"}, // type 13 is a string
+					"branch_name": {"Type": 13, "Data": "new_feature_72"},
+					"os": {"Type": 13, "Data": "windows"}
+				}
+			},
+			"Properties": {
+				"Counters": 1
+			}
+		}
 	}
 	```
 	
@@ -79,12 +94,18 @@ To try and explain this workflow, I think it is easiest to go through an example
 	```
 	# POST /v1/limiter/rules/limit%20branch%20builds/overrides
 	{
-	    "Name": "override main branch",
-	    "KeyValues": {
-	        "repo_name": `{"Type": 13, "Data": "willow"}`,
-	        "branch_name":  `{"Type": 13, "Data": "main"}`,
-	    },
-	    "Limit": -1, // NOTE: this means unlimited in the API
+		"Spec": {
+			"DBDefinition": {
+				"Name": "override main branch",
+				"GroupByKeyValues": {
+					"repo_name": { "Type": 13, "Data": "willow"},
+					"branch_name": { "Type": 13, "Data": "main"}
+				}
+			},
+			"Properties": {
+				"Limit": -1, // NOTE: this means unlimited in the API
+			}
+		}
 	}
 	```
 	
@@ -92,37 +113,56 @@ To try and explain this workflow, I think it is easiest to go through an example
 	```
 	# PUT /v1/limiter/counters
 	{
-	    "KeyValues": {
-	        "repo_name": `{"Type": 13, "Data": "willow"}`,
-	        "branch_name": `{"Type": 123, "Data": "main"}`,
-	        "os": "windows",
-	    },
-	    "Counters": 1,
+		"Spec": {
+			"DBDefinition": {
+				"KeyValues": {
+					"repo_name": {"Type": 13, "Data": "willow"},
+					"branch_name": {"Type": 13, "Data": "main"},
+					"os": {"Type": 13, "Data": "windows"}
+				}
+			},
+			"Properties": {
+				"Counters": 1
+			}
+		}
 	},
 	
 	# PUT /v1/limiter/counters
 	{
-	    "KeyValues": {
-	        "repo_name":  {"Type": 13, "Data": "willow"},
-	        "branch_name":  {"Type": 13, "Data": "main"},
-	        "os": "mac",
-	    },
-	    "Counters": 1,
+		"Spec": {
+			"DBDefinition": {
+				"KeyValues": {
+					"repo_name": {"Type": 13, "Data": "willow"},
+					"branch_name": {"Type": 13, "Data": "new_feature_72"},
+					"os": {"Type": 13, "Data": "mac"} // change in the os
+				}
+			},
+			"Properties": {
+				"Counters": 1
+			}
+		}
 	},
 	
 	# PUT /v1/limiter/counters
 	{
-	    "KeyValues": {
-	        "repo_name": `{"Type": 13, "Data": "willow"}`,
-	        "branch_name": `{"Type": 13, "Data": "main"}`,
-	        "os": "linux",
-	    },
-	    "Counters": 1,
+		"Spec": {
+			"DBDefinition": {
+				"KeyValues": {
+					"repo_name": {"Type": 13, "Data": "willow"},
+					"branch_name": {"Type": 13, "Data": "new_feature_72"},
+					"os": {"Type": 13, "Data": "linux"} // change in the os
+				}
+			},
+			"Properties": {
+				"Counters": 1
+			}
+		}
 	},
 	```
-	Now, one might ask why did we add a **Rule** of "Unlimited" (`"Limit": -1`) for the **Override**? Should we not set that to 4?
-	That seems like a very bad operation since that is a hardware limitation and will never exceed the actual number of physical
-	instances. This would mean we can increase or decrease those as we want without conflicting with the defined **Rules**.
+	Now, one might ask why did we add a **Rule** of "Unlimited" (`"Limit": -1`) for the **Override**? Should we
+	not set that to 4? That seems like a very bad operation since that is a hardware limitation and will never 
+	exceed the actual number of physical instances. This would mean we can increase or decrease those as we want
+	without conflicting with the defined **Rules**.
 
 4. OS limitations
 
@@ -134,40 +174,66 @@ To try and explain this workflow, I think it is easiest to go through an example
 	```Rule
 	# POST /v1/limiter/rules
 	{
-		"Name": "limit os builds",
-		"GroupBy": []string{"os"},
-		"Limit": 0,
+		"Spec": {
+			"DBDefinition": {
+				"Name": "limit os builds",
+				"GroupByKeyValues": {
+					"os": {"Type": 1024 }, // 1024 means 'Any'
+				}
+			},
+			"Properties": {
+				"Limit": 0 // now nothing will run if they have the key 'os'
+			}
+		}
 	}
 	```
 	
 	```Overrides
 	# POST /v1/limiter/rules/limit%20os%20builds
 	{
-	    "Name": "willow any branch os linux",
-	    "KeyValues": {
-	        "os": `{"Type": 13, "Data": "linux"}`,
-	    },
-	    "Counters": -1,
+		"Spec": {
+			"DBDefinition": {
+				"Name": "willow any branch os linux",
+				"GroupByKeyValues": {
+					"os": {"Type": 13, "Data": "linux"},
+				}
+			},
+			"Properties": {
+				"Limit": -1, // NOTE: this means unlimited in the API
+			}
+		}
 	},
 	
 	# POST /v1/limiter/rules/limit%20os%20builds
 	{
-	    "Name": "willow main override os windows",
-	    "KeyValues": {
-	        "branch_name": `{"Type": 13, "Data": "main"}`, // NOTE: this enforces only Counters with this Key + Value can match. So its a subset of the original rule
-	        "os": `{"Type": 13, "Data": "mac"}`,
-	    },
-	    "Counters": -1,
+		"Spec": {
+			"DBDefinition": {
+				"Name": "willow main override os windows",
+				"GroupByKeyValues": {
+					"os": {"Type": 13, "Data": "windows"},
+					"branch_name": {"Type": 13, "Data": "main"}
+				}
+			},
+			"Properties": {
+				"Limit": -1, // NOTE: this means unlimited in the API
+			}
+		}
 	},
 	
 	# POST /v1/limiter/rules/limit%20os%20builds
 	{
-	    "Name": "willow main override os mac",
-	    "KeyValues": {
-	        "branch_name": `{"Type": 13, "Data": "main"}`,
-	        "os": `{"Type": 13, "Data": "mac"}`,
-	    },
-	    "Counters": -1,
+		"Spec": {
+			"DBDefinition": {
+				"Name": "willow main override os mac",
+				"GroupByKeyValues": {
+					"os": {"Type": 13, "Data": "mac"},
+					"branch_name": {"Type": 13, "Data": "main"}
+				}
+			},
+			"Properties": {
+				"Limit": -1, // NOTE: this means unlimited in the API
+			}
+		}
 	},
 	
 	```

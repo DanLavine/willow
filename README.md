@@ -2,7 +2,8 @@
 [godoc](https://pkg.go.dev/github.com/DanLavine/willow)
 
 
-Willow is a message queue that aims to provide a rich feature set for slower workloads.
+Willow is a message queue that aims to provide a rich feature set for slower workloads. In the current development
+lifecycle this is currently a POC and drives out the intended features.
 
 Main features:
 1. Queue's enqueued Items waiting to be processed can be updated if there are no clients currently working on them
@@ -11,7 +12,7 @@ Main features:
 1. Clients can query for any Items in a Queue that match particular Key + Value pairs
 
 To do this, there are 3 components:
-* Willow - Message Queue that process any Items and checks the Limiter to know when an item can be processed
+* Willow - Queue that process any Items and checks the Limiter to know when an item can be processed
 * Limiter - Enforces rules for any Key + Value Pair combinations that can be running at once
 * Locker - Service that the Limiter relies on to ensure that competing resources for the same Key + Values do not race each other
 
@@ -37,7 +38,7 @@ From there each of the other services depends on the previous service to operate
 
 [full documentation](./docs/services/locker)
 
-The simple Locker Service that provides distributed locks for any other services that need to manage competing resources.
+The Locker Service that provides distributed locks for any other services that need to manage competing resources.
 I don't believe this would be reachable for any clients outside of a normal deployment for Willow as it serves as the internal
 locking mechanism for the `Limiter`. This could change going forward as locks serve a more complicated feature set other than
 simply Lock/Unlock.
@@ -48,10 +49,9 @@ simply Lock/Unlock.
 [full documentation](./docs/services/limiter)
 
 
-Limiter provides a way of creating generic runtime enforcement polices for collections of key values. The Limiter service
+Limiter provides a way of creating generic runtime enforcement polices for collections of Key + Values. The Limiter service
 requires the `Locker` service to be up and running for shared distributed locks. `Locker` ensures that different
 key values being compared in parallel don't conflict with each other
-
 
 ### Willow
 [api](https://danlavine.github.io/willow/docs/openapi/willow/)
@@ -91,9 +91,8 @@ TODO is a list of work items that I plan on working on in a somewhat expected or
 in an end to end system I want to keep everything running smoothly. For full documentation on each of the services and where
 I would like to take them, you can check out the docs for each service directly. This small section is a highlight for what
 I want to work on at a glance:
-  
-1. setup smarter queries. Need to document what I currently don't like and want to improve in the current API.
-   Will record all the info I think in this [document](./docs/services/general/rfc_general_query_improvements.md).
-   From there I think there will be a very large list of work items. I at least have a basic feature set of an api, but there
-   are some major issues qround query with round robin vs Sorted orders with a particualar key, especially in a horizontally:
-   scalable mode. So there is going to be a large api change potentialy.
+
+1. ~~Have the APIs use an `Any` data type that can compare against the Key + Value pairs. This allows for the Limiter to be a queryable api~~ DONE
+2. Determine if there is a clean way to have all the `Query` APIs use common query feature set (ORDER BY, LIMIT, etc)
+   There is greater documentation [here](./docs/services/general/rfc_general_query_improvements.md) that highlights the major
+   issues and their resolutions, or at least the work in progess.
