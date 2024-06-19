@@ -760,7 +760,7 @@ components:
                   description: |
                     Unique human readable name for the Rule. This is also the url encoded value for operations
                 GroupByKeyValues:
-                  $ref: "../common/db_definitions.yaml#/components/schemas/AnyKeyValues"
+                  $ref: "../common/db_definitions.yaml#/components/schemas/AnyKeyValues_Map"
             Properties:
               $ref: "#/components/schemas/RuleProperties"
         State:
@@ -823,7 +823,7 @@ components:
                   description: |
                     The minimum number of GroupByKeyValues must match the parent's `Rule` GroupByKeyValues
                   allOf:
-                    - $ref: "../common/db_definitions.yaml#/components/schemas/AnyKeyValues"
+                    - $ref: "../common/db_definitions.yaml#/components/schemas/AnyKeyValues_Map"
             Properties:
               $ref: "#/components/schemas/RuleProperties"
         State:
@@ -882,7 +882,7 @@ components:
                     are present in the other enforcement object, it is considered a match. When adding the `Counter`, it
                     checks all other `Counters` to ensure we are under the Limits
                   allOf:
-                    -  $ref: "../common/db_definitions.yaml#/components/schemas/TypedKeyValues"
+                    -  $ref: "../common/db_definitions.yaml#/components/schemas/TypedKeyValues_Map"
             Properties:
               type: object
               description: |

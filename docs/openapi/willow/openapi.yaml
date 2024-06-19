@@ -471,10 +471,7 @@ components:
                 Specification on the details of how to save the object and fields that dictate any logic
               properties:
                 KeyValues:
-                  additionalProperties:
-                    title: Key
-                    x-additionalPropertiesName: Key
-                    $ref: "../common/db_definitions.yaml#/components/schemas/TypedKeyValues"
+                  $ref: "../common/db_definitions.yaml#/components/schemas/TypedKeyValues_Map"
             Properties:
               type: object
               required:
@@ -576,10 +573,7 @@ components:
                 Specification on the details of how to save the object and fields that dictate any logic
               properties:
                 KeyValues:
-                  additionalProperties:
-                    title: Key
-                    x-additionalPropertiesName: Key
-                    $ref: "../common/db_definitions.yaml#/components/schemas/TypedKeyValues"
+                  $ref: "../common/db_definitions.yaml#/components/schemas/TypedKeyValues_Map"
         State:
           type: object
           readOnly: true
