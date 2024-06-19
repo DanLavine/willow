@@ -6,7 +6,7 @@ info:
   version: poc 0.0.2
 
 paths:
-  /health:
+  /health:      
     get:
       operationId: health check
       description: "API to check that the service is reachable"
