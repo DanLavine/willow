@@ -1,10 +1,12 @@
 package btreeonetomany
 
-/*
 import (
 	"testing"
 
+	v1 "github.com/DanLavine/willow/pkg/models/api/common/v1"
+	querymatchaction "github.com/DanLavine/willow/pkg/models/api/common/v1/query_match_action"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
+	"github.com/DanLavine/willow/testhelpers/testmodels"
 
 	. "github.com/onsi/gomega"
 )
@@ -16,31 +18,49 @@ func TestOneToManyTree_MatchPermutations(t *testing.T) {
 		t.Run("It returns an error if the oneID is empty", func(t *testing.T) {
 			tree := NewThreadSafe()
 
-			err := tree.MatchPermutations("", datatypes.KeyValues{}, nil)
+			err := tree.MatchAction("", &querymatchaction.MatchActionQuery{}, nil)
 			g.Expect(err).To(Equal(ErrorOneIDEmpty))
 		})
 
 		t.Run("It returns an error if the KeyValues are empty", func(t *testing.T) {
 			tree := NewThreadSafe()
 
-			err := tree.MatchPermutations("oneID", datatypes.KeyValues{}, nil)
+			err := tree.MatchAction("oneID", &querymatchaction.MatchActionQuery{}, nil)
 			g.Expect(err).To(HaveOccurred())
-			g.Expect(err.Error()).To(ContainSubstring("KeyValues cannot be empty"))
+			g.Expect(err.Error()).To(ContainSubstring("KeyValues: requires a length of at least 1, but recevied 0"))
 		})
 
 		t.Run("It returns an error if the KeyValues are invalid", func(t *testing.T) {
 			tree := NewThreadSafe()
 
-			err := tree.MatchPermutations("oneID", datatypes.KeyValues{
-				"bad key": datatypes.EncapsulatedValue{Type: datatypes.T_int, Data: "nope"},
+			err := tree.MatchAction("oneID", &querymatchaction.MatchActionQuery{
+				KeyValues: querymatchaction.MatchKeyValues{
+					"bad key": querymatchaction.MatchValue{
+						Value: datatypes.EncapsulatedValue{Type: datatypes.T_int, Data: "nope"},
+						TypeRestrictions: v1.TypeRestrictions{
+							MinDataType: datatypes.T_any,
+							MaxDataType: datatypes.T_any,
+						},
+					},
+				},
 			}, nil)
-			g.Expect(err.Error()).To(ContainSubstring("EncapsulatedValue has an int data type, but the Value is a: string"))
+			g.Expect(err.Error()).To(ContainSubstring("KeyValues.[bad key].Value.Type: 'int' has Data of kind: string"))
 		})
 
 		t.Run("It returns an error if onPagination is nil", func(t *testing.T) {
 			tree := NewThreadSafe()
 
-			err := tree.MatchPermutations("oneID", datatypes.KeyValues{"key": datatypes.Int(2)}, nil)
+			err := tree.MatchAction("oneID", &querymatchaction.MatchActionQuery{
+				KeyValues: querymatchaction.MatchKeyValues{
+					"bad key": querymatchaction.MatchValue{
+						Value: datatypes.EncapsulatedValue{Type: datatypes.T_int, Data: 3},
+						TypeRestrictions: v1.TypeRestrictions{
+							MinDataType: datatypes.T_any,
+							MaxDataType: datatypes.T_any,
+						},
+					},
+				},
+			}, nil)
 			g.Expect(err).To(Equal(ErrorOnIterateNil))
 		})
 	})
@@ -61,13 +81,15 @@ func TestOneToManyTree_MatchPermutations(t *testing.T) {
 			return true
 		}
 
-		matchKeys := datatypes.KeyValues{
-			"key1": datatypes.Int(1),
-			"key2": datatypes.Int(2),
-			"key3": datatypes.Int(3),
+		matchKeys := &querymatchaction.MatchActionQuery{
+			KeyValues: querymatchaction.MatchKeyValues{
+				"key1": {Value: datatypes.Int(1), TypeRestrictions: testmodels.NoTypeRestrictions(g)},
+				"key2": {Value: datatypes.Int(2), TypeRestrictions: testmodels.NoTypeRestrictions(g)},
+				"key3": {Value: datatypes.Int(3), TypeRestrictions: testmodels.NoTypeRestrictions(g)},
+			},
 		}
 
-		err := tree.MatchPermutations("one name", matchKeys, onPaginationQuery)
+		err := tree.MatchAction("one name", matchKeys, onPaginationQuery)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(len(foundPagination)).To(Equal(4))
 		g.Expect(foundPagination).To(ContainElements([]string{"1", "2", "3", "4"}))
@@ -75,4 +97,3 @@ func TestOneToManyTree_MatchPermutations(t *testing.T) {
 
 	// TODO: error handling checks, but thats going to be reworked so ignore for now
 }
-*/

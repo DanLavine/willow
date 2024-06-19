@@ -30,16 +30,16 @@ func (valueQuery ValueQuery) Validate() error {
 	switch valueQuery.Comparison {
 	case v1.Equals, v1.NotEquals:
 		if err := valueQuery.Value.Validate(datatypes.MinDataType, datatypes.MaxDataType); err != nil {
-			return &errors.ModelError{Field: "Value", Child: err.(*errors.ModelError)}
+			return &errors.ModelError{Field: "Value", Child: err}
 		}
 	case v1.LessThan, v1.LessThanOrEqual, v1.GreaterThan, v1.GreaterThanOrEqual:
 		if err := valueQuery.Value.Validate(datatypes.MinDataType, datatypes.MaxWithoutAnyDataType); err != nil {
-			return &errors.ModelError{Field: "Value", Child: err.(*errors.ModelError)}
+			return &errors.ModelError{Field: "Value", Child: err}
 		}
 	}
 
 	if err := valueQuery.TypeRestrictions.Validate(); err != nil {
-		return &errors.ModelError{Field: "TypeRestrictions", Child: err.(*errors.ModelError)}
+		return &errors.ModelError{Field: "TypeRestrictions", Child: err}
 	}
 
 	return nil

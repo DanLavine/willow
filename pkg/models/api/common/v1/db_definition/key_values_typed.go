@@ -17,7 +17,7 @@ func (typedKeyValues TypedKeyValues) Validate() *errors.ModelError {
 
 	for key, value := range typedKeyValues {
 		if err := value.Validate(datatypes.MinDataType, datatypes.MaxDataType); err != nil {
-			return &errors.ModelError{Field: fmt.Sprintf("[%s]", key), Child: err.(*errors.ModelError)}
+			return &errors.ModelError{Field: fmt.Sprintf("[%s]", key), Child: err}
 		}
 	}
 

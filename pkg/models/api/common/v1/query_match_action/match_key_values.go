@@ -1,6 +1,7 @@
 package querymatchaction
 
 import (
+	"fmt"
 	"sort"
 
 	"github.com/DanLavine/willow/pkg/models/api/common/errors"
@@ -27,13 +28,30 @@ func (matchKeyValues MatchKeyValues) SortedKeys() []string {
 	return keys
 }
 
+func (matchValue MatchKeyValues) Validate() *errors.ModelError {
+	for key, value := range matchValue {
+		if err := value.Validate(); err != nil {
+			return &errors.ModelError{Field: fmt.Sprintf("[%s]", key), Child: err}
+		}
+	}
+
+	return nil
+}
+
 type MatchValue struct {
 	Value datatypes.EncapsulatedValue `json:"Value"`
 
 	TypeRestrictions v1.TypeRestrictions `json:"TypeRestrictions"`
 }
 
-func (matchValue MatchKeyValues) Validate() *errors.ModelError {
-	// TODO
+func (matchValue MatchValue) Validate() *errors.ModelError {
+	if err := matchValue.TypeRestrictions.Validate(); err != nil {
+		return &errors.ModelError{Field: "TypeRestrictions", Child: err}
+	}
+
+	if err := matchValue.Value.Validate(datatypes.MinDataType, datatypes.MaxDataType); err != nil {
+		return &errors.ModelError{Field: "Value", Child: err}
+	}
+
 	return nil
 }

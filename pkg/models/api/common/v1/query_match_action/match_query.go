@@ -26,7 +26,7 @@ type MatchActionQuery struct {
 //
 // Validate ensures the CreateLockRequest has all required fields set
 func (matchActionQuery *MatchActionQuery) Validate() *errors.ModelError {
-	if matchActionQuery.KeyValues == nil || len(matchActionQuery.KeyValues) == 0 {
+	if len(matchActionQuery.KeyValues) == 0 {
 		return &errors.ModelError{Field: "KeyValues", Err: fmt.Errorf("requires a length of at least 1, but recevied 0")}
 	} else {
 		if err := matchActionQuery.KeyValues.Validate(); err != nil {

@@ -6,10 +6,6 @@ import (
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 )
 
-// The interactions are still a bit weird... When using Find(T_any, ...) this is basically an iterate.
-//
-// But what about FindNotEqual(T_any, ...), should this be an iterate as well, where just the 'key' is strictly checked?
-
 //	PARAMS:
 //	- key - key to use when comparing to other possible items. This can not be T_any encapsualted value
 //	- typeRestrictions - how to match the particular key
@@ -22,10 +18,10 @@ import (
 func (btree *threadSafeBTree) Find(key datatypes.EncapsulatedValue, typeRestrictions v1common.TypeRestrictions, onIterate BTreeIterate) error {
 	// parameter checks
 	if err := key.Validate(datatypes.MinDataType, datatypes.MaxDataType); err != nil { // why was this not allowing any?
-		return &errors.ModelError{Field: "key", Child: err.(*errors.ModelError)}
+		return &errors.ModelError{Field: "key", Child: err}
 	}
 	if err := typeRestrictions.Validate(); err != nil {
-		return &errors.ModelError{Field: "typeRestrictions", Child: err.(*errors.ModelError)}
+		return &errors.ModelError{Field: "typeRestrictions", Child: err}
 	}
 	if onIterate == nil {
 		return ErrorOnFindNil
@@ -188,10 +184,10 @@ func (btree *threadSafeBTree) FindNotEqual(key datatypes.EncapsulatedValue, type
 	//
 	// #DSL TODO: Why did I make this restriction?
 	if err := key.Validate(datatypes.MinDataType, datatypes.MaxWithoutAnyDataType); err != nil {
-		return &errors.ModelError{Field: "key", Child: err.(*errors.ModelError)}
+		return &errors.ModelError{Field: "key", Child: err}
 	}
 	if err := typeRestrictions.Validate(); err != nil {
-		return &errors.ModelError{Field: "typeRestrictions", Child: err.(*errors.ModelError)}
+		return &errors.ModelError{Field: "typeRestrictions", Child: err}
 	}
 	if onIterate == nil {
 		return ErrorsOnIterateNil
@@ -229,10 +225,10 @@ func (btree *threadSafeBTree) FindNotEqual(key datatypes.EncapsulatedValue, type
 func (btree *threadSafeBTree) FindLessThan(key datatypes.EncapsulatedValue, typeRestrictions v1common.TypeRestrictions, onIterate BTreeIterate) error {
 	// parameter checks
 	if err := key.Validate(datatypes.MinDataType, datatypes.MaxWithoutAnyDataType); err != nil {
-		return &errors.ModelError{Field: "key", Child: err.(*errors.ModelError)}
+		return &errors.ModelError{Field: "key", Child: err}
 	}
 	if err := typeRestrictions.Validate(); err != nil {
-		return &errors.ModelError{Field: "typeRestrictions", Child: err.(*errors.ModelError)}
+		return &errors.ModelError{Field: "typeRestrictions", Child: err}
 	}
 	if onIterate == nil {
 		return ErrorsOnIterateNil
@@ -353,10 +349,10 @@ func (bn *threadSafeBNode) findLessThan(key datatypes.EncapsulatedValue, typeRes
 func (btree *threadSafeBTree) FindLessThanOrEqual(key datatypes.EncapsulatedValue, typeRestrictions v1common.TypeRestrictions, onIterate BTreeIterate) error {
 	// parameter checks
 	if err := key.Validate(datatypes.MinDataType, datatypes.MaxWithoutAnyDataType); err != nil {
-		return &errors.ModelError{Field: "key", Child: err.(*errors.ModelError)}
+		return &errors.ModelError{Field: "key", Child: err}
 	}
 	if err := typeRestrictions.Validate(); err != nil {
-		return &errors.ModelError{Field: "typeRestrictions", Child: err.(*errors.ModelError)}
+		return &errors.ModelError{Field: "typeRestrictions", Child: err}
 	}
 	if onIterate == nil {
 		return ErrorsOnIterateNil
@@ -490,10 +486,10 @@ func (bn *threadSafeBNode) findLessThanOrEqual(key datatypes.EncapsulatedValue, 
 func (btree *threadSafeBTree) FindGreaterThan(key datatypes.EncapsulatedValue, typeRestrictions v1common.TypeRestrictions, onIterate BTreeIterate) error {
 	// parameter checks
 	if err := key.Validate(datatypes.MinDataType, datatypes.MaxWithoutAnyDataType); err != nil {
-		return &errors.ModelError{Field: "key", Child: err.(*errors.ModelError)}
+		return &errors.ModelError{Field: "key", Child: err}
 	}
 	if err := typeRestrictions.Validate(); err != nil {
-		return &errors.ModelError{Field: "typeRestrictions", Child: err.(*errors.ModelError)}
+		return &errors.ModelError{Field: "typeRestrictions", Child: err}
 	}
 	if onIterate == nil {
 		return ErrorsOnIterateNil
@@ -594,10 +590,10 @@ func (bn *threadSafeBNode) findGreaterThan(key datatypes.EncapsulatedValue, type
 func (btree *threadSafeBTree) FindGreaterThanOrEqual(key datatypes.EncapsulatedValue, typeRestrictions v1common.TypeRestrictions, onIterate BTreeIterate) error {
 	// parameter checks
 	if err := key.Validate(datatypes.MinDataType, datatypes.MaxWithoutAnyDataType); err != nil {
-		return &errors.ModelError{Field: "key", Child: err.(*errors.ModelError)}
+		return &errors.ModelError{Field: "key", Child: err}
 	}
 	if err := typeRestrictions.Validate(); err != nil {
-		return &errors.ModelError{Field: "typeRestrictions", Child: err.(*errors.ModelError)}
+		return &errors.ModelError{Field: "typeRestrictions", Child: err}
 	}
 	if onIterate == nil {
 		return ErrorsOnIterateNil

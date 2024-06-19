@@ -16,7 +16,7 @@ type TypeRestrictions struct {
 	MaxDataType datatypes.DataType `json:"MaxDataType"`
 }
 
-func (valueTypeRestrictions TypeRestrictions) Validate() error {
+func (valueTypeRestrictions TypeRestrictions) Validate() *errors.ModelError {
 	switch {
 	case datatypes.GeneralDataTypes[valueTypeRestrictions.MinDataType], datatypes.AnyDataType[valueTypeRestrictions.MinDataType]:
 		// these are fine

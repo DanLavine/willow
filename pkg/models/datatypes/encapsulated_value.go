@@ -157,11 +157,11 @@ func (ev *EncapsulatedValue) UnmarshalJSON(b []byte) error {
 }
 
 // Validate all Encpasulated data types inclusing custom
-func (ev EncapsulatedValue) Validate(minAllowedKeyType, maxAllowedKeyType DataType) error {
+func (ev EncapsulatedValue) Validate(minAllowedKeyType, maxAllowedKeyType DataType) *errors.ModelError {
 	return ValidateTypeAndData(ev.Type, minAllowedKeyType, maxAllowedKeyType, ev.Data)
 }
 
-func ValidateTypeAndData(dataType, minAllowedKeyType, maxAllowedKeyType DataType, data any) error {
+func ValidateTypeAndData(dataType, minAllowedKeyType, maxAllowedKeyType DataType, data any) *errors.ModelError {
 	switch {
 	case AnyDataType[dataType]:
 		// special case for any as we expect the data to be nil
