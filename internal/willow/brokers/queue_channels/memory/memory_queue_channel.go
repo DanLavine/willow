@@ -92,6 +92,19 @@ func New(limiterClient limiterclient.LimiterClient, deleteCallback func(), queue
 	}
 }
 
+func (mqc *memoryQueueChannel) ItemsCount() (int64, int64) {
+	mqc.itemsLock.RLock()
+	defer mqc.itemsLock.RUnlock()
+
+	var counter int
+	_ = mqc.items.Find(datatypes.Any(), v1common.TypeRestrictions{MinDataType: datatypes.MinDataType, MaxDataType: datatypes.T_any}, func(key datatypes.EncapsulatedValue, item any) bool {
+		counter++
+		return true
+	})
+
+	return int64(len(mqc.itemIDsEnqueued)), int64(counter - len(mqc.itemIDsEnqueued))
+}
+
 // this is write loked from the client in a "Destroy" call
 func (mqc *memoryQueueChannel) Delete() bool {
 	if mqc.items.Empty() {

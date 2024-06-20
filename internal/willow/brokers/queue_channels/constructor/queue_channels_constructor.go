@@ -15,6 +15,8 @@ import (
 
 //go:generate mockgen -imports v1willow="github.com/DanLavine/willow/pkg/models/api/willow/v1" -destination=constructorfakes/queue_channel_mock.go -package=constructorfakes github.com/DanLavine/willow/internal/willow/brokers/queue_channels/constructor QueueChannel
 type QueueChannel interface {
+	ItemsCount() (int64, int64)
+
 	// callback used to know if on ACK, the channel can be deleted
 	Delete() bool
 
