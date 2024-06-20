@@ -381,6 +381,9 @@ func (qccl *queueChannelsClientLocal) Channels(ctx context.Context, queueName st
 	channels := v1willow.Channels{}
 
 	queryChannels := func(oneToManyItem btreeonetomany.OneToManyItem) bool {
+		queue := oneToManyItem.Value().(constructor.QueueChannel)
+		enqueuedItems, processingItms := queue.ItemsCount()
+
 		channels = append(channels, &v1willow.Channel{
 			Spec: &v1willow.ChannelSpec{
 				DBDefinition: &v1willow.ChannelDBDefinition{
@@ -389,8 +392,8 @@ func (qccl *queueChannelsClientLocal) Channels(ctx context.Context, queueName st
 			},
 			State: &v1willow.ChannelState{
 				// #TODO: have these be actual values
-				EnqueuedItems:   -1,
-				ProcessingItems: -1,
+				EnqueuedItems:   enqueuedItems,
+				ProcessingItems: processingItms,
 			},
 		})
 

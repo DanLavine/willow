@@ -137,3 +137,18 @@ func (mr *MockQueueChannelMockRecorder) Heartbeat(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Heartbeat", reflect.TypeOf((*MockQueueChannel)(nil).Heartbeat), arg0, arg1)
 }
+
+// ItemsCount mocks base method.
+func (m *MockQueueChannel) ItemsCount() (int64, int64) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ItemsCount")
+	ret0, _ := ret[0].(int64)
+	ret1, _ := ret[1].(int64)
+	return ret0, ret1
+}
+
+// ItemsCount indicates an expected call of ItemsCount.
+func (mr *MockQueueChannelMockRecorder) ItemsCount() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ItemsCount", reflect.TypeOf((*MockQueueChannel)(nil).ItemsCount))
+}
