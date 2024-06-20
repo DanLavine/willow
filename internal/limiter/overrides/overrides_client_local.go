@@ -6,7 +6,6 @@ import (
 	"net/http"
 
 	"github.com/DanLavine/willow/pkg/models/api/common/errors"
-	dbdefinition "github.com/DanLavine/willow/pkg/models/api/common/v1/db_definition"
 	queryassociatedaction "github.com/DanLavine/willow/pkg/models/api/common/v1/query_associated_action"
 	querymatchaction "github.com/DanLavine/willow/pkg/models/api/common/v1/query_match_action"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
@@ -51,7 +50,7 @@ func (ocl *overridesClientLocal) CreateOverride(ctx context.Context, ruleName st
 		return ocl.constructor.New(override.Spec.Properties)
 	}
 
-	if err := ocl.overrides.CreateWithID(ruleName, *override.Spec.DBDefinition.Name, override.Spec.DBDefinition.GroupByKeyValues.ToKeyValues(), onCreate); err != nil {
+	if err := ocl.overrides.CreateWithID(ruleName, *override.Spec.DBDefinition.Name, override.Spec.DBDefinition.GroupByKeyValues, onCreate); err != nil {
 		switch err {
 		//case datastructures.ErrorOneIDDestroying:
 		// This shouldn't happen as the deletion of the `Rule` should block all these request`
@@ -89,7 +88,7 @@ func (ocl *overridesClientLocal) GetOverride(ctx context.Context, ruleName strin
 			Spec: &v1limiter.OverrideSpec{
 				DBDefinition: &v1limiter.OverrideDBDefinition{
 					Name:             helpers.PointerOf(item.ManyID()),
-					GroupByKeyValues: dbdefinition.KeyValuesToAnyKeyValues(item.ManyKeyValues()),
+					GroupByKeyValues: item.ManyKeyValues(),
 				},
 				Properties: &v1limiter.OverrideProperties{
 					Limit: helpers.PointerOf(override.Limit()),
@@ -129,7 +128,7 @@ func (ocl *overridesClientLocal) QueryOverrides(ctx context.Context, ruleName st
 			Spec: &v1limiter.OverrideSpec{
 				DBDefinition: &v1limiter.OverrideDBDefinition{
 					Name:             helpers.PointerOf(item.ManyID()),
-					GroupByKeyValues: dbdefinition.KeyValuesToAnyKeyValues(item.ManyKeyValues()),
+					GroupByKeyValues: item.ManyKeyValues(),
 				},
 				Properties: &v1limiter.OverrideProperties{
 					Limit: helpers.PointerOf(override.Limit()),
@@ -168,7 +167,7 @@ func (ocl *overridesClientLocal) MatchOverrides(ctx context.Context, ruleName st
 			Spec: &v1limiter.OverrideSpec{
 				DBDefinition: &v1limiter.OverrideDBDefinition{
 					Name:             helpers.PointerOf(item.ManyID()),
-					GroupByKeyValues: dbdefinition.KeyValuesToAnyKeyValues(item.ManyKeyValues()),
+					GroupByKeyValues: item.ManyKeyValues(),
 				},
 				Properties: &v1limiter.OverrideProperties{
 					Limit: helpers.PointerOf(override.Limit()),
@@ -294,7 +293,7 @@ func (ocl *overridesClientLocal) FindOverrideLimits(ctx context.Context, ruleNam
 			Spec: &v1limiter.OverrideSpec{
 				DBDefinition: &v1limiter.OverrideDBDefinition{
 					Name:             helpers.PointerOf(item.ManyID()),
-					GroupByKeyValues: dbdefinition.KeyValuesToAnyKeyValues(item.ManyKeyValues()),
+					GroupByKeyValues: item.ManyKeyValues(),
 				},
 				Properties: &v1limiter.OverrideProperties{
 					Limit: helpers.PointerOf(override.Limit()),

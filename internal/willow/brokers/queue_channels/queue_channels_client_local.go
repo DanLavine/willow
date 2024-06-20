@@ -8,7 +8,6 @@ import (
 	"github.com/DanLavine/channelops"
 	"github.com/DanLavine/goasync"
 	"github.com/DanLavine/willow/pkg/models/api/common/errors"
-	dbdefinition "github.com/DanLavine/willow/pkg/models/api/common/v1/db_definition"
 	queryassociatedaction "github.com/DanLavine/willow/pkg/models/api/common/v1/query_associated_action"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 	"go.uber.org/zap"
@@ -158,9 +157,9 @@ func (qccl *queueChannelsClientLocal) EnqueueQueueItem(ctx context.Context, queu
 	bTreeOneToManyOnCreate := func() any {
 		destroyCallback := func() {
 			// on a timeout we can attempt to delete the channel
-			qccl.attemptDeleteChannel(reporting.BaseLogger(logger), queueName, enqueueItem.Spec.DBDefinition.KeyValues.ToKeyValues())
+			qccl.attemptDeleteChannel(reporting.BaseLogger(logger), queueName, enqueueItem.Spec.DBDefinition.KeyValues)
 		}
-		queueChannel := qccl.queueChannelsConstructor.New(destroyCallback, queueName, enqueueItem.Spec.DBDefinition.KeyValues.ToKeyValues())
+		queueChannel := qccl.queueChannelsConstructor.New(destroyCallback, queueName, enqueueItem.Spec.DBDefinition.KeyValues)
 		enqueueError = queueChannel.Enqueue(ctx, enqueueItem)
 
 		// break early because we failed to enqueue the item and return nil because nothing was saved
@@ -172,7 +171,7 @@ func (qccl *queueChannelsClientLocal) EnqueueQueueItem(ctx context.Context, queu
 		// server is shutting down so don't add it to any waiting clients.
 		if err := qccl.asyncManager.AddExecuteTask(queueName, queueChannel); err == nil {
 			// when a new channel is created, inform any clients currently waiting to process that there is something they might care about
-			qccl.updateClientsWaiting(queueName, enqueueItem.Spec.DBDefinition.KeyValues.ToKeyValues(), queueChannel.Dequeue())
+			qccl.updateClientsWaiting(queueName, enqueueItem.Spec.DBDefinition.KeyValues, queueChannel.Dequeue())
 		}
 
 		return queueChannel
@@ -184,7 +183,7 @@ func (qccl *queueChannelsClientLocal) EnqueueQueueItem(ctx context.Context, queu
 		enqueueError = queueChannel.Enqueue(ctx, enqueueItem)
 	}
 
-	if _, err := qccl.queueChannels.CreateOrFind(queueName, enqueueItem.Spec.DBDefinition.KeyValues.ToKeyValues(), bTreeOneToManyOnCreate, bTreeOneToManyOnFind); err != nil {
+	if _, err := qccl.queueChannels.CreateOrFind(queueName, enqueueItem.Spec.DBDefinition.KeyValues, bTreeOneToManyOnCreate, bTreeOneToManyOnFind); err != nil {
 		switch err {
 		//case btreeonetomany.ErrorOneIDDestroying:
 		// This shouldn't happen as the 'Queue' should ensure these don't process once it starts destroying
@@ -294,7 +293,7 @@ func (qccl *queueChannelsClientLocal) ACK(ctx context.Context, queueName string,
 
 	// ack the item in the queue channel
 	// NOTE: this could be a delete, but with the locks i think that will be slower than I want so use 1 find and then 1 delete
-	if err := qccl.queueChannels.QueryAction(queueName, queryassociatedaction.KeyValuesToExactAssociatedActionQuery(ack.KeyValues.ToKeyValues()), performAck); err != nil {
+	if err := qccl.queueChannels.QueryAction(queueName, queryassociatedaction.KeyValuesToExactAssociatedActionQuery(ack.KeyValues), performAck); err != nil {
 		panic(err)
 	}
 
@@ -305,7 +304,7 @@ func (qccl *queueChannelsClientLocal) ACK(ctx context.Context, queueName string,
 			return queueChannel.Delete()
 		}
 
-		if err := qccl.queueChannels.DeleteOneOfManyByKeyValues(queueName, ack.KeyValues.ToKeyValues(), deleteChannel); err != nil {
+		if err := qccl.queueChannels.DeleteOneOfManyByKeyValues(queueName, ack.KeyValues, deleteChannel); err != nil {
 			switch err {
 			case btreeonetomany.ErrorManyIDDestroying:
 				logger.Debug("Not deleting the channel after ack as queue is being deleted")
@@ -333,7 +332,7 @@ func (qccl *queueChannelsClientLocal) Heartbeat(ctx context.Context, queueName s
 
 	// ack the item in the queue channel
 	// NOTE: this could be a delete, but with the locks i think that will be slower than I want so use 1 find and then 1 delete
-	if err := qccl.queueChannels.QueryAction(queueName, queryassociatedaction.KeyValuesToExactAssociatedActionQuery(heartbeat.KeyValues.ToKeyValues()), performHeartbeat); err != nil {
+	if err := qccl.queueChannels.QueryAction(queueName, queryassociatedaction.KeyValuesToExactAssociatedActionQuery(heartbeat.KeyValues), performHeartbeat); err != nil {
 		panic(err)
 	}
 
@@ -385,7 +384,7 @@ func (qccl *queueChannelsClientLocal) Channels(ctx context.Context, queueName st
 		channels = append(channels, &v1willow.Channel{
 			Spec: &v1willow.ChannelSpec{
 				DBDefinition: &v1willow.ChannelDBDefinition{
-					KeyValues: dbdefinition.KeyValuesToTypedKeyValues(oneToManyItem.ManyKeyValues()),
+					KeyValues: oneToManyItem.ManyKeyValues(),
 				},
 			},
 			State: &v1willow.ChannelState{

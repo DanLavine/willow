@@ -9,7 +9,6 @@ import (
 	willowclient "github.com/DanLavine/willow/pkg/clients/willow_client"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 
-	dbdefinition "github.com/DanLavine/willow/pkg/models/api/common/v1/db_definition"
 	queryassociatedaction "github.com/DanLavine/willow/pkg/models/api/common/v1/query_associated_action"
 	v1limiter "github.com/DanLavine/willow/pkg/models/api/limiter/v1"
 	v1willow "github.com/DanLavine/willow/pkg/models/api/willow/v1"
@@ -54,7 +53,7 @@ func Test_Queue_ItemACK(t *testing.T) {
 			enqueueQueueItem := &v1willow.Item{
 				Spec: &v1willow.ItemSpec{
 					DBDefinition: &v1willow.ItemDBDefinition{
-						KeyValues: dbdefinition.TypedKeyValues{
+						KeyValues: datatypes.KeyValues{
 							"one": datatypes.Int(1),
 						},
 					},
@@ -84,7 +83,7 @@ func Test_Queue_ItemACK(t *testing.T) {
 				&v1limiter.Counter{ // counter for enqueued item
 					Spec: &v1limiter.CounterSpec{
 						DBDefinition: &v1limiter.CounterDBDefinition{
-							KeyValues: dbdefinition.TypedKeyValues{
+							KeyValues: datatypes.KeyValues{
 								"_willow_queue_name": datatypes.String("test queue"),
 								"_willow_enqueued":   datatypes.String("true"),
 								"_willow_one":        datatypes.Int(1),
@@ -101,7 +100,7 @@ func Test_Queue_ItemACK(t *testing.T) {
 				&v1limiter.Counter{ // counter for running item
 					Spec: &v1limiter.CounterSpec{
 						DBDefinition: &v1limiter.CounterDBDefinition{
-							KeyValues: dbdefinition.TypedKeyValues{
+							KeyValues: datatypes.KeyValues{
 								"_willow_queue_name": datatypes.String("test queue"),
 								"_willow_running":    datatypes.String("true"),
 								"one":                datatypes.Int(1),
@@ -162,7 +161,7 @@ func Test_Queue_ItemACK(t *testing.T) {
 			enqueueQueueItem := &v1willow.Item{
 				Spec: &v1willow.ItemSpec{
 					DBDefinition: &v1willow.ItemDBDefinition{
-						KeyValues: dbdefinition.TypedKeyValues{
+						KeyValues: datatypes.KeyValues{
 							"one": datatypes.Int(1),
 						},
 					},
@@ -198,7 +197,7 @@ func Test_Queue_ItemACK(t *testing.T) {
 				&v1limiter.Counter{ // counter for enqueued item
 					Spec: &v1limiter.CounterSpec{
 						DBDefinition: &v1limiter.CounterDBDefinition{
-							KeyValues: dbdefinition.TypedKeyValues{
+							KeyValues: datatypes.KeyValues{
 								"_willow_queue_name": datatypes.String("test queue"),
 								"_willow_enqueued":   datatypes.String("true"),
 								"_willow_one":        datatypes.Int(1),
@@ -215,7 +214,7 @@ func Test_Queue_ItemACK(t *testing.T) {
 				&v1limiter.Counter{ // counter for running item
 					Spec: &v1limiter.CounterSpec{
 						DBDefinition: &v1limiter.CounterDBDefinition{
-							KeyValues: dbdefinition.TypedKeyValues{
+							KeyValues: datatypes.KeyValues{
 								"_willow_queue_name": datatypes.String("test queue"),
 								"_willow_running":    datatypes.String("true"),
 								"one":                datatypes.Int(1),
@@ -244,7 +243,7 @@ func Test_Queue_ItemACK(t *testing.T) {
 				&v1limiter.Counter{ // counter for enqueued item
 					Spec: &v1limiter.CounterSpec{
 						DBDefinition: &v1limiter.CounterDBDefinition{
-							KeyValues: dbdefinition.TypedKeyValues{
+							KeyValues: datatypes.KeyValues{
 								"_willow_queue_name": datatypes.String("test queue"),
 								"_willow_enqueued":   datatypes.String("true"),
 								"_willow_one":        datatypes.Int(1),

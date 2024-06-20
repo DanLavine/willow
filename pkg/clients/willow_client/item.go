@@ -9,10 +9,10 @@ import (
 
 	"github.com/DanLavine/willow/pkg/clients"
 	"github.com/DanLavine/willow/pkg/models/api"
+	"github.com/DanLavine/willow/pkg/models/datatypes"
 	"golang.org/x/net/context"
 
 	"github.com/DanLavine/willow/pkg/models/api/common/errors"
-	dbdefinition "github.com/DanLavine/willow/pkg/models/api/common/v1/db_definition"
 	v1willow "github.com/DanLavine/willow/pkg/models/api/willow/v1"
 )
 
@@ -35,7 +35,7 @@ type Item struct {
 
 	data             []byte
 	itemID           string
-	keyValues        dbdefinition.TypedKeyValues
+	keyValues        datatypes.KeyValues
 	queueName        string
 	heartbeatTimeout time.Duration
 

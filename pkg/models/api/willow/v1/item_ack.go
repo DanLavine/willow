@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/DanLavine/willow/pkg/models/api/common/errors"
-	dbdefinition "github.com/DanLavine/willow/pkg/models/api/common/v1/db_definition"
+	"github.com/DanLavine/willow/pkg/models/datatypes"
 )
 
 type ACK struct {
@@ -12,7 +12,7 @@ type ACK struct {
 	ItemID string
 
 	// KeyValues for the channel
-	KeyValues dbdefinition.TypedKeyValues
+	KeyValues datatypes.TypedKeyValues
 
 	// Indicate a success or failure of the message
 	Passed bool
@@ -27,7 +27,7 @@ func (ack ACK) Validate() *errors.ModelError {
 		return &errors.ModelError{Field: "ItemID", Err: fmt.Errorf("is an empty string")}
 	}
 
-	if err := ack.KeyValues.Validate(); err != nil {
+	if err := ack.KeyValues.Validate(datatypes.MinDataType, datatypes.MaxWithoutAnyDataType); err != nil {
 		return &errors.ModelError{Field: "KeyValues", Child: err}
 	}
 

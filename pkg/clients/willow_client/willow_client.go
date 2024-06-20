@@ -7,9 +7,9 @@ import (
 
 	"github.com/DanLavine/willow/pkg/clients"
 
-	dbdefinition "github.com/DanLavine/willow/pkg/models/api/common/v1/db_definition"
 	queryassociatedaction "github.com/DanLavine/willow/pkg/models/api/common/v1/query_associated_action"
 	v1willow "github.com/DanLavine/willow/pkg/models/api/willow/v1"
+	"github.com/DanLavine/willow/pkg/models/datatypes"
 )
 
 // All Client operations for interacting with the Willow Service
@@ -37,7 +37,7 @@ type WillowServiceClient interface {
 	//// dequeue an item from a queue's channels that match the query
 	DequeueQueueItem(ctx context.Context, queueName string, query *queryassociatedaction.AssociatedActionQuery) (*Item, error)
 	//// delete a particu;ar channel and all enqueued items
-	DeleteQueueChannel(ctx context.Context, queueName string, channelKeyValues dbdefinition.TypedKeyValues) error
+	DeleteQueueChannel(ctx context.Context, queueName string, channelKeyValues datatypes.KeyValues) error
 }
 
 // LimiteClient to connect with remote limiter service

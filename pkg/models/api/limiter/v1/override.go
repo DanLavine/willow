@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/DanLavine/willow/pkg/models/api/common/errors"
-	dbdefinition "github.com/DanLavine/willow/pkg/models/api/common/v1/db_definition"
+	"github.com/DanLavine/willow/pkg/models/datatypes"
 )
 
 // Override can be thought of as a "sub query" for a Rule's KeyValues. Any request that matches all the
@@ -77,7 +77,7 @@ type OverrideDBDefinition struct {
 	Name *string `json:"Name,omitempty"`
 
 	// GroupByKeyValues match against the Counter's KeyValues to ensure that they are under the limit
-	GroupByKeyValues dbdefinition.AnyKeyValues `json:"GroupByKeyValues,omitempty"`
+	GroupByKeyValues datatypes.AnyKeyValues `json:"GroupByKeyValues,omitempty"`
 }
 
 func (overrideDBDefinition *OverrideDBDefinition) Validate() *errors.ModelError {
@@ -89,7 +89,7 @@ func (overrideDBDefinition *OverrideDBDefinition) Validate() *errors.ModelError 
 		}
 	}
 
-	if err := overrideDBDefinition.GroupByKeyValues.Validate(); err != nil {
+	if err := overrideDBDefinition.GroupByKeyValues.Validate(datatypes.MinDataType, datatypes.MaxDataType); err != nil {
 		return &errors.ModelError{Field: "GroupByKeyValues", Child: err}
 	}
 

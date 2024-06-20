@@ -6,7 +6,6 @@ import (
 
 	"github.com/DanLavine/willow/internal/middleware"
 	"github.com/DanLavine/willow/pkg/models/api/common/errors"
-	dbdefinition "github.com/DanLavine/willow/pkg/models/api/common/v1/db_definition"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 	"go.uber.org/zap"
 
@@ -36,7 +35,7 @@ func New(ctx context.Context, queue *v1willow.Queue, limiterClient limiterclient
 		Spec: &v1.OverrideSpec{
 			DBDefinition: &v1.OverrideDBDefinition{
 				Name: queue.Spec.DBDefinition.Name,
-				GroupByKeyValues: dbdefinition.AnyKeyValues{
+				GroupByKeyValues: datatypes.KeyValues{
 					"_willow_queue_name": datatypes.String(*queue.Spec.DBDefinition.Name),
 					"_willow_enqueued":   datatypes.String("true"),
 				},

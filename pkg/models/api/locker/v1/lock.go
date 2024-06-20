@@ -5,8 +5,7 @@ import (
 	"time"
 
 	"github.com/DanLavine/willow/pkg/models/api/common/errors"
-
-	dbdefinition "github.com/DanLavine/willow/pkg/models/api/common/v1/db_definition"
+	"github.com/DanLavine/willow/pkg/models/datatypes"
 )
 
 // Lock is the full representation of the Lock Object
@@ -99,11 +98,11 @@ func (lockSpec *LockSpec) Validate() *errors.ModelError {
 }
 
 type LockDBDefinition struct {
-	KeyValues dbdefinition.TypedKeyValues `json:"KeyValues,omitempty"`
+	KeyValues datatypes.TypedKeyValues `json:"KeyValues,omitempty"`
 }
 
 func (LockDBDefinition *LockDBDefinition) Validate() *errors.ModelError {
-	if err := LockDBDefinition.KeyValues.Validate(); err != nil {
+	if err := LockDBDefinition.KeyValues.Validate(datatypes.MinDataType, datatypes.MaxWithoutAnyDataType); err != nil {
 		return &errors.ModelError{Field: "KeyValues", Child: err}
 	}
 

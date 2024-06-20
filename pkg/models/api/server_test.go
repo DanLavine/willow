@@ -12,7 +12,6 @@ import (
 
 	"github.com/DanLavine/willow/internal/helpers"
 	"github.com/DanLavine/willow/pkg/models/api/common/errors"
-	dbdefinition "github.com/DanLavine/willow/pkg/models/api/common/v1/db_definition"
 	v1locker "github.com/DanLavine/willow/pkg/models/api/locker/v1"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 
@@ -59,7 +58,7 @@ func Test_DecodeRequest(t *testing.T) {
 		data, err := json.Marshal(&v1locker.Lock{
 			Spec: &v1locker.LockSpec{
 				DBDefinition: &v1locker.LockDBDefinition{
-					KeyValues: dbdefinition.TypedKeyValues{
+					KeyValues: datatypes.KeyValues{
 						"key1": datatypes.Int(1),
 					},
 				},
@@ -79,7 +78,7 @@ func Test_DecodeRequest(t *testing.T) {
 
 		// check the server response
 		g.Expect(err).ToNot(HaveOccurred())
-		g.Expect(lockReq.Spec.DBDefinition.KeyValues).To(Equal(dbdefinition.TypedKeyValues{"key1": datatypes.Int(1)}))
+		g.Expect(lockReq.Spec.DBDefinition.KeyValues).To(Equal(datatypes.KeyValues{"key1": datatypes.Int(1)}))
 		g.Expect(*lockReq.Spec.Properties.Timeout).To(Equal(time.Second))
 	})
 }
@@ -182,7 +181,7 @@ func Test_ObjectDecodeRequest(t *testing.T) {
 		data, err := json.Marshal(v1locker.Lock{
 			Spec: &v1locker.LockSpec{
 				DBDefinition: &v1locker.LockDBDefinition{
-					KeyValues: dbdefinition.TypedKeyValues{
+					KeyValues: datatypes.KeyValues{
 						"key1": datatypes.Int(1),
 					},
 				},
@@ -202,7 +201,7 @@ func Test_ObjectDecodeRequest(t *testing.T) {
 
 		// check the server response
 		g.Expect(err).ToNot(HaveOccurred())
-		g.Expect(lockReq.Spec.DBDefinition.KeyValues).To(Equal(dbdefinition.TypedKeyValues{"key1": datatypes.Int(1)}))
+		g.Expect(lockReq.Spec.DBDefinition.KeyValues).To(Equal(datatypes.KeyValues{"key1": datatypes.Int(1)}))
 		g.Expect(*lockReq.Spec.Properties.Timeout).To(Equal(time.Second))
 	})
 }
@@ -255,7 +254,7 @@ func Test_ModelEncodeResponse(t *testing.T) {
 			lockCreateResp := &v1locker.Lock{
 				Spec: &v1locker.LockSpec{
 					DBDefinition: &v1locker.LockDBDefinition{
-						KeyValues: dbdefinition.TypedKeyValues{
+						KeyValues: datatypes.KeyValues{
 							"key1": datatypes.Int(1),
 						},
 					},
@@ -287,7 +286,7 @@ func Test_ModelEncodeResponse(t *testing.T) {
 			lockCreateResp := &v1locker.Lock{
 				Spec: &v1locker.LockSpec{
 					DBDefinition: &v1locker.LockDBDefinition{
-						KeyValues: dbdefinition.TypedKeyValues{
+						KeyValues: datatypes.KeyValues{
 							"key1": datatypes.Int(1),
 						},
 					},

@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/DanLavine/willow/pkg/models/api/common/errors"
-	dbdefinition "github.com/DanLavine/willow/pkg/models/api/common/v1/db_definition"
+	"github.com/DanLavine/willow/pkg/models/datatypes"
 )
 
 // Rule saved in the DB that actions can be performed against
@@ -86,7 +86,7 @@ type RuleDBDefinition struct {
 	Name *string `json:"ID,omitempty"`
 
 	// KeyValues that define the Rule and match against all Counters
-	GroupByKeyValues dbdefinition.AnyKeyValues `json:"GroupByKeyValues"`
+	GroupByKeyValues datatypes.AnyKeyValues `json:"GroupByKeyValues"`
 }
 
 func (ruleDBDefinition *RuleDBDefinition) Validate() *errors.ModelError {
@@ -98,7 +98,7 @@ func (ruleDBDefinition *RuleDBDefinition) Validate() *errors.ModelError {
 		}
 	}
 
-	if err := ruleDBDefinition.GroupByKeyValues.Validate(); err != nil {
+	if err := ruleDBDefinition.GroupByKeyValues.Validate(datatypes.MinDataType, datatypes.MaxDataType); err != nil {
 		return &errors.ModelError{Field: "GroupByKeyValues", Child: err}
 	}
 

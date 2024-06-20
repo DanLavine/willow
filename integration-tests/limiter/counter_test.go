@@ -11,7 +11,6 @@ import (
 
 	limiterclient "github.com/DanLavine/willow/pkg/clients/limiter_client"
 	v1common "github.com/DanLavine/willow/pkg/models/api/common/v1"
-	dbdefinition "github.com/DanLavine/willow/pkg/models/api/common/v1/db_definition"
 	queryassociatedaction "github.com/DanLavine/willow/pkg/models/api/common/v1/query_associated_action"
 	v1 "github.com/DanLavine/willow/pkg/models/api/limiter/v1"
 
@@ -30,7 +29,7 @@ func Test_Limiter_Counters_Update(t *testing.T) {
 			Spec: &v1.RuleSpec{
 				DBDefinition: &v1.RuleDBDefinition{
 					Name: helpers.PointerOf[string]("rule1"),
-					GroupByKeyValues: dbdefinition.AnyKeyValues{
+					GroupByKeyValues: datatypes.KeyValues{
 						"key0": datatypes.Any(),
 					},
 				},
@@ -66,7 +65,7 @@ func Test_Limiter_Counters_Update(t *testing.T) {
 				counter := &v1.Counter{
 					Spec: &v1.CounterSpec{
 						DBDefinition: &v1.CounterDBDefinition{
-							KeyValues: dbdefinition.TypedKeyValues{
+							KeyValues: datatypes.KeyValues{
 								"key0":                    datatypes.Int(0),
 								fmt.Sprintf("key%d", i+1): datatypes.Int(i),
 							},
@@ -84,7 +83,7 @@ func Test_Limiter_Counters_Update(t *testing.T) {
 			counter := &v1.Counter{
 				Spec: &v1.CounterSpec{
 					DBDefinition: &v1.CounterDBDefinition{
-						KeyValues: dbdefinition.TypedKeyValues{
+						KeyValues: datatypes.KeyValues{
 							"key0": datatypes.Int(0),
 							"key6": datatypes.Int(7),
 						},
@@ -117,7 +116,7 @@ func Test_Limiter_Counters_Update(t *testing.T) {
 			counter := &v1.Counter{
 				Spec: &v1.CounterSpec{
 					DBDefinition: &v1.CounterDBDefinition{
-						KeyValues: dbdefinition.TypedKeyValues{
+						KeyValues: datatypes.KeyValues{
 							"key0": datatypes.Int(0),
 							"key6": datatypes.Int(6),
 						},
@@ -152,7 +151,7 @@ func Test_Limiter_Counters_Update(t *testing.T) {
 				counter := &v1.Counter{
 					Spec: &v1.CounterSpec{
 						DBDefinition: &v1.CounterDBDefinition{
-							KeyValues: dbdefinition.TypedKeyValues{
+							KeyValues: datatypes.KeyValues{
 								"key0":                    datatypes.Int(0),
 								fmt.Sprintf("key%d", i+1): datatypes.Int(i + 1),
 							},
@@ -170,7 +169,7 @@ func Test_Limiter_Counters_Update(t *testing.T) {
 			incrementCounter := &v1.Counter{
 				Spec: &v1.CounterSpec{
 					DBDefinition: &v1.CounterDBDefinition{
-						KeyValues: dbdefinition.TypedKeyValues{
+						KeyValues: datatypes.KeyValues{
 							"key0": datatypes.Int(0),
 							"key5": datatypes.Int(5),
 						},
@@ -188,7 +187,7 @@ func Test_Limiter_Counters_Update(t *testing.T) {
 			decrementCounter := &v1.Counter{
 				Spec: &v1.CounterSpec{
 					DBDefinition: &v1.CounterDBDefinition{
-						KeyValues: dbdefinition.TypedKeyValues{
+						KeyValues: datatypes.KeyValues{
 							"key0": datatypes.Int(0),
 							"key5": datatypes.Int(5),
 						},
@@ -226,7 +225,7 @@ func Test_Limiter_Counters_Query(t *testing.T) {
 		limiterClient := setupClient(g, limiterTestConstruct.ServerURL)
 
 		// create a number of counters
-		kv1 := dbdefinition.TypedKeyValues{
+		kv1 := datatypes.KeyValues{
 			"key0": datatypes.Int(0),
 			"key1": datatypes.Int(1),
 			"key2": datatypes.Int(2),
@@ -243,7 +242,7 @@ func Test_Limiter_Counters_Query(t *testing.T) {
 		}
 		g.Expect(limiterClient.UpdateCounter(context.Background(), counter1)).ToNot(HaveOccurred())
 
-		kv2 := dbdefinition.TypedKeyValues{
+		kv2 := datatypes.KeyValues{
 			"key0": datatypes.String("0"),
 			"key1": datatypes.String("1"),
 			"key2": datatypes.String("2"),
@@ -263,7 +262,7 @@ func Test_Limiter_Counters_Query(t *testing.T) {
 		counter3 := &v1.Counter{
 			Spec: &v1.CounterSpec{
 				DBDefinition: &v1.CounterDBDefinition{
-					KeyValues: dbdefinition.TypedKeyValues{
+					KeyValues: datatypes.KeyValues{
 						"key0": datatypes.String("0"),
 					},
 				},
@@ -277,7 +276,7 @@ func Test_Limiter_Counters_Query(t *testing.T) {
 		counter4 := &v1.Counter{
 			Spec: &v1.CounterSpec{
 				DBDefinition: &v1.CounterDBDefinition{
-					KeyValues: dbdefinition.TypedKeyValues{
+					KeyValues: datatypes.KeyValues{
 						"key0": datatypes.Int8(0),
 					},
 				},
@@ -357,7 +356,7 @@ func Test_Limiter_Counters_Set(t *testing.T) {
 			Spec: &v1.RuleSpec{
 				DBDefinition: &v1.RuleDBDefinition{
 					Name: helpers.PointerOf[string]("rule1"),
-					GroupByKeyValues: dbdefinition.AnyKeyValues{
+					GroupByKeyValues: datatypes.KeyValues{
 						"key1": datatypes.Any(),
 						"key2": datatypes.Any(),
 					},
@@ -370,7 +369,7 @@ func Test_Limiter_Counters_Set(t *testing.T) {
 		g.Expect(limiterClient.CreateRule(context.Background(), rule)).ToNot(HaveOccurred())
 
 		// set a counter for the rule thats above the count
-		kv1 := dbdefinition.TypedKeyValues{
+		kv1 := datatypes.KeyValues{
 			"key0": datatypes.Int(0),
 			"key1": datatypes.Int(1),
 			"key2": datatypes.Int(2),
@@ -425,7 +424,7 @@ func Test_Limiter_Counters_Set(t *testing.T) {
 			Spec: &v1.RuleSpec{
 				DBDefinition: &v1.RuleDBDefinition{
 					Name: helpers.PointerOf[string]("rule1"),
-					GroupByKeyValues: dbdefinition.AnyKeyValues{
+					GroupByKeyValues: datatypes.KeyValues{
 						"key1": datatypes.Any(),
 						"key2": datatypes.Any(),
 					},
@@ -438,7 +437,7 @@ func Test_Limiter_Counters_Set(t *testing.T) {
 		g.Expect(limiterClient.CreateRule(context.Background(), rule)).ToNot(HaveOccurred())
 
 		// set a counter for the rule thats above the count
-		kv1 := dbdefinition.TypedKeyValues{
+		kv1 := datatypes.KeyValues{
 			"key0": datatypes.Int(0),
 			"key1": datatypes.Int(1),
 			"key2": datatypes.Int(2),

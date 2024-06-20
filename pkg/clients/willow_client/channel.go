@@ -10,8 +10,8 @@ import (
 	"github.com/DanLavine/willow/pkg/clients"
 	"github.com/DanLavine/willow/pkg/models/api"
 	"github.com/DanLavine/willow/pkg/models/api/common/errors"
-	dbdefinition "github.com/DanLavine/willow/pkg/models/api/common/v1/db_definition"
 	queryassociatedaction "github.com/DanLavine/willow/pkg/models/api/common/v1/query_associated_action"
+	"github.com/DanLavine/willow/pkg/models/datatypes"
 
 	v1willow "github.com/DanLavine/willow/pkg/models/api/willow/v1"
 )
@@ -120,9 +120,9 @@ func (wc *WillowClient) DequeueQueueItem(ctx context.Context, queueName string, 
 //	- error - error creating the queue
 //
 // DeleteQueueChannel removes a specific channel and any items enqueued
-func (wc *WillowClient) DeleteQueueChannel(ctx context.Context, queueName string, channelDelete dbdefinition.TypedKeyValues) error {
+func (wc *WillowClient) DeleteQueueChannel(ctx context.Context, queueName string, channelDelete datatypes.KeyValues) error {
 	// encode the request
-	if err := channelDelete.Validate(); err != nil {
+	if err := channelDelete.Validate(datatypes.MinDataType, datatypes.MaxWithoutAnyDataType); err != nil {
 		return err
 	}
 

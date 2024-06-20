@@ -11,7 +11,6 @@ import (
 
 	"github.com/DanLavine/willow/internal/helpers"
 	fakelimiterclient "github.com/DanLavine/willow/pkg/clients/limiter_client/limiterclientfakes"
-	dbdefinition "github.com/DanLavine/willow/pkg/models/api/common/v1/db_definition"
 	queryassociatedaction "github.com/DanLavine/willow/pkg/models/api/common/v1/query_associated_action"
 	querymatchaction "github.com/DanLavine/willow/pkg/models/api/common/v1/query_match_action"
 	v1limiter "github.com/DanLavine/willow/pkg/models/api/limiter/v1"
@@ -88,7 +87,7 @@ func Test_memoryQueueChannel_Delete(t *testing.T) {
 		enqueueItem := &v1willow.Item{
 			Spec: &v1willow.ItemSpec{
 				DBDefinition: &v1willow.ItemDBDefinition{
-					KeyValues: dbdefinition.TypedKeyValues{
+					KeyValues: datatypes.KeyValues{
 						"one": datatypes.Int(1),
 					},
 				},
@@ -129,7 +128,7 @@ func Test_memoryQueueChannel_Enqueue(t *testing.T) {
 		enqueueItem := &v1willow.Item{
 			Spec: &v1willow.ItemSpec{
 				DBDefinition: &v1willow.ItemDBDefinition{
-					KeyValues: dbdefinition.TypedKeyValues{
+					KeyValues: datatypes.KeyValues{
 						"one": datatypes.Int(1),
 					},
 				},
@@ -162,7 +161,7 @@ func Test_memoryQueueChannel_Enqueue(t *testing.T) {
 		enqueueItem := &v1willow.Item{
 			Spec: &v1willow.ItemSpec{
 				DBDefinition: &v1willow.ItemDBDefinition{
-					KeyValues: dbdefinition.TypedKeyValues{
+					KeyValues: datatypes.KeyValues{
 						"one": datatypes.Int(1),
 					},
 				},
@@ -184,7 +183,7 @@ func Test_memoryQueueChannel_Enqueue(t *testing.T) {
 		enqueueItem2 := &v1willow.Item{
 			Spec: &v1willow.ItemSpec{
 				DBDefinition: &v1willow.ItemDBDefinition{
-					KeyValues: dbdefinition.TypedKeyValues{
+					KeyValues: datatypes.KeyValues{
 						"one": datatypes.Int(1),
 					},
 				},
@@ -220,7 +219,7 @@ func Test_memoryQueueChannel_Enqueue(t *testing.T) {
 		enqueueItem := &v1willow.Item{
 			Spec: &v1willow.ItemSpec{
 				DBDefinition: &v1willow.ItemDBDefinition{
-					KeyValues: dbdefinition.TypedKeyValues{
+					KeyValues: datatypes.KeyValues{
 						"one": datatypes.Int(1),
 					},
 				},
@@ -242,7 +241,7 @@ func Test_memoryQueueChannel_Enqueue(t *testing.T) {
 		enqueueItem2 := &v1willow.Item{
 			Spec: &v1willow.ItemSpec{
 				DBDefinition: &v1willow.ItemDBDefinition{
-					KeyValues: dbdefinition.TypedKeyValues{
+					KeyValues: datatypes.KeyValues{
 						"one": datatypes.Int(1),
 					},
 				},
@@ -279,7 +278,7 @@ func Test_memoryQueueChannel_Enqueue(t *testing.T) {
 			enqueueItem := &v1willow.Item{
 				Spec: &v1willow.ItemSpec{
 					DBDefinition: &v1willow.ItemDBDefinition{
-						KeyValues: dbdefinition.TypedKeyValues{
+						KeyValues: datatypes.KeyValues{
 							"one": datatypes.Int(1),
 						},
 					},
@@ -320,7 +319,7 @@ func Test_memoryQueueChannel_Enqueue(t *testing.T) {
 			enqueueItem := &v1willow.Item{
 				Spec: &v1willow.ItemSpec{
 					DBDefinition: &v1willow.ItemDBDefinition{
-						KeyValues: dbdefinition.TypedKeyValues{
+						KeyValues: datatypes.KeyValues{
 							"one": datatypes.Int(1),
 						},
 					},
@@ -342,7 +341,7 @@ func Test_memoryQueueChannel_Enqueue(t *testing.T) {
 			enqueueItem2 := &v1willow.Item{
 				Spec: &v1willow.ItemSpec{
 					DBDefinition: &v1willow.ItemDBDefinition{
-						KeyValues: dbdefinition.TypedKeyValues{
+						KeyValues: datatypes.KeyValues{
 							"one": datatypes.Int(1),
 						},
 					},
@@ -433,7 +432,7 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 					enqueueItem := &v1willow.Item{
 						Spec: &v1willow.ItemSpec{
 							DBDefinition: &v1willow.ItemDBDefinition{
-								KeyValues: dbdefinition.TypedKeyValues{
+								KeyValues: datatypes.KeyValues{
 									"one": datatypes.Int(1),
 								},
 							},
@@ -463,7 +462,7 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 
 					g.Expect(dequeueItem.Spec.Properties.Data).To(Equal([]byte(`data 1`)))
 					g.Expect(dequeueItem.State.ID).ToNot(Equal(""))
-					g.Expect(dequeueItem.Spec.DBDefinition.KeyValues).To(Equal(dbdefinition.KeyValuesToTypedKeyValues(defaultKeyValues(g))))
+					g.Expect(dequeueItem.Spec.DBDefinition.KeyValues).To(Equal(defaultKeyValues(g)))
 					g.Expect(*dequeueItem.Spec.Properties.TimeoutDuration).To(Equal(time.Second))
 				case <-time.After(time.Second):
 					g.Fail("failed to dequeue item")
@@ -482,7 +481,7 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 
 					g.Expect(dequeueItem.Spec.Properties.Data).To(Equal([]byte(`data 2`)))
 					g.Expect(dequeueItem.State.ID).ToNot(Equal(""))
-					g.Expect(dequeueItem.Spec.DBDefinition.KeyValues).To(Equal(dbdefinition.KeyValuesToTypedKeyValues(defaultKeyValues(g))))
+					g.Expect(dequeueItem.Spec.DBDefinition.KeyValues).To(Equal(defaultKeyValues(g)))
 					g.Expect(*dequeueItem.Spec.Properties.TimeoutDuration).To(Equal(2 * time.Second))
 				case <-time.After(time.Second):
 					g.Fail("failed to dequeue item")
@@ -511,7 +510,7 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 					enqueueItem := &v1willow.Item{
 						Spec: &v1willow.ItemSpec{
 							DBDefinition: &v1willow.ItemDBDefinition{
-								KeyValues: dbdefinition.TypedKeyValues{
+								KeyValues: datatypes.KeyValues{
 									"one": datatypes.Int(1),
 								},
 							},
@@ -541,7 +540,7 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 
 					g.Expect(dequeueItem.Spec.Properties.Data).To(Equal([]byte(`data 1`)))
 					g.Expect(dequeueItem.State.ID).ToNot(Equal(""))
-					g.Expect(dequeueItem.Spec.DBDefinition.KeyValues).To(Equal(dbdefinition.KeyValuesToTypedKeyValues(defaultKeyValues(g))))
+					g.Expect(dequeueItem.Spec.DBDefinition.KeyValues).To(Equal(defaultKeyValues(g)))
 					g.Expect(*dequeueItem.Spec.Properties.TimeoutDuration).To(Equal(time.Second))
 				case <-time.After(time.Second):
 					g.Fail("failed to dequeue item")
@@ -560,7 +559,7 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 
 					g.Expect(dequeueItem.Spec.Properties.Data).To(Equal([]byte(`data 1`)))
 					g.Expect(dequeueItem.State.ID).ToNot(Equal(""))
-					g.Expect(dequeueItem.Spec.DBDefinition.KeyValues).To(Equal(dbdefinition.KeyValuesToTypedKeyValues(defaultKeyValues(g))))
+					g.Expect(dequeueItem.Spec.DBDefinition.KeyValues).To(Equal(defaultKeyValues(g)))
 					g.Expect(*dequeueItem.Spec.Properties.TimeoutDuration).To(Equal(time.Second))
 				case <-time.After(time.Second):
 					g.Fail("failed to dequeue item")
@@ -596,7 +595,7 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 							Spec: &v1limiter.RuleSpec{
 								DBDefinition: &v1limiter.RuleDBDefinition{
 									Name: helpers.PointerOf[string]("block rule"),
-									GroupByKeyValues: dbdefinition.AnyKeyValues{
+									GroupByKeyValues: datatypes.KeyValues{
 										"one": datatypes.Any(),
 									},
 								},
@@ -630,7 +629,7 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 			enqueueItem := &v1willow.Item{
 				Spec: &v1willow.ItemSpec{
 					DBDefinition: &v1willow.ItemDBDefinition{
-						KeyValues: dbdefinition.TypedKeyValues{
+						KeyValues: datatypes.KeyValues{
 							"one": datatypes.Int(1),
 						},
 					},
@@ -693,7 +692,7 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 							Spec: &v1limiter.RuleSpec{
 								DBDefinition: &v1limiter.RuleDBDefinition{
 									Name: helpers.PointerOf[string]("block rule"),
-									GroupByKeyValues: dbdefinition.AnyKeyValues{
+									GroupByKeyValues: datatypes.KeyValues{
 										"one": datatypes.Any(),
 									},
 								},
@@ -726,7 +725,7 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 			enqueueItem := &v1willow.Item{
 				Spec: &v1willow.ItemSpec{
 					DBDefinition: &v1willow.ItemDBDefinition{
-						KeyValues: dbdefinition.TypedKeyValues{
+						KeyValues: datatypes.KeyValues{
 							"one": datatypes.Int(1),
 						},
 					},
@@ -787,7 +786,7 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 								Spec: &v1limiter.RuleSpec{
 									DBDefinition: &v1limiter.RuleDBDefinition{
 										Name: helpers.PointerOf[string]("block rule"),
-										GroupByKeyValues: dbdefinition.AnyKeyValues{
+										GroupByKeyValues: datatypes.KeyValues{
 											"one": datatypes.Any(),
 										},
 									},
@@ -821,7 +820,7 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 				enqueueItem := &v1willow.Item{
 					Spec: &v1willow.ItemSpec{
 						DBDefinition: &v1willow.ItemDBDefinition{
-							KeyValues: dbdefinition.TypedKeyValues{
+							KeyValues: datatypes.KeyValues{
 								"one": datatypes.Int(1),
 							},
 						},
@@ -892,7 +891,7 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 							Spec: &v1limiter.RuleSpec{
 								DBDefinition: &v1limiter.RuleDBDefinition{
 									Name: helpers.PointerOf[string]("rule1"),
-									GroupByKeyValues: dbdefinition.AnyKeyValues{
+									GroupByKeyValues: datatypes.KeyValues{
 										"one": datatypes.Any(),
 									},
 								},
@@ -905,7 +904,7 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 							Spec: &v1limiter.RuleSpec{
 								DBDefinition: &v1limiter.RuleDBDefinition{
 									Name: helpers.PointerOf[string]("rule2"),
-									GroupByKeyValues: dbdefinition.AnyKeyValues{
+									GroupByKeyValues: datatypes.KeyValues{
 										"one": datatypes.Any(),
 										"two": datatypes.Any(),
 									},
@@ -937,7 +936,7 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 				enqueueItem := &v1willow.Item{
 					Spec: &v1willow.ItemSpec{
 						DBDefinition: &v1willow.ItemDBDefinition{
-							KeyValues: dbdefinition.TypedKeyValues{
+							KeyValues: datatypes.KeyValues{
 								"one": datatypes.Int(1),
 							},
 						},
@@ -994,7 +993,7 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 							Spec: &v1limiter.RuleSpec{
 								DBDefinition: &v1limiter.RuleDBDefinition{
 									Name: helpers.PointerOf[string]("rule1"),
-									GroupByKeyValues: dbdefinition.AnyKeyValues{
+									GroupByKeyValues: datatypes.KeyValues{
 										"one": datatypes.Any(),
 									},
 								},
@@ -1007,7 +1006,7 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 							Spec: &v1limiter.RuleSpec{
 								DBDefinition: &v1limiter.RuleDBDefinition{
 									Name: helpers.PointerOf[string]("rule2"),
-									GroupByKeyValues: dbdefinition.AnyKeyValues{
+									GroupByKeyValues: datatypes.KeyValues{
 										"one": datatypes.Any(),
 										"two": datatypes.Any(),
 									},
@@ -1029,7 +1028,7 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 								Spec: &v1limiter.OverrideSpec{
 									DBDefinition: &v1limiter.OverrideDBDefinition{
 										Name: helpers.PointerOf("override1"),
-										GroupByKeyValues: dbdefinition.AnyKeyValues{
+										GroupByKeyValues: datatypes.KeyValues{
 											"one": datatypes.Int(1),
 										},
 									},
@@ -1046,7 +1045,7 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 							Spec: &v1limiter.OverrideSpec{
 								DBDefinition: &v1limiter.OverrideDBDefinition{
 									Name: helpers.PointerOf("override2"),
-									GroupByKeyValues: dbdefinition.AnyKeyValues{
+									GroupByKeyValues: datatypes.KeyValues{
 										"one": datatypes.Int(1),
 										"two": datatypes.Int(2),
 									},
@@ -1074,7 +1073,7 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 				enqueueItem := &v1willow.Item{
 					Spec: &v1willow.ItemSpec{
 						DBDefinition: &v1willow.ItemDBDefinition{
-							KeyValues: dbdefinition.TypedKeyValues{
+							KeyValues: datatypes.KeyValues{
 								"one": datatypes.Int(1),
 							},
 						},
@@ -1131,7 +1130,7 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 							Spec: &v1limiter.RuleSpec{
 								DBDefinition: &v1limiter.RuleDBDefinition{
 									Name: helpers.PointerOf[string]("rule1"),
-									GroupByKeyValues: dbdefinition.AnyKeyValues{
+									GroupByKeyValues: datatypes.KeyValues{
 										"one": datatypes.Any(),
 									},
 								},
@@ -1144,7 +1143,7 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 							Spec: &v1limiter.RuleSpec{
 								DBDefinition: &v1limiter.RuleDBDefinition{
 									Name: helpers.PointerOf[string]("rule2"),
-									GroupByKeyValues: dbdefinition.AnyKeyValues{
+									GroupByKeyValues: datatypes.KeyValues{
 										"one": datatypes.Any(),
 										"two": datatypes.Any(),
 									},
@@ -1166,7 +1165,7 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 						&v1limiter.Counter{
 							Spec: &v1limiter.CounterSpec{
 								DBDefinition: &v1limiter.CounterDBDefinition{
-									KeyValues: dbdefinition.TypedKeyValues{
+									KeyValues: datatypes.KeyValues{
 										"one":  datatypes.Int(1),
 										"zone": datatypes.String("west"),
 									},
@@ -1179,7 +1178,7 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 						&v1limiter.Counter{
 							Spec: &v1limiter.CounterSpec{
 								DBDefinition: &v1limiter.CounterDBDefinition{
-									KeyValues: dbdefinition.TypedKeyValues{
+									KeyValues: datatypes.KeyValues{
 										"one":  datatypes.Int(1),
 										"two":  datatypes.Int(2),
 										"zone": datatypes.String("west"),
@@ -1208,7 +1207,7 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 				enqueueItem := &v1willow.Item{
 					Spec: &v1willow.ItemSpec{
 						DBDefinition: &v1willow.ItemDBDefinition{
-							KeyValues: dbdefinition.TypedKeyValues{
+							KeyValues: datatypes.KeyValues{
 								"one": datatypes.Int(1),
 							},
 						},
@@ -1266,7 +1265,7 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 							Spec: &v1limiter.RuleSpec{
 								DBDefinition: &v1limiter.RuleDBDefinition{
 									Name: helpers.PointerOf[string]("rule1"),
-									GroupByKeyValues: dbdefinition.AnyKeyValues{
+									GroupByKeyValues: datatypes.KeyValues{
 										"one": datatypes.Any(),
 									},
 								},
@@ -1279,7 +1278,7 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 							Spec: &v1limiter.RuleSpec{
 								DBDefinition: &v1limiter.RuleDBDefinition{
 									Name: helpers.PointerOf[string]("rule2"),
-									GroupByKeyValues: dbdefinition.AnyKeyValues{
+									GroupByKeyValues: datatypes.KeyValues{
 										"one": datatypes.Any(),
 										"two": datatypes.Any(),
 									},
@@ -1302,7 +1301,7 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 								Spec: &v1limiter.OverrideSpec{
 									DBDefinition: &v1limiter.OverrideDBDefinition{
 										Name: helpers.PointerOf("override1"),
-										GroupByKeyValues: dbdefinition.AnyKeyValues{
+										GroupByKeyValues: datatypes.KeyValues{
 											"one": datatypes.Int(1),
 										},
 									},
@@ -1319,7 +1318,7 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 							Spec: &v1limiter.OverrideSpec{
 								DBDefinition: &v1limiter.OverrideDBDefinition{
 									Name: helpers.PointerOf("override2"),
-									GroupByKeyValues: dbdefinition.AnyKeyValues{
+									GroupByKeyValues: datatypes.KeyValues{
 										"one": datatypes.Int(1),
 										"two": datatypes.Int(2),
 									},
@@ -1333,7 +1332,7 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 							Spec: &v1limiter.OverrideSpec{
 								DBDefinition: &v1limiter.OverrideDBDefinition{
 									Name: helpers.PointerOf("override3"),
-									GroupByKeyValues: dbdefinition.AnyKeyValues{
+									GroupByKeyValues: datatypes.KeyValues{
 										"one":  datatypes.Int(1),
 										"two":  datatypes.Int(2),
 										"zone": datatypes.String("west"),
@@ -1352,7 +1351,7 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 						&v1limiter.Counter{
 							Spec: &v1limiter.CounterSpec{
 								DBDefinition: &v1limiter.CounterDBDefinition{
-									KeyValues: dbdefinition.TypedKeyValues{
+									KeyValues: datatypes.KeyValues{
 										"one":  datatypes.Int(1),
 										"zone": datatypes.String("west"),
 									},
@@ -1365,7 +1364,7 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 						&v1limiter.Counter{
 							Spec: &v1limiter.CounterSpec{
 								DBDefinition: &v1limiter.CounterDBDefinition{
-									KeyValues: dbdefinition.TypedKeyValues{
+									KeyValues: datatypes.KeyValues{
 										"one":  datatypes.Int(1),
 										"two":  datatypes.Int(2),
 										"zone": datatypes.String("west"),
@@ -1394,7 +1393,7 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 				enqueueItem := &v1willow.Item{
 					Spec: &v1willow.ItemSpec{
 						DBDefinition: &v1willow.ItemDBDefinition{
-							KeyValues: dbdefinition.TypedKeyValues{
+							KeyValues: datatypes.KeyValues{
 								"one": datatypes.Int(1),
 							},
 						},
@@ -1443,7 +1442,7 @@ func Test_memoryQueueChannel_ACK(t *testing.T) {
 				enqueueItem := &v1willow.Item{
 					Spec: &v1willow.ItemSpec{
 						DBDefinition: &v1willow.ItemDBDefinition{
-							KeyValues: dbdefinition.TypedKeyValues{
+							KeyValues: datatypes.KeyValues{
 								"one": datatypes.Int(1),
 							},
 						},
@@ -1495,7 +1494,7 @@ func Test_memoryQueueChannel_ACK(t *testing.T) {
 
 		ack := &v1willow.ACK{
 			ItemID:    "item not found",
-			KeyValues: dbdefinition.TypedKeyValues{"one": datatypes.Int(1)},
+			KeyValues: datatypes.KeyValues{"one": datatypes.Int(1)},
 			Passed:    true,
 		}
 		g.Expect(ack.Validate()).ToNot(HaveOccurred())
@@ -1694,7 +1693,7 @@ func Test_memoryQueueChannel_async(t *testing.T) {
 				enqueueItem := &v1willow.Item{
 					Spec: &v1willow.ItemSpec{
 						DBDefinition: &v1willow.ItemDBDefinition{
-							KeyValues: dbdefinition.TypedKeyValues{
+							KeyValues: datatypes.KeyValues{
 								"one": datatypes.Int(1),
 							},
 						},
@@ -1752,7 +1751,7 @@ func Test_memoryQueueChannel_async(t *testing.T) {
 				enqueueItem := &v1willow.Item{
 					Spec: &v1willow.ItemSpec{
 						DBDefinition: &v1willow.ItemDBDefinition{
-							KeyValues: dbdefinition.TypedKeyValues{
+							KeyValues: datatypes.KeyValues{
 								"one": datatypes.Int(1),
 							},
 						},
@@ -1848,7 +1847,7 @@ func Test_memoryQueueChannel_async(t *testing.T) {
 				enqueueItem := &v1willow.Item{
 					Spec: &v1willow.ItemSpec{
 						DBDefinition: &v1willow.ItemDBDefinition{
-							KeyValues: dbdefinition.TypedKeyValues{
+							KeyValues: datatypes.KeyValues{
 								"one": datatypes.Int(1),
 							},
 						},
@@ -1944,7 +1943,7 @@ func Test_memoryQueueChannel_async(t *testing.T) {
 				enqueueItem := &v1willow.Item{
 					Spec: &v1willow.ItemSpec{
 						DBDefinition: &v1willow.ItemDBDefinition{
-							KeyValues: dbdefinition.TypedKeyValues{
+							KeyValues: datatypes.KeyValues{
 								"one": datatypes.Int(1),
 							},
 						},
@@ -2049,7 +2048,7 @@ func Test_memoryQueueChannel_async(t *testing.T) {
 				enqueueItem := &v1willow.Item{
 					Spec: &v1willow.ItemSpec{
 						DBDefinition: &v1willow.ItemDBDefinition{
-							KeyValues: dbdefinition.TypedKeyValues{
+							KeyValues: datatypes.KeyValues{
 								"one": datatypes.Int(1),
 							},
 						},

@@ -14,7 +14,6 @@ import (
 
 	limiterclient "github.com/DanLavine/willow/pkg/clients/limiter_client"
 	willowclient "github.com/DanLavine/willow/pkg/clients/willow_client"
-	dbdefinition "github.com/DanLavine/willow/pkg/models/api/common/v1/db_definition"
 	queryassociatedaction "github.com/DanLavine/willow/pkg/models/api/common/v1/query_associated_action"
 	v1willow "github.com/DanLavine/willow/pkg/models/api/willow/v1"
 
@@ -343,7 +342,7 @@ func Test_Queue_Delete(t *testing.T) {
 		enqueueQueueItem1 := &v1willow.Item{
 			Spec: &v1willow.ItemSpec{
 				DBDefinition: &v1willow.ItemDBDefinition{
-					KeyValues: dbdefinition.TypedKeyValues{
+					KeyValues: datatypes.KeyValues{
 						"one": datatypes.Int(1),
 					},
 				},
@@ -361,7 +360,7 @@ func Test_Queue_Delete(t *testing.T) {
 		enqueueQueueItem2 := &v1willow.Item{ // updates the previous item
 			Spec: &v1willow.ItemSpec{
 				DBDefinition: &v1willow.ItemDBDefinition{
-					KeyValues: dbdefinition.TypedKeyValues{
+					KeyValues: datatypes.KeyValues{
 						"one": datatypes.Int(1),
 					},
 				},
@@ -379,7 +378,7 @@ func Test_Queue_Delete(t *testing.T) {
 		enqueueQueueItem3 := &v1willow.Item{
 			Spec: &v1willow.ItemSpec{
 				DBDefinition: &v1willow.ItemDBDefinition{
-					KeyValues: dbdefinition.TypedKeyValues{
+					KeyValues: datatypes.KeyValues{
 						"one": datatypes.Int(1),
 						"two": datatypes.Int(2),
 					},
@@ -398,7 +397,7 @@ func Test_Queue_Delete(t *testing.T) {
 		enqueueQueueItem4 := &v1willow.Item{
 			Spec: &v1willow.ItemSpec{
 				DBDefinition: &v1willow.ItemDBDefinition{
-					KeyValues: dbdefinition.TypedKeyValues{
+					KeyValues: datatypes.KeyValues{
 						"one":   datatypes.Int(1),
 						"two":   datatypes.Int(2),
 						"three": datatypes.String("3"),
@@ -418,7 +417,7 @@ func Test_Queue_Delete(t *testing.T) {
 		enqueueQueueItem5 := &v1willow.Item{
 			Spec: &v1willow.ItemSpec{
 				DBDefinition: &v1willow.ItemDBDefinition{
-					KeyValues: dbdefinition.TypedKeyValues{
+					KeyValues: datatypes.KeyValues{
 						"one":   datatypes.Int(1),
 						"two":   datatypes.Int(2),
 						"three": datatypes.String("3"),

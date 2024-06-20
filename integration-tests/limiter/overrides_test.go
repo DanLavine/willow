@@ -7,7 +7,6 @@ import (
 
 	"github.com/DanLavine/willow/internal/helpers"
 	v1common "github.com/DanLavine/willow/pkg/models/api/common/v1"
-	dbdefinition "github.com/DanLavine/willow/pkg/models/api/common/v1/db_definition"
 	queryassociatedaction "github.com/DanLavine/willow/pkg/models/api/common/v1/query_associated_action"
 	v1 "github.com/DanLavine/willow/pkg/models/api/limiter/v1"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
@@ -39,7 +38,7 @@ func Test_Limiter_Overrides_Create(t *testing.T) {
 			Spec: &v1.RuleSpec{
 				DBDefinition: &v1.RuleDBDefinition{
 					Name: helpers.PointerOf[string]("rule1"),
-					GroupByKeyValues: dbdefinition.AnyKeyValues{
+					GroupByKeyValues: datatypes.KeyValues{
 						"key1": datatypes.Any(),
 						"key2": datatypes.Any(),
 					},
@@ -58,7 +57,7 @@ func Test_Limiter_Overrides_Create(t *testing.T) {
 			Spec: &v1.OverrideSpec{
 				DBDefinition: &v1.OverrideDBDefinition{
 					Name: helpers.PointerOf("override1"),
-					GroupByKeyValues: dbdefinition.AnyKeyValues{
+					GroupByKeyValues: datatypes.KeyValues{
 						"key1":  datatypes.Int(1),
 						"key2":  datatypes.Int(2),
 						"other": datatypes.Float32(32),
@@ -97,7 +96,7 @@ func Test_Limiter_Overrides_Get(t *testing.T) {
 			Spec: &v1.RuleSpec{
 				DBDefinition: &v1.RuleDBDefinition{
 					Name: helpers.PointerOf[string]("rule1"),
-					GroupByKeyValues: dbdefinition.AnyKeyValues{
+					GroupByKeyValues: datatypes.KeyValues{
 						"key1": datatypes.Any(),
 						"key2": datatypes.Any(),
 					},
@@ -117,7 +116,7 @@ func Test_Limiter_Overrides_Get(t *testing.T) {
 				Spec: &v1.OverrideSpec{
 					DBDefinition: &v1.OverrideDBDefinition{
 						Name: helpers.PointerOf(fmt.Sprintf("override%d", i)),
-						GroupByKeyValues: dbdefinition.AnyKeyValues{
+						GroupByKeyValues: datatypes.KeyValues{
 							"key1":  datatypes.Int(1),
 							"key2":  datatypes.Int(2),
 							"other": datatypes.Int(i),
@@ -139,7 +138,7 @@ func Test_Limiter_Overrides_Get(t *testing.T) {
 		g.Expect(foundOverride).ToNot(BeNil())
 		g.Expect(*foundOverride.Spec.Properties.Limit).To(Equal(int64(12)))
 		g.Expect(*foundOverride.Spec.DBDefinition.Name).To(Equal("override12"))
-		g.Expect(foundOverride.Spec.DBDefinition.GroupByKeyValues).To(Equal(dbdefinition.AnyKeyValues{
+		g.Expect(foundOverride.Spec.DBDefinition.GroupByKeyValues).To(Equal(datatypes.KeyValues{
 			"key1":  datatypes.Int(1),
 			"key2":  datatypes.Int(2),
 			"other": datatypes.Int(12),
@@ -169,7 +168,7 @@ func Test_Limiter_Overrides_Update(t *testing.T) {
 			Spec: &v1.RuleSpec{
 				DBDefinition: &v1.RuleDBDefinition{
 					Name: helpers.PointerOf[string]("rule1"),
-					GroupByKeyValues: dbdefinition.AnyKeyValues{
+					GroupByKeyValues: datatypes.KeyValues{
 						"key1": datatypes.Any(),
 						"key2": datatypes.Any(),
 					},
@@ -188,7 +187,7 @@ func Test_Limiter_Overrides_Update(t *testing.T) {
 			Spec: &v1.OverrideSpec{
 				DBDefinition: &v1.OverrideDBDefinition{
 					Name: helpers.PointerOf("override1"),
-					GroupByKeyValues: dbdefinition.AnyKeyValues{
+					GroupByKeyValues: datatypes.KeyValues{
 						"key1":  datatypes.Int(1),
 						"key2":  datatypes.Int(2),
 						"other": datatypes.Float32(32),
@@ -239,7 +238,7 @@ func Test_Limiter_Overrides_Delete(t *testing.T) {
 			Spec: &v1.RuleSpec{
 				DBDefinition: &v1.RuleDBDefinition{
 					Name: helpers.PointerOf[string]("rule1"),
-					GroupByKeyValues: dbdefinition.AnyKeyValues{
+					GroupByKeyValues: datatypes.KeyValues{
 						"key1": datatypes.Any(),
 						"key2": datatypes.Any(),
 					},
@@ -256,7 +255,7 @@ func Test_Limiter_Overrides_Delete(t *testing.T) {
 			Spec: &v1.OverrideSpec{
 				DBDefinition: &v1.OverrideDBDefinition{
 					Name: helpers.PointerOf("override1"),
-					GroupByKeyValues: dbdefinition.AnyKeyValues{
+					GroupByKeyValues: datatypes.KeyValues{
 						"key1":  datatypes.Int(1),
 						"key2":  datatypes.Int(2),
 						"other": datatypes.Float32(32),
@@ -304,7 +303,7 @@ func Test_Limiter_Overrides_Query(t *testing.T) {
 			Spec: &v1.RuleSpec{
 				DBDefinition: &v1.RuleDBDefinition{
 					Name: helpers.PointerOf[string]("rule1"),
-					GroupByKeyValues: dbdefinition.AnyKeyValues{
+					GroupByKeyValues: datatypes.KeyValues{
 						"key1": datatypes.Any(),
 						"key2": datatypes.Any(),
 					},
@@ -323,7 +322,7 @@ func Test_Limiter_Overrides_Query(t *testing.T) {
 			Spec: &v1.OverrideSpec{
 				DBDefinition: &v1.OverrideDBDefinition{
 					Name: helpers.PointerOf("override1"),
-					GroupByKeyValues: dbdefinition.AnyKeyValues{
+					GroupByKeyValues: datatypes.KeyValues{
 						"key1":  datatypes.Int(1),
 						"key2":  datatypes.Int(2),
 						"other": datatypes.Float32(32),
@@ -340,7 +339,7 @@ func Test_Limiter_Overrides_Query(t *testing.T) {
 			Spec: &v1.OverrideSpec{
 				DBDefinition: &v1.OverrideDBDefinition{
 					Name: helpers.PointerOf("override2"),
-					GroupByKeyValues: dbdefinition.AnyKeyValues{
+					GroupByKeyValues: datatypes.KeyValues{
 						"key1":  datatypes.String("other"),
 						"key2":  datatypes.Int(2),
 						"other": datatypes.Float32(32),
@@ -357,7 +356,7 @@ func Test_Limiter_Overrides_Query(t *testing.T) {
 			Spec: &v1.OverrideSpec{
 				DBDefinition: &v1.OverrideDBDefinition{
 					Name: helpers.PointerOf("override3"),
-					GroupByKeyValues: dbdefinition.AnyKeyValues{
+					GroupByKeyValues: datatypes.KeyValues{
 						"key1":  datatypes.String("other"),
 						"key2":  datatypes.Int(3),
 						"other": datatypes.Float32(32),

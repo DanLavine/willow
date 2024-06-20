@@ -12,7 +12,6 @@ import (
 	"github.com/DanLavine/willow/internal/middleware"
 	"github.com/DanLavine/willow/pkg/clients/locker_client/lockerclientfakes"
 	"github.com/DanLavine/willow/pkg/models/api/common/errors"
-	dbdefinition "github.com/DanLavine/willow/pkg/models/api/common/v1/db_definition"
 	queryassociatedaction "github.com/DanLavine/willow/pkg/models/api/common/v1/query_associated_action"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 	"github.com/DanLavine/willow/testhelpers"
@@ -55,7 +54,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 		counter := &v1limiter.Counter{
 			Spec: &v1limiter.CounterSpec{
 				DBDefinition: &v1limiter.CounterDBDefinition{
-					KeyValues: dbdefinition.TypedKeyValues{
+					KeyValues: datatypes.KeyValues{
 						"key1": datatypes.String("1"),
 					},
 				},
@@ -78,7 +77,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 				Spec: &v1limiter.RuleSpec{
 					DBDefinition: &v1limiter.RuleDBDefinition{
 						Name: helpers.PointerOf(fmt.Sprintf("test%d", i)),
-						GroupByKeyValues: dbdefinition.AnyKeyValues{
+						GroupByKeyValues: datatypes.KeyValues{
 							fmt.Sprintf("key%d", i): datatypes.Any(),
 						},
 					},
@@ -94,7 +93,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 		counter := &v1limiter.Counter{
 			Spec: &v1limiter.CounterSpec{
 				DBDefinition: &v1limiter.CounterDBDefinition{
-					KeyValues: dbdefinition.TypedKeyValues{
+					KeyValues: datatypes.KeyValues{
 						"key0": datatypes.String("0"),
 						"key1": datatypes.String("1"),
 						"key2": datatypes.String("2"),
@@ -119,7 +118,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 			Spec: &v1limiter.RuleSpec{
 				DBDefinition: &v1limiter.RuleDBDefinition{
 					Name: helpers.PointerOf("test1"),
-					GroupByKeyValues: dbdefinition.AnyKeyValues{
+					GroupByKeyValues: datatypes.KeyValues{
 						"key1": datatypes.Any(),
 					},
 				},
@@ -138,7 +137,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 				Spec: &v1limiter.OverrideSpec{
 					DBDefinition: &v1limiter.OverrideDBDefinition{
 						Name: helpers.PointerOf(fmt.Sprintf("override%d", k)),
-						GroupByKeyValues: dbdefinition.AnyKeyValues{
+						GroupByKeyValues: datatypes.KeyValues{
 							"key1":                  datatypes.Int(1),
 							fmt.Sprintf("key%d", k): datatypes.Int(k),
 						},
@@ -155,7 +154,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 		counter := &v1limiter.Counter{
 			Spec: &v1limiter.CounterSpec{
 				DBDefinition: &v1limiter.CounterDBDefinition{
-					KeyValues: dbdefinition.TypedKeyValues{
+					KeyValues: datatypes.KeyValues{
 						"key1": datatypes.Int(1),
 						"key2": datatypes.Int(2),
 						"key3": datatypes.Int(3),
@@ -183,7 +182,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 					Spec: &v1limiter.RuleSpec{
 						DBDefinition: &v1limiter.RuleDBDefinition{
 							Name: helpers.PointerOf(fmt.Sprintf("test%d", i)),
-							GroupByKeyValues: dbdefinition.AnyKeyValues{
+							GroupByKeyValues: datatypes.KeyValues{
 								fmt.Sprintf("key%d", i): datatypes.Any(),
 							},
 						},
@@ -199,7 +198,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 			counter := &v1limiter.Counter{
 				Spec: &v1limiter.CounterSpec{
 					DBDefinition: &v1limiter.CounterDBDefinition{
-						KeyValues: dbdefinition.TypedKeyValues{
+						KeyValues: datatypes.KeyValues{
 							"key1": datatypes.String("1"),
 							"key2": datatypes.String("2"),
 						},
@@ -236,7 +235,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 						Spec: &v1limiter.RuleSpec{
 							DBDefinition: &v1limiter.RuleDBDefinition{
 								Name: helpers.PointerOf(fmt.Sprintf("test%d", i)),
-								GroupByKeyValues: dbdefinition.AnyKeyValues{
+								GroupByKeyValues: datatypes.KeyValues{
 									fmt.Sprintf("key%d", i): datatypes.Any(),
 								},
 							},
@@ -252,7 +251,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 				counter := &v1limiter.Counter{
 					Spec: &v1limiter.CounterSpec{
 						DBDefinition: &v1limiter.CounterDBDefinition{
-							KeyValues: dbdefinition.TypedKeyValues{
+							KeyValues: datatypes.KeyValues{
 								"key1": datatypes.String("1"),
 								"key2": datatypes.String("2"),
 							},
@@ -303,7 +302,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 						Spec: &v1limiter.RuleSpec{
 							DBDefinition: &v1limiter.RuleDBDefinition{
 								Name: helpers.PointerOf(fmt.Sprintf("test%d", i)),
-								GroupByKeyValues: dbdefinition.AnyKeyValues{
+								GroupByKeyValues: datatypes.KeyValues{
 									fmt.Sprintf("key%d", i): datatypes.Any(),
 								},
 							},
@@ -319,7 +318,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 				counter := &v1limiter.Counter{
 					Spec: &v1limiter.CounterSpec{
 						DBDefinition: &v1limiter.CounterDBDefinition{
-							KeyValues: dbdefinition.TypedKeyValues{
+							KeyValues: datatypes.KeyValues{
 								"key1": datatypes.String("1"),
 								"key2": datatypes.String("2"),
 							},
@@ -387,7 +386,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 				Spec: &v1limiter.RuleSpec{
 					DBDefinition: &v1limiter.RuleDBDefinition{
 						Name: helpers.PointerOf("test0"),
-						GroupByKeyValues: dbdefinition.AnyKeyValues{
+						GroupByKeyValues: datatypes.KeyValues{
 							"key0": datatypes.Any(),
 							"key1": datatypes.Any(),
 						},
@@ -403,7 +402,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 			counter := &v1limiter.Counter{
 				Spec: &v1limiter.CounterSpec{
 					DBDefinition: &v1limiter.CounterDBDefinition{
-						KeyValues: dbdefinition.TypedKeyValues{
+						KeyValues: datatypes.KeyValues{
 							"key0": datatypes.String("1"),
 							"key1": datatypes.String("2"),
 							"key3": datatypes.String("3"),
@@ -439,7 +438,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 				Spec: &v1limiter.RuleSpec{
 					DBDefinition: &v1limiter.RuleDBDefinition{
 						Name: helpers.PointerOf("test0"),
-						GroupByKeyValues: dbdefinition.AnyKeyValues{
+						GroupByKeyValues: datatypes.KeyValues{
 							"key0": datatypes.Any(),
 							"key1": datatypes.Any(),
 						},
@@ -455,7 +454,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 			counter := &v1limiter.Counter{
 				Spec: &v1limiter.CounterSpec{
 					DBDefinition: &v1limiter.CounterDBDefinition{
-						KeyValues: dbdefinition.TypedKeyValues{
+						KeyValues: datatypes.KeyValues{
 							"key0": datatypes.String("1"),
 							"key1": datatypes.String("2"),
 							"key3": datatypes.String("3"),
@@ -491,7 +490,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 				Spec: &v1limiter.RuleSpec{
 					DBDefinition: &v1limiter.RuleDBDefinition{
 						Name: helpers.PointerOf("test0"),
-						GroupByKeyValues: dbdefinition.AnyKeyValues{
+						GroupByKeyValues: datatypes.KeyValues{
 							"key0": datatypes.Any(),
 							"key1": datatypes.Any(),
 						},
@@ -507,7 +506,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 			counter := &v1limiter.Counter{
 				Spec: &v1limiter.CounterSpec{
 					DBDefinition: &v1limiter.CounterDBDefinition{
-						KeyValues: dbdefinition.TypedKeyValues{
+						KeyValues: datatypes.KeyValues{
 							"key0": datatypes.String("1"),
 							"key1": datatypes.String("2"),
 							"key3": datatypes.String("3"),
@@ -545,7 +544,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 				Spec: &v1limiter.RuleSpec{
 					DBDefinition: &v1limiter.RuleDBDefinition{
 						Name: helpers.PointerOf("test0"),
-						GroupByKeyValues: dbdefinition.AnyKeyValues{
+						GroupByKeyValues: datatypes.KeyValues{
 							"key0": datatypes.Any(),
 							"key1": datatypes.Any(),
 						},
@@ -561,7 +560,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 			counter := &v1limiter.Counter{
 				Spec: &v1limiter.CounterSpec{
 					DBDefinition: &v1limiter.CounterDBDefinition{
-						KeyValues: dbdefinition.TypedKeyValues{
+						KeyValues: datatypes.KeyValues{
 							"key0": datatypes.String("0"),
 							"key1": datatypes.String("1"),
 						},
@@ -601,7 +600,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 				Spec: &v1limiter.RuleSpec{
 					DBDefinition: &v1limiter.RuleDBDefinition{
 						Name: helpers.PointerOf("test0"),
-						GroupByKeyValues: dbdefinition.AnyKeyValues{
+						GroupByKeyValues: datatypes.KeyValues{
 							"key0": datatypes.Any(),
 							"key1": datatypes.Any(),
 						},
@@ -617,7 +616,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 			counter1 := &v1limiter.Counter{
 				Spec: &v1limiter.CounterSpec{
 					DBDefinition: &v1limiter.CounterDBDefinition{
-						KeyValues: dbdefinition.TypedKeyValues{
+						KeyValues: datatypes.KeyValues{
 							"key0": datatypes.String("0"),
 							"key1": datatypes.String("1"),
 							"key2": datatypes.String("2"),
@@ -631,7 +630,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 			counter2 := &v1limiter.Counter{
 				Spec: &v1limiter.CounterSpec{
 					DBDefinition: &v1limiter.CounterDBDefinition{
-						KeyValues: dbdefinition.TypedKeyValues{
+						KeyValues: datatypes.KeyValues{
 							"key0": datatypes.String("0"),
 							"key1": datatypes.String("1"),
 							"key3": datatypes.String("3"),
@@ -659,13 +658,13 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 				return true
 			}
 
-			query1 := queryassociatedaction.KeyValuesToExactAssociatedActionQuery(counter1.Spec.DBDefinition.KeyValues.ToKeyValues())
+			query1 := queryassociatedaction.KeyValuesToExactAssociatedActionQuery(counter1.Spec.DBDefinition.KeyValues)
 			counterErr := countersClientLocal.counters.QueryAction(query1, onFind)
 			g.Expect(counterErr).ToNot(HaveOccurred())
 			g.Expect(count).To(Equal(int64(1)))
 
 			count = 0 // reset the counter
-			query2 := queryassociatedaction.KeyValuesToExactAssociatedActionQuery(counter2.Spec.DBDefinition.KeyValues.ToKeyValues())
+			query2 := queryassociatedaction.KeyValuesToExactAssociatedActionQuery(counter2.Spec.DBDefinition.KeyValues)
 			counterErr = countersClientLocal.counters.QueryAction(query2, onFind)
 			g.Expect(counterErr).ToNot(HaveOccurred())
 			g.Expect(count).To(Equal(int64(0)))
@@ -679,7 +678,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 				Spec: &v1limiter.RuleSpec{
 					DBDefinition: &v1limiter.RuleDBDefinition{
 						Name: helpers.PointerOf("test0"),
-						GroupByKeyValues: dbdefinition.AnyKeyValues{
+						GroupByKeyValues: datatypes.KeyValues{
 							"key0": datatypes.Any(),
 							"key1": datatypes.Any(),
 						},
@@ -698,7 +697,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 					Spec: &v1limiter.RuleSpec{
 						DBDefinition: &v1limiter.RuleDBDefinition{
 							Name: helpers.PointerOf(fmt.Sprintf("test%d", i)),
-							GroupByKeyValues: dbdefinition.AnyKeyValues{
+							GroupByKeyValues: datatypes.KeyValues{
 								fmt.Sprintf("key%d", i):    datatypes.Any(),
 								fmt.Sprintf("keyd%d", i+1): datatypes.Any(),
 							},
@@ -715,7 +714,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 			counter := &v1limiter.Counter{
 				Spec: &v1limiter.CounterSpec{
 					DBDefinition: &v1limiter.CounterDBDefinition{
-						KeyValues: dbdefinition.TypedKeyValues{
+						KeyValues: datatypes.KeyValues{
 							"key0": datatypes.String("0"),
 							"key1": datatypes.String("1"),
 							"key2": datatypes.String("2"),
@@ -758,7 +757,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 				Spec: &v1limiter.RuleSpec{
 					DBDefinition: &v1limiter.RuleDBDefinition{
 						Name: helpers.PointerOf("test0"),
-						GroupByKeyValues: dbdefinition.AnyKeyValues{
+						GroupByKeyValues: datatypes.KeyValues{
 							"key0": datatypes.Any(),
 							"key1": datatypes.Any(),
 						},
@@ -776,7 +775,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 				Spec: &v1limiter.OverrideSpec{
 					DBDefinition: &v1limiter.OverrideDBDefinition{
 						Name: helpers.PointerOf("override1"),
-						GroupByKeyValues: dbdefinition.AnyKeyValues{
+						GroupByKeyValues: datatypes.KeyValues{
 							"key0": datatypes.String("0"),
 							"key1": datatypes.String("1"),
 						},
@@ -792,7 +791,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 			counter := &v1limiter.Counter{
 				Spec: &v1limiter.CounterSpec{
 					DBDefinition: &v1limiter.CounterDBDefinition{
-						KeyValues: dbdefinition.TypedKeyValues{
+						KeyValues: datatypes.KeyValues{
 							"key0": datatypes.String("0"),
 							"key1": datatypes.String("1"),
 							"key2": datatypes.String("2"),
@@ -835,7 +834,7 @@ func TestRulesManager_DecrementCounters(t *testing.T) {
 		counter := &v1limiter.Counter{
 			Spec: &v1limiter.CounterSpec{
 				DBDefinition: &v1limiter.CounterDBDefinition{
-					KeyValues: dbdefinition.TypedKeyValues{
+					KeyValues: datatypes.KeyValues{
 						"key1": datatypes.String("1"),
 					},
 				},
@@ -856,7 +855,7 @@ func TestRulesManager_DecrementCounters(t *testing.T) {
 		counter := &v1limiter.Counter{
 			Spec: &v1limiter.CounterSpec{
 				DBDefinition: &v1limiter.CounterDBDefinition{
-					KeyValues: dbdefinition.TypedKeyValues{
+					KeyValues: datatypes.KeyValues{
 						"key0": datatypes.String("0"),
 						"key1": datatypes.String("1"),
 						"key2": datatypes.String("2"),
@@ -887,7 +886,7 @@ func TestRulesManager_DecrementCounters(t *testing.T) {
 		decrementCounter := &v1limiter.Counter{
 			Spec: &v1limiter.CounterSpec{
 				DBDefinition: &v1limiter.CounterDBDefinition{
-					KeyValues: dbdefinition.TypedKeyValues{
+					KeyValues: datatypes.KeyValues{
 						"key0": datatypes.String("0"),
 						"key1": datatypes.String("1"),
 						"key2": datatypes.String("2"),
@@ -915,7 +914,7 @@ func TestRulesManager_DecrementCounters(t *testing.T) {
 		counter := &v1limiter.Counter{
 			Spec: &v1limiter.CounterSpec{
 				DBDefinition: &v1limiter.CounterDBDefinition{
-					KeyValues: dbdefinition.TypedKeyValues{
+					KeyValues: datatypes.KeyValues{
 						"key0": datatypes.String("0"),
 						"key1": datatypes.String("1"),
 						"key2": datatypes.String("2"),
@@ -943,7 +942,7 @@ func TestRulesManager_DecrementCounters(t *testing.T) {
 		decrementCounter := &v1limiter.Counter{
 			Spec: &v1limiter.CounterSpec{
 				DBDefinition: &v1limiter.CounterDBDefinition{
-					KeyValues: dbdefinition.TypedKeyValues{
+					KeyValues: datatypes.KeyValues{
 						"key0": datatypes.String("0"),
 						"key1": datatypes.String("1"),
 						"key2": datatypes.String("2"),
@@ -995,7 +994,7 @@ func TestRulesManager_QueryCounters(t *testing.T) {
 		counter1 := &v1limiter.Counter{
 			Spec: &v1limiter.CounterSpec{
 				DBDefinition: &v1limiter.CounterDBDefinition{
-					KeyValues: dbdefinition.TypedKeyValues{
+					KeyValues: datatypes.KeyValues{
 						"key0": datatypes.String("0"),
 						"key1": datatypes.String("1"),
 						"key2": datatypes.String("2"),
@@ -1013,7 +1012,7 @@ func TestRulesManager_QueryCounters(t *testing.T) {
 		counter2 := &v1limiter.Counter{
 			Spec: &v1limiter.CounterSpec{
 				DBDefinition: &v1limiter.CounterDBDefinition{
-					KeyValues: dbdefinition.TypedKeyValues{
+					KeyValues: datatypes.KeyValues{
 						"key0": datatypes.Int(0),
 						"key1": datatypes.Int(1),
 						"key2": datatypes.Int(2),
@@ -1029,7 +1028,7 @@ func TestRulesManager_QueryCounters(t *testing.T) {
 		counter3 := &v1limiter.Counter{
 			Spec: &v1limiter.CounterSpec{
 				DBDefinition: &v1limiter.CounterDBDefinition{
-					KeyValues: dbdefinition.TypedKeyValues{
+					KeyValues: datatypes.KeyValues{
 						"key0": datatypes.Int(0),
 					},
 				},
@@ -1043,7 +1042,7 @@ func TestRulesManager_QueryCounters(t *testing.T) {
 		counter4 := &v1limiter.Counter{
 			Spec: &v1limiter.CounterSpec{
 				DBDefinition: &v1limiter.CounterDBDefinition{
-					KeyValues: dbdefinition.TypedKeyValues{
+					KeyValues: datatypes.KeyValues{
 						"key1": datatypes.String("0"),
 					},
 				},
@@ -1057,7 +1056,7 @@ func TestRulesManager_QueryCounters(t *testing.T) {
 		counter5 := &v1limiter.Counter{
 			Spec: &v1limiter.CounterSpec{
 				DBDefinition: &v1limiter.CounterDBDefinition{
-					KeyValues: dbdefinition.TypedKeyValues{
+					KeyValues: datatypes.KeyValues{
 						"key0": datatypes.Int(0),
 						"key1": datatypes.String("0"),
 					},
@@ -1108,7 +1107,7 @@ func TestRulesManager_QueryCounters(t *testing.T) {
 		resp1 := &v1limiter.Counter{
 			Spec: &v1limiter.CounterSpec{
 				DBDefinition: &v1limiter.CounterDBDefinition{
-					KeyValues: dbdefinition.TypedKeyValues{
+					KeyValues: datatypes.KeyValues{
 						"key0": datatypes.String("0"),
 						"key1": datatypes.String("1"),
 						"key2": datatypes.String("2"),
@@ -1125,7 +1124,7 @@ func TestRulesManager_QueryCounters(t *testing.T) {
 		resp2 := &v1limiter.Counter{
 			Spec: &v1limiter.CounterSpec{
 				DBDefinition: &v1limiter.CounterDBDefinition{
-					KeyValues: dbdefinition.TypedKeyValues{
+					KeyValues: datatypes.KeyValues{
 						"key0": datatypes.Int(0),
 						"key1": datatypes.Int(1),
 						"key2": datatypes.Int(2),
@@ -1155,14 +1154,14 @@ func TestRulesManager_SetCounter(t *testing.T) {
 		countersClientLocal, _ := setupLocalClient(g)
 
 		// set the counters
-		kvs := dbdefinition.TypedKeyValues{
+		kvs := datatypes.KeyValues{
 			"key1": datatypes.Int(1),
 			"key2": datatypes.Float64(3.4),
 		}
 		countersSet := &v1limiter.Counter{
 			Spec: &v1limiter.CounterSpec{
 				DBDefinition: &v1limiter.CounterDBDefinition{
-					KeyValues: dbdefinition.TypedKeyValues{
+					KeyValues: datatypes.KeyValues{
 						"key1": datatypes.Int(1),
 						"key2": datatypes.Float64(3.4),
 					},
@@ -1193,7 +1192,7 @@ func TestRulesManager_SetCounter(t *testing.T) {
 		counter := &v1limiter.Counter{
 			Spec: &v1limiter.CounterSpec{
 				DBDefinition: &v1limiter.CounterDBDefinition{
-					KeyValues: dbdefinition.TypedKeyValues{
+					KeyValues: datatypes.KeyValues{
 						"key0": datatypes.String("0"),
 						"key1": datatypes.String("1"),
 					},
@@ -1209,7 +1208,7 @@ func TestRulesManager_SetCounter(t *testing.T) {
 		countersSet := &v1limiter.Counter{
 			Spec: &v1limiter.CounterSpec{
 				DBDefinition: &v1limiter.CounterDBDefinition{
-					KeyValues: dbdefinition.TypedKeyValues{
+					KeyValues: datatypes.KeyValues{
 						"key0": datatypes.String("0"),
 						"key1": datatypes.String("1"),
 					},

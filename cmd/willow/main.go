@@ -23,7 +23,6 @@ import (
 	v1router "github.com/DanLavine/willow/internal/willow/api/v1/router"
 	queuechannels "github.com/DanLavine/willow/internal/willow/brokers/queue_channels"
 	limiterclient "github.com/DanLavine/willow/pkg/clients/limiter_client"
-	dbdefinition "github.com/DanLavine/willow/pkg/models/api/common/v1/db_definition"
 	v1 "github.com/DanLavine/willow/pkg/models/api/limiter/v1"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 )
@@ -74,7 +73,7 @@ func main() {
 		Spec: &v1.RuleSpec{
 			DBDefinition: &v1.RuleDBDefinition{
 				Name: helpers.PointerOf("_willow_queue_enqueued_limits"),
-				GroupByKeyValues: dbdefinition.AnyKeyValues{
+				GroupByKeyValues: datatypes.KeyValues{
 					"_willow_queue_name": datatypes.Any(),
 					"_willow_enqueued":   datatypes.Any(),
 				},

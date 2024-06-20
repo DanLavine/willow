@@ -14,7 +14,6 @@ import (
 	"github.com/DanLavine/willow/testhelpers/testmodels"
 
 	v1common "github.com/DanLavine/willow/pkg/models/api/common/v1"
-	dbdefinition "github.com/DanLavine/willow/pkg/models/api/common/v1/db_definition"
 	queryassociatedaction "github.com/DanLavine/willow/pkg/models/api/common/v1/query_associated_action"
 	v1 "github.com/DanLavine/willow/pkg/models/api/limiter/v1"
 
@@ -58,7 +57,7 @@ func Test_Limiter_Rules_Create(t *testing.T) {
 			Spec: &v1.RuleSpec{
 				DBDefinition: &v1.RuleDBDefinition{
 					Name: helpers.PointerOf[string]("rule1"),
-					GroupByKeyValues: dbdefinition.AnyKeyValues{
+					GroupByKeyValues: datatypes.KeyValues{
 						"key1": datatypes.Any(),
 						"key2": datatypes.Any(),
 					},
@@ -96,7 +95,7 @@ func Test_Limiter_Rules_Get(t *testing.T) {
 			Spec: &v1.RuleSpec{
 				DBDefinition: &v1.RuleDBDefinition{
 					Name: helpers.PointerOf[string]("rule1"),
-					GroupByKeyValues: dbdefinition.AnyKeyValues{
+					GroupByKeyValues: datatypes.KeyValues{
 						"key1": datatypes.Any(),
 						"key2": datatypes.Any(),
 					},
@@ -113,7 +112,7 @@ func Test_Limiter_Rules_Get(t *testing.T) {
 		ruleResp, err := limiterClient.GetRule(context.Background(), "rule1")
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(*ruleResp.Spec.DBDefinition.Name).To(Equal("rule1"))
-		g.Expect(ruleResp.Spec.DBDefinition.GroupByKeyValues).To(Equal(dbdefinition.AnyKeyValues{"key1": datatypes.Any(), "key2": datatypes.Any()}))
+		g.Expect(ruleResp.Spec.DBDefinition.GroupByKeyValues).To(Equal(datatypes.KeyValues{"key1": datatypes.Any(), "key2": datatypes.Any()}))
 		g.Expect(*ruleResp.Spec.Properties.Limit).To(Equal(int64(5)))
 		g.Expect(len(ruleResp.State.Overrides)).To(Equal(0))
 	})
@@ -141,7 +140,7 @@ func Test_Limiter_Rules_List(t *testing.T) {
 			Spec: &v1.RuleSpec{
 				DBDefinition: &v1.RuleDBDefinition{
 					Name: helpers.PointerOf[string]("rule1"),
-					GroupByKeyValues: dbdefinition.AnyKeyValues{
+					GroupByKeyValues: datatypes.KeyValues{
 						"key1": datatypes.Any(),
 						"key2": datatypes.Any(),
 					},
@@ -159,7 +158,7 @@ func Test_Limiter_Rules_List(t *testing.T) {
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(len(ruleResp)).To(Equal(1))
 		g.Expect(*ruleResp[0].Spec.DBDefinition.Name).To(Equal("rule1"))
-		g.Expect(ruleResp[0].Spec.DBDefinition.GroupByKeyValues).To(Equal(dbdefinition.AnyKeyValues{"key1": datatypes.Any(), "key2": datatypes.Any()}))
+		g.Expect(ruleResp[0].Spec.DBDefinition.GroupByKeyValues).To(Equal(datatypes.KeyValues{"key1": datatypes.Any(), "key2": datatypes.Any()}))
 		g.Expect(*ruleResp[0].Spec.Properties.Limit).To(Equal(int64(5)))
 		g.Expect(len(ruleResp[0].State.Overrides)).To(Equal(0))
 	})
@@ -183,7 +182,7 @@ func Test_Limiter_Rules_List(t *testing.T) {
 				Spec: &v1.RuleSpec{
 					DBDefinition: &v1.RuleDBDefinition{
 						Name: helpers.PointerOf(fmt.Sprintf("%d", i)),
-						GroupByKeyValues: dbdefinition.AnyKeyValues{
+						GroupByKeyValues: datatypes.KeyValues{
 							fmt.Sprintf("key%d", i):   datatypes.Any(),
 							fmt.Sprintf("key%d", i+1): datatypes.Any(),
 						},
@@ -217,9 +216,9 @@ func Test_Limiter_Rules_List(t *testing.T) {
 			checkRule := ruleResp[i]
 			switch *ruleResp[i].Spec.DBDefinition.Name {
 			case "0":
-				g.Expect(checkRule.Spec.DBDefinition.GroupByKeyValues).To(Equal(dbdefinition.AnyKeyValues{"key0": datatypes.Any(), "key1": datatypes.Any()}))
+				g.Expect(checkRule.Spec.DBDefinition.GroupByKeyValues).To(Equal(datatypes.KeyValues{"key0": datatypes.Any(), "key1": datatypes.Any()}))
 			case "1":
-				g.Expect(checkRule.Spec.DBDefinition.GroupByKeyValues).To(Equal(dbdefinition.AnyKeyValues{"key1": datatypes.Any(), "key2": datatypes.Any()}))
+				g.Expect(checkRule.Spec.DBDefinition.GroupByKeyValues).To(Equal(datatypes.KeyValues{"key1": datatypes.Any(), "key2": datatypes.Any()}))
 			default:
 				g.Fail("unkown rule resp")
 			}
@@ -252,7 +251,7 @@ func Test_Limiter_Rules_Update(t *testing.T) {
 			Spec: &v1.RuleSpec{
 				DBDefinition: &v1.RuleDBDefinition{
 					Name: helpers.PointerOf[string]("rule1"),
-					GroupByKeyValues: dbdefinition.AnyKeyValues{
+					GroupByKeyValues: datatypes.KeyValues{
 						"key1": datatypes.Any(),
 						"key2": datatypes.Any(),
 					},
@@ -269,7 +268,7 @@ func Test_Limiter_Rules_Update(t *testing.T) {
 		ruleResp, err := limiterClient.GetRule(context.Background(), "rule1")
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(*ruleResp.Spec.DBDefinition.Name).To(Equal("rule1"))
-		g.Expect(ruleResp.Spec.DBDefinition.GroupByKeyValues).To(Equal(dbdefinition.AnyKeyValues{"key1": datatypes.Any(), "key2": datatypes.Any()}))
+		g.Expect(ruleResp.Spec.DBDefinition.GroupByKeyValues).To(Equal(datatypes.KeyValues{"key1": datatypes.Any(), "key2": datatypes.Any()}))
 		g.Expect(*ruleResp.Spec.Properties.Limit).To(Equal(int64(5)))
 		g.Expect(len(ruleResp.State.Overrides)).To(Equal(0))
 
@@ -284,7 +283,7 @@ func Test_Limiter_Rules_Update(t *testing.T) {
 		ruleResp, err = limiterClient.GetRule(context.Background(), "rule1")
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(*ruleResp.Spec.DBDefinition.Name).To(Equal("rule1"))
-		g.Expect(ruleResp.Spec.DBDefinition.GroupByKeyValues).To(Equal(dbdefinition.AnyKeyValues{"key1": datatypes.Any(), "key2": datatypes.Any()}))
+		g.Expect(ruleResp.Spec.DBDefinition.GroupByKeyValues).To(Equal(datatypes.KeyValues{"key1": datatypes.Any(), "key2": datatypes.Any()}))
 		g.Expect(*ruleResp.Spec.Properties.Limit).To(Equal(int64(231)))
 		g.Expect(len(ruleResp.State.Overrides)).To(Equal(0))
 	})
@@ -312,7 +311,7 @@ func Test_Limiter_Rules_Delete(t *testing.T) {
 			Spec: &v1.RuleSpec{
 				DBDefinition: &v1.RuleDBDefinition{
 					Name: helpers.PointerOf[string]("rule1"),
-					GroupByKeyValues: dbdefinition.AnyKeyValues{
+					GroupByKeyValues: datatypes.KeyValues{
 						"key1": datatypes.Any(),
 						"key2": datatypes.Any(),
 					},

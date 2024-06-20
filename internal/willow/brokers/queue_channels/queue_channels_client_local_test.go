@@ -18,7 +18,6 @@ import (
 	"github.com/DanLavine/willow/pkg/clients/limiter_client/limiterclientfakes"
 	"github.com/DanLavine/willow/pkg/models/api/common/errors"
 	v1 "github.com/DanLavine/willow/pkg/models/api/common/v1"
-	dbdefinition "github.com/DanLavine/willow/pkg/models/api/common/v1/db_definition"
 	queryassociatedaction "github.com/DanLavine/willow/pkg/models/api/common/v1/query_associated_action"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 	"github.com/DanLavine/willow/testhelpers"
@@ -34,7 +33,7 @@ func defaultEnqueueItem(g *GomegaWithT) *v1willow.Item {
 	enqueuItem := &v1willow.Item{
 		Spec: &v1willow.ItemSpec{
 			DBDefinition: &v1willow.ItemDBDefinition{
-				KeyValues: dbdefinition.TypedKeyValues{
+				KeyValues: datatypes.KeyValues{
 					"one": datatypes.Int(1),
 				},
 			},
@@ -143,7 +142,7 @@ func Test_queueChannelsClientLocal_EnqueueQueueItem(t *testing.T) {
 				enqueuItem := &v1willow.Item{
 					Spec: &v1willow.ItemSpec{
 						DBDefinition: &v1willow.ItemDBDefinition{
-							KeyValues: dbdefinition.TypedKeyValues{
+							KeyValues: datatypes.KeyValues{
 								"one": datatypes.Int(i),
 							},
 						},
@@ -360,7 +359,7 @@ func Test_queueChannelsClientLocal_DequeueQueueItem(t *testing.T) {
 
 			g.Eventually(done).Should(BeClosed())
 			g.Expect(dequeueItem).ToNot(BeNil())
-			g.Expect(dequeueItem.Spec.DBDefinition.KeyValues).To(Equal(dbdefinition.TypedKeyValues{"one": datatypes.Int(1)}))
+			g.Expect(dequeueItem.Spec.DBDefinition.KeyValues).To(Equal(datatypes.KeyValues{"one": datatypes.Int(1)}))
 			g.Expect(dequeueItem.Spec.Properties.Data).To(Equal([]byte(`item to queue`)))
 			g.Expect(*dequeueItem.Spec.Properties.TimeoutDuration).To(Equal(time.Second))
 			g.Expect(dequeueItem.State.ID).ToNot(Equal(""))
@@ -431,7 +430,7 @@ func Test_queueChannelsClientLocal_DequeueQueueItem(t *testing.T) {
 			enqueueItem := &v1willow.Item{
 				Spec: &v1willow.ItemSpec{
 					DBDefinition: &v1willow.ItemDBDefinition{
-						KeyValues: dbdefinition.TypedKeyValues{
+						KeyValues: datatypes.KeyValues{
 							"one":   datatypes.Float32(3.2),
 							"two":   datatypes.Int(2),
 							"three": datatypes.String("other"),
@@ -453,7 +452,7 @@ func Test_queueChannelsClientLocal_DequeueQueueItem(t *testing.T) {
 			g.Expect(dequeueItem).ToNot(BeNil())
 			g.Expect(dequeueItem.Spec.Properties.Data).To(Equal([]byte(`data to pull`)))
 			g.Expect(dequeueItem.State.ID).ToNot(Equal(""))
-			g.Expect(dequeueItem.Spec.DBDefinition.KeyValues).To(Equal(dbdefinition.TypedKeyValues{
+			g.Expect(dequeueItem.Spec.DBDefinition.KeyValues).To(Equal(datatypes.KeyValues{
 				"one":   datatypes.Float32(3.2),
 				"two":   datatypes.Int(2),
 				"three": datatypes.String("other"),
@@ -501,7 +500,7 @@ func Test_queueChannelsClientLocal_DequeueQueueItem(t *testing.T) {
 			g.Expect(dequeueItem).ToNot(BeNil())
 			g.Expect(dequeueItem.Spec.Properties.Data).To(Equal([]byte(`item to queue`)))
 			g.Expect(dequeueItem.State.ID).ToNot(Equal(""))
-			g.Expect(dequeueItem.Spec.DBDefinition.KeyValues).To(Equal(dbdefinition.TypedKeyValues{"one": datatypes.Int(1)}))
+			g.Expect(dequeueItem.Spec.DBDefinition.KeyValues).To(Equal(datatypes.KeyValues{"one": datatypes.Int(1)}))
 			g.Expect(*dequeueItem.Spec.Properties.TimeoutDuration).To(Equal(time.Second))
 			g.Expect(success).ToNot(BeNil())
 			g.Expect(failure).ToNot(BeNil())
@@ -527,7 +526,7 @@ func Test_queueChannelsClientLocal_DequeueQueueItem(t *testing.T) {
 			enqueueItem := &v1willow.Item{
 				Spec: &v1willow.ItemSpec{
 					DBDefinition: &v1willow.ItemDBDefinition{
-						KeyValues: dbdefinition.TypedKeyValues{
+						KeyValues: datatypes.KeyValues{
 							"one":   datatypes.Int(1),
 							"two":   datatypes.Int(2),
 							"three": datatypes.String("other"),
@@ -563,7 +562,7 @@ func Test_queueChannelsClientLocal_DequeueQueueItem(t *testing.T) {
 			g.Expect(dequeueItem).ToNot(BeNil())
 			g.Expect(dequeueItem.Spec.Properties.Data).To(Equal([]byte(`item to queue`)))
 			g.Expect(dequeueItem.State.ID).ToNot(Equal(""))
-			g.Expect(dequeueItem.Spec.DBDefinition.KeyValues).To(Equal(dbdefinition.TypedKeyValues{"one": datatypes.Int(1)}))
+			g.Expect(dequeueItem.Spec.DBDefinition.KeyValues).To(Equal(datatypes.KeyValues{"one": datatypes.Int(1)}))
 			g.Expect(*dequeueItem.Spec.Properties.TimeoutDuration).To(Equal(time.Second))
 			g.Expect(success).ToNot(BeNil())
 			g.Expect(failure).ToNot(BeNil())
@@ -620,7 +619,7 @@ func Test_queueChannelsClientLocal_DequeueQueueItem(t *testing.T) {
 					return &v1willow.Item{
 						Spec: &v1willow.ItemSpec{
 							DBDefinition: &v1willow.ItemDBDefinition{
-								KeyValues: dbdefinition.TypedKeyValues{
+								KeyValues: datatypes.KeyValues{
 									"one": datatypes.Int(1),
 									"two": datatypes.Float32(2.0),
 								},
@@ -646,7 +645,7 @@ func Test_queueChannelsClientLocal_DequeueQueueItem(t *testing.T) {
 			g.Expect(queueChannelClentLocal.EnqueueQueueItem(testhelpers.NewContextWithMiddlewareSetup(), "test queue", &v1willow.Item{
 				Spec: &v1willow.ItemSpec{
 					DBDefinition: &v1willow.ItemDBDefinition{
-						KeyValues: dbdefinition.TypedKeyValues{
+						KeyValues: datatypes.KeyValues{
 							"one": datatypes.Int(1),
 						},
 					},
@@ -663,7 +662,7 @@ func Test_queueChannelsClientLocal_DequeueQueueItem(t *testing.T) {
 			g.Expect(queueChannelClentLocal.EnqueueQueueItem(testhelpers.NewContextWithMiddlewareSetup(), "test queue", &v1willow.Item{
 				Spec: &v1willow.ItemSpec{
 					DBDefinition: &v1willow.ItemDBDefinition{
-						KeyValues: dbdefinition.TypedKeyValues{
+						KeyValues: datatypes.KeyValues{
 							"one": datatypes.Int(1),
 							"two": datatypes.Float32(2.0),
 						},
@@ -714,7 +713,7 @@ func Test_queueChannelsClientLocal_DequeueQueueItem(t *testing.T) {
 			g.Expect(dequeueItem).ToNot(BeNil())
 			g.Expect(dequeueItem.Spec.Properties.Data).To(Equal([]byte(`doesn't matter 2`)))
 			g.Expect(dequeueItem.State.ID).To(Equal("something"))
-			g.Expect(dequeueItem.Spec.DBDefinition.KeyValues).To(Equal(dbdefinition.TypedKeyValues{"one": datatypes.Int(1), "two": datatypes.Float32(2.0)}))
+			g.Expect(dequeueItem.Spec.DBDefinition.KeyValues).To(Equal(datatypes.KeyValues{"one": datatypes.Int(1), "two": datatypes.Float32(2.0)}))
 			g.Expect(*dequeueItem.Spec.Properties.TimeoutDuration).To(Equal(time.Second))
 			g.Expect(success).ToNot(BeNil())
 			g.Expect(failure).ToNot(BeNil())
@@ -747,7 +746,7 @@ func Test_queueChannelsClientLocal_DequeueQueueItem(t *testing.T) {
 					return &v1willow.Item{
 						Spec: &v1willow.ItemSpec{
 							DBDefinition: &v1willow.ItemDBDefinition{
-								KeyValues: dbdefinition.TypedKeyValues{
+								KeyValues: datatypes.KeyValues{
 									"one": datatypes.Int(1),
 								},
 							},
@@ -773,7 +772,7 @@ func Test_queueChannelsClientLocal_DequeueQueueItem(t *testing.T) {
 			g.Expect(queueChannelClentLocal.EnqueueQueueItem(testhelpers.NewContextWithMiddlewareSetup(), "test queue", &v1willow.Item{
 				Spec: &v1willow.ItemSpec{
 					DBDefinition: &v1willow.ItemDBDefinition{
-						KeyValues: dbdefinition.TypedKeyValues{
+						KeyValues: datatypes.KeyValues{
 							"one": datatypes.Int(1),
 						},
 					},
@@ -823,7 +822,7 @@ func Test_queueChannelsClientLocal_DequeueQueueItem(t *testing.T) {
 			g.Expect(dequeueItem).ToNot(BeNil())
 			g.Expect(dequeueItem.Spec.Properties.Data).To(Equal([]byte(`data`)))
 			g.Expect(dequeueItem.State.ID).To(Equal("something"))
-			g.Expect(dequeueItem.Spec.DBDefinition.KeyValues).To(Equal(dbdefinition.TypedKeyValues{"one": datatypes.Int(1)}))
+			g.Expect(dequeueItem.Spec.DBDefinition.KeyValues).To(Equal(datatypes.KeyValues{"one": datatypes.Int(1)}))
 			g.Expect(*dequeueItem.Spec.Properties.TimeoutDuration).To(Equal(time.Second))
 			g.Expect(success).ToNot(BeNil())
 			g.Expect(failure).ToNot(BeNil())
@@ -858,7 +857,7 @@ func Test_queueChannelsClientLocal_ACK(t *testing.T) {
 
 		ack := &v1willow.ACK{
 			ItemID: "some id",
-			KeyValues: dbdefinition.TypedKeyValues{
+			KeyValues: datatypes.KeyValues{
 				"one": datatypes.Int(1),
 			},
 			Passed: true,
@@ -884,7 +883,7 @@ func Test_queueChannelsClientLocal_ACK(t *testing.T) {
 			enqueuItem := &v1willow.Item{
 				Spec: &v1willow.ItemSpec{
 					DBDefinition: &v1willow.ItemDBDefinition{
-						KeyValues: dbdefinition.TypedKeyValues{
+						KeyValues: datatypes.KeyValues{
 							"one": datatypes.Int(1),
 						},
 					},
@@ -1111,7 +1110,7 @@ func Test_queueChannelsClientLocal_Heartbeat(t *testing.T) {
 		enqueuItem := &v1willow.Item{
 			Spec: &v1willow.ItemSpec{
 				DBDefinition: &v1willow.ItemDBDefinition{
-					KeyValues: dbdefinition.TypedKeyValues{
+					KeyValues: datatypes.KeyValues{
 						"one": datatypes.Int(1),
 					},
 				},
@@ -1162,7 +1161,7 @@ func Test_queueChannelsClientLocal_Heartbeat(t *testing.T) {
 
 		hearbeat := &v1willow.Heartbeat{
 			ItemID: "not found",
-			KeyValues: dbdefinition.TypedKeyValues{
+			KeyValues: datatypes.KeyValues{
 				"one": datatypes.Int(1),
 			},
 		}
@@ -1279,7 +1278,7 @@ func Test_queueChannelsClientLocal_DestroyChannelsForQueue(t *testing.T) {
 			enqueuItem := &v1willow.Item{
 				Spec: &v1willow.ItemSpec{
 					DBDefinition: &v1willow.ItemDBDefinition{
-						KeyValues: dbdefinition.TypedKeyValues{
+						KeyValues: datatypes.KeyValues{
 							fmt.Sprintf("%d", i): datatypes.Int(i),
 						},
 					},
@@ -1302,7 +1301,7 @@ func Test_queueChannelsClientLocal_DestroyChannelsForQueue(t *testing.T) {
 		enqueuItem := &v1willow.Item{
 			Spec: &v1willow.ItemSpec{
 				DBDefinition: &v1willow.ItemDBDefinition{
-					KeyValues: dbdefinition.TypedKeyValues{
+					KeyValues: datatypes.KeyValues{
 						"one": datatypes.Int(1),
 					},
 				},

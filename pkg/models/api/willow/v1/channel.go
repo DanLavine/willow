@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/DanLavine/willow/pkg/models/api/common/errors"
-	dbdefinition "github.com/DanLavine/willow/pkg/models/api/common/v1/db_definition"
+	"github.com/DanLavine/willow/pkg/models/datatypes"
 )
 
 type Channel struct {
@@ -50,11 +50,11 @@ func (channelSpec *ChannelSpec) Validate() *errors.ModelError {
 }
 
 type ChannelDBDefinition struct {
-	KeyValues dbdefinition.TypedKeyValues `json:"KeyValues,omitempty"`
+	KeyValues datatypes.TypedKeyValues `json:"KeyValues,omitempty"`
 }
 
 func (channelDBDefinition *ChannelDBDefinition) Validate() *errors.ModelError {
-	if err := channelDBDefinition.KeyValues.Validate(); err != nil {
+	if err := channelDBDefinition.KeyValues.Validate(datatypes.MinDataType, datatypes.MaxWithoutAnyDataType); err != nil {
 		return &errors.ModelError{Field: "KeyValues", Child: err}
 	}
 

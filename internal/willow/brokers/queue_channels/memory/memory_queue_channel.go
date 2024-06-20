@@ -15,7 +15,6 @@ import (
 	"github.com/DanLavine/willow/internal/middleware"
 	"github.com/DanLavine/willow/internal/reporting"
 	"github.com/DanLavine/willow/pkg/models/api/common/errors"
-	dbdefinition "github.com/DanLavine/willow/pkg/models/api/common/v1/db_definition"
 	queryassociatedaction "github.com/DanLavine/willow/pkg/models/api/common/v1/query_associated_action"
 	querymatchaction "github.com/DanLavine/willow/pkg/models/api/common/v1/query_match_action"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
@@ -614,10 +613,11 @@ func (mqc *memoryQueueChannel) dequeue(ctx context.Context) (*v1willow.Item, fun
 
 	onFind := func(key datatypes.EncapsulatedValue, treeItem any) bool {
 		queueItem := treeItem.(*item)
+
 		dequeueItem = &v1willow.Item{
 			Spec: &v1willow.ItemSpec{
 				DBDefinition: &v1willow.ItemDBDefinition{
-					KeyValues: dbdefinition.KeyValuesToTypedKeyValues(mqc.channelKeyValues),
+					KeyValues: mqc.channelKeyValues,
 				},
 				Properties: &v1willow.ItemProperties{
 					Data:            queueItem.data,
@@ -784,7 +784,7 @@ func (mqc *memoryQueueChannel) limiterUpdateEnqueuedValue(ctx context.Context, c
 	err := mqc.limiterClient.UpdateCounter(ctx, &v1limiter.Counter{
 		Spec: &v1limiter.CounterSpec{
 			DBDefinition: &v1limiter.CounterDBDefinition{
-				KeyValues: dbdefinition.KeyValuesToTypedKeyValues(enqueueKeyValues),
+				KeyValues: enqueueKeyValues,
 			},
 			Properties: &v1limiter.CounteProperties{
 				Counters: &counterUpdate,
@@ -816,7 +816,7 @@ func (mqc *memoryQueueChannel) limterUpdateRunningValue(ctx context.Context, cou
 	counter := &v1limiter.Counter{
 		Spec: &v1limiter.CounterSpec{
 			DBDefinition: &v1limiter.CounterDBDefinition{
-				KeyValues: dbdefinition.KeyValuesToTypedKeyValues(counterKeyValues),
+				KeyValues: counterKeyValues,
 			},
 			Properties: &v1limiter.CounteProperties{
 				Counters: &counterUpdate,
@@ -846,7 +846,7 @@ func (mqc *memoryQueueChannel) setLimiterEnqueuedValue(ctx context.Context) *err
 	err := mqc.limiterClient.SetCounters(ctx, &v1limiter.Counter{
 		Spec: &v1limiter.CounterSpec{
 			DBDefinition: &v1limiter.CounterDBDefinition{
-				KeyValues: dbdefinition.KeyValuesToTypedKeyValues(enqueueKeyValues),
+				KeyValues: enqueueKeyValues,
 			},
 			Properties: &v1limiter.CounteProperties{
 				Counters: helpers.PointerOf[int64](0),
@@ -876,7 +876,7 @@ func (mqc *memoryQueueChannel) setLimterRunningValue(ctx context.Context) error 
 	counter := &v1limiter.Counter{
 		Spec: &v1limiter.CounterSpec{
 			DBDefinition: &v1limiter.CounterDBDefinition{
-				KeyValues: dbdefinition.KeyValuesToTypedKeyValues(counterKeyValues),
+				KeyValues: counterKeyValues,
 			},
 			Properties: &v1limiter.CounteProperties{
 				Counters: helpers.PointerOf[int64](0),

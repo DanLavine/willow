@@ -11,7 +11,6 @@ import (
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 	"github.com/DanLavine/willow/testhelpers"
 
-	dbdefinition "github.com/DanLavine/willow/pkg/models/api/common/v1/db_definition"
 	queryassociatedaction "github.com/DanLavine/willow/pkg/models/api/common/v1/query_associated_action"
 	v1locker "github.com/DanLavine/willow/pkg/models/api/locker/v1"
 
@@ -22,7 +21,7 @@ func defaultLockCreateRequest() *v1locker.Lock {
 	return &v1locker.Lock{
 		Spec: &v1locker.LockSpec{
 			DBDefinition: &v1locker.LockDBDefinition{
-				KeyValues: dbdefinition.TypedKeyValues{
+				KeyValues: datatypes.KeyValues{
 					"1": datatypes.String("one"),
 					"2": datatypes.Int(2),
 					"3": datatypes.Uint64(3),
@@ -40,7 +39,7 @@ func overlapOneKeyValue() *v1locker.Lock {
 	return &v1locker.Lock{
 		Spec: &v1locker.LockSpec{
 			DBDefinition: &v1locker.LockDBDefinition{
-				KeyValues: dbdefinition.TypedKeyValues{
+				KeyValues: datatypes.KeyValues{
 					"1": datatypes.String("one"),
 					"4": datatypes.Int(2),
 					"5": datatypes.Uint64(3),
@@ -68,7 +67,7 @@ func TestExclusiveLocker_ObtainLocks(t *testing.T) {
 		lockResp := exclusiveLocker.ObtainLock(ctx, defaultLockCreateRequest())
 		g.Expect(lockResp).ToNot(BeNil())
 		g.Expect(*lockResp.Spec.Properties.Timeout).To(Equal(15 * time.Second)) // default values
-		g.Expect(*&lockResp.Spec.DBDefinition.KeyValues).To(Equal(dbdefinition.TypedKeyValues{
+		g.Expect(*&lockResp.Spec.DBDefinition.KeyValues).To(Equal(datatypes.KeyValues{
 			"1": datatypes.String("one"),
 			"2": datatypes.Int(2),
 			"3": datatypes.Uint64(3),
@@ -205,7 +204,7 @@ func TestExclusiveLocker_ObtainLocks(t *testing.T) {
 				testReq := &v1locker.Lock{
 					Spec: &v1locker.LockSpec{
 						DBDefinition: &v1locker.LockDBDefinition{
-							KeyValues: dbdefinition.TypedKeyValues{
+							KeyValues: datatypes.KeyValues{
 								fmt.Sprintf("%d", i%5): datatypes.String("doesn't matter 1"),
 								fmt.Sprintf("%d", i%6): datatypes.String("doesn't matter 2"),
 								fmt.Sprintf("%d", i%7): datatypes.String("doesn't matter 3"),
@@ -351,11 +350,11 @@ func TestExclusiveLocker_LocksQuery(t *testing.T) {
 		if locks[0].State.SessionID == lock2.State.SessionID {
 			g.Expect(locks[0].State.SessionID).To(Equal(lock2.State.SessionID))
 			g.Expect(locks[0].State.LocksHeldOrWaiting).To(Equal(uint64(1)))
-			g.Expect(locks[0].Spec.DBDefinition.KeyValues).To(Equal(dbdefinition.TypedKeyValues{"1": datatypes.String("one"), "4": datatypes.Int(2), "5": datatypes.Uint64(3)}))
+			g.Expect(locks[0].Spec.DBDefinition.KeyValues).To(Equal(datatypes.KeyValues{"1": datatypes.String("one"), "4": datatypes.Int(2), "5": datatypes.Uint64(3)}))
 			g.Expect(locks[0].Spec.Properties.Timeout).To(Equal(helpers.PointerOf(15 * time.Second)))
 			g.Expect(locks[0].State.TimeTillExipre).ToNot(Equal(15 * time.Second))
 
-			g.Expect(locks[1].Spec.DBDefinition.KeyValues).To(Equal(dbdefinition.TypedKeyValues{"1": datatypes.String("one"), "2": datatypes.Int(2), "3": datatypes.Uint64(3)}))
+			g.Expect(locks[1].Spec.DBDefinition.KeyValues).To(Equal(datatypes.KeyValues{"1": datatypes.String("one"), "2": datatypes.Int(2), "3": datatypes.Uint64(3)}))
 			g.Expect(locks[1].Spec.Properties.Timeout).To(Equal(helpers.PointerOf(15 * time.Second)))
 			g.Expect(locks[1].State.SessionID).To(Equal(lock1.State.SessionID))
 			g.Expect(locks[1].State.LocksHeldOrWaiting).To(Equal(uint64(1)))
@@ -363,11 +362,11 @@ func TestExclusiveLocker_LocksQuery(t *testing.T) {
 		} else {
 			g.Expect(locks[1].State.SessionID).To(Equal(lock2.State.SessionID))
 			g.Expect(locks[1].State.LocksHeldOrWaiting).To(Equal(uint64(1)))
-			g.Expect(locks[1].Spec.DBDefinition.KeyValues).To(Equal(dbdefinition.TypedKeyValues{"1": datatypes.String("one"), "4": datatypes.Int(2), "5": datatypes.Uint64(3)}))
+			g.Expect(locks[1].Spec.DBDefinition.KeyValues).To(Equal(datatypes.KeyValues{"1": datatypes.String("one"), "4": datatypes.Int(2), "5": datatypes.Uint64(3)}))
 			g.Expect(locks[1].Spec.Properties.Timeout).To(Equal(helpers.PointerOf(15 * time.Second)))
 			g.Expect(locks[1].State.TimeTillExipre).ToNot(Equal(15 * time.Second))
 
-			g.Expect(locks[0].Spec.DBDefinition.KeyValues).To(Equal(dbdefinition.TypedKeyValues{"1": datatypes.String("one"), "2": datatypes.Int(2), "3": datatypes.Uint64(3)}))
+			g.Expect(locks[0].Spec.DBDefinition.KeyValues).To(Equal(datatypes.KeyValues{"1": datatypes.String("one"), "2": datatypes.Int(2), "3": datatypes.Uint64(3)}))
 			g.Expect(locks[0].Spec.Properties.Timeout).To(Equal(helpers.PointerOf(15 * time.Second)))
 			g.Expect(locks[0].State.SessionID).To(Equal(lock1.State.SessionID))
 			g.Expect(locks[0].State.LocksHeldOrWaiting).To(Equal(uint64(1)))

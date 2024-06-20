@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/DanLavine/willow/pkg/models/api/common/errors"
-	dbdefinition "github.com/DanLavine/willow/pkg/models/api/common/v1/db_definition"
 	v1locker "github.com/DanLavine/willow/pkg/models/api/locker/v1"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 
@@ -42,7 +41,7 @@ func Test_ObjectEncodeRequest(t *testing.T) {
 		lock := &v1locker.Lock{
 			Spec: &v1locker.LockSpec{
 				DBDefinition: &v1locker.LockDBDefinition{
-					KeyValues: dbdefinition.TypedKeyValues{
+					KeyValues: datatypes.KeyValues{
 						"key1": datatypes.String("1"),
 					},
 				},

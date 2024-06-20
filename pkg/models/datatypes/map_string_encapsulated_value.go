@@ -10,6 +10,12 @@ import (
 
 type KeyValues map[string]EncapsulatedValue
 
+// This type represents all possible EncapsulatedValue types
+type AnyKeyValues = KeyValues
+
+// This type includes all values other than the 'Any' type:
+type TypedKeyValues = KeyValues
+
 func (kv KeyValues) Keys() []string {
 	keys := []string{}
 

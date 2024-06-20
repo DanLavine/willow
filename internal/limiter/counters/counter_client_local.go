@@ -12,7 +12,6 @@ import (
 	"github.com/DanLavine/willow/internal/middleware"
 	lockerclient "github.com/DanLavine/willow/pkg/clients/locker_client"
 	"github.com/DanLavine/willow/pkg/models/api/common/errors"
-	dbdefinition "github.com/DanLavine/willow/pkg/models/api/common/v1/db_definition"
 	queryassociatedaction "github.com/DanLavine/willow/pkg/models/api/common/v1/query_associated_action"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 	"go.uber.org/zap"
@@ -51,7 +50,7 @@ func (cm *counterClientLocal) QueryCounters(ctx context.Context, query *queryass
 		countersResponse = append(countersResponse, &v1limiter.Counter{
 			Spec: &v1limiter.CounterSpec{
 				DBDefinition: &v1limiter.CounterDBDefinition{
-					KeyValues: dbdefinition.TypedKeyValues(item.KeyValues()),
+					KeyValues: item.KeyValues(),
 				},
 				Properties: &v1limiter.CounteProperties{
 					Counters: helpers.PointerOf(item.Value().(Counter).Load()),
@@ -80,7 +79,7 @@ func (cm *counterClientLocal) IncrementCounters(ctx context.Context, lockerClien
 	ctx, logger := middleware.GetNamedMiddlewareLogger(ctx, "IncrementCounters")
 
 	// 1. Find the Rules /w Overrides limts that match the counter's key values
-	rules, limitErrors := cm.rulesClient.FindLimits(ctx, counter.Spec.DBDefinition.KeyValues.ToKeyValues())
+	rules, limitErrors := cm.rulesClient.FindLimits(ctx, counter.Spec.DBDefinition.KeyValues)
 	if limitErrors != nil {
 		return limitErrors
 	}
@@ -135,12 +134,12 @@ func (cm *counterClientLocal) IncrementCounters(ctx context.Context, lockerClien
 			}()
 
 			channelOps, chanReceiver := channelops.NewMergeRead[struct{}](true, ctx)
-			for _, key := range counter.Spec.DBDefinition.KeyValues.ToKeyValues().SortedKeys() {
+			for _, key := range counter.Spec.DBDefinition.KeyValues.SortedKeys() {
 				// setup the group to lock
 				lockKeyValues := &v1locker.Lock{
 					Spec: &v1locker.LockSpec{
 						DBDefinition: &v1locker.LockDBDefinition{
-							KeyValues: dbdefinition.TypedKeyValues{
+							KeyValues: datatypes.KeyValues{
 								key: counter.Spec.DBDefinition.KeyValues[key],
 							},
 						},
@@ -198,7 +197,7 @@ func (cm *counterClientLocal) IncrementCounters(ctx context.Context, lockerClien
 						continue
 					}
 
-					if counterErr := cm.checkCounters(ctx, *rule.Spec.DBDefinition.Name, rule.Spec.DBDefinition.GroupByKeyValues.ToKeyValues().Keys(), counter.Spec.DBDefinition.KeyValues.ToKeyValues(), *rule.Spec.Properties.Limit); counterErr != nil {
+					if counterErr := cm.checkCounters(ctx, *rule.Spec.DBDefinition.Name, rule.Spec.DBDefinition.GroupByKeyValues.Keys(), counter.Spec.DBDefinition.KeyValues, *rule.Spec.Properties.Limit); counterErr != nil {
 						return counterErr
 					}
 				} else {
@@ -209,7 +208,7 @@ func (cm *counterClientLocal) IncrementCounters(ctx context.Context, lockerClien
 						}
 
 						// 2. check the limt
-						if counterErr := cm.checkCounters(ctx, *rule.Spec.DBDefinition.Name, override.Spec.DBDefinition.GroupByKeyValues.ToKeyValues().Keys(), counter.Spec.DBDefinition.KeyValues.ToKeyValues(), *override.Spec.Properties.Limit); counterErr != nil {
+						if counterErr := cm.checkCounters(ctx, *rule.Spec.DBDefinition.Name, override.Spec.DBDefinition.GroupByKeyValues.Keys(), counter.Spec.DBDefinition.KeyValues, *override.Spec.Properties.Limit); counterErr != nil {
 							return counterErr
 						}
 					}
@@ -227,7 +226,7 @@ func (cm *counterClientLocal) IncrementCounters(ctx context.Context, lockerClien
 		item.Value().(Counter).Update(counter.Spec.Properties)
 	}
 
-	if _, err := cm.counters.CreateOrFind(counter.Spec.DBDefinition.KeyValues.ToKeyValues(), createCounter, incrementCounter); err != nil {
+	if _, err := cm.counters.CreateOrFind(counter.Spec.DBDefinition.KeyValues, createCounter, incrementCounter); err != nil {
 		logger.Error("Failed to find or update the counter", zap.Error(err))
 		return errors.InternalServerError
 	}
@@ -288,7 +287,7 @@ func (cm *counterClientLocal) DecrementCounters(ctx context.Context, counter *v1
 		return item.Value().(Counter).Update(counter.Spec.Properties) <= 0
 	}
 
-	if err := cm.counters.Delete(counter.Spec.DBDefinition.KeyValues.ToKeyValues(), bTreeAssociatedCanDelete); err != nil {
+	if err := cm.counters.Delete(counter.Spec.DBDefinition.KeyValues, bTreeAssociatedCanDelete); err != nil {
 		logger.Error("Failed to find or update the counter", zap.Error(err))
 		return errors.InternalServerError
 	}
@@ -305,7 +304,7 @@ func (cm *counterClientLocal) SetCounter(ctx context.Context, counter *v1limiter
 			return true
 		}
 
-		if err := cm.counters.Delete(counter.Spec.DBDefinition.KeyValues.ToKeyValues(), bTreeAssociatedCanDelete); err != nil {
+		if err := cm.counters.Delete(counter.Spec.DBDefinition.KeyValues, bTreeAssociatedCanDelete); err != nil {
 			logger.Error("Failed to delete the set counters", zap.Error(err))
 			return errors.InternalServerError
 		}
@@ -321,7 +320,7 @@ func (cm *counterClientLocal) SetCounter(ctx context.Context, counter *v1limiter
 			item.Value().(Counter).Set(counter.Spec.Properties)
 		}
 
-		if _, err := cm.counters.CreateOrFind(counter.Spec.DBDefinition.KeyValues.ToKeyValues(), bTreeAssociatedOnCreate, bTreeAssociatedOnFind); err != nil {
+		if _, err := cm.counters.CreateOrFind(counter.Spec.DBDefinition.KeyValues, bTreeAssociatedOnCreate, bTreeAssociatedOnFind); err != nil {
 			logger.Error("Failed to find or update the set counter", zap.Error(err))
 			return errors.InternalServerError
 		}

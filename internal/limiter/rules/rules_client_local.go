@@ -13,7 +13,6 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/DanLavine/willow/pkg/models/api/common/errors"
-	dbdefinition "github.com/DanLavine/willow/pkg/models/api/common/v1/db_definition"
 	queryassociatedaction "github.com/DanLavine/willow/pkg/models/api/common/v1/query_associated_action"
 	querymatchaction "github.com/DanLavine/willow/pkg/models/api/common/v1/query_match_action"
 	v1limiter "github.com/DanLavine/willow/pkg/models/api/limiter/v1"
@@ -58,7 +57,7 @@ func (rm *localRulesCient) CreateRule(ctx context.Context, rule *v1limiter.Rule)
 	}
 
 	// create the rule only if the name is free
-	if err := rm.rules.CreateWithID(*rule.Spec.DBDefinition.Name, rule.Spec.DBDefinition.GroupByKeyValues.ToKeyValues(), onCreate); err != nil {
+	if err := rm.rules.CreateWithID(*rule.Spec.DBDefinition.Name, rule.Spec.DBDefinition.GroupByKeyValues, onCreate); err != nil {
 		switch err {
 		case btreeassociated.ErrorTreeItemDestroying:
 			logger.Warn("failed to create rule. rule is currently being destroy")
@@ -90,7 +89,7 @@ func (rm *localRulesCient) QueryRules(ctx context.Context, ruleQuery *queryassoc
 			Spec: &v1limiter.RuleSpec{
 				DBDefinition: &v1limiter.RuleDBDefinition{
 					Name:             helpers.PointerOf(associatedKeyValues.AssociatedID()),
-					GroupByKeyValues: dbdefinition.KeyValuesToAnyKeyValues(associatedKeyValues.KeyValues()),
+					GroupByKeyValues: associatedKeyValues.KeyValues(),
 				},
 				Properties: &v1limiter.RuleProperties{
 					Limit: helpers.PointerOf(rule.Limit()),
@@ -124,7 +123,7 @@ func (rm *localRulesCient) MatchRules(ctx context.Context, ruleMatch *querymatch
 			Spec: &v1limiter.RuleSpec{
 				DBDefinition: &v1limiter.RuleDBDefinition{
 					Name:             helpers.PointerOf(associatedKeyValues.AssociatedID()),
-					GroupByKeyValues: dbdefinition.KeyValuesToAnyKeyValues(associatedKeyValues.KeyValues()),
+					GroupByKeyValues: associatedKeyValues.KeyValues(),
 				},
 				Properties: &v1limiter.RuleProperties{
 					Limit: helpers.PointerOf(rule.Limit()),
@@ -168,7 +167,7 @@ func (rm *localRulesCient) GetRule(ctx context.Context, ruleName string) (*v1lim
 			Spec: &v1limiter.RuleSpec{
 				DBDefinition: &v1limiter.RuleDBDefinition{
 					Name:             helpers.PointerOf(associatedKeyValues.AssociatedID()),
-					GroupByKeyValues: dbdefinition.KeyValuesToAnyKeyValues(associatedKeyValues.KeyValues()),
+					GroupByKeyValues: associatedKeyValues.KeyValues(),
 				},
 				Properties: &v1limiter.RuleProperties{
 					Limit: helpers.PointerOf(rule.Limit()),
@@ -485,7 +484,7 @@ func (rm localRulesCient) FindLimits(ctx context.Context, keyValues datatypes.Ke
 			Spec: &v1limiter.RuleSpec{
 				DBDefinition: &v1limiter.RuleDBDefinition{
 					Name:             helpers.PointerOf(item.AssociatedID()),
-					GroupByKeyValues: dbdefinition.KeyValuesToAnyKeyValues(item.KeyValues()),
+					GroupByKeyValues: item.KeyValues(),
 				},
 				Properties: &v1limiter.RuleProperties{
 					Limit: helpers.PointerOf(item.Value().(Rule).Limit()),

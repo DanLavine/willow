@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/DanLavine/willow/pkg/models/api/common/errors"
-	dbdefinition "github.com/DanLavine/willow/pkg/models/api/common/v1/db_definition"
+	"github.com/DanLavine/willow/pkg/models/datatypes"
 )
 
 // Counter is the full api model that is returned as part of the query operations
@@ -69,11 +69,11 @@ func (counterSpec *CounterSpec) Validate() *errors.ModelError {
 }
 
 type CounterDBDefinition struct {
-	KeyValues dbdefinition.TypedKeyValues `json:"KeyValues"`
+	KeyValues datatypes.TypedKeyValues `json:"KeyValues"`
 }
 
 func (counterDBDefinition *CounterDBDefinition) Validate() *errors.ModelError {
-	if err := counterDBDefinition.KeyValues.Validate(); err != nil {
+	if err := counterDBDefinition.KeyValues.Validate(datatypes.MinDataType, datatypes.MaxWithoutAnyDataType); err != nil {
 		return &errors.ModelError{Field: "KeyValues", Child: err}
 	}
 

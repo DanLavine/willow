@@ -8,7 +8,6 @@ import (
 	"github.com/DanLavine/willow/internal/helpers"
 	"github.com/DanLavine/willow/pkg/models/api/common/errors"
 	v1common "github.com/DanLavine/willow/pkg/models/api/common/v1"
-	dbdefinition "github.com/DanLavine/willow/pkg/models/api/common/v1/db_definition"
 	queryassociatedaction "github.com/DanLavine/willow/pkg/models/api/common/v1/query_associated_action"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 	"github.com/DanLavine/willow/testhelpers"
@@ -33,7 +32,7 @@ func Test_OverrideClientLocal_CreateOverride(t *testing.T) {
 			Spec: &v1limiter.OverrideSpec{
 				DBDefinition: &v1limiter.OverrideDBDefinition{
 					Name: helpers.PointerOf("test_override"),
-					GroupByKeyValues: dbdefinition.AnyKeyValues{
+					GroupByKeyValues: datatypes.KeyValues{
 						"key1": datatypes.Int(1),
 					},
 				},
@@ -55,7 +54,7 @@ func Test_OverrideClientLocal_CreateOverride(t *testing.T) {
 			Spec: &v1limiter.OverrideSpec{
 				DBDefinition: &v1limiter.OverrideDBDefinition{
 					Name: helpers.PointerOf("test_override"),
-					GroupByKeyValues: dbdefinition.AnyKeyValues{
+					GroupByKeyValues: datatypes.KeyValues{
 						"key1": datatypes.Int(1),
 					},
 				},
@@ -69,7 +68,7 @@ func Test_OverrideClientLocal_CreateOverride(t *testing.T) {
 			Spec: &v1limiter.OverrideSpec{
 				DBDefinition: &v1limiter.OverrideDBDefinition{
 					Name: helpers.PointerOf("test_override"),
-					GroupByKeyValues: dbdefinition.AnyKeyValues{
+					GroupByKeyValues: datatypes.KeyValues{
 						"key2": datatypes.Int(2),
 					},
 				},
@@ -95,7 +94,7 @@ func Test_OverrideClientLocal_CreateOverride(t *testing.T) {
 			Spec: &v1limiter.OverrideSpec{
 				DBDefinition: &v1limiter.OverrideDBDefinition{
 					Name: helpers.PointerOf("test_override"),
-					GroupByKeyValues: dbdefinition.AnyKeyValues{
+					GroupByKeyValues: datatypes.KeyValues{
 						"key1": datatypes.Int(1),
 					},
 				},
@@ -110,7 +109,7 @@ func Test_OverrideClientLocal_CreateOverride(t *testing.T) {
 			Spec: &v1limiter.OverrideSpec{
 				DBDefinition: &v1limiter.OverrideDBDefinition{
 					Name: helpers.PointerOf("test_override2"),
-					GroupByKeyValues: dbdefinition.AnyKeyValues{
+					GroupByKeyValues: datatypes.KeyValues{
 						"key1": datatypes.Int(1),
 					},
 				},
@@ -142,7 +141,7 @@ func Test_OverrideClientLocal_CreateOverride(t *testing.T) {
 			Spec: &v1limiter.OverrideSpec{
 				DBDefinition: &v1limiter.OverrideDBDefinition{
 					Name: helpers.PointerOf("test_override"),
-					GroupByKeyValues: dbdefinition.AnyKeyValues{
+					GroupByKeyValues: datatypes.KeyValues{
 						"key1": datatypes.Int(1),
 					},
 				},
@@ -171,7 +170,7 @@ func Test_OverrideClientLocal_CreateOverride(t *testing.T) {
 			Spec: &v1limiter.OverrideSpec{
 				DBDefinition: &v1limiter.OverrideDBDefinition{
 					Name: helpers.PointerOf("test_override"),
-					GroupByKeyValues: dbdefinition.AnyKeyValues{
+					GroupByKeyValues: datatypes.KeyValues{
 						"key1": datatypes.Int(1),
 					},
 				},
@@ -210,7 +209,7 @@ func Test_OverrideClientLocal_GetOverride(t *testing.T) {
 			Spec: &v1limiter.OverrideSpec{
 				DBDefinition: &v1limiter.OverrideDBDefinition{
 					Name: helpers.PointerOf("test override"),
-					GroupByKeyValues: dbdefinition.AnyKeyValues{
+					GroupByKeyValues: datatypes.KeyValues{
 						"key1": datatypes.Int(1),
 					},
 				},
@@ -226,7 +225,7 @@ func Test_OverrideClientLocal_GetOverride(t *testing.T) {
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(override).ToNot(BeNil())
 		g.Expect(*override.Spec.DBDefinition.Name).To(Equal("test override"))
-		g.Expect(override.Spec.DBDefinition.GroupByKeyValues).To(Equal(dbdefinition.AnyKeyValues{"key1": datatypes.Int(1)}))
+		g.Expect(override.Spec.DBDefinition.GroupByKeyValues).To(Equal(datatypes.KeyValues{"key1": datatypes.Int(1)}))
 		g.Expect(*override.Spec.Properties.Limit).To(Equal(int64(3)))
 	})
 
@@ -271,7 +270,7 @@ func Test_OverrideClientLocal_UpdateOverride(t *testing.T) {
 			Spec: &v1limiter.OverrideSpec{
 				DBDefinition: &v1limiter.OverrideDBDefinition{
 					Name: helpers.PointerOf("test override"),
-					GroupByKeyValues: dbdefinition.AnyKeyValues{
+					GroupByKeyValues: datatypes.KeyValues{
 						"key1": datatypes.Int(1),
 					},
 				},
@@ -296,7 +295,7 @@ func Test_OverrideClientLocal_UpdateOverride(t *testing.T) {
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(override).ToNot(BeNil())
 		g.Expect(*override.Spec.DBDefinition.Name).To(Equal("test override"))
-		g.Expect(override.Spec.DBDefinition.GroupByKeyValues).To(Equal(dbdefinition.AnyKeyValues{"key1": datatypes.Int(1)}))
+		g.Expect(override.Spec.DBDefinition.GroupByKeyValues).To(Equal(datatypes.KeyValues{"key1": datatypes.Int(1)}))
 		g.Expect(*override.Spec.Properties.Limit).To(Equal(int64(17)))
 	})
 
@@ -340,9 +339,9 @@ func Test_OverrideClientLocal_QueryOverrides(t *testing.T) {
 			}
 
 			if i%2 == 0 {
-				overrideReq.Spec.DBDefinition.GroupByKeyValues = dbdefinition.AnyKeyValues{fmt.Sprintf("key%d", i): datatypes.Int(i)}
+				overrideReq.Spec.DBDefinition.GroupByKeyValues = datatypes.KeyValues{fmt.Sprintf("key%d", i): datatypes.Int(i)}
 			} else {
-				overrideReq.Spec.DBDefinition.GroupByKeyValues = dbdefinition.AnyKeyValues{fmt.Sprintf("key%d", i): datatypes.Int(i), fmt.Sprintf("key%d", i+1): datatypes.Int(i + 1)}
+				overrideReq.Spec.DBDefinition.GroupByKeyValues = datatypes.KeyValues{fmt.Sprintf("key%d", i): datatypes.Int(i), fmt.Sprintf("key%d", i+1): datatypes.Int(i + 1)}
 			}
 
 			g.Expect(overrideReq.ValidateSpecOnly()).ToNot(HaveOccurred())
@@ -453,7 +452,7 @@ func Test_OverrideClientLocal_DestroyOverride(t *testing.T) {
 			Spec: &v1limiter.OverrideSpec{
 				DBDefinition: &v1limiter.OverrideDBDefinition{
 					Name: helpers.PointerOf("test_override"),
-					GroupByKeyValues: dbdefinition.AnyKeyValues{
+					GroupByKeyValues: datatypes.KeyValues{
 						"key1": datatypes.Int(1),
 					},
 				},
@@ -519,7 +518,7 @@ func Test_OverrideClientLocal_DestroyOverrides(t *testing.T) {
 				Spec: &v1limiter.OverrideSpec{
 					DBDefinition: &v1limiter.OverrideDBDefinition{
 						Name: helpers.PointerOf(fmt.Sprintf("test override %d", i)),
-						GroupByKeyValues: dbdefinition.AnyKeyValues{
+						GroupByKeyValues: datatypes.KeyValues{
 							"key1": datatypes.Int(1),
 						},
 					},
@@ -530,9 +529,9 @@ func Test_OverrideClientLocal_DestroyOverrides(t *testing.T) {
 			}
 
 			if i%2 == 0 {
-				overrideReq.Spec.DBDefinition.GroupByKeyValues = dbdefinition.AnyKeyValues{fmt.Sprintf("key%d", i): datatypes.Int(i)}
+				overrideReq.Spec.DBDefinition.GroupByKeyValues = datatypes.KeyValues{fmt.Sprintf("key%d", i): datatypes.Int(i)}
 			} else {
-				overrideReq.Spec.DBDefinition.GroupByKeyValues = dbdefinition.AnyKeyValues{fmt.Sprintf("key%d", i): datatypes.Int(i), fmt.Sprintf("key%d", i+1): datatypes.Int(i + 1)}
+				overrideReq.Spec.DBDefinition.GroupByKeyValues = datatypes.KeyValues{fmt.Sprintf("key%d", i): datatypes.Int(i), fmt.Sprintf("key%d", i+1): datatypes.Int(i + 1)}
 			}
 
 			g.Expect(overrideReq.ValidateSpecOnly()).ToNot(HaveOccurred())
@@ -578,7 +577,7 @@ func Test_OverrideClientLocal_FindOverrideLimits(t *testing.T) {
 				Spec: &v1limiter.OverrideSpec{
 					DBDefinition: &v1limiter.OverrideDBDefinition{
 						Name: helpers.PointerOf(fmt.Sprintf("test override %d", i)),
-						GroupByKeyValues: dbdefinition.AnyKeyValues{
+						GroupByKeyValues: datatypes.KeyValues{
 							"key1": datatypes.Int(1),
 						},
 					},
@@ -589,9 +588,9 @@ func Test_OverrideClientLocal_FindOverrideLimits(t *testing.T) {
 			}
 
 			if i%2 == 0 {
-				overrideReq.Spec.DBDefinition.GroupByKeyValues = dbdefinition.AnyKeyValues{fmt.Sprintf("key%d", i): datatypes.Int(i)}
+				overrideReq.Spec.DBDefinition.GroupByKeyValues = datatypes.KeyValues{fmt.Sprintf("key%d", i): datatypes.Int(i)}
 			} else {
-				overrideReq.Spec.DBDefinition.GroupByKeyValues = dbdefinition.AnyKeyValues{fmt.Sprintf("key%d", i): datatypes.Int(i), fmt.Sprintf("key%d", i+1): datatypes.Int(i + 1)}
+				overrideReq.Spec.DBDefinition.GroupByKeyValues = datatypes.KeyValues{fmt.Sprintf("key%d", i): datatypes.Int(i), fmt.Sprintf("key%d", i+1): datatypes.Int(i + 1)}
 			}
 
 			g.Expect(overrideReq.ValidateSpecOnly()).ToNot(HaveOccurred())

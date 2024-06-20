@@ -17,7 +17,6 @@ import (
 	"github.com/DanLavine/willow/internal/helpers"
 	lockerclient "github.com/DanLavine/willow/pkg/clients/locker_client"
 	"github.com/DanLavine/willow/pkg/models/api"
-	dbdefinition "github.com/DanLavine/willow/pkg/models/api/common/v1/db_definition"
 	queryassociatedaction "github.com/DanLavine/willow/pkg/models/api/common/v1/query_associated_action"
 	v1locker "github.com/DanLavine/willow/pkg/models/api/locker/v1"
 
@@ -61,7 +60,7 @@ func Test_Lock(t *testing.T) {
 		lockRequest := &v1locker.Lock{
 			Spec: &v1locker.LockSpec{
 				DBDefinition: &v1locker.LockDBDefinition{
-					KeyValues: dbdefinition.TypedKeyValues{
+					KeyValues: datatypes.KeyValues{
 						"key1": datatypes.String("key one"),
 						"key2": datatypes.String("key two"),
 					},
@@ -90,7 +89,7 @@ func Test_Lock(t *testing.T) {
 		lockRequest1 := &v1locker.Lock{
 			Spec: &v1locker.LockSpec{
 				DBDefinition: &v1locker.LockDBDefinition{
-					KeyValues: dbdefinition.TypedKeyValues{
+					KeyValues: datatypes.KeyValues{
 						"key1": datatypes.String("key one"),
 						"key2": datatypes.String("key two"),
 					},
@@ -101,7 +100,7 @@ func Test_Lock(t *testing.T) {
 		lockRequest2 := &v1locker.Lock{
 			Spec: &v1locker.LockSpec{
 				DBDefinition: &v1locker.LockDBDefinition{
-					KeyValues: dbdefinition.TypedKeyValues{
+					KeyValues: datatypes.KeyValues{
 						"key1": datatypes.String("key one"),
 						"key3": datatypes.String("key two"),
 					},
@@ -139,7 +138,7 @@ func Test_Lock(t *testing.T) {
 		lockRequest := &v1locker.Lock{
 			Spec: &v1locker.LockSpec{
 				DBDefinition: &v1locker.LockDBDefinition{
-					KeyValues: dbdefinition.TypedKeyValues{
+					KeyValues: datatypes.KeyValues{
 						"key1": datatypes.String("key one"),
 						"key2": datatypes.String("key two"),
 					},
@@ -187,7 +186,7 @@ func Test_Lock(t *testing.T) {
 		lockRequest := &v1locker.Lock{
 			Spec: &v1locker.LockSpec{
 				DBDefinition: &v1locker.LockDBDefinition{
-					KeyValues: dbdefinition.TypedKeyValues{
+					KeyValues: datatypes.KeyValues{
 						"key1": datatypes.String("key one"),
 						"key2": datatypes.String("key two"),
 					},
@@ -233,7 +232,7 @@ func Test_Lock(t *testing.T) {
 		lockRequest := &v1locker.Lock{
 			Spec: &v1locker.LockSpec{
 				DBDefinition: &v1locker.LockDBDefinition{
-					KeyValues: dbdefinition.TypedKeyValues{
+					KeyValues: datatypes.KeyValues{
 						"key1": datatypes.String("key one"),
 						"key2": datatypes.String("key two"),
 					},
@@ -276,7 +275,7 @@ func TestLocker_List_API(t *testing.T) {
 		lockRequest := &v1locker.Lock{
 			Spec: &v1locker.LockSpec{
 				DBDefinition: &v1locker.LockDBDefinition{
-					KeyValues: dbdefinition.TypedKeyValues{
+					KeyValues: datatypes.KeyValues{
 						"key1": datatypes.String("key one"),
 						"key2": datatypes.String("key two"),
 					},
@@ -295,7 +294,7 @@ func TestLocker_List_API(t *testing.T) {
 		lockRequest = &v1locker.Lock{
 			Spec: &v1locker.LockSpec{
 				DBDefinition: &v1locker.LockDBDefinition{
-					KeyValues: dbdefinition.TypedKeyValues{
+					KeyValues: datatypes.KeyValues{
 						"key1": datatypes.String("key one"),
 						"key3": datatypes.String("key three"),
 					},
@@ -327,10 +326,10 @@ func TestLocker_List_API(t *testing.T) {
 		g.Expect(json.Unmarshal(data, &locks)).ToNot(HaveOccurred())
 		g.Expect(len(locks)).To(Equal(2))
 
-		if reflect.DeepEqual(locks[0].Spec.DBDefinition.KeyValues.ToKeyValues().SortedKeys(), []string{"key1", "key2"}) {
-			g.Expect(locks[1].Spec.DBDefinition.KeyValues.ToKeyValues().SortedKeys()).To(Equal([]string{"key1", "key3"}))
+		if reflect.DeepEqual(locks[0].Spec.DBDefinition.KeyValues.SortedKeys(), []string{"key1", "key2"}) {
+			g.Expect(locks[1].Spec.DBDefinition.KeyValues.SortedKeys()).To(Equal([]string{"key1", "key3"}))
 		} else {
-			g.Expect(locks[1].Spec.DBDefinition.KeyValues.ToKeyValues().SortedKeys()).To(Equal([]string{"key1", "key2"}))
+			g.Expect(locks[1].Spec.DBDefinition.KeyValues.SortedKeys()).To(Equal([]string{"key1", "key2"}))
 		}
 	})
 }
@@ -348,7 +347,7 @@ func TestLocker_Async_API_Threading_Checks(t *testing.T) {
 		lockRequest := &v1locker.Lock{
 			Spec: &v1locker.LockSpec{
 				DBDefinition: &v1locker.LockDBDefinition{
-					KeyValues: dbdefinition.TypedKeyValues{
+					KeyValues: datatypes.KeyValues{
 						"key1": datatypes.String("key one"),
 						"key2": datatypes.String("key two"),
 					},
@@ -432,7 +431,7 @@ func TestLocker_Async_API_Threading_Checks(t *testing.T) {
 				lockRequest := &v1locker.Lock{
 					Spec: &v1locker.LockSpec{
 						DBDefinition: &v1locker.LockDBDefinition{
-							KeyValues: dbdefinition.TypedKeyValues{
+							KeyValues: datatypes.KeyValues{
 								"key1": datatypes.String(fmt.Sprintf("%d", counter%5)),
 								"key2": datatypes.String(fmt.Sprintf("%d", counter%17)),
 							},

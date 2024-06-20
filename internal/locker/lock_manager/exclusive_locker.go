@@ -10,7 +10,6 @@ import (
 	"github.com/DanLavine/willow/internal/middleware"
 	"github.com/DanLavine/willow/internal/reporting"
 	"github.com/DanLavine/willow/pkg/models/api/common/errors"
-	dbdefinition "github.com/DanLavine/willow/pkg/models/api/common/v1/db_definition"
 	queryassociatedaction "github.com/DanLavine/willow/pkg/models/api/common/v1/query_associated_action"
 	v1locker "github.com/DanLavine/willow/pkg/models/api/locker/v1"
 
@@ -69,7 +68,7 @@ func (exclusiveLocker *exclusiveLocker) ObtainLock(ctx context.Context, createLo
 
 	onCreate := func() any {
 		lock := newExclusiveLock(func() {
-			exclusiveLocker.timeout(reporting.BaseLogger(logger), createLockRequest.Spec.DBDefinition.KeyValues.ToKeyValues())
+			exclusiveLocker.timeout(reporting.BaseLogger(logger), createLockRequest.Spec.DBDefinition.KeyValues)
 		})
 
 		// add the task to the task manager
@@ -91,7 +90,7 @@ func (exclusiveLocker *exclusiveLocker) ObtainLock(ctx context.Context, createLo
 		claimChannel = item.Value().(*exclusiveLock).GetClaimChannel()
 	}
 
-	lockID, err := exclusiveLocker.exclusiveLocks.CreateOrFind(createLockRequest.Spec.DBDefinition.KeyValues.ToKeyValues(), onCreate, onFind)
+	lockID, err := exclusiveLocker.exclusiveLocks.CreateOrFind(createLockRequest.Spec.DBDefinition.KeyValues, onCreate, onFind)
 	if err != nil {
 		panic(err)
 	}
@@ -101,7 +100,7 @@ func (exclusiveLocker *exclusiveLocker) ObtainLock(ctx context.Context, createLo
 	case <-ctx.Done():
 		// decrement the claim and remove the object from the tree if there are no other clients waiting
 		logger.Info("client disconnected")
-		_ = exclusiveLocker.exclusiveLocks.Delete(createLockRequest.Spec.DBDefinition.KeyValues.ToKeyValues(), func(associatedKeyValues btreeassociated.AssociatedKeyValues) bool {
+		_ = exclusiveLocker.exclusiveLocks.Delete(createLockRequest.Spec.DBDefinition.KeyValues, func(associatedKeyValues btreeassociated.AssociatedKeyValues) bool {
 			return associatedKeyValues.Value().(*exclusiveLock).LostClient()
 		})
 
@@ -156,7 +155,7 @@ func (exclusiveLocker *exclusiveLocker) LocksQuery(ctx context.Context, query *q
 		locks = append(locks, &v1locker.Lock{
 			Spec: &v1locker.LockSpec{
 				DBDefinition: &v1locker.LockDBDefinition{
-					KeyValues: dbdefinition.KeyValuesToTypedKeyValues(associatedKeyValues.KeyValues()),
+					KeyValues: associatedKeyValues.KeyValues(),
 				},
 				Properties: &v1locker.LockProperties{
 					Timeout: &exclusiveLock.lockTimeout,
