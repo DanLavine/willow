@@ -4,7 +4,11 @@ import (
 	"fmt"
 
 	"github.com/DanLavine/willow/pkg/models/api/common/errors"
+	v1common "github.com/DanLavine/willow/pkg/models/api/common/v1"
+	"github.com/DanLavine/willow/pkg/models/datatypes"
 )
+
+var requiredUniqueKeys = []string{"name"}
 
 type Queue struct {
 	// Specification fields define the object details and how it is saved in the DB
@@ -55,21 +59,27 @@ func (queue *Queue) ValidateSpecOnly() *errors.ModelError {
 }
 
 type QueueSpec struct {
-	// DBDefinition defines how to save the item in the Database
-	DBDefinition *QueueDBDefinition `json:"DBDefinition,omitempty"`
+	// Defintion of the Queue's unique tags
+	Definition v1common.AnyKeyValues `json:"Definition,omitempty"`
 
 	// Properties are the configurable/updateable fields for the Rule
-	//
-	// This is an optional field as all the properties are currently optional
 	Properties *QueueProperties `json:"Properties,omitempty"`
 }
 
 func (queueSpec *QueueSpec) Validate() *errors.ModelError {
-	if queueSpec.DBDefinition == nil {
-		return &errors.ModelError{Field: "DBDefinition", Err: fmt.Errorf("received a null value")}
-	} else {
-		if err := queueSpec.DBDefinition.Validate(); err != nil {
-			return &errors.ModelError{Field: "DBDefinition", Child: err}
+	// validate the Definition's keys
+	if err := queueSpec.Definition.Validate(datatypes.MinDataType, datatypes.MaxWithoutAnyDataType); err != nil {
+		return &errors.ModelError{Field: "Definition", Child: err}
+	}
+
+	// ensure the defintion has the required unique keys
+	for _, requiredUniqueKey := range requiredUniqueKeys {
+		if value, ok := queueSpec.Definition[requiredUniqueKey]; ok {
+			if !value.Unique {
+				return &errors.ModelError{Field: fmt.Sprintf("Definition[%s].Unique", requiredUniqueKey), Err: fmt.Errorf("expected the value to be true, received false ")}
+			}
+		} else {
+			return &errors.ModelError{Field: "Definition", Err: fmt.Errorf("missing the required key '%s'", requiredUniqueKey)}
 		}
 	}
 
@@ -84,7 +94,7 @@ func (queueSpec *QueueSpec) Validate() *errors.ModelError {
 
 type QueueDBDefinition struct {
 	// Name of the specific queue
-	Name *string `json:"Name"`
+	Name *string `json:"Name,omitempty"`
 }
 
 func (queueDBDefinition *QueueDBDefinition) Validate() *errors.ModelError {
@@ -100,8 +110,10 @@ func (queueDBDefinition *QueueDBDefinition) Validate() *errors.ModelError {
 }
 
 type QueueProperties struct {
-	// Max size of the queue's eneueued and running items combined
-	// -1 means unlimited
+	// Metadta to record any arbitrary information the end user might find helpful
+	Metadata datatypes.AnyKeyValues `json:"Metadata,omitempty"`
+
+	// Max size of the queue's eneueued and running items combined, -1 means unlimited
 	MaxItems *int64 `json:"MaxItems,omitempty"`
 }
 
@@ -114,7 +126,14 @@ func (queueProperties *QueueProperties) Validate() *errors.ModelError {
 }
 
 type QueueState struct {
-	Deleting bool
+	// Enqueued is the total number of items enqueued, but not running on the service
+	Enqueued *uint64 `json:"Enqueued,omitempty"`
+
+	// How many items across all the queues are running
+	Running *uint64 `json:"Running,omitempty"`
+
+	// Record of all the channels being destroyed
+	// DestroyingChannels []*v1common.AssociatedActionQuery
 }
 
 func (queueState *QueueState) Validate() *errors.ModelError {
