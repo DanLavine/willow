@@ -15,8 +15,8 @@ can be queried with different behaviors
    We want to find all possible Channels for a Queue on the Willow service
    ```
 
-   In these cases, we are potentialy obtaining a large data set and need the common pagination tools: SORT BY,
-   ORDER ASC, LIMIT.
+   In these cases, we are potentialy obtaining a large data set and need the common pagination tools:
+   ORDER BY ... ASC/DESC, LIMIT.
 
 
 2. Actionable queries against an object in the system
@@ -34,6 +34,33 @@ can be queried with different behaviors
    and the first to respond will be selected. But `SELECT from QUEUES WHERE "ORG" = "abc" ORDER BY "ID"` would mean
    we need to query all possible value and make a request in order for each possible operation. It is doable, but
    I don't think there would be a nice way to manage this in large data sets and is overly complicated
+
+3. Pagination for single KeyValue resources
+   Example of this would be:
+   ```
+   We want to list all the queues in Willow that are defined simply by the `Name` resource
+   ```
+
+   If there are many queues, we still want to query for `SELECT * WHERE name >= [last id] && ORDER BY 'name' ASC && LIMIT 5`.
+   But there is no notion for the end user that `name` is the field as they did not define it. Perhaps the APIs need to change
+   to always allow a collection of Key + Value pairs and then the 'IDS' are always used for the API operations?
+
+4. Need a way of also declaring the last `AssociatedID`
+
+   When attempting to list all the items of something in the DB, if they don't have a `ORDER BY` key, then the
+   `AssociatedID` will be used. So we need a way of slecing the last value for that as well... Perhaps that the only thing
+   that needs to be provided when performing pagination?
+
+# DB Rules
+
+1. We record the `_associated_id` for all items saved in the trees and just return that in the future?
+2. For recording child objects, we can allways have the `_[resource]_associated_id` be used to know the parent object's value on a one-to-many relation
+3. These associated `_[resource]_...` fields can be added on the fly for many-to-one relations?
+
+# Query Rules
+
+1. the specific fields of `_` wouldn't need type restrictions as they are always strings, but maybe they are still required for a nice api?
+1. When declaring Min/MaxNumberOfKeys these do not account for any internal fields (begin with an `_`)
 
 # Workflow Problems for specific services
 
