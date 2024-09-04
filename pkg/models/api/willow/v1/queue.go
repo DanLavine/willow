@@ -2,15 +2,24 @@ package v1
 
 import (
 	"fmt"
+	"regexp"
 
 	"github.com/DanLavine/willow/pkg/models/api/common/errors"
-	v1common "github.com/DanLavine/willow/pkg/models/api/common/v1"
 	"github.com/DanLavine/willow/pkg/models/datatypes"
 )
 
 var requiredUniqueKeys = []string{"name"}
+var queueNameRexexp = regexp.MustCompile(`^[a-zA-Z0-9_]+$`)
 
 type Queue struct {
+	// Defintion of the Queue's unique tags
+	//
+	// These are constructed with a Single Key + Value that must be in the form of
+	// `{"name": {"Type": 13, "Data": "[queue name]"}}
+	// This `name` parameter is the name of the queue that can be used in the API urls and having a single value
+	// ensures that each queue is unique as the groupings of these key values define the Queue's uniqueness
+	Definition datatypes.AnyKeyValues `json:"Definition"`
+
 	// Specification fields define the object details and how it is saved in the DB
 	Spec *QueueSpec `json:"Spec"`
 
@@ -18,17 +27,37 @@ type Queue struct {
 	State *QueueState `json:"State,omitempty"`
 }
 
+func (queue Queue) validateRequiredParameters() *errors.ModelError {
+	// validate the Definition's keys
+	if err := queue.Definition.Validate(datatypes.T_string, datatypes.T_string); err != nil {
+		return &errors.ModelError{Field: "Definition", Child: err}
+	}
+	// ensure the defintion has the required unique keys
+	for _, requiredUniqueKey := range requiredUniqueKeys {
+		if name, ok := queue.Definition[requiredUniqueKey]; ok {
+			if !queueNameRexexp.MatchString(name.Data.(string)) {
+				return &errors.ModelError{Field: "Definition[name].Data", Err: fmt.Errorf("does not match the allowable characters regexp '^[a-zA-Z0-9_]+$'")}
+			}
+		} else {
+			return &errors.ModelError{Field: "Definition", Err: fmt.Errorf("missing the required key '%s'", requiredUniqueKey)}
+		}
+	}
+
+	// validate all the spec operations
+	if err := queue.ValidateSpec(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 //	RETURNS:
 //	- error - any errors encountered with the response object
 //
 // Validate is used to ensure that Create has all required fields set
 func (queue Queue) Validate() *errors.ModelError {
-	if queue.Spec == nil {
-		return &errors.ModelError{Field: "Spec", Err: fmt.Errorf("received an empty spcification")}
-	} else {
-		if err := queue.Spec.Validate(); err != nil {
-			return err
-		}
+	if err := queue.validateRequiredParameters(); err != nil {
+		return err
 	}
 
 	if queue.State == nil {
@@ -42,83 +71,51 @@ func (queue Queue) Validate() *errors.ModelError {
 	return nil
 }
 
-func (queue *Queue) ValidateSpecOnly() *errors.ModelError {
-	if queue.Spec == nil {
-		return &errors.ModelError{Field: "Spec", Err: fmt.Errorf("received an empty specification")}
-	} else {
-		if err := queue.Spec.Validate(); err != nil {
-			return &errors.ModelError{Field: "Spec", Child: err}
-		}
+func (queue Queue) ValidateUpsert() *errors.ModelError {
+	if err := queue.validateRequiredParameters(); err != nil {
+		return err
+	}
+
+	// extra check to ensure there is only one key, which is 'name'
+	if len(queue.Definition) != 1 {
+		return &errors.ModelError{Field: "Definition", Err: fmt.Errorf("must have a length of 1")}
 	}
 
 	if queue.State != nil {
-		return &errors.ModelError{Field: "State", Err: fmt.Errorf("must be null")}
+		return &errors.ModelError{Field: "State", Err: fmt.Errorf("must be empty on a create request")}
+	}
+
+	return nil
+}
+
+func (queue Queue) ValidateSpec() *errors.ModelError {
+	if queue.Spec == nil {
+		return &errors.ModelError{Field: "Spec", Err: fmt.Errorf("received an empty spcification")}
+	} else {
+		if err := queue.Spec.Validate(); err != nil {
+			return err
+		}
 	}
 
 	return nil
 }
 
 type QueueSpec struct {
-	// Defintion of the Queue's unique tags
-	Definition v1common.AnyKeyValues `json:"Definition,omitempty"`
-
-	// Properties are the configurable/updateable fields for the Rule
-	Properties *QueueProperties `json:"Properties,omitempty"`
-}
-
-func (queueSpec *QueueSpec) Validate() *errors.ModelError {
-	// validate the Definition's keys
-	if err := queueSpec.Definition.Validate(datatypes.MinDataType, datatypes.MaxWithoutAnyDataType); err != nil {
-		return &errors.ModelError{Field: "Definition", Child: err}
-	}
-
-	// ensure the defintion has the required unique keys
-	for _, requiredUniqueKey := range requiredUniqueKeys {
-		if value, ok := queueSpec.Definition[requiredUniqueKey]; ok {
-			if !value.Unique {
-				return &errors.ModelError{Field: fmt.Sprintf("Definition[%s].Unique", requiredUniqueKey), Err: fmt.Errorf("expected the value to be true, received false ")}
-			}
-		} else {
-			return &errors.ModelError{Field: "Definition", Err: fmt.Errorf("missing the required key '%s'", requiredUniqueKey)}
-		}
-	}
-
-	if queueSpec.Properties != nil {
-		if err := queueSpec.Properties.Validate(); err != nil {
-			return &errors.ModelError{Field: "Properties", Child: err}
-		}
-	}
-
-	return nil
-}
-
-type QueueDBDefinition struct {
-	// Name of the specific queue
-	Name *string `json:"Name,omitempty"`
-}
-
-func (queueDBDefinition *QueueDBDefinition) Validate() *errors.ModelError {
-	if queueDBDefinition.Name == nil {
-		return &errors.ModelError{Field: "Name", Err: fmt.Errorf("recevied a null value")}
-	}
-
-	if *queueDBDefinition.Name == "" {
-		return &errors.ModelError{Field: "Name", Err: fmt.Errorf("recevied an empty string")}
-	}
-
-	return nil
-}
-
-type QueueProperties struct {
-	// Metadta to record any arbitrary information the end user might find helpful
+	// (Optional) Metadata can be used to save any non-unique relevant information got the particular queue
 	Metadata datatypes.AnyKeyValues `json:"Metadata,omitempty"`
 
-	// Max size of the queue's eneueued and running items combined, -1 means unlimited
+	// MaxItems defines how many items can ueued and running items combined, -1 means unlimited
 	MaxItems *int64 `json:"MaxItems,omitempty"`
 }
 
-func (queueProperties *QueueProperties) Validate() *errors.ModelError {
-	if queueProperties.MaxItems == nil {
+func (queueSpec *QueueSpec) Validate() *errors.ModelError {
+	if queueSpec.Metadata != nil {
+		if err := queueSpec.Metadata.Validate(datatypes.MinDataType, datatypes.MaxDataType); err != nil {
+			return &errors.ModelError{Field: "Metadata", Child: err}
+		}
+	}
+
+	if queueSpec.MaxItems == nil {
 		return &errors.ModelError{Field: "MaxItems", Err: fmt.Errorf("recevied a null value")}
 	}
 

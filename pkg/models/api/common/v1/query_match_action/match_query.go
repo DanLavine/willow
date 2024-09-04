@@ -44,9 +44,9 @@ func KeyValuesToAnyMatchActionQuery(keyValues datatypes.KeyValues) *MatchActionQ
 
 	for key, value := range keyValues {
 		matchActionQuery.KeyValues[key] = MatchValue{
-			Value: value,
+			Value: value.EncapsulatedValue,
 			TypeRestrictions: v1.TypeRestrictions{
-				MinDataType: value.Type,
+				MinDataType: value.EncapsulatedValue.Type,
 				MaxDataType: datatypes.T_any,
 			},
 		}

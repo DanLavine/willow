@@ -94,5 +94,5 @@ I want to work on at a glance:
 
 1. ~~Have the APIs use an `Any` data type that can compare against the Key + Value pairs. This allows for the Limiter to be a queryable api~~ DONE
 2. Determine if there is a clean way to have all the `Query` APIs use common query feature set (ORDER BY, LIMIT, etc)
-   There is greater documentation [here](./docs/services/general/rfc_general_query_improvements.md) that highlights the major
+   There is greater documentation [here](./docs/services/general/queries/rfc_general_query_improvements.md) that highlights the major
    issues and their resolutions, or at least the work in progess.

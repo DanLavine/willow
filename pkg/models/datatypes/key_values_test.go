@@ -27,11 +27,11 @@ func TestKeyValues_Keys(t *testing.T) {
 
 	t.Run("it returns all keys for the map", func(t *testing.T) {
 		KeyValues := KeyValues{
-			"a": String("1"),
-			"b": String("2"),
-			"c": String("3"),
-			"d": Int(4),
-			"e": String("5"),
+			"a": Definition{EncapsulatedValue: String("1")},
+			"b": Definition{EncapsulatedValue: String("2")},
+			"c": Definition{EncapsulatedValue: String("3")},
+			"d": Definition{EncapsulatedValue: Int(4)},
+			"e": Definition{EncapsulatedValue: String("5")},
 		}
 
 		keys := KeyValues.Keys()
@@ -44,11 +44,11 @@ func TestKeyValues_SortedKeys(t *testing.T) {
 
 	t.Run("it returns all keys for the map in a sorted order", func(t *testing.T) {
 		KeyValues := KeyValues{
-			"a": String("1"),
-			"b": String("2"),
-			"c": String("3"),
-			"d": Int(4),
-			"e": String("5"),
+			"a": Definition{EncapsulatedValue: String("1")},
+			"b": Definition{EncapsulatedValue: String("2")},
+			"c": Definition{EncapsulatedValue: String("3")},
+			"d": Definition{EncapsulatedValue: Int(4)},
+			"e": Definition{EncapsulatedValue: String("5")},
 		}
 
 		keys := KeyValues.SortedKeys()
@@ -62,20 +62,20 @@ func TestKeyValues_DataEncoding(t *testing.T) {
 	t.Run("It encodes data properly through JSON", func(t *testing.T) {
 		// data to encode
 		keyValues := KeyValues{
-			"uint8":   Uint8(1),
-			"uint16":  Uint16(1),
-			"uint32":  Uint32(1),
-			"uint64":  Uint64(1),
-			"uint":    Uint(1),
-			"Int8":    Int8(1),
-			"Int16":   Int16(1),
-			"Int32":   Int32(1),
-			"Int64":   Int64(1),
-			"Int":     Int(1),
-			"Float32": Float32(1),
-			"Float64": Float64(1),
-			"String":  String("1"),
-			"Any":     Any(),
+			"uint8":   Definition{EncapsulatedValue: Uint8(1)},
+			"uint16":  Definition{EncapsulatedValue: Uint16(1)},
+			"uint32":  Definition{EncapsulatedValue: Uint32(1)},
+			"uint64":  Definition{EncapsulatedValue: Uint64(1)},
+			"uint":    Definition{EncapsulatedValue: Uint(1)},
+			"Int8":    Definition{EncapsulatedValue: Int8(1)},
+			"Int16":   Definition{EncapsulatedValue: Int16(1)},
+			"Int32":   Definition{EncapsulatedValue: Int32(1)},
+			"Int64":   Definition{EncapsulatedValue: Int64(1)},
+			"Int":     Definition{EncapsulatedValue: Int(1)},
+			"Float32": Definition{EncapsulatedValue: Float32(1)},
+			"Float64": Definition{EncapsulatedValue: Float64(1)},
+			"String":  Definition{EncapsulatedValue: String("1")},
+			"Any":     Definition{EncapsulatedValue: Any()},
 		}
 
 		data, err := json.Marshal(keyValues)

@@ -83,11 +83,11 @@ func KeyValuesToExactAssociatedActionQuery(keyValues datatypes.KeyValues) *Assoc
 
 	for key, value := range keyValues {
 		query.Selection.KeyValues[key] = ValueQuery{
-			Value:      value,
+			Value:      value.EncapsulatedValue,
 			Comparison: v1.Equals,
 			TypeRestrictions: v1.TypeRestrictions{
-				MinDataType: value.Type,
-				MaxDataType: value.Type,
+				MinDataType: value.EncapsulatedValue.Type,
+				MaxDataType: value.EncapsulatedValue.Type,
 			},
 		}
 	}

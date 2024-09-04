@@ -58,14 +58,17 @@ type RuleSpec struct {
 	//	_created_at [timestamp]
 	//	_deleted_at [timestamp]
 	//
-	// In the case of being a one-to-many relation, we could then also have
-	//	_[resorce name]_id
+	// In the case of being a one-to-many relation (one side refrences the many side), we could then also have
+	//	_one_to_many_[resource name]_id
+	// Then in the case of many-to-one relation (many side referances one side), we could then have
+	//	_many_to_one_[resource name]_id
 	// I hope this could easly spin into many-to-many relations as well?
+	//	_many_to_many_[resource name]_id
 	//
 	// Lastly, I think it would be nice to also have constraints on particular keys to make
 	// them 'unique', even if they are not the generated name. This would be particularly useful
 	//
-	// Side note, should this always be called `Definition` as a way of knowing what a user can query?
+	// Side note, should this always be called `Definition` as a way of knowing what a user ca	 n query?
 	// seems like its nice for a common "API", but it isn't the best for "naming convention"
 	Definition datatypes.AnyKeyValues `json:"Definition,omitempty"`
 

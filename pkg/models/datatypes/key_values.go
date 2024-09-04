@@ -42,8 +42,8 @@ func (kv KeyValues) Validate(minAllowedKeyType, maxAllowedKeyType DataType) *err
 		return &errors.ModelError{Err: fmt.Errorf("recieved no KeyValues, but requires a length of at least 1")}
 	}
 
-	for key, value := range kv {
-		if err := value.Validate(minAllowedKeyType, maxAllowedKeyType); err != nil {
+	for key, definition := range kv {
+		if err := definition.Validate(minAllowedKeyType, maxAllowedKeyType); err != nil {
 			return &errors.ModelError{Field: fmt.Sprintf("[%s]", key), Child: err}
 		}
 	}
