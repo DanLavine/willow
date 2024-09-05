@@ -45,11 +45,12 @@ func (m *MockRuleClient) EXPECT() *MockRuleClientMockRecorder {
 }
 
 // CreateOverride mocks base method.
-func (m *MockRuleClient) CreateOverride(arg0 context.Context, arg1 string, arg2 *v1.Override) *errors.ServerError {
+func (m *MockRuleClient) CreateOverride(arg0 context.Context, arg1 string, arg2 *v1.Override) (string, *errors.ServerError) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateOverride", arg0, arg1, arg2)
-	ret0, _ := ret[0].(*errors.ServerError)
-	return ret0
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(*errors.ServerError)
+	return ret0, ret1
 }
 
 // CreateOverride indicates an expected call of CreateOverride.
@@ -59,11 +60,12 @@ func (mr *MockRuleClientMockRecorder) CreateOverride(arg0, arg1, arg2 any) *gomo
 }
 
 // CreateRule mocks base method.
-func (m *MockRuleClient) CreateRule(arg0 context.Context, arg1 *v1.Rule) *errors.ServerError {
+func (m *MockRuleClient) CreateRule(arg0 context.Context, arg1 *v1.Rule) (string, *errors.ServerError) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateRule", arg0, arg1)
-	ret0, _ := ret[0].(*errors.ServerError)
-	return ret0
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(*errors.ServerError)
+	return ret0, ret1
 }
 
 // CreateRule indicates an expected call of CreateRule.

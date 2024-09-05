@@ -20,7 +20,7 @@ type LimiterClient interface {
 
 	// Rule operations
 	// Create a new Rule
-	CreateRule(ctx context.Context, rule *v1limiter.Rule) error
+	CreateRule(ctx context.Context, rule *v1limiter.Rule) (*v1limiter.Rule, error)
 	// Get a spcific rule by name and query the possible overrides
 	GetRule(ctx context.Context, ruleName string) (*v1limiter.Rule, error)
 	// Query Rules for specific key values
@@ -34,7 +34,7 @@ type LimiterClient interface {
 
 	// Override operations
 	// Create an Override for a particular Rule
-	CreateOverride(ctx context.Context, ruleName string, override *v1limiter.Override) error
+	CreateOverride(ctx context.Context, ruleName string, override *v1limiter.Override) (*v1limiter.Override, error)
 	// Get an Override for a particular Rule
 	GetOverride(ctx context.Context, ruleName string, overrideName string) (*v1limiter.Override, error)
 	// Query Overrides

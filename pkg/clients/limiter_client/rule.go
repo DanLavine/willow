@@ -22,38 +22,43 @@ import (
 //	- error - error creating the rule
 //
 // CreateRule creates a new Rule to enforce Counters against
-func (lc *LimitClient) CreateRule(ctx context.Context, rule *v1limiter.Rule) error {
+func (lc *LimitClient) CreateRule(ctx context.Context, rule *v1limiter.Rule) (*v1limiter.Rule, error) {
 	// encode the request
 	data, err := api.ModelEncodeRequest(rule)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// setup and make the request
 	req, err := http.NewRequest("POST", fmt.Sprintf("%s/v1/limiter/rules", lc.url), bytes.NewBuffer(data))
 	if err != nil {
-		return err
+		return nil, err
 	}
 	clients.AddHeadersFromContext(req, ctx)
 
 	resp, err := lc.client.Do(req)
 	if err != nil {
-		return nil
+		return nil, err
 	}
 
 	// parse the response
 	switch resp.StatusCode {
 	case http.StatusCreated:
-		return nil
+		ruleResp := &v1limiter.Rule{}
+		if err := api.ModelDecodeResponse(resp, ruleResp); err != nil {
+			return nil, err
+		}
+
+		return ruleResp, nil
 	case http.StatusBadRequest, http.StatusConflict, http.StatusInternalServerError:
 		apiError := &errors.Error{}
 		if err := api.ModelDecodeResponse(resp, apiError); err != nil {
-			return err
+			return nil, err
 		}
 
-		return apiError
+		return nil, apiError
 	default:
-		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
 }
 

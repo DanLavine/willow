@@ -31,7 +31,6 @@ func Test_OverrideClientLocal_CreateOverride(t *testing.T) {
 		override := &v1limiter.Override{
 			Spec: &v1limiter.OverrideSpec{
 				DBDefinition: &v1limiter.OverrideDBDefinition{
-					Name: helpers.PointerOf("test_override"),
 					GroupByKeyValues: datatypes.KeyValues{
 						"key1": datatypes.Int(1),
 					},
@@ -43,48 +42,8 @@ func Test_OverrideClientLocal_CreateOverride(t *testing.T) {
 		}
 		g.Expect(override.ValidateSpecOnly()).ToNot(HaveOccurred())
 
-		err := overrideClient.CreateOverride(testhelpers.NewContextWithMiddlewareSetup(), "test rule", override)
+		_, err := overrideClient.CreateOverride(testhelpers.NewContextWithMiddlewareSetup(), "test rule", override)
 		g.Expect(err).ToNot(HaveOccurred())
-	})
-
-	t.Run("It returns an error if the override name is already taken", func(t *testing.T) {
-		overrideClient := NewDefaultOverridesClientLocal(constructor)
-
-		override1 := &v1limiter.Override{
-			Spec: &v1limiter.OverrideSpec{
-				DBDefinition: &v1limiter.OverrideDBDefinition{
-					Name: helpers.PointerOf("test_override"),
-					GroupByKeyValues: datatypes.KeyValues{
-						"key1": datatypes.Int(1),
-					},
-				},
-				Properties: &v1limiter.OverrideProperties{
-					Limit: helpers.PointerOf[int64](3),
-				},
-			}}
-		g.Expect(override1.ValidateSpecOnly()).ToNot(HaveOccurred())
-
-		override2 := &v1limiter.Override{
-			Spec: &v1limiter.OverrideSpec{
-				DBDefinition: &v1limiter.OverrideDBDefinition{
-					Name: helpers.PointerOf("test_override"),
-					GroupByKeyValues: datatypes.KeyValues{
-						"key2": datatypes.Int(2),
-					},
-				},
-				Properties: &v1limiter.OverrideProperties{
-					Limit: helpers.PointerOf[int64](3),
-				},
-			},
-		}
-		g.Expect(override1.ValidateSpecOnly()).ToNot(HaveOccurred())
-
-		err := overrideClient.CreateOverride(testhelpers.NewContextWithMiddlewareSetup(), "test rule", override1)
-		g.Expect(err).ToNot(HaveOccurred())
-
-		err = overrideClient.CreateOverride(testhelpers.NewContextWithMiddlewareSetup(), "test rule", override2)
-		g.Expect(err).To(HaveOccurred())
-		g.Expect(err.Message).To(Equal("override Name already exists"))
 	})
 
 	t.Run("It returns an error if the override KeyValues are already taken", func(t *testing.T) {
@@ -93,7 +52,6 @@ func Test_OverrideClientLocal_CreateOverride(t *testing.T) {
 		override1 := &v1limiter.Override{
 			Spec: &v1limiter.OverrideSpec{
 				DBDefinition: &v1limiter.OverrideDBDefinition{
-					Name: helpers.PointerOf("test_override"),
 					GroupByKeyValues: datatypes.KeyValues{
 						"key1": datatypes.Int(1),
 					},
@@ -108,7 +66,6 @@ func Test_OverrideClientLocal_CreateOverride(t *testing.T) {
 		override2 := &v1limiter.Override{
 			Spec: &v1limiter.OverrideSpec{
 				DBDefinition: &v1limiter.OverrideDBDefinition{
-					Name: helpers.PointerOf("test_override2"),
 					GroupByKeyValues: datatypes.KeyValues{
 						"key1": datatypes.Int(1),
 					},
@@ -120,10 +77,10 @@ func Test_OverrideClientLocal_CreateOverride(t *testing.T) {
 		}
 		g.Expect(override1.ValidateSpecOnly()).ToNot(HaveOccurred())
 
-		err := overrideClient.CreateOverride(testhelpers.NewContextWithMiddlewareSetup(), "test rule", override1)
+		_, err := overrideClient.CreateOverride(testhelpers.NewContextWithMiddlewareSetup(), "test rule", override1)
 		g.Expect(err).ToNot(HaveOccurred())
 
-		err = overrideClient.CreateOverride(testhelpers.NewContextWithMiddlewareSetup(), "test rule", override2)
+		_, err = overrideClient.CreateOverride(testhelpers.NewContextWithMiddlewareSetup(), "test rule", override2)
 		g.Expect(err).To(HaveOccurred())
 		g.Expect(err.Message).To(Equal("override KeyValues already exists"))
 	})
@@ -133,14 +90,13 @@ func Test_OverrideClientLocal_CreateOverride(t *testing.T) {
 		mockBTreeOneToMany := btreeonetomanyfakes.NewMockBTreeOneToMany(mockController)
 		defer mockController.Finish()
 
-		mockBTreeOneToMany.EXPECT().CreateWithID(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(btreeonetomany.ErrorManyIDDestroying).Times(1)
+		mockBTreeOneToMany.EXPECT().CreateOrFind(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return("", btreeonetomany.ErrorManyIDDestroying).Times(1)
 
 		overrideClient := NewOverridesClientLocal(mockBTreeOneToMany, constructor)
 
 		override := &v1limiter.Override{
 			Spec: &v1limiter.OverrideSpec{
 				DBDefinition: &v1limiter.OverrideDBDefinition{
-					Name: helpers.PointerOf("test_override"),
 					GroupByKeyValues: datatypes.KeyValues{
 						"key1": datatypes.Int(1),
 					},
@@ -152,7 +108,7 @@ func Test_OverrideClientLocal_CreateOverride(t *testing.T) {
 		}
 		g.Expect(override.ValidateSpecOnly()).ToNot(HaveOccurred())
 
-		err := overrideClient.CreateOverride(testhelpers.NewContextWithMiddlewareSetup(), "test rule", override)
+		_, err := overrideClient.CreateOverride(testhelpers.NewContextWithMiddlewareSetup(), "test rule", override)
 		g.Expect(err).To(HaveOccurred())
 		g.Expect(err.Message).To(Equal("override is being destroy"))
 	})
@@ -162,14 +118,13 @@ func Test_OverrideClientLocal_CreateOverride(t *testing.T) {
 		mockBTreeOneToMany := btreeonetomanyfakes.NewMockBTreeOneToMany(mockController)
 		defer mockController.Finish()
 
-		mockBTreeOneToMany.EXPECT().CreateWithID(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("nope")).Times(1)
+		mockBTreeOneToMany.EXPECT().CreateOrFind(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return("", fmt.Errorf("nope")).Times(1)
 
 		overrideClient := NewOverridesClientLocal(mockBTreeOneToMany, constructor)
 
 		override := &v1limiter.Override{
 			Spec: &v1limiter.OverrideSpec{
 				DBDefinition: &v1limiter.OverrideDBDefinition{
-					Name: helpers.PointerOf("test_override"),
 					GroupByKeyValues: datatypes.KeyValues{
 						"key1": datatypes.Int(1),
 					},
@@ -181,7 +136,7 @@ func Test_OverrideClientLocal_CreateOverride(t *testing.T) {
 		}
 		g.Expect(override.ValidateSpecOnly()).ToNot(HaveOccurred())
 
-		err := overrideClient.CreateOverride(testhelpers.NewContextWithMiddlewareSetup(), "test rule", override)
+		_, err := overrideClient.CreateOverride(testhelpers.NewContextWithMiddlewareSetup(), "test rule", override)
 		g.Expect(err).To(HaveOccurred())
 		g.Expect(err.Message).To(Equal("Internal Server Error"))
 	})
@@ -208,7 +163,6 @@ func Test_OverrideClientLocal_GetOverride(t *testing.T) {
 		override := &v1limiter.Override{
 			Spec: &v1limiter.OverrideSpec{
 				DBDefinition: &v1limiter.OverrideDBDefinition{
-					Name: helpers.PointerOf("test override"),
 					GroupByKeyValues: datatypes.KeyValues{
 						"key1": datatypes.Int(1),
 					},
@@ -219,12 +173,12 @@ func Test_OverrideClientLocal_GetOverride(t *testing.T) {
 			},
 		}
 		g.Expect(override.ValidateSpecOnly()).ToNot(HaveOccurred())
-		g.Expect(overrideClient.CreateOverride(testhelpers.NewContextWithMiddlewareSetup(), "test rule", override)).ToNot(HaveOccurred())
+		overrideID, err := overrideClient.CreateOverride(testhelpers.NewContextWithMiddlewareSetup(), "test rule", override)
+		g.Expect(err).ToNot(HaveOccurred())
 
-		override, err := overrideClient.GetOverride(testhelpers.NewContextWithMiddlewareSetup(), "test rule", "test override")
+		override, err = overrideClient.GetOverride(testhelpers.NewContextWithMiddlewareSetup(), "test rule", overrideID)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(override).ToNot(BeNil())
-		g.Expect(*override.Spec.DBDefinition.Name).To(Equal("test override"))
 		g.Expect(override.Spec.DBDefinition.GroupByKeyValues).To(Equal(datatypes.KeyValues{"key1": datatypes.Int(1)}))
 		g.Expect(*override.Spec.Properties.Limit).To(Equal(int64(3)))
 	})
@@ -269,7 +223,6 @@ func Test_OverrideClientLocal_UpdateOverride(t *testing.T) {
 		overrideReq := &v1limiter.Override{
 			Spec: &v1limiter.OverrideSpec{
 				DBDefinition: &v1limiter.OverrideDBDefinition{
-					Name: helpers.PointerOf("test override"),
 					GroupByKeyValues: datatypes.KeyValues{
 						"key1": datatypes.Int(1),
 					},
@@ -280,21 +233,21 @@ func Test_OverrideClientLocal_UpdateOverride(t *testing.T) {
 			},
 		}
 		g.Expect(overrideReq.ValidateSpecOnly()).ToNot(HaveOccurred())
-		g.Expect(overrideClient.CreateOverride(testhelpers.NewContextWithMiddlewareSetup(), "test rule", overrideReq)).ToNot(HaveOccurred())
+		overrideID, err := overrideClient.CreateOverride(testhelpers.NewContextWithMiddlewareSetup(), "test rule", overrideReq)
+		g.Expect(err).ToNot(HaveOccurred())
 
 		updateReq := &v1limiter.OverrideProperties{
 			Limit: helpers.PointerOf[int64](17),
 		}
 		g.Expect(updateReq.Validate()).ToNot(HaveOccurred())
 
-		err := overrideClient.UpdateOverride(testhelpers.NewContextWithMiddlewareSetup(), "test rule", "test override", updateReq)
+		err = overrideClient.UpdateOverride(testhelpers.NewContextWithMiddlewareSetup(), "test rule", overrideID, updateReq)
 		g.Expect(err).ToNot(HaveOccurred())
 
 		// ensure override was updated
-		override, err := overrideClient.GetOverride(testhelpers.NewContextWithMiddlewareSetup(), "test rule", "test override")
+		override, err := overrideClient.GetOverride(testhelpers.NewContextWithMiddlewareSetup(), "test rule", overrideID)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(override).ToNot(BeNil())
-		g.Expect(*override.Spec.DBDefinition.Name).To(Equal("test override"))
 		g.Expect(override.Spec.DBDefinition.GroupByKeyValues).To(Equal(datatypes.KeyValues{"key1": datatypes.Int(1)}))
 		g.Expect(*override.Spec.Properties.Limit).To(Equal(int64(17)))
 	})
@@ -329,9 +282,7 @@ func Test_OverrideClientLocal_QueryOverrides(t *testing.T) {
 		for i := 0; i < 50; i++ {
 			overrideReq := &v1limiter.Override{
 				Spec: &v1limiter.OverrideSpec{
-					DBDefinition: &v1limiter.OverrideDBDefinition{
-						Name: helpers.PointerOf(fmt.Sprintf("test override %d", i)),
-					},
+					DBDefinition: &v1limiter.OverrideDBDefinition{},
 					Properties: &v1limiter.OverrideProperties{
 						Limit: helpers.PointerOf[int64](3),
 					},
@@ -345,7 +296,8 @@ func Test_OverrideClientLocal_QueryOverrides(t *testing.T) {
 			}
 
 			g.Expect(overrideReq.ValidateSpecOnly()).ToNot(HaveOccurred())
-			g.Expect(overrideClient.CreateOverride(testhelpers.NewContextWithMiddlewareSetup(), "test rule", overrideReq)).ToNot(HaveOccurred())
+			_, err := overrideClient.CreateOverride(testhelpers.NewContextWithMiddlewareSetup(), "test rule", overrideReq)
+			g.Expect(err).ToNot(HaveOccurred())
 		}
 
 		return overrideClient
@@ -451,7 +403,6 @@ func Test_OverrideClientLocal_DestroyOverride(t *testing.T) {
 		overrideReq := &v1limiter.Override{
 			Spec: &v1limiter.OverrideSpec{
 				DBDefinition: &v1limiter.OverrideDBDefinition{
-					Name: helpers.PointerOf("test_override"),
 					GroupByKeyValues: datatypes.KeyValues{
 						"key1": datatypes.Int(1),
 					},
@@ -462,9 +413,10 @@ func Test_OverrideClientLocal_DestroyOverride(t *testing.T) {
 			},
 		}
 		g.Expect(overrideReq.ValidateSpecOnly()).ToNot(HaveOccurred())
-		g.Expect(overrideClient.CreateOverride(testhelpers.NewContextWithMiddlewareSetup(), "test rule", overrideReq)).ToNot(HaveOccurred())
+		overrideID, err := overrideClient.CreateOverride(testhelpers.NewContextWithMiddlewareSetup(), "test rule", overrideReq)
+		g.Expect(err).ToNot(HaveOccurred())
 
-		err := overrideClient.DestroyOverride(testhelpers.NewContextWithMiddlewareSetup(), "test rule", "test override")
+		err = overrideClient.DestroyOverride(testhelpers.NewContextWithMiddlewareSetup(), "test rule", overrideID)
 		g.Expect(err).ToNot(HaveOccurred())
 
 		override, err := overrideClient.GetOverride(testhelpers.NewContextWithMiddlewareSetup(), "test rule", "test override")
@@ -517,7 +469,6 @@ func Test_OverrideClientLocal_DestroyOverrides(t *testing.T) {
 			overrideReq := &v1limiter.Override{
 				Spec: &v1limiter.OverrideSpec{
 					DBDefinition: &v1limiter.OverrideDBDefinition{
-						Name: helpers.PointerOf(fmt.Sprintf("test override %d", i)),
 						GroupByKeyValues: datatypes.KeyValues{
 							"key1": datatypes.Int(1),
 						},
@@ -535,7 +486,8 @@ func Test_OverrideClientLocal_DestroyOverrides(t *testing.T) {
 			}
 
 			g.Expect(overrideReq.ValidateSpecOnly()).ToNot(HaveOccurred())
-			g.Expect(overrideClient.CreateOverride(testhelpers.NewContextWithMiddlewareSetup(), "test rule", overrideReq)).ToNot(HaveOccurred())
+			_, err := overrideClient.CreateOverride(testhelpers.NewContextWithMiddlewareSetup(), "test rule", overrideReq)
+			g.Expect(err).ToNot(HaveOccurred())
 		}
 
 		err := overrideClient.DestroyOverrides(testhelpers.NewContextWithMiddlewareSetup(), "test rule")
@@ -576,7 +528,6 @@ func Test_OverrideClientLocal_FindOverrideLimits(t *testing.T) {
 			overrideReq := &v1limiter.Override{
 				Spec: &v1limiter.OverrideSpec{
 					DBDefinition: &v1limiter.OverrideDBDefinition{
-						Name: helpers.PointerOf(fmt.Sprintf("test override %d", i)),
 						GroupByKeyValues: datatypes.KeyValues{
 							"key1": datatypes.Int(1),
 						},
@@ -594,7 +545,8 @@ func Test_OverrideClientLocal_FindOverrideLimits(t *testing.T) {
 			}
 
 			g.Expect(overrideReq.ValidateSpecOnly()).ToNot(HaveOccurred())
-			g.Expect(overrideClient.CreateOverride(testhelpers.NewContextWithMiddlewareSetup(), "test rule", overrideReq)).ToNot(HaveOccurred())
+			_, err := overrideClient.CreateOverride(testhelpers.NewContextWithMiddlewareSetup(), "test rule", overrideReq)
+			g.Expect(err).ToNot(HaveOccurred())
 		}
 
 		return overrideClient

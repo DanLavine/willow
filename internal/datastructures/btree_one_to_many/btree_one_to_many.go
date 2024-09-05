@@ -73,28 +73,6 @@ type OneToManyTreeIterate func(oneToManyItem OneToManyItem) bool
 
 //go:generate mockgen -imports v1common="github.com/DanLavine/willow/pkg/models/api/common/v1" -destination=btreeonetomanyfakes/one_to_many_mock.go -package=btreeonetomanyfakes github.com/DanLavine/willow/internal/datastructures/btree_one_to_many BTreeOneToMany
 type BTreeOneToMany interface {
-	// create a new entry in the BTReeOneToMany
-	//
-	//	PARAMETERS:
-	//	- oneID - the realtionship all created items belong to.
-	//	- associatedID - associatedID for the KeyValues
-	//	- keyValues - keyValues that define the object saved in relation to the oneID
-	//	- onCreate - callback to run when the item is newly created
-	//
-	//	RETURNS:
-	//	- error - error with the parameters or the tree is already being destroyed
-	//	        1. datatypes.KeyValuesErr // error with the keyValues
-	//	        2. ErrorOneIDEmpty
-	//	        3. ErrorManyIDEmpty
-	//	        4. ErrorKeyValuesEmpty
-	//	        5. ErrorManyKeyValuesContainsReservedKeys
-	//	        6. ErrorOnCreateNil
-	//	        7. ErrorManyIDAlreadyExists
-	//	        8. ErrorManyKeyValuesAlreadyExist
-	//	        9. ErrorOneIDDestroying
-	//	        10. ErrorManyIDDestroying
-	CreateWithID(oneID string, associatedID string, keyValues datatypes.KeyValues, onCreate OneToManyTreeOnCreate) error
-
 	// create or find an entry in the BTReeOneToMany
 	//
 	//	PARAMETERS:

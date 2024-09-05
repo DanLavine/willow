@@ -29,12 +29,16 @@ func (grh *groupRuleHandler) CreateRule(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// create the group rule if it does not already exist
-	if err := grh.ruleClient.CreateRule(ctx, rule); err != nil {
+	ruleID, err := grh.ruleClient.CreateRule(ctx, rule)
+	if err != nil {
 		_, _ = api.ModelEncodeResponse(w, err.StatusCode, err)
 		return
 	}
 
-	w.WriteHeader(http.StatusCreated)
+	rule.State = &v1limiter.RuleState{
+		ID: ruleID,
+	}
+	_, _ = api.ModelEncodeResponse(w, http.StatusCreated, rule)
 }
 
 // Query rules handler
@@ -95,7 +99,7 @@ func (grh *groupRuleHandler) GetRule(w http.ResponseWriter, r *http.Request) {
 	defer logger.Debug("processed request")
 
 	namedParameters := urlrouter.GetNamedParamters(r.Context())
-	rule, err := grh.ruleClient.GetRule(ctx, namedParameters["rule_name"])
+	rule, err := grh.ruleClient.GetRule(ctx, namedParameters["rule_id"])
 	if err != nil {
 		_, _ = api.ModelEncodeResponse(w, err.StatusCode, err)
 		return
@@ -122,7 +126,7 @@ func (grh *groupRuleHandler) UpdateRule(w http.ResponseWriter, r *http.Request) 
 
 	// Update the specific rule off of the name
 	namedParameters := urlrouter.GetNamedParamters(r.Context())
-	if err := grh.ruleClient.UpdateRule(ctx, namedParameters["rule_name"], ruleUpdate); err != nil {
+	if err := grh.ruleClient.UpdateRule(ctx, namedParameters["rule_id"], ruleUpdate); err != nil {
 		_, _ = api.ModelEncodeResponse(w, err.StatusCode, err)
 		return
 	}
@@ -139,7 +143,7 @@ func (grh *groupRuleHandler) DeleteRule(w http.ResponseWriter, r *http.Request) 
 	defer logger.Debug("processed request")
 
 	namedParameters := urlrouter.GetNamedParamters(r.Context())
-	if err := grh.ruleClient.DeleteRule(ctx, namedParameters["rule_name"]); err != nil {
+	if err := grh.ruleClient.DeleteRule(ctx, namedParameters["rule_id"]); err != nil {
 		_, _ = api.ModelEncodeResponse(w, err.StatusCode, err)
 		return
 	}

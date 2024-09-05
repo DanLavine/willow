@@ -284,7 +284,11 @@ func Test_Queue_Delete(t *testing.T) {
 		g.Expect(willowClient.CreateQueue(context.Background(), createQueue)).ToNot(HaveOccurred())
 
 		// ensure the override exists before deletion
-		overrides, err := limiterClient.QueryOverrides(context.Background(), "_willow_queue_enqueued_limits", &queryassociatedaction.AssociatedActionQuery{})
+		rules, err := limiterClient.QueryRules(context.Background(), &queryassociatedaction.AssociatedActionQuery{})
+		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(len(rules)).To(Equal(1))
+
+		overrides, err := limiterClient.QueryOverrides(context.Background(), rules[0].State.ID, &queryassociatedaction.AssociatedActionQuery{})
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(len(overrides)).To(Equal(1))
 
@@ -300,7 +304,7 @@ func Test_Queue_Delete(t *testing.T) {
 		g.Expect(err.Error()).To(ContainSubstring("failed to find queue 'test queue' by name"))
 
 		// ensure the override is deleted
-		overrides, err = limiterClient.QueryOverrides(context.Background(), "_willow_queue_enqueued_limits", &queryassociatedaction.AssociatedActionQuery{})
+		overrides, err = limiterClient.QueryOverrides(context.Background(), rules[0].State.ID, &queryassociatedaction.AssociatedActionQuery{})
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(len(overrides)).To(Equal(0))
 	})

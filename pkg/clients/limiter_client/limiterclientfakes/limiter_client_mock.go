@@ -43,11 +43,12 @@ func (m *MockLimiterClient) EXPECT() *MockLimiterClientMockRecorder {
 }
 
 // CreateOverride mocks base method.
-func (m *MockLimiterClient) CreateOverride(arg0 context.Context, arg1 string, arg2 *v1.Override) error {
+func (m *MockLimiterClient) CreateOverride(arg0 context.Context, arg1 string, arg2 *v1.Override) (*v1.Override, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateOverride", arg0, arg1, arg2)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(*v1.Override)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // CreateOverride indicates an expected call of CreateOverride.
@@ -57,11 +58,12 @@ func (mr *MockLimiterClientMockRecorder) CreateOverride(arg0, arg1, arg2 any) *g
 }
 
 // CreateRule mocks base method.
-func (m *MockLimiterClient) CreateRule(arg0 context.Context, arg1 *v1.Rule) error {
+func (m *MockLimiterClient) CreateRule(arg0 context.Context, arg1 *v1.Rule) (*v1.Rule, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateRule", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(*v1.Rule)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // CreateRule indicates an expected call of CreateRule.

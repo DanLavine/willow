@@ -179,6 +179,9 @@ func (itc *IntegrationTestConstruct) Shutdown(g *WithT) {
 	session := itc.Session.Interrupt()
 	time.Sleep(time.Second)
 
+	fmt.Println(string(itc.ServerStderr.String()))
+	fmt.Println(string(itc.ServerStdout.String()))
+
 	g.Eventually(session, "2s").Should(gexec.Exit(0), func() string { return itc.ServerStdout.String() + itc.ServerStderr.String() })
 }
 

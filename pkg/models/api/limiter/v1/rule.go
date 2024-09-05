@@ -82,22 +82,11 @@ func (ruleSpec *RuleSpec) Validate() *errors.ModelError {
 }
 
 type RuleDBDefinition struct {
-	// Name to store in the DB for the Rule. This will be used in the API urls for a quick lookup
-	Name *string `json:"ID,omitempty"`
-
 	// KeyValues that define the Rule and match against all Counters
 	GroupByKeyValues datatypes.AnyKeyValues `json:"GroupByKeyValues"`
 }
 
 func (ruleDBDefinition *RuleDBDefinition) Validate() *errors.ModelError {
-	if ruleDBDefinition.Name == nil {
-		return &errors.ModelError{Field: "Name", Err: fmt.Errorf("received a null value")}
-	} else {
-		if *ruleDBDefinition.Name == "" {
-			return &errors.ModelError{Field: "Name", Err: fmt.Errorf("received an empty string")}
-		}
-	}
-
 	if err := ruleDBDefinition.GroupByKeyValues.Validate(datatypes.MinDataType, datatypes.MaxDataType); err != nil {
 		return &errors.ModelError{Field: "GroupByKeyValues", Child: err}
 	}
@@ -133,6 +122,8 @@ func (ruleProperties *RuleProperties) Validate() *errors.ModelError {
 // RuleState has all the Actionable details that affect the Rule's state and these are Read-Only specifications
 // set from the service directly
 type RuleState struct {
+	ID string `json:"ID"`
+
 	// Overrides for the particular rule
 	Overrides Overrides `json:"Overrides,omitempty"`
 

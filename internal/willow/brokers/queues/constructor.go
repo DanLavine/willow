@@ -16,7 +16,7 @@ type Queue interface {
 	ConfiguredLimit() int64
 
 	// Update the queue parameters
-	Update(ctx context.Context, queueName string, updateRequest *v1willow.QueueProperties) *errors.ServerError
+	Update(ctx context.Context, limiterRuleID string, updateRequest *v1willow.QueueProperties) *errors.ServerError
 
 	//	PARAMETERS:
 	//	- logger - Logger to record any encountered errors
@@ -29,11 +29,11 @@ type Queue interface {
 	// GetCurrentStats(logger *zap.Logger) (int64, int64, *errors.ServerError)
 
 	// destroy the queue and any dependent resources
-	Destroy(ctx context.Context, queueName string) *errors.ServerError
+	Destroy(ctx context.Context, limiterRuleID string, queueName string) *errors.ServerError
 }
 
 type QueueConstructor interface {
-	New(ctx context.Context, queue *v1willow.Queue) (Queue, *errors.ServerError)
+	New(ctx context.Context, queue *v1willow.Queue, limiterRuleID string) (Queue, *errors.ServerError)
 }
 
 func NewQueueConstructor(constructorType string, limiterClient limiterclient.LimiterClient) (QueueConstructor, error) {
@@ -51,6 +51,6 @@ type memoryConstrutor struct {
 	limiterClient limiterclient.LimiterClient
 }
 
-func (mc *memoryConstrutor) New(ctx context.Context, queue *v1willow.Queue) (Queue, *errors.ServerError) {
-	return memory.New(ctx, queue, mc.limiterClient)
+func (mc *memoryConstrutor) New(ctx context.Context, queue *v1willow.Queue, limiterRuleID string) (Queue, *errors.ServerError) {
+	return memory.New(ctx, queue, limiterRuleID, mc.limiterClient)
 }

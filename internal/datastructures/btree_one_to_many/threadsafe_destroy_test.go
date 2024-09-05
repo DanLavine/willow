@@ -29,7 +29,8 @@ func TestOneToManyTree_DestroyOne(t *testing.T) {
 
 		// create 50 items all under the same one tree
 		for i := 0; i < 50; i++ {
-			g.Expect(tree.CreateWithID("one name", fmt.Sprintf("assocID%d", i), datatypes.KeyValues{fmt.Sprintf("%d", i): datatypes.Int(i)}, func() any { return true })).ToNot(HaveOccurred())
+			_, err := tree.CreateOrFind("one name", datatypes.KeyValues{fmt.Sprintf("%d", i): datatypes.Int(i)}, func() any { return true }, func(oneToManyItem OneToManyItem) { panic("should not find") })
+			g.Expect(err).ToNot(HaveOccurred())
 		}
 
 		err := tree.DestroyOne("one name", nil)
@@ -51,7 +52,8 @@ func TestOneToManyTree_DestroyOne(t *testing.T) {
 
 		// create 50 items all under the same one tree
 		for i := 0; i < 50; i++ {
-			g.Expect(tree.CreateWithID("one name", fmt.Sprintf("assocID%d", i), datatypes.KeyValues{fmt.Sprintf("%d", i): datatypes.Int(i)}, func() any { return true })).ToNot(HaveOccurred())
+			_, err := tree.CreateOrFind("one name", datatypes.KeyValues{fmt.Sprintf("%d", i): datatypes.Int(i)}, func() any { return true }, func(oneToManyItem OneToManyItem) { panic("should not find") })
+			g.Expect(err).ToNot(HaveOccurred())
 		}
 
 		err := tree.DestroyOne("one name", func(item OneToManyItem) bool { return true })
@@ -73,7 +75,8 @@ func TestOneToManyTree_DestroyOne(t *testing.T) {
 
 		// create 50 items all under the same one tree
 		for i := 0; i < 50; i++ {
-			g.Expect(tree.CreateWithID("one name", fmt.Sprintf("assocID%d", i), datatypes.KeyValues{fmt.Sprintf("%d", i): datatypes.Int(i)}, func() any { return true })).ToNot(HaveOccurred())
+			_, err := tree.CreateOrFind("one name", datatypes.KeyValues{fmt.Sprintf("%d", i): datatypes.Int(i)}, func() any { return true }, func(oneToManyItem OneToManyItem) { panic("should not find") })
+			g.Expect(err).ToNot(HaveOccurred())
 		}
 
 		counter := 0
@@ -110,7 +113,8 @@ func TestOneToManyTree_DestroyOne(t *testing.T) {
 
 			// create 50 items all under the same one tree
 			for i := 0; i < 50; i++ {
-				g.Expect(tree.CreateWithID("one name", fmt.Sprintf("assocID%d", i), datatypes.KeyValues{fmt.Sprintf("%d", i): datatypes.Int(i)}, func() any { return true })).ToNot(HaveOccurred())
+				_, err := tree.CreateOrFind("one name", datatypes.KeyValues{fmt.Sprintf("%d", i): datatypes.Int(i)}, func() any { return true }, func(oneToManyItem OneToManyItem) { panic("should not find") })
+				g.Expect(err).ToNot(HaveOccurred())
 			}
 
 			deleting := make(chan struct{})
@@ -140,8 +144,8 @@ func TestOneToManyTree_DestroyOne(t *testing.T) {
 
 			// create 50 items all under the same one tree
 			for i := 0; i < 50; i++ {
-				g.Expect(tree.CreateWithID("one name", fmt.Sprintf("assocID%d", i), datatypes.KeyValues{fmt.Sprintf("%d", i): datatypes.Int(i)}, func() any { return true })).ToNot(HaveOccurred())
-				g.Expect(tree.CreateWithID("two name", fmt.Sprintf("assocID%d", i), datatypes.KeyValues{fmt.Sprintf("%d", i): datatypes.Int(i)}, func() any { return true })).ToNot(HaveOccurred())
+				_, err := tree.CreateOrFind("one name", datatypes.KeyValues{fmt.Sprintf("%d", i): datatypes.Int(i)}, func() any { return true }, func(oneToManyItem OneToManyItem) { panic("should not find") })
+				g.Expect(err).ToNot(HaveOccurred())
 			}
 
 			deleting := make(chan struct{})
@@ -207,7 +211,8 @@ func TestOneToManyTree_DestroyOneOfManyByID(t *testing.T) {
 
 		// create 50 items all under the same one tree
 		for i := 0; i < 50; i++ {
-			g.Expect(tree.CreateWithID("one name", fmt.Sprintf("assocID%d", i), datatypes.KeyValues{fmt.Sprintf("%d", i): datatypes.Int(i)}, func() any { return true })).ToNot(HaveOccurred())
+			_, err := tree.CreateOrFind("one name", datatypes.KeyValues{fmt.Sprintf("%d", i): datatypes.Int(i)}, func() any { return true }, func(oneToManyItem OneToManyItem) { panic("should not find") })
+			g.Expect(err).ToNot(HaveOccurred())
 		}
 
 		err := tree.DestroyOneOfManyByID("not found", "assocID13", nil)
@@ -234,7 +239,8 @@ func TestOneToManyTree_DestroyOneOfManyByID(t *testing.T) {
 
 		// create 50 items all under the same one tree
 		for i := 0; i < 50; i++ {
-			g.Expect(tree.CreateWithID("one name", fmt.Sprintf("assocID%d", i), datatypes.KeyValues{fmt.Sprintf("%d", i): datatypes.Int(i)}, func() any { return true })).ToNot(HaveOccurred())
+			_, err := tree.CreateOrFind("one name", datatypes.KeyValues{fmt.Sprintf("%d", i): datatypes.Int(i)}, func() any { return true }, func(oneToManyItem OneToManyItem) { panic("should not find") })
+			g.Expect(err).ToNot(HaveOccurred())
 		}
 
 		err := tree.DestroyOneOfManyByID("one name", "not found", nil)
@@ -260,11 +266,16 @@ func TestOneToManyTree_DestroyOneOfManyByID(t *testing.T) {
 		tree := NewThreadSafe()
 
 		// create 50 items all under the same one tree
+		var id13 string
 		for i := 0; i < 50; i++ {
-			g.Expect(tree.CreateWithID("one name", fmt.Sprintf("assocID%d", i), datatypes.KeyValues{fmt.Sprintf("%d", i): datatypes.Int(i)}, func() any { return true })).ToNot(HaveOccurred())
+			id, err := tree.CreateOrFind("one name", datatypes.KeyValues{fmt.Sprintf("%d", i): datatypes.Int(i)}, func() any { return true }, func(oneToManyItem OneToManyItem) { panic("should not find") })
+			g.Expect(err).ToNot(HaveOccurred())
+			if i == 12 {
+				id13 = id
+			}
 		}
 
-		err := tree.DestroyOneOfManyByID("one name", "assocID13", nil)
+		err := tree.DestroyOneOfManyByID("one name", id13, nil)
 		g.Expect(err).ToNot(HaveOccurred())
 
 		// ensure the tree is still valid
@@ -287,11 +298,16 @@ func TestOneToManyTree_DestroyOneOfManyByID(t *testing.T) {
 		tree := NewThreadSafe()
 
 		// create 50 items all under the same one tree
+		var id13 string
 		for i := 0; i < 50; i++ {
-			g.Expect(tree.CreateWithID("one name", fmt.Sprintf("assocID%d", i), datatypes.KeyValues{fmt.Sprintf("%d", i): datatypes.Int(i)}, func() any { return true })).ToNot(HaveOccurred())
+			id, err := tree.CreateOrFind("one name", datatypes.KeyValues{fmt.Sprintf("%d", i): datatypes.Int(i)}, func() any { return true }, func(oneToManyItem OneToManyItem) { panic("should not find") })
+			g.Expect(err).ToNot(HaveOccurred())
+			if i == 12 {
+				id13 = id
+			}
 		}
 
-		err := tree.DestroyOneOfManyByID("one name", "assocID13", func(item OneToManyItem) bool { return true })
+		err := tree.DestroyOneOfManyByID("one name", id13, func(item OneToManyItem) bool { return true })
 		g.Expect(err).ToNot(HaveOccurred())
 
 		// ensure the tree is still valid
@@ -314,11 +330,16 @@ func TestOneToManyTree_DestroyOneOfManyByID(t *testing.T) {
 		tree := NewThreadSafe()
 
 		// create 50 items all under the same one tree
+		var id13 string
 		for i := 0; i < 50; i++ {
-			g.Expect(tree.CreateWithID("one name", fmt.Sprintf("assocID%d", i), datatypes.KeyValues{fmt.Sprintf("%d", i): datatypes.Int(i)}, func() any { return true })).ToNot(HaveOccurred())
+			id, err := tree.CreateOrFind("one name", datatypes.KeyValues{fmt.Sprintf("%d", i): datatypes.Int(i)}, func() any { return true }, func(oneToManyItem OneToManyItem) { panic("should not find") })
+			g.Expect(err).ToNot(HaveOccurred())
+			if i == 12 {
+				id13 = id
+			}
 		}
 
-		err := tree.DestroyOneOfManyByID("one name", "assocID13", func(item OneToManyItem) bool { return false })
+		err := tree.DestroyOneOfManyByID("one name", id13, func(item OneToManyItem) bool { return false })
 		g.Expect(err).ToNot(HaveOccurred())
 
 		// ensure the tree is still valid
@@ -342,8 +363,13 @@ func TestOneToManyTree_DestroyOneOfManyByID(t *testing.T) {
 			tree := NewThreadSafe()
 
 			// create 50 items all under the same one tree
+			var id17 string
 			for i := 0; i < 50; i++ {
-				g.Expect(tree.CreateWithID("one name", fmt.Sprintf("assocID%d", i), datatypes.KeyValues{fmt.Sprintf("%d", i): datatypes.Int(i)}, func() any { return true })).ToNot(HaveOccurred())
+				id, err := tree.CreateOrFind("one name", datatypes.KeyValues{fmt.Sprintf("%d", i): datatypes.Int(i)}, func() any { return true }, func(oneToManyItem OneToManyItem) { panic("should not find") })
+				g.Expect(err).ToNot(HaveOccurred())
+				if i == 16 {
+					id17 = id
+				}
 			}
 
 			// call delete
@@ -358,12 +384,12 @@ func TestOneToManyTree_DestroyOneOfManyByID(t *testing.T) {
 					}
 					return true
 				}
-				_ = tree.DestroyOneOfManyByID("one name", "assocID17", canDelete)
+				_ = tree.DestroyOneOfManyByID("one name", id17, canDelete)
 			}()
 
 			g.Eventually(deleting).Should(Receive())
 
-			err := tree.DestroyOneOfManyByID("one name", "assocID17", nil)
+			err := tree.DestroyOneOfManyByID("one name", id17, nil)
 			g.Expect(err).To(Equal(ErrorManyIDDestroying))
 
 			close(deleting)
@@ -375,8 +401,13 @@ func TestOneToManyTree_DestroyOneOfManyByID(t *testing.T) {
 			tree := NewThreadSafe()
 
 			// create 50 items all under the same one tree
+			var id13 string
 			for i := 0; i < 50; i++ {
-				g.Expect(tree.CreateWithID("one name", fmt.Sprintf("assocID%d", i), datatypes.KeyValues{fmt.Sprintf("%d", i): datatypes.Int(i)}, func() any { return true })).ToNot(HaveOccurred())
+				id, err := tree.CreateOrFind("one name", datatypes.KeyValues{fmt.Sprintf("%d", i): datatypes.Int(i)}, func() any { return true }, func(oneToManyItem OneToManyItem) { panic("should not find") })
+				g.Expect(err).ToNot(HaveOccurred())
+				if i == 12 {
+					id13 = id
+				}
 			}
 
 			// call delete
@@ -391,12 +422,15 @@ func TestOneToManyTree_DestroyOneOfManyByID(t *testing.T) {
 					}
 					return true
 				}
-				_ = tree.DestroyOne("one name", canDelete)
+				err := tree.DestroyOne("one name", canDelete)
+				if err != nil {
+					panic(err)
+				}
 			}()
 
-			g.Eventually(deleting).Should(Receive())
+			g.Eventually(deleting).Should(Receive(Equal(struct{}{})))
 
-			err := tree.DestroyOneOfManyByID("one name", "assicID17", nil)
+			err := tree.DestroyOneOfManyByID("one name", id13, nil)
 			g.Expect(err).To(Equal(ErrorOneIDDestroying))
 
 			close(deleting)

@@ -57,20 +57,6 @@ func (mr *MockBTreeOneToManyMockRecorder) CreateOrFind(arg0, arg1, arg2, arg3 an
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateOrFind", reflect.TypeOf((*MockBTreeOneToMany)(nil).CreateOrFind), arg0, arg1, arg2, arg3)
 }
 
-// CreateWithID mocks base method.
-func (m *MockBTreeOneToMany) CreateWithID(arg0, arg1 string, arg2 datatypes.KeyValues, arg3 btreeonetomany.OneToManyTreeOnCreate) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateWithID", arg0, arg1, arg2, arg3)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// CreateWithID indicates an expected call of CreateWithID.
-func (mr *MockBTreeOneToManyMockRecorder) CreateWithID(arg0, arg1, arg2, arg3 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateWithID", reflect.TypeOf((*MockBTreeOneToMany)(nil).CreateWithID), arg0, arg1, arg2, arg3)
-}
-
 // DeleteOneOfManyByKeyValues mocks base method.
 func (m *MockBTreeOneToMany) DeleteOneOfManyByKeyValues(arg0 string, arg1 datatypes.KeyValues, arg2 btreeonetomany.OneToManyTreeRemove) error {
 	m.ctrl.T.Helper()

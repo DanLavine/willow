@@ -56,7 +56,6 @@ func Test_Limiter_Rules_Create(t *testing.T) {
 		rule := &v1.Rule{
 			Spec: &v1.RuleSpec{
 				DBDefinition: &v1.RuleDBDefinition{
-					Name: helpers.PointerOf[string]("rule1"),
 					GroupByKeyValues: datatypes.KeyValues{
 						"key1": datatypes.Any(),
 						"key2": datatypes.Any(),
@@ -68,7 +67,7 @@ func Test_Limiter_Rules_Create(t *testing.T) {
 			},
 		}
 
-		err := limiterClient.CreateRule(context.Background(), rule)
+		_, err := limiterClient.CreateRule(context.Background(), rule)
 		g.Expect(err).ToNot(HaveOccurred())
 	})
 }
@@ -94,7 +93,6 @@ func Test_Limiter_Rules_Get(t *testing.T) {
 		rule := &v1.Rule{
 			Spec: &v1.RuleSpec{
 				DBDefinition: &v1.RuleDBDefinition{
-					Name: helpers.PointerOf[string]("rule1"),
 					GroupByKeyValues: datatypes.KeyValues{
 						"key1": datatypes.Any(),
 						"key2": datatypes.Any(),
@@ -105,13 +103,8 @@ func Test_Limiter_Rules_Get(t *testing.T) {
 				},
 			},
 		}
-		err := limiterClient.CreateRule(context.Background(), rule)
+		ruleResp, err := limiterClient.CreateRule(context.Background(), rule)
 		g.Expect(err).ToNot(HaveOccurred())
-
-		// get the rule
-		ruleResp, err := limiterClient.GetRule(context.Background(), "rule1")
-		g.Expect(err).ToNot(HaveOccurred())
-		g.Expect(*ruleResp.Spec.DBDefinition.Name).To(Equal("rule1"))
 		g.Expect(ruleResp.Spec.DBDefinition.GroupByKeyValues).To(Equal(datatypes.KeyValues{"key1": datatypes.Any(), "key2": datatypes.Any()}))
 		g.Expect(*ruleResp.Spec.Properties.Limit).To(Equal(int64(5)))
 		g.Expect(len(ruleResp.State.Overrides)).To(Equal(0))
@@ -123,7 +116,7 @@ func Test_Limiter_Rules_List(t *testing.T) {
 
 	g := NewGomegaWithT(t)
 
-	t.Run("It can retrieve all rule", func(t *testing.T) {
+	t.Run("It can retrieve all rules", func(t *testing.T) {
 		t.Parallel()
 
 		lockerTestConstruct := StartLocker(g)
@@ -139,7 +132,6 @@ func Test_Limiter_Rules_List(t *testing.T) {
 		rule := &v1.Rule{
 			Spec: &v1.RuleSpec{
 				DBDefinition: &v1.RuleDBDefinition{
-					Name: helpers.PointerOf[string]("rule1"),
 					GroupByKeyValues: datatypes.KeyValues{
 						"key1": datatypes.Any(),
 						"key2": datatypes.Any(),
@@ -150,14 +142,13 @@ func Test_Limiter_Rules_List(t *testing.T) {
 				},
 			},
 		}
-		err := limiterClient.CreateRule(context.Background(), rule)
+		_, err := limiterClient.CreateRule(context.Background(), rule)
 		g.Expect(err).ToNot(HaveOccurred())
 
 		// get the rule
 		ruleResp, err := limiterClient.QueryRules(context.Background(), &queryassociatedaction.AssociatedActionQuery{})
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(len(ruleResp)).To(Equal(1))
-		g.Expect(*ruleResp[0].Spec.DBDefinition.Name).To(Equal("rule1"))
 		g.Expect(ruleResp[0].Spec.DBDefinition.GroupByKeyValues).To(Equal(datatypes.KeyValues{"key1": datatypes.Any(), "key2": datatypes.Any()}))
 		g.Expect(*ruleResp[0].Spec.Properties.Limit).To(Equal(int64(5)))
 		g.Expect(len(ruleResp[0].State.Overrides)).To(Equal(0))
@@ -181,19 +172,18 @@ func Test_Limiter_Rules_List(t *testing.T) {
 			rules = append(rules, v1.Rule{
 				Spec: &v1.RuleSpec{
 					DBDefinition: &v1.RuleDBDefinition{
-						Name: helpers.PointerOf(fmt.Sprintf("%d", i)),
 						GroupByKeyValues: datatypes.KeyValues{
 							fmt.Sprintf("key%d", i):   datatypes.Any(),
 							fmt.Sprintf("key%d", i+1): datatypes.Any(),
 						},
 					},
 					Properties: &v1.RuleProperties{
-						Limit: helpers.PointerOf[int64](5),
+						Limit: helpers.PointerOf[int64](int64(i)),
 					},
 				},
 			})
 
-			err := limiterClient.CreateRule(context.Background(), &rules[i])
+			_, err := limiterClient.CreateRule(context.Background(), &rules[i])
 			g.Expect(err).ToNot(HaveOccurred())
 		}
 
@@ -214,17 +204,14 @@ func Test_Limiter_Rules_List(t *testing.T) {
 
 		for i := 0; i < 2; i++ {
 			checkRule := ruleResp[i]
-			switch *ruleResp[i].Spec.DBDefinition.Name {
-			case "0":
+			switch *ruleResp[i].Spec.Properties.Limit {
+			case 0:
 				g.Expect(checkRule.Spec.DBDefinition.GroupByKeyValues).To(Equal(datatypes.KeyValues{"key0": datatypes.Any(), "key1": datatypes.Any()}))
-			case "1":
+			case 1:
 				g.Expect(checkRule.Spec.DBDefinition.GroupByKeyValues).To(Equal(datatypes.KeyValues{"key1": datatypes.Any(), "key2": datatypes.Any()}))
 			default:
 				g.Fail("unkown rule resp")
 			}
-
-			g.Expect(*checkRule.Spec.Properties.Limit).To(Equal(int64(5)))
-			g.Expect(len(checkRule.State.Overrides)).To(Equal(0))
 		}
 	})
 }
@@ -250,7 +237,6 @@ func Test_Limiter_Rules_Update(t *testing.T) {
 		rule := &v1.Rule{
 			Spec: &v1.RuleSpec{
 				DBDefinition: &v1.RuleDBDefinition{
-					Name: helpers.PointerOf[string]("rule1"),
 					GroupByKeyValues: datatypes.KeyValues{
 						"key1": datatypes.Any(),
 						"key2": datatypes.Any(),
@@ -261,13 +247,8 @@ func Test_Limiter_Rules_Update(t *testing.T) {
 				},
 			},
 		}
-		err := limiterClient.CreateRule(context.Background(), rule)
+		ruleResp, err := limiterClient.CreateRule(context.Background(), rule)
 		g.Expect(err).ToNot(HaveOccurred())
-
-		// get the rule and ensure the basic defaults
-		ruleResp, err := limiterClient.GetRule(context.Background(), "rule1")
-		g.Expect(err).ToNot(HaveOccurred())
-		g.Expect(*ruleResp.Spec.DBDefinition.Name).To(Equal("rule1"))
 		g.Expect(ruleResp.Spec.DBDefinition.GroupByKeyValues).To(Equal(datatypes.KeyValues{"key1": datatypes.Any(), "key2": datatypes.Any()}))
 		g.Expect(*ruleResp.Spec.Properties.Limit).To(Equal(int64(5)))
 		g.Expect(len(ruleResp.State.Overrides)).To(Equal(0))
@@ -276,13 +257,12 @@ func Test_Limiter_Rules_Update(t *testing.T) {
 		updateRule := &v1.RuleProperties{
 			Limit: helpers.PointerOf[int64](231),
 		}
-		err = limiterClient.UpdateRule(context.Background(), "rule1", updateRule)
+		err = limiterClient.UpdateRule(context.Background(), ruleResp.State.ID, updateRule)
 		g.Expect(err).ToNot(HaveOccurred())
 
 		// get the rule and ensure the update took
-		ruleResp, err = limiterClient.GetRule(context.Background(), "rule1")
+		ruleResp, err = limiterClient.GetRule(context.Background(), ruleResp.State.ID)
 		g.Expect(err).ToNot(HaveOccurred())
-		g.Expect(*ruleResp.Spec.DBDefinition.Name).To(Equal("rule1"))
 		g.Expect(ruleResp.Spec.DBDefinition.GroupByKeyValues).To(Equal(datatypes.KeyValues{"key1": datatypes.Any(), "key2": datatypes.Any()}))
 		g.Expect(*ruleResp.Spec.Properties.Limit).To(Equal(int64(231)))
 		g.Expect(len(ruleResp.State.Overrides)).To(Equal(0))
@@ -310,7 +290,6 @@ func Test_Limiter_Rules_Delete(t *testing.T) {
 		rule := &v1.Rule{
 			Spec: &v1.RuleSpec{
 				DBDefinition: &v1.RuleDBDefinition{
-					Name: helpers.PointerOf[string]("rule1"),
 					GroupByKeyValues: datatypes.KeyValues{
 						"key1": datatypes.Any(),
 						"key2": datatypes.Any(),
@@ -321,22 +300,18 @@ func Test_Limiter_Rules_Delete(t *testing.T) {
 				},
 			},
 		}
-		err := limiterClient.CreateRule(context.Background(), rule)
+		ruleResp, err := limiterClient.CreateRule(context.Background(), rule)
 		g.Expect(err).ToNot(HaveOccurred())
-
-		// ensure that the rule exists
-		ruleResp, err := limiterClient.GetRule(context.Background(), "rule1")
-		g.Expect(err).ToNot(HaveOccurred())
-		g.Expect(*ruleResp.Spec.DBDefinition.Name).To(Equal("rule1"))
+		g.Expect(ruleResp.State.ID).ToNot(Equal(""))
 
 		// delete the rule
-		err = limiterClient.DeleteRule(context.Background(), "rule1")
+		err = limiterClient.DeleteRule(context.Background(), ruleResp.State.ID)
 		g.Expect(err).ToNot(HaveOccurred())
 
 		// ensure the rule no longer exists
-		deleteRule, err := limiterClient.GetRule(context.Background(), "rule1")
+		deleteRule, err := limiterClient.GetRule(context.Background(), ruleResp.State.ID)
 		g.Expect(err).To(HaveOccurred())
-		g.Expect(err.Error()).To(ContainSubstring("failed to find rule 'rule1' by name"))
+		g.Expect(err.Error()).To(ContainSubstring("failed to find rule"))
 		g.Expect(deleteRule).To(BeNil())
 	})
 }

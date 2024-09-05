@@ -69,10 +69,9 @@ func main() {
 	}
 
 	// setup the rule if it does not exist for the willow limits
-	err = limiterClient.CreateRule(context.Background(), &v1.Rule{
+	ruleResp, err := limiterClient.CreateRule(context.Background(), &v1.Rule{
 		Spec: &v1.RuleSpec{
 			DBDefinition: &v1.RuleDBDefinition{
-				Name: helpers.PointerOf("_willow_queue_enqueued_limits"),
 				GroupByKeyValues: datatypes.KeyValues{
 					"_willow_queue_name": datatypes.Any(),
 					"_willow_enqueued":   datatypes.Any(),
@@ -104,12 +103,12 @@ func main() {
 	if err != nil {
 		logger.Fatal("Failed to setup queue constructor", zap.Error(err))
 	}
-	queueClient := queues.NewLocalQueueClient(queueConstructor, queueChannelsClient)
+	queueClient := queues.NewLocalQueueClient(queueConstructor, queueChannelsClient, ruleResp.State.ID)
 
 	// setup willow server
 	willowMux := urlrouter.New()
 	//// v1 api handlers
-	v1router.AddV1WillowRoutes(logger, willowMux, handlers.NewV1QueueHandler(queueClient))
+	v1router.AddV1WillowRoutes(logger, willowMux, handlers.NewV1QueueHandler(queueClient, ruleResp.State.ID))
 	taskManager.AddTask("tcp_server", api.NewWillowTCP(logger, cfg, willowMux))
 
 	// start all processes

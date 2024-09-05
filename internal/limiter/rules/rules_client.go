@@ -21,27 +21,27 @@ import (
 type RuleClient interface {
 	// rule operations
 	//// create
-	CreateRule(ctx context.Context, rule *v1limiter.Rule) *errors.ServerError
+	CreateRule(ctx context.Context, rule *v1limiter.Rule) (string, *errors.ServerError)
 	//// update
-	UpdateRule(ctx context.Context, ruleName string, update *v1limiter.RuleProperties) *errors.ServerError
+	UpdateRule(ctx context.Context, ruleID string, update *v1limiter.RuleProperties) *errors.ServerError
 	//// read
 	QueryRules(ctx context.Context, query *queryassociatedaction.AssociatedActionQuery) (v1limiter.Rules, *errors.ServerError)
 	MatchRules(ctx context.Context, match *querymatchaction.MatchActionQuery) (v1limiter.Rules, *errors.ServerError)
-	GetRule(ctx context.Context, ruleName string) (*v1limiter.Rule, *errors.ServerError)
+	GetRule(ctx context.Context, ruleID string) (*v1limiter.Rule, *errors.ServerError)
 	//// delete operations
-	DeleteRule(ctx context.Context, ruleName string) *errors.ServerError
+	DeleteRule(ctx context.Context, ruleID string) *errors.ServerError
 
 	// override operations
 	//// create
-	CreateOverride(ctx context.Context, ruleName string, override *v1limiter.Override) *errors.ServerError
+	CreateOverride(ctx context.Context, ruleID string, override *v1limiter.Override) (string, *errors.ServerError)
 	//// update
-	UpdateOverride(ctx context.Context, ruleName string, overrideName string, override *v1limiter.OverrideProperties) *errors.ServerError
+	UpdateOverride(ctx context.Context, ruleID string, overrideName string, override *v1limiter.OverrideProperties) *errors.ServerError
 	//// read
-	QueryOverrides(ctx context.Context, ruleName string, query *queryassociatedaction.AssociatedActionQuery) (v1limiter.Overrides, *errors.ServerError)
-	MatchOverrides(ctx context.Context, ruleName string, match *querymatchaction.MatchActionQuery) (v1limiter.Overrides, *errors.ServerError)
-	GetOverride(ctx context.Context, ruleName string, overrideName string) (*v1limiter.Override, *errors.ServerError)
+	QueryOverrides(ctx context.Context, ruleID string, query *queryassociatedaction.AssociatedActionQuery) (v1limiter.Overrides, *errors.ServerError)
+	MatchOverrides(ctx context.Context, ruleID string, match *querymatchaction.MatchActionQuery) (v1limiter.Overrides, *errors.ServerError)
+	GetOverride(ctx context.Context, ruleID string, overrideName string) (*v1limiter.Override, *errors.ServerError)
 	//// delete
-	DeleteOverride(ctx context.Context, ruleName string, overrideName string) *errors.ServerError
+	DeleteOverride(ctx context.Context, ruleID string, overrideName string) *errors.ServerError
 
 	// Logical operations
 	//// FindLmits is similar to MatchRules, but has special logic to bail early if it notices a Rule or Override have a limit of 0

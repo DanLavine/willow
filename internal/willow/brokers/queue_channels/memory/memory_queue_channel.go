@@ -199,7 +199,7 @@ func (mqc *memoryQueueChannel) Execute(ctx context.Context) error {
 					// for each rule, query the counters to know if there is an issue
 					underLimit := true
 					for _, rule := range rules {
-						overrides, err := mqc.limiterClient.MatchOverrides(context.Background(), *rule.Spec.DBDefinition.Name, querymatchaction.KeyValuesToAnyMatchActionQuery(erroredKeyValues))
+						overrides, err := mqc.limiterClient.MatchOverrides(context.Background(), rule.State.ID, querymatchaction.KeyValuesToAnyMatchActionQuery(erroredKeyValues))
 						if err != nil {
 							panic(err)
 						}

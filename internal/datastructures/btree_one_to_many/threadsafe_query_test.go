@@ -50,7 +50,7 @@ func TestOneToManyTree_QueryAction(t *testing.T) {
 
 		// create 50 items all under the same one tree
 		for i := 0; i < 50; i++ {
-			g.Expect(tree.CreateWithID("one name", fmt.Sprintf("assocID%d", i), datatypes.KeyValues{fmt.Sprintf("%d", i): datatypes.Int(i)}, func() any { return fmt.Sprintf("%d", i) })).ToNot(HaveOccurred())
+			tree.CreateOrFind("one name", datatypes.KeyValues{fmt.Sprintf("%d", i): datatypes.Int(i)}, func() any { return fmt.Sprintf("%d", i) }, func(oneToManyItem OneToManyItem) { panic("no") })
 		}
 
 		foundPagination := []string{}
