@@ -236,18 +236,6 @@ func TestAssociated_Random_Create(t *testing.T) {
 				_, err := associatedTree.Create(keys, noOpOnCreate)
 				g.Expect(err).ToNot(HaveOccurred())
 			}(i)
-
-			// CreateWithID
-			wg.Add(1)
-			go func(tNum int) {
-				defer wg.Done()
-
-				// generate a key with a few different types
-				keys := datatypes.KeyValues{fmt.Sprintf("%d", tNum+(2*testCounter)): datatypes.String(fmt.Sprintf("%d", tNum))}
-
-				err := associatedTree.CreateWithID(fmt.Sprintf("%d", tNum), keys, noOpOnCreate)
-				g.Expect(err).ToNot(HaveOccurred())
-			}(i)
 		}
 
 		wg.Wait()
@@ -300,18 +288,6 @@ func TestAssociated_Random_Delete(t *testing.T) {
 				keys := datatypes.KeyValues{fmt.Sprintf("%d", tNum+testCounter): datatypes.String(fmt.Sprintf("%d", tNum))}
 
 				_, err := associatedTree.Create(keys, func() any { return tNum })
-				g.Expect(err).ToNot(HaveOccurred())
-			}(i)
-
-			wg.Add(1)
-			// create with ID
-			go func(tNum int) {
-				defer wg.Done()
-
-				// generate a key with a few different types
-				keys := datatypes.KeyValues{fmt.Sprintf("%d", tNum+(2*testCounter)): datatypes.String(fmt.Sprintf("%d", tNum))}
-
-				err := associatedTree.CreateWithID(fmt.Sprintf("%d", tNum), keys, func() any { return tNum })
 				g.Expect(err).ToNot(HaveOccurred())
 			}(i)
 		}
@@ -476,18 +452,6 @@ func TestAssociated_Random_AllActions(t *testing.T) {
 				g.Expect(err).ToNot(HaveOccurred())
 			}(i)
 
-			// create with id
-			wg.Add(1)
-			go func(tNum int) {
-				defer wg.Done()
-
-				// generate a key with a few different types
-				keys := datatypes.KeyValues{fmt.Sprintf("%d", tNum+(2*testCounter)): datatypes.String(fmt.Sprintf("%d", tNum))}
-
-				err := associatedTree.CreateWithID(fmt.Sprintf("%d", tNum), keys, basicCreate)
-				g.Expect(err).ToNot(HaveOccurred())
-			}(i)
-
 			// delete
 			wg.Add(1)
 			go func(tNum int) {
@@ -593,18 +557,6 @@ func TestAssociated_Random_AllActions_WithDestroy(t *testing.T) {
 				keys := datatypes.KeyValues{fmt.Sprintf("%d", tNum+testCounter): datatypes.String(fmt.Sprintf("%d", tNum))}
 
 				_, err := associatedTree.Create(keys, basicCreate)
-				g.Expect(err).To(Or(BeNil(), Equal(ErrorTreeDestroying)))
-			}(i)
-
-			// create with id
-			wg.Add(1)
-			go func(tNum int) {
-				defer wg.Done()
-
-				// generate a key with a few different types
-				keys := datatypes.KeyValues{fmt.Sprintf("%d", tNum+(2*testCounter)): datatypes.String(fmt.Sprintf("%d", tNum))}
-
-				err := associatedTree.CreateWithID(fmt.Sprintf("%d", tNum), keys, basicCreate)
 				g.Expect(err).To(Or(BeNil(), Equal(ErrorTreeDestroying)))
 			}(i)
 

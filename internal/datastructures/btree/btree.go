@@ -126,15 +126,6 @@ type BTree interface {
 	// Iterare over all items where the key's are greater than or equal to the provided value
 	FindGreaterThanOrEqual(key datatypes.EncapsulatedValue, typeRestrictions v1common.TypeRestrictions, callback BTreeIterate) error
 
-	// Iterate over the tree and for each value found invoke the callback with the node's value
-	//
-	// PARAMS:
-	// - callback - Each value in the BTree will run the provided callback
-	//
-	// RETURNS:
-	// - error - any errors with parameters encontered. I.E. callback is nil
-	//Iterate(typeRestrictions v1common.TypeRestrictions, callback BTreeIterate) error
-
 	// Delete a keyValue from the BTree for the given Key. If the key does not exist
 	// in the tree then this performs a no-op. If the key is nil, then Delete will panic
 	//

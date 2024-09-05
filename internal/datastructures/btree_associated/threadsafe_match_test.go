@@ -30,16 +30,16 @@ func TestAssociated_MatchAction(t *testing.T) {
 		keyValues8 := datatypes.KeyValues{"name": datatypes.String("rule8"), "key1": datatypes.String(""), "key2": datatypes.String("")}
 		keyValues9 := datatypes.KeyValues{"name": datatypes.String("rule9"), "key1": datatypes.String(""), "key2": datatypes.String("")}
 
-		g.Expect(associatedTree.CreateWithID("0", keyValues0, func() any { return "10" })).ToNot(HaveOccurred())
-		g.Expect(associatedTree.CreateWithID("1", keyValues1, func() any { return "1" })).ToNot(HaveOccurred())
-		g.Expect(associatedTree.CreateWithID("2", keyValues2, func() any { return "2" })).ToNot(HaveOccurred())
-		g.Expect(associatedTree.CreateWithID("3", keyValues3, func() any { return "3" })).ToNot(HaveOccurred())
-		g.Expect(associatedTree.CreateWithID("4", keyValues4, func() any { return "4" })).ToNot(HaveOccurred())
-		g.Expect(associatedTree.CreateWithID("5", keyValues5, func() any { return "5" })).ToNot(HaveOccurred())
-		g.Expect(associatedTree.CreateWithID("rule6", keyValues6, func() any { return "6" })).ToNot(HaveOccurred())
-		g.Expect(associatedTree.CreateWithID("rule7", keyValues7, func() any { return "7" })).ToNot(HaveOccurred())
-		g.Expect(associatedTree.CreateWithID("rule8", keyValues8, func() any { return "8" })).ToNot(HaveOccurred())
-		g.Expect(associatedTree.CreateWithID("rule9", keyValues9, func() any { return "9" })).ToNot(HaveOccurred())
+		associatedTree.Create(keyValues0, func() any { return "10" })
+		associatedTree.Create(keyValues1, func() any { return "1" })
+		associatedTree.Create(keyValues2, func() any { return "2" })
+		associatedTree.Create(keyValues3, func() any { return "3" })
+		associatedTree.Create(keyValues4, func() any { return "4" })
+		associatedTree.Create(keyValues5, func() any { return "5" })
+		associatedTree.Create(keyValues6, func() any { return "6" })
+		associatedTree.Create(keyValues7, func() any { return "7" })
+		associatedTree.Create(keyValues8, func() any { return "8" })
+		associatedTree.Create(keyValues9, func() any { return "9" })
 
 		return associatedTree
 	}

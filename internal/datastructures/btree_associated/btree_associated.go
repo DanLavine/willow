@@ -122,12 +122,6 @@ type BTreeAssociated interface {
 	// 1. if the KeyValues already exists when creating the associated item in the tree
 	Create(keyValues datatypes.KeyValues, onCreate BTreeAssociatedOnCreate) (string, error)
 
-	// CreateWithID an item in the associated tree.
-	// Returns an error if
-	// 1. the associatedID already exists
-	// 2. if the KeyValues already exists when creating the associated item in the tree
-	CreateWithID(associatedID string, keyValues datatypes.KeyValues, onCreate BTreeAssociatedOnCreate) error
-
 	// Create or Find an item in the association tree
 	CreateOrFind(keyValues datatypes.KeyValues, onCreate BTreeAssociatedOnCreate, onFind BTreeAssociatedOnFind) (string, error)
 

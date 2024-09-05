@@ -16,8 +16,9 @@ func TestAssociatedTree_DestroyByAssociatedID(t *testing.T) {
 
 	noOpOnCreate := func() any { return "find me" }
 
-	setupTree := func(g *GomegaWithT) *threadsafeAssociatedTree {
+	setupTree := func(g *GomegaWithT) ([]string, *threadsafeAssociatedTree) {
 		associatedTree := NewThreadSafe()
+		ids := []string{}
 
 		// generate a key with a few different lengths
 		for i := 0; i < 100; i++ {
@@ -27,18 +28,20 @@ func TestAssociatedTree_DestroyByAssociatedID(t *testing.T) {
 			} else {
 				keys = datatypes.KeyValues{fmt.Sprintf("key%d", i): datatypes.String(fmt.Sprintf("val%d", i))}
 			}
-			g.Expect(associatedTree.CreateWithID(fmt.Sprintf("%d", i), keys, noOpOnCreate)).ToNot(HaveOccurred())
+			id, err := associatedTree.Create(keys, noOpOnCreate)
+			g.Expect(err).ToNot(HaveOccurred())
+			ids = append(ids, id)
 		}
 
-		return associatedTree
+		return ids, associatedTree
 	}
 
 	t.Run("It returns an error if the key is already being destroyed", func(t *testing.T) {
-		associatedTree := setupTree(g)
+		ids, associatedTree := setupTree(g)
 
 		destroyingChan := make(chan struct{})
 		go func() {
-			_ = associatedTree.DestroyByAssociatedID("17", func(item AssociatedKeyValues) bool {
+			_ = associatedTree.DestroyByAssociatedID(ids[16], func(item AssociatedKeyValues) bool {
 				destroyingChan <- struct{}{}
 				<-destroyingChan
 				return true
@@ -47,13 +50,13 @@ func TestAssociatedTree_DestroyByAssociatedID(t *testing.T) {
 
 		g.Eventually(destroyingChan).Should(Receive())
 
-		err := associatedTree.DestroyByAssociatedID("17", nil)
+		err := associatedTree.DestroyByAssociatedID(ids[16], nil)
 		g.Expect(err).To(Equal(ErrorTreeItemDestroying))
 		close(destroyingChan)
 	})
 
 	t.Run("It returns an error if the tree is already being destroyed", func(t *testing.T) {
-		associatedTree := setupTree(g)
+		ids, associatedTree := setupTree(g)
 
 		destroyingChan := make(chan struct{})
 		go func() {
@@ -70,15 +73,15 @@ func TestAssociatedTree_DestroyByAssociatedID(t *testing.T) {
 
 		g.Eventually(destroyingChan).Should(Receive())
 
-		err := associatedTree.DestroyByAssociatedID("17", nil)
+		err := associatedTree.DestroyByAssociatedID(ids[16], nil)
 		g.Expect(err).To(Equal(ErrorTreeDestroying))
 		close(destroyingChan)
 	})
 
 	t.Run("It deletes the associatedID everything if the callback is nil", func(t *testing.T) {
-		associatedTree := setupTree(g)
+		ids, associatedTree := setupTree(g)
 
-		err := associatedTree.DestroyByAssociatedID("17", nil)
+		err := associatedTree.DestroyByAssociatedID(ids[16], nil)
 		g.Expect(err).ToNot(HaveOccurred())
 
 		// ensure the ID is missing
@@ -89,7 +92,7 @@ func TestAssociatedTree_DestroyByAssociatedID(t *testing.T) {
 		}
 		g.Expect(associatedTree.QueryAction(&queryassociatedaction.AssociatedActionQuery{}, queryAll)).ToNot(HaveOccurred())
 		g.Expect(len(associatedIDs)).To(Equal(99))
-		g.Expect(associatedIDs).ToNot(ContainElement("17"))
+		g.Expect(associatedIDs).ToNot(ContainElement(ids[16]))
 
 		// ensure that the idnodes are in a valid state
 		identifiers := map[string][]int{}
@@ -129,16 +132,16 @@ func TestAssociatedTree_DestroyByAssociatedID(t *testing.T) {
 			}
 		}
 
-		g.Expect(keysOne).ToNot(ContainElement("17"))
-		g.Expect(keysTwo).ToNot(ContainElement("17"))
+		g.Expect(keysOne).ToNot(ContainElement(ids[16]))
+		g.Expect(keysTwo).ToNot(ContainElement(ids[16]))
 		g.Expect(keysTwo).ToNot(ContainElements(keysOne))
 		g.Expect(len(keysOne) + len(keysTwo)).To(Equal(99))
 	})
 
 	t.Run("It deletes the key value pair if the onDelete callback returns true", func(t *testing.T) {
-		associatedTree := setupTree(g)
+		ids, associatedTree := setupTree(g)
 
-		err := associatedTree.DestroyByAssociatedID("17", func(item AssociatedKeyValues) bool { return true })
+		err := associatedTree.DestroyByAssociatedID(ids[16], func(item AssociatedKeyValues) bool { return true })
 		g.Expect(err).ToNot(HaveOccurred())
 
 		// ensure the ID is missing
@@ -149,7 +152,7 @@ func TestAssociatedTree_DestroyByAssociatedID(t *testing.T) {
 		}
 		g.Expect(associatedTree.QueryAction(&queryassociatedaction.AssociatedActionQuery{}, queryAll)).ToNot(HaveOccurred())
 		g.Expect(len(associatedIDs)).To(Equal(99))
-		g.Expect(associatedIDs).ToNot(ContainElement("17"))
+		g.Expect(associatedIDs).ToNot(ContainElement(ids[16]))
 
 		// ensure that the idnodes are in a valid state
 		identifiers := map[string][]int{}
@@ -189,17 +192,17 @@ func TestAssociatedTree_DestroyByAssociatedID(t *testing.T) {
 			}
 		}
 
-		g.Expect(keysOne).ToNot(ContainElement("17"))
-		g.Expect(keysTwo).ToNot(ContainElement("17"))
+		g.Expect(keysOne).ToNot(ContainElement(ids[16]))
+		g.Expect(keysTwo).ToNot(ContainElement(ids[16]))
 		g.Expect(keysTwo).ToNot(ContainElements(keysOne))
 		g.Expect(len(keysOne) + len(keysTwo)).To(Equal(99))
 	})
 
 	t.Run("Context when onDelete callback returns false", func(t *testing.T) {
 		t.Run("It does not destroy the item and preserves the ID tree", func(t *testing.T) {
-			associatedTree := setupTree(g)
+			ids, associatedTree := setupTree(g)
 
-			err := associatedTree.DestroyByAssociatedID("17", func(item AssociatedKeyValues) bool { return false })
+			err := associatedTree.DestroyByAssociatedID(ids[17], func(item AssociatedKeyValues) bool { return false })
 			g.Expect(err).ToNot(HaveOccurred())
 
 			// ensure the ID is missing
@@ -210,7 +213,7 @@ func TestAssociatedTree_DestroyByAssociatedID(t *testing.T) {
 			}
 			g.Expect(associatedTree.QueryAction(&queryassociatedaction.AssociatedActionQuery{}, queryAll)).ToNot(HaveOccurred())
 			g.Expect(len(associatedIDs)).To(Equal(100))
-			g.Expect(associatedIDs).To(ContainElement("17"))
+			g.Expect(associatedIDs).To(ContainElement(ids[17]))
 
 			// ensure that the idnodes are in a valid state
 			identifiers := map[string][]int{}
@@ -250,8 +253,8 @@ func TestAssociatedTree_DestroyByAssociatedID(t *testing.T) {
 				}
 			}
 
-			g.Expect(keysOne).To(ContainElement("17"))
-			g.Expect(keysTwo).ToNot(ContainElement("17"))
+			g.Expect(keysOne).To(ContainElement(ids[17]))
+			g.Expect(keysTwo).ToNot(ContainElement(ids[17]))
 			g.Expect(keysTwo).ToNot(ContainElements(keysOne))
 			g.Expect(len(keysOne) + len(keysTwo)).To(Equal(100))
 		})
@@ -274,7 +277,8 @@ func TestAssociatedTree_DestroyTree(t *testing.T) {
 			} else {
 				keys = datatypes.KeyValues{fmt.Sprintf("key%d", i): datatypes.String(fmt.Sprintf("val%d", i))}
 			}
-			g.Expect(associatedTree.CreateWithID(fmt.Sprintf("%d", i), keys, noOpOnCreate)).ToNot(HaveOccurred())
+			_, err := associatedTree.Create(keys, noOpOnCreate)
+			g.Expect(err).ToNot(HaveOccurred())
 		}
 
 		return associatedTree
