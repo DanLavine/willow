@@ -25,38 +25,43 @@ import (
 // CreateOverride creates a new Override for a particular rule. It is important to Note that the `Override.KeyValues` must
 // include the `Rule.GroubBy` Keys. At least for now, I like this enforcement to make the Overrides easier to reason about
 // that they should be for a specific grouping of KeyValue items.
-func (lc *LimitClient) CreateOverride(ctx context.Context, ruleName string, override *v1limiter.Override) error {
+func (lc *LimitClient) CreateOverride(ctx context.Context, ruleName string, override *v1limiter.Override) (*v1limiter.Override, error) {
 	// encode the request
 	data, err := api.ObjectEncodeRequest(override)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// setup and make the request
 	req, err := http.NewRequest("POST", fmt.Sprintf("%s/v1/limiter/rules/%s/overrides", lc.url, ruleName), bytes.NewBuffer(data))
 	if err != nil {
-		return err
+		return nil, err
 	}
 	clients.AddHeadersFromContext(req, ctx)
 
 	resp, err := lc.client.Do(req)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// parse the response
 	switch resp.StatusCode {
 	case http.StatusCreated:
-		return nil
+		override := &v1limiter.Override{}
+		if err := api.ModelDecodeResponse(resp, override); err != nil {
+			return nil, err
+		}
+
+		return override, nil
 	case http.StatusBadRequest, http.StatusNotFound, http.StatusConflict, http.StatusInternalServerError:
 		apiError := &errors.Error{}
 		if err := api.ModelDecodeResponse(resp, apiError); err != nil {
-			return err
+			return nil, err
 		}
 
-		return apiError
+		return nil, apiError
 	default:
-		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
 }
 

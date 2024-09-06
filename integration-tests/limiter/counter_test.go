@@ -28,7 +28,6 @@ func Test_Limiter_Counters_Update(t *testing.T) {
 		rule := &v1.Rule{
 			Spec: &v1.RuleSpec{
 				DBDefinition: &v1.RuleDBDefinition{
-					Name: helpers.PointerOf[string]("rule1"),
 					GroupByKeyValues: datatypes.KeyValues{
 						"key0": datatypes.Any(),
 					},
@@ -39,7 +38,7 @@ func Test_Limiter_Counters_Update(t *testing.T) {
 			},
 		}
 
-		err := limiterClient.CreateRule(context.Background(), rule)
+		_, err := limiterClient.CreateRule(context.Background(), rule)
 		g.Expect(err).ToNot(HaveOccurred())
 	}
 
@@ -95,7 +94,7 @@ func Test_Limiter_Counters_Update(t *testing.T) {
 			}
 			err := limiterClient.UpdateCounter(context.Background(), counter)
 			g.Expect(err).To(HaveOccurred())
-			g.Expect(err.Error()).To(ContainSubstring("Limit has already been reached for rule 'rule1'"))
+			g.Expect(err.Error()).To(ContainSubstring("Limit has already been reached for rule"))
 		})
 	})
 
@@ -181,7 +180,7 @@ func Test_Limiter_Counters_Update(t *testing.T) {
 			}
 			err := limiterClient.UpdateCounter(context.Background(), incrementCounter)
 			g.Expect(err).To(HaveOccurred())
-			g.Expect(err.Error()).To(ContainSubstring("Limit has already been reached for rule 'rule1'"))
+			g.Expect(err.Error()).To(ContainSubstring("Limit has already been reached for rule"))
 
 			// perform a decrement
 			decrementCounter := &v1.Counter{
@@ -355,7 +354,6 @@ func Test_Limiter_Counters_Set(t *testing.T) {
 		rule := &v1.Rule{
 			Spec: &v1.RuleSpec{
 				DBDefinition: &v1.RuleDBDefinition{
-					Name: helpers.PointerOf[string]("rule1"),
 					GroupByKeyValues: datatypes.KeyValues{
 						"key1": datatypes.Any(),
 						"key2": datatypes.Any(),
@@ -366,7 +364,8 @@ func Test_Limiter_Counters_Set(t *testing.T) {
 				},
 			},
 		}
-		g.Expect(limiterClient.CreateRule(context.Background(), rule)).ToNot(HaveOccurred())
+		_, err := limiterClient.CreateRule(context.Background(), rule)
+		g.Expect(err).ToNot(HaveOccurred())
 
 		// set a counter for the rule thats above the count
 		kv1 := datatypes.KeyValues{
@@ -423,7 +422,6 @@ func Test_Limiter_Counters_Set(t *testing.T) {
 		rule := &v1.Rule{
 			Spec: &v1.RuleSpec{
 				DBDefinition: &v1.RuleDBDefinition{
-					Name: helpers.PointerOf[string]("rule1"),
 					GroupByKeyValues: datatypes.KeyValues{
 						"key1": datatypes.Any(),
 						"key2": datatypes.Any(),
@@ -434,7 +432,8 @@ func Test_Limiter_Counters_Set(t *testing.T) {
 				},
 			},
 		}
-		g.Expect(limiterClient.CreateRule(context.Background(), rule)).ToNot(HaveOccurred())
+		_, err := limiterClient.CreateRule(context.Background(), rule)
+		g.Expect(err).ToNot(HaveOccurred())
 
 		// set a counter for the rule thats above the count
 		kv1 := datatypes.KeyValues{

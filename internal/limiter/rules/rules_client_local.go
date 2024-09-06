@@ -49,7 +49,7 @@ func NewLocalRulesClient(ruleConstructor RuleConstructor, overridesClient overri
 //	- *errors.ServerError - error response for the client if something unexpected happens
 //
 // Create new Rule
-func (rm *localRulesCient) CreateRule(ctx context.Context, rule *v1limiter.Rule) *errors.ServerError {
+func (rm *localRulesCient) CreateRule(ctx context.Context, rule *v1limiter.Rule) (string, *errors.ServerError) {
 	_, logger := middleware.GetNamedMiddlewareLogger(ctx, "CreateRule")
 
 	onCreate := func() any {
@@ -57,24 +57,25 @@ func (rm *localRulesCient) CreateRule(ctx context.Context, rule *v1limiter.Rule)
 	}
 
 	// create the rule only if the name is free
-	if err := rm.rules.CreateWithID(*rule.Spec.DBDefinition.Name, rule.Spec.DBDefinition.GroupByKeyValues, onCreate); err != nil {
+	id, err := rm.rules.Create(rule.Spec.DBDefinition.GroupByKeyValues, onCreate)
+	if err != nil {
 		switch err {
 		case btreeassociated.ErrorTreeItemDestroying:
 			logger.Warn("failed to create rule. rule is currently being destroy")
-			return &errors.ServerError{Message: "failed to create rule. Previous rule is still in the process of destroying", StatusCode: http.StatusConflict}
+			return "", &errors.ServerError{Message: "failed to create rule. Previous rule is still in the process of destroying", StatusCode: http.StatusConflict}
 		case btreeassociated.ErrorKeyValuesAlreadyExists:
 			logger.Warn("failed to create new rule because keys exist", zap.Error(err))
-			return &errors.ServerError{Message: "failed to create rule. GroupBy keys already in use by another rule", StatusCode: http.StatusConflict}
+			return "", &errors.ServerError{Message: "failed to create rule. GroupBy keys already in use by another rule", StatusCode: http.StatusConflict}
 		case btreeassociated.ErrorAssociatedIDAlreadyExists:
 			logger.Warn("failed to create new rule because name exist", zap.Error(err))
-			return &errors.ServerError{Message: "failed to create rule. Name is already in use", StatusCode: http.StatusConflict}
+			return "", &errors.ServerError{Message: "failed to create rule. Name is already in use", StatusCode: http.StatusConflict}
 		default:
 			logger.Error("failed to create or find a new rule", zap.Error(err))
-			return &errors.ServerError{Message: "failed to create, unexpected error.", StatusCode: http.StatusInternalServerError}
+			return "", &errors.ServerError{Message: "failed to create, unexpected error.", StatusCode: http.StatusInternalServerError}
 		}
 	}
 
-	return nil
+	return id, nil
 }
 
 // list all group rules that the query matches
@@ -88,7 +89,6 @@ func (rm *localRulesCient) QueryRules(ctx context.Context, ruleQuery *queryassoc
 		foundRules = append(foundRules, &v1limiter.Rule{
 			Spec: &v1limiter.RuleSpec{
 				DBDefinition: &v1limiter.RuleDBDefinition{
-					Name:             helpers.PointerOf(associatedKeyValues.AssociatedID()),
 					GroupByKeyValues: associatedKeyValues.KeyValues(),
 				},
 				Properties: &v1limiter.RuleProperties{
@@ -96,6 +96,7 @@ func (rm *localRulesCient) QueryRules(ctx context.Context, ruleQuery *queryassoc
 				},
 			},
 			State: &v1limiter.RuleState{
+				ID:        associatedKeyValues.AssociatedID(),
 				Overrides: v1limiter.Overrides{},
 			},
 		})
@@ -122,7 +123,6 @@ func (rm *localRulesCient) MatchRules(ctx context.Context, ruleMatch *querymatch
 		foundRules = append(foundRules, &v1limiter.Rule{
 			Spec: &v1limiter.RuleSpec{
 				DBDefinition: &v1limiter.RuleDBDefinition{
-					Name:             helpers.PointerOf(associatedKeyValues.AssociatedID()),
 					GroupByKeyValues: associatedKeyValues.KeyValues(),
 				},
 				Properties: &v1limiter.RuleProperties{
@@ -130,6 +130,7 @@ func (rm *localRulesCient) MatchRules(ctx context.Context, ruleMatch *querymatch
 				},
 			},
 			State: &v1limiter.RuleState{
+				ID:        associatedKeyValues.AssociatedID(),
 				Overrides: v1limiter.Overrides{},
 			},
 		})
@@ -166,7 +167,6 @@ func (rm *localRulesCient) GetRule(ctx context.Context, ruleName string) (*v1lim
 		apiRule = &v1limiter.Rule{
 			Spec: &v1limiter.RuleSpec{
 				DBDefinition: &v1limiter.RuleDBDefinition{
-					Name:             helpers.PointerOf(associatedKeyValues.AssociatedID()),
 					GroupByKeyValues: associatedKeyValues.KeyValues(),
 				},
 				Properties: &v1limiter.RuleProperties{
@@ -174,6 +174,7 @@ func (rm *localRulesCient) GetRule(ctx context.Context, ruleName string) (*v1lim
 				},
 			},
 			State: &v1limiter.RuleState{
+				ID:        associatedKeyValues.AssociatedID(),
 				Overrides: v1limiter.Overrides{},
 			},
 		}
@@ -271,9 +272,10 @@ func (rm *localRulesCient) DeleteRule(ctx context.Context, ruleName string) *err
 }
 
 // Create an override for a rule by name
-func (rm *localRulesCient) CreateOverride(ctx context.Context, ruleName string, override *v1limiter.Override) *errors.ServerError {
+func (rm *localRulesCient) CreateOverride(ctx context.Context, ruleName string, override *v1limiter.Override) (string, *errors.ServerError) {
 	ctx, logger := middleware.GetNamedMiddlewareLogger(ctx, "CreateOverride")
 
+	var overrideID string
 	overrideErr := errorMissingRuleName(ruleName)
 	bTreeAssociatedOnFind := func(item btreeassociated.AssociatedKeyValues) bool {
 		// 1.  ensure that the override has all the group by keys
@@ -285,7 +287,7 @@ func (rm *localRulesCient) CreateOverride(ctx context.Context, ruleName string, 
 		}
 
 		// 2. create the override
-		overrideErr = rm.overridesClient.CreateOverride(ctx, ruleName, override)
+		overrideID, overrideErr = rm.overridesClient.CreateOverride(ctx, ruleName, override)
 
 		return false
 	}
@@ -294,10 +296,10 @@ func (rm *localRulesCient) CreateOverride(ctx context.Context, ruleName string, 
 		switch err {
 		case btreeassociated.ErrorTreeItemDestroying:
 			logger.Warn("failed to create override. Rule is being destroy")
-			return &errors.ServerError{Message: "Rule is being destroyed. Refusing to create Override", StatusCode: http.StatusConflict}
+			return "", &errors.ServerError{Message: "Rule is being destroyed. Refusing to create Override", StatusCode: http.StatusConflict}
 		default:
 			logger.Error("failed to find rule by associatedid", zap.String("name", ruleName), zap.Error(err))
-			return errorMissingRuleName(ruleName)
+			return "", errorMissingRuleName(ruleName)
 		}
 	}
 
@@ -305,7 +307,7 @@ func (rm *localRulesCient) CreateOverride(ctx context.Context, ruleName string, 
 		logger.Error("failed to crate Override", zap.Error(overrideErr))
 	}
 
-	return overrideErr
+	return overrideID, overrideErr
 }
 
 // query all overrides for a given Rule
@@ -483,7 +485,6 @@ func (rm localRulesCient) FindLimits(ctx context.Context, keyValues datatypes.Ke
 		newRule := &v1limiter.Rule{
 			Spec: &v1limiter.RuleSpec{
 				DBDefinition: &v1limiter.RuleDBDefinition{
-					Name:             helpers.PointerOf(item.AssociatedID()),
 					GroupByKeyValues: item.KeyValues(),
 				},
 				Properties: &v1limiter.RuleProperties{
@@ -491,6 +492,7 @@ func (rm localRulesCient) FindLimits(ctx context.Context, keyValues datatypes.Ke
 				},
 			},
 			State: &v1limiter.RuleState{
+				ID:        item.AssociatedID(),
 				Overrides: overrides,
 			},
 		}

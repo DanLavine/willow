@@ -73,22 +73,11 @@ func (overrideSpec *OverrideSpec) Validate() *errors.ModelError {
 }
 
 type OverrideDBDefinition struct {
-	// The name of the override
-	Name *string `json:"Name,omitempty"`
-
 	// GroupByKeyValues match against the Counter's KeyValues to ensure that they are under the limit
 	GroupByKeyValues datatypes.AnyKeyValues `json:"GroupByKeyValues,omitempty"`
 }
 
 func (overrideDBDefinition *OverrideDBDefinition) Validate() *errors.ModelError {
-	if overrideDBDefinition.Name == nil {
-		return &errors.ModelError{Field: "Name", Err: fmt.Errorf("received a null value")}
-	} else {
-		if *overrideDBDefinition.Name == "" {
-			return &errors.ModelError{Field: "Name", Err: fmt.Errorf("received an empty string")}
-		}
-	}
-
 	if err := overrideDBDefinition.GroupByKeyValues.Validate(datatypes.MinDataType, datatypes.MaxDataType); err != nil {
 		return &errors.ModelError{Field: "GroupByKeyValues", Child: err}
 	}
@@ -113,6 +102,8 @@ func (overrideProperties *OverrideProperties) Validate() *errors.ModelError {
 }
 
 type OverrideState struct {
+	ID string `json:"ID"`
+
 	Deleting bool `json:"Deleting"`
 }
 

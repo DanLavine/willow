@@ -90,10 +90,10 @@ func (cm *counterClientLocal) IncrementCounters(ctx context.Context, lockerClien
 		lastRule := rules[len(rules)-1]
 		if len(lastRule.State.Overrides) == 0 {
 			if *lastRule.Spec.Properties.Limit == 0 {
-				return &errors.ServerError{Message: fmt.Sprintf("Limit has already been reached for rule '%s'", *lastRule.Spec.DBDefinition.Name), StatusCode: http.StatusConflict}
+				return &errors.ServerError{Message: fmt.Sprintf("Limit has already been reached for rule '%s'", lastRule.State.ID), StatusCode: http.StatusConflict}
 			}
 		} else if *lastRule.State.Overrides[len(lastRule.State.Overrides)-1].Spec.Properties.Limit == 0 {
-			return &errors.ServerError{Message: fmt.Sprintf("Limit has already been reached for rule '%s'", *lastRule.Spec.DBDefinition.Name), StatusCode: http.StatusConflict}
+			return &errors.ServerError{Message: fmt.Sprintf("Limit has already been reached for rule '%s'", lastRule.State.ID), StatusCode: http.StatusConflict}
 		}
 
 		// 4. if all limits are unlimited, we can also continue without needing to check limits
@@ -197,7 +197,7 @@ func (cm *counterClientLocal) IncrementCounters(ctx context.Context, lockerClien
 						continue
 					}
 
-					if counterErr := cm.checkCounters(ctx, *rule.Spec.DBDefinition.Name, rule.Spec.DBDefinition.GroupByKeyValues.Keys(), counter.Spec.DBDefinition.KeyValues, *rule.Spec.Properties.Limit); counterErr != nil {
+					if counterErr := cm.checkCounters(ctx, rule.Spec.DBDefinition.GroupByKeyValues.Keys(), counter.Spec.DBDefinition.KeyValues, *rule.Spec.Properties.Limit); counterErr != nil {
 						return counterErr
 					}
 				} else {
@@ -208,7 +208,7 @@ func (cm *counterClientLocal) IncrementCounters(ctx context.Context, lockerClien
 						}
 
 						// 2. check the limt
-						if counterErr := cm.checkCounters(ctx, *rule.Spec.DBDefinition.Name, override.Spec.DBDefinition.GroupByKeyValues.Keys(), counter.Spec.DBDefinition.KeyValues, *override.Spec.Properties.Limit); counterErr != nil {
+						if counterErr := cm.checkCounters(ctx, override.Spec.DBDefinition.GroupByKeyValues.Keys(), counter.Spec.DBDefinition.KeyValues, *override.Spec.Properties.Limit); counterErr != nil {
 							return counterErr
 						}
 					}
@@ -234,7 +234,7 @@ func (cm *counterClientLocal) IncrementCounters(ctx context.Context, lockerClien
 	return nil
 }
 
-func (cm *counterClientLocal) checkCounters(ctx context.Context, ruleName string, ruleKeys []string, counteKeyValyes datatypes.KeyValues, limit int64) *errors.ServerError {
+func (cm *counterClientLocal) checkCounters(ctx context.Context, ruleKeys []string, counteKeyValyes datatypes.KeyValues, limit int64) *errors.ServerError {
 	_, logger := middleware.GetNamedMiddlewareLogger(ctx, "checkCounters")
 
 	// construct the query for all possible rules that need to be found
@@ -268,8 +268,8 @@ func (cm *counterClientLocal) checkCounters(ctx context.Context, ruleName string
 
 	// final check of the counters
 	if counter >= limit {
-		logger.Info("Limit already reached", zap.String("rule name", ruleName))
-		return &errors.ServerError{Message: fmt.Sprintf("Limit has already been reached for rule '%s'", ruleName), StatusCode: http.StatusConflict}
+		logger.Info("Limit already reached")
+		return &errors.ServerError{Message: fmt.Sprintf("Limit has already been reached for rule"), StatusCode: http.StatusConflict}
 	}
 
 	return nil

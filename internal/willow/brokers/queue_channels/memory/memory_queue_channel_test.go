@@ -594,7 +594,6 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 						&v1limiter.Rule{
 							Spec: &v1limiter.RuleSpec{
 								DBDefinition: &v1limiter.RuleDBDefinition{
-									Name: helpers.PointerOf[string]("block rule"),
 									GroupByKeyValues: datatypes.KeyValues{
 										"one": datatypes.Any(),
 									},
@@ -602,6 +601,9 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 								Properties: &v1limiter.RuleProperties{
 									Limit: helpers.PointerOf[int64](0),
 								},
+							},
+							State: &v1limiter.RuleState{
+								ID: "test",
 							},
 						},
 					}, nil
@@ -691,7 +693,6 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 						&v1limiter.Rule{
 							Spec: &v1limiter.RuleSpec{
 								DBDefinition: &v1limiter.RuleDBDefinition{
-									Name: helpers.PointerOf[string]("block rule"),
 									GroupByKeyValues: datatypes.KeyValues{
 										"one": datatypes.Any(),
 									},
@@ -699,6 +700,9 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 								Properties: &v1limiter.RuleProperties{
 									Limit: helpers.PointerOf[int64](0),
 								},
+							},
+							State: &v1limiter.RuleState{
+								ID: "test",
 							},
 						},
 					}, nil
@@ -785,7 +789,6 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 							&v1limiter.Rule{
 								Spec: &v1limiter.RuleSpec{
 									DBDefinition: &v1limiter.RuleDBDefinition{
-										Name: helpers.PointerOf[string]("block rule"),
 										GroupByKeyValues: datatypes.KeyValues{
 											"one": datatypes.Any(),
 										},
@@ -793,6 +796,9 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 									Properties: &v1limiter.RuleProperties{
 										Limit: helpers.PointerOf[int64](0),
 									},
+								},
+								State: &v1limiter.RuleState{
+									ID: "test",
 								},
 							},
 						}, nil
@@ -890,7 +896,6 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 						&v1limiter.Rule{
 							Spec: &v1limiter.RuleSpec{
 								DBDefinition: &v1limiter.RuleDBDefinition{
-									Name: helpers.PointerOf[string]("rule1"),
 									GroupByKeyValues: datatypes.KeyValues{
 										"one": datatypes.Any(),
 									},
@@ -899,11 +904,13 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 									Limit: helpers.PointerOf[int64](-1),
 								},
 							},
+							State: &v1limiter.RuleState{
+								ID: "test1",
+							},
 						},
 						&v1limiter.Rule{
 							Spec: &v1limiter.RuleSpec{
 								DBDefinition: &v1limiter.RuleDBDefinition{
-									Name: helpers.PointerOf[string]("rule2"),
 									GroupByKeyValues: datatypes.KeyValues{
 										"one": datatypes.Any(),
 										"two": datatypes.Any(),
@@ -912,6 +919,9 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 								Properties: &v1limiter.RuleProperties{
 									Limit: helpers.PointerOf[int64](-1),
 								},
+							},
+							State: &v1limiter.RuleState{
+								ID: "test2",
 							},
 						},
 					}, nil
@@ -992,7 +1002,6 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 						&v1limiter.Rule{
 							Spec: &v1limiter.RuleSpec{
 								DBDefinition: &v1limiter.RuleDBDefinition{
-									Name: helpers.PointerOf[string]("rule1"),
 									GroupByKeyValues: datatypes.KeyValues{
 										"one": datatypes.Any(),
 									},
@@ -1001,11 +1010,13 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 									Limit: helpers.PointerOf[int64](1),
 								},
 							},
+							State: &v1limiter.RuleState{
+								ID: "test1",
+							},
 						},
 						&v1limiter.Rule{
 							Spec: &v1limiter.RuleSpec{
 								DBDefinition: &v1limiter.RuleDBDefinition{
-									Name: helpers.PointerOf[string]("rule2"),
 									GroupByKeyValues: datatypes.KeyValues{
 										"one": datatypes.Any(),
 										"two": datatypes.Any(),
@@ -1014,6 +1025,9 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 								Properties: &v1limiter.RuleProperties{
 									Limit: helpers.PointerOf[int64](0),
 								},
+							},
+							State: &v1limiter.RuleState{
+								ID: "test2",
 							},
 						},
 					}, nil
@@ -1027,7 +1041,6 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 							&v1limiter.Override{
 								Spec: &v1limiter.OverrideSpec{
 									DBDefinition: &v1limiter.OverrideDBDefinition{
-										Name: helpers.PointerOf("override1"),
 										GroupByKeyValues: datatypes.KeyValues{
 											"one": datatypes.Int(1),
 										},
@@ -1044,7 +1057,6 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 						&v1limiter.Override{
 							Spec: &v1limiter.OverrideSpec{
 								DBDefinition: &v1limiter.OverrideDBDefinition{
-									Name: helpers.PointerOf("override2"),
 									GroupByKeyValues: datatypes.KeyValues{
 										"one": datatypes.Int(1),
 										"two": datatypes.Int(2),
@@ -1129,7 +1141,6 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 						&v1limiter.Rule{
 							Spec: &v1limiter.RuleSpec{
 								DBDefinition: &v1limiter.RuleDBDefinition{
-									Name: helpers.PointerOf[string]("rule1"),
 									GroupByKeyValues: datatypes.KeyValues{
 										"one": datatypes.Any(),
 									},
@@ -1138,11 +1149,13 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 									Limit: helpers.PointerOf[int64](8),
 								},
 							},
+							State: &v1limiter.RuleState{
+								ID: "test1",
+							},
 						},
 						&v1limiter.Rule{
 							Spec: &v1limiter.RuleSpec{
 								DBDefinition: &v1limiter.RuleDBDefinition{
-									Name: helpers.PointerOf[string]("rule2"),
 									GroupByKeyValues: datatypes.KeyValues{
 										"one": datatypes.Any(),
 										"two": datatypes.Any(),
@@ -1151,6 +1164,9 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 								Properties: &v1limiter.RuleProperties{
 									Limit: helpers.PointerOf[int64](12),
 								},
+							},
+							State: &v1limiter.RuleState{
+								ID: "test2",
 							},
 						},
 					}, nil
@@ -1264,7 +1280,6 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 						&v1limiter.Rule{
 							Spec: &v1limiter.RuleSpec{
 								DBDefinition: &v1limiter.RuleDBDefinition{
-									Name: helpers.PointerOf[string]("rule1"),
 									GroupByKeyValues: datatypes.KeyValues{
 										"one": datatypes.Any(),
 									},
@@ -1273,11 +1288,13 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 									Limit: helpers.PointerOf[int64](1),
 								},
 							},
+							State: &v1limiter.RuleState{
+								ID: "test1",
+							},
 						},
 						&v1limiter.Rule{
 							Spec: &v1limiter.RuleSpec{
 								DBDefinition: &v1limiter.RuleDBDefinition{
-									Name: helpers.PointerOf[string]("rule2"),
 									GroupByKeyValues: datatypes.KeyValues{
 										"one": datatypes.Any(),
 										"two": datatypes.Any(),
@@ -1286,6 +1303,9 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 								Properties: &v1limiter.RuleProperties{
 									Limit: helpers.PointerOf[int64](0),
 								},
+							},
+							State: &v1limiter.RuleState{
+								ID: "test2",
 							},
 						},
 					}, nil
@@ -1300,7 +1320,6 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 							&v1limiter.Override{
 								Spec: &v1limiter.OverrideSpec{
 									DBDefinition: &v1limiter.OverrideDBDefinition{
-										Name: helpers.PointerOf("override1"),
 										GroupByKeyValues: datatypes.KeyValues{
 											"one": datatypes.Int(1),
 										},
@@ -1317,7 +1336,6 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 						&v1limiter.Override{
 							Spec: &v1limiter.OverrideSpec{
 								DBDefinition: &v1limiter.OverrideDBDefinition{
-									Name: helpers.PointerOf("override2"),
 									GroupByKeyValues: datatypes.KeyValues{
 										"one": datatypes.Int(1),
 										"two": datatypes.Int(2),
@@ -1331,7 +1349,6 @@ func Test_memoryQueueChannel_Dequeue(t *testing.T) {
 						&v1limiter.Override{
 							Spec: &v1limiter.OverrideSpec{
 								DBDefinition: &v1limiter.OverrideDBDefinition{
-									Name: helpers.PointerOf("override3"),
 									GroupByKeyValues: datatypes.KeyValues{
 										"one":  datatypes.Int(1),
 										"two":  datatypes.Int(2),

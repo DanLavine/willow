@@ -14,20 +14,20 @@ import (
 // override operations
 type OverrideClient interface {
 	// Create a new Override
-	CreateOverride(ctx context.Context, ruleName string, override *v1limiter.Override) *errors.ServerError
+	CreateOverride(ctx context.Context, ruleID string, override *v1limiter.Override) (string, *errors.ServerError)
 
 	// Update an override by name
-	UpdateOverride(ctx context.Context, ruleName string, overrideName string, override *v1limiter.OverrideProperties) *errors.ServerError
+	UpdateOverride(ctx context.Context, ruleID string, overrideName string, override *v1limiter.OverrideProperties) *errors.ServerError
 
 	// read operations
-	GetOverride(ctx context.Context, ruleName string, overrideName string) (*v1limiter.Override, *errors.ServerError)
-	QueryOverrides(ctx context.Context, ruleName string, query *queryassociatedaction.AssociatedActionQuery) (v1limiter.Overrides, *errors.ServerError)
-	MatchOverrides(ctx context.Context, ruleName string, match *querymatchaction.MatchActionQuery) (v1limiter.Overrides, *errors.ServerError)
+	GetOverride(ctx context.Context, ruleID string, overrideName string) (*v1limiter.Override, *errors.ServerError)
+	QueryOverrides(ctx context.Context, ruleID string, query *queryassociatedaction.AssociatedActionQuery) (v1limiter.Overrides, *errors.ServerError)
+	MatchOverrides(ctx context.Context, ruleID string, match *querymatchaction.MatchActionQuery) (v1limiter.Overrides, *errors.ServerError)
 
 	// delete operations
-	DestroyOverride(ctx context.Context, ruleName string, overrideName string) *errors.ServerError
-	DestroyOverrides(ctx context.Context, ruleName string) *errors.ServerError
+	DestroyOverride(ctx context.Context, ruleID string, overrideName string) *errors.ServerError
+	DestroyOverrides(ctx context.Context, ruleID string) *errors.ServerError
 
 	// loogical operations
-	FindOverrideLimits(ctx context.Context, ruleName string, keyValue datatypes.KeyValues) (v1limiter.Overrides, *errors.ServerError)
+	FindOverrideLimits(ctx context.Context, ruleID string, keyValue datatypes.KeyValues) (v1limiter.Overrides, *errors.ServerError)
 }

@@ -37,17 +37,17 @@ func AddV1LimiterRoutes(baseLogger *zap.Logger, mux *urlrouter.Router, v1Handler
 	mux.HandleFunc("POST", "/v1/limiter/rules", middleware.SetupTracer(middleware.AddLogger(baseLogger, middleware.ValidateReqHeaders(v1Handler.CreateRule))))
 	mux.HandleFunc("GET", "/v1/limiter/rules/query", middleware.SetupTracer(middleware.AddLogger(baseLogger, middleware.ValidateReqHeaders(v1Handler.QueryRules))))
 	mux.HandleFunc("GET", "/v1/limiter/rules/match", middleware.SetupTracer(middleware.AddLogger(baseLogger, middleware.ValidateReqHeaders(v1Handler.MatchRules))))
-	mux.HandleFunc("GET", "/v1/limiter/rules/:rule_name", middleware.SetupTracer(middleware.AddLogger(baseLogger, middleware.ValidateReqHeaders(v1Handler.GetRule))))
-	mux.HandleFunc("PUT", "/v1/limiter/rules/:rule_name", middleware.SetupTracer(middleware.AddLogger(baseLogger, middleware.ValidateReqHeaders(v1Handler.UpdateRule))))
-	mux.HandleFunc("DELETE", "/v1/limiter/rules/:rule_name", middleware.SetupTracer(middleware.AddLogger(baseLogger, middleware.ValidateReqHeaders(v1Handler.DeleteRule))))
+	mux.HandleFunc("GET", "/v1/limiter/rules/:rule_id", middleware.SetupTracer(middleware.AddLogger(baseLogger, middleware.ValidateReqHeaders(v1Handler.GetRule))))
+	mux.HandleFunc("PUT", "/v1/limiter/rules/:rule_id", middleware.SetupTracer(middleware.AddLogger(baseLogger, middleware.ValidateReqHeaders(v1Handler.UpdateRule))))
+	mux.HandleFunc("DELETE", "/v1/limiter/rules/:rule_id", middleware.SetupTracer(middleware.AddLogger(baseLogger, middleware.ValidateReqHeaders(v1Handler.DeleteRule))))
 
 	// crud operations for overrides
-	mux.HandleFunc("POST", "/v1/limiter/rules/:rule_name/overrides", middleware.SetupTracer(middleware.AddLogger(baseLogger, middleware.ValidateReqHeaders(v1Handler.CreateOverride))))
-	mux.HandleFunc("GET", "/v1/limiter/rules/:rule_name/overrides/query", middleware.SetupTracer(middleware.AddLogger(baseLogger, middleware.ValidateReqHeaders(v1Handler.QueryOverrides))))
-	mux.HandleFunc("GET", "/v1/limiter/rules/:rule_name/overrides/match", middleware.SetupTracer(middleware.AddLogger(baseLogger, middleware.ValidateReqHeaders(v1Handler.MatchOverrides))))
-	mux.HandleFunc("GET", "/v1/limiter/rules/:rule_name/overrides/:override_name", middleware.SetupTracer(middleware.AddLogger(baseLogger, middleware.ValidateReqHeaders(v1Handler.GetOverride))))
-	mux.HandleFunc("PUT", "/v1/limiter/rules/:rule_name/overrides/:override_name", middleware.SetupTracer(middleware.AddLogger(baseLogger, middleware.ValidateReqHeaders(v1Handler.UpdateOverride))))
-	mux.HandleFunc("DELETE", "/v1/limiter/rules/:rule_name/overrides/:override_name", middleware.SetupTracer(middleware.AddLogger(baseLogger, middleware.ValidateReqHeaders(v1Handler.DeleteOverride))))
+	mux.HandleFunc("POST", "/v1/limiter/rules/:rule_id/overrides", middleware.SetupTracer(middleware.AddLogger(baseLogger, middleware.ValidateReqHeaders(v1Handler.CreateOverride))))
+	mux.HandleFunc("GET", "/v1/limiter/rules/:rule_id/overrides/query", middleware.SetupTracer(middleware.AddLogger(baseLogger, middleware.ValidateReqHeaders(v1Handler.QueryOverrides))))
+	mux.HandleFunc("GET", "/v1/limiter/rules/:rule_id/overrides/match", middleware.SetupTracer(middleware.AddLogger(baseLogger, middleware.ValidateReqHeaders(v1Handler.MatchOverrides))))
+	mux.HandleFunc("GET", "/v1/limiter/rules/:rule_id/overrides/:override_id", middleware.SetupTracer(middleware.AddLogger(baseLogger, middleware.ValidateReqHeaders(v1Handler.GetOverride))))
+	mux.HandleFunc("PUT", "/v1/limiter/rules/:rule_id/overrides/:override_id", middleware.SetupTracer(middleware.AddLogger(baseLogger, middleware.ValidateReqHeaders(v1Handler.UpdateOverride))))
+	mux.HandleFunc("DELETE", "/v1/limiter/rules/:rule_id/overrides/:override_id", middleware.SetupTracer(middleware.AddLogger(baseLogger, middleware.ValidateReqHeaders(v1Handler.DeleteOverride))))
 
 	// operations to check items against arbitrary rules
 	mux.HandleFunc("PUT", "/v1/limiter/counters", middleware.SetupTracer(middleware.AddLogger(baseLogger, middleware.ValidateReqHeaders(v1Handler.UpsertCounters))))

@@ -31,9 +31,11 @@ type queueClientLocal struct {
 
 	// client to interact with the channels in a queue
 	queueChannelsClient queuechannels.QueueChannelsClient
+
+	limiterRuleID string
 }
 
-func NewLocalQueueClient(queueConstructor QueueConstructor, queueChannelsClient queuechannels.QueueChannelsClient) *queueClientLocal {
+func NewLocalQueueClient(queueConstructor QueueConstructor, queueChannelsClient queuechannels.QueueChannelsClient, limiterRuleID string) *queueClientLocal {
 	tree, err := btree.NewThreadSafe(2)
 	if err != nil {
 		panic(err)
@@ -43,6 +45,7 @@ func NewLocalQueueClient(queueConstructor QueueConstructor, queueChannelsClient 
 		queueConstructor:    queueConstructor,
 		queues:              tree,
 		queueChannelsClient: queueChannelsClient,
+		limiterRuleID:       limiterRuleID,
 	}
 }
 
@@ -53,7 +56,7 @@ func (qcl *queueClientLocal) CreateQueue(ctx context.Context, queueCreate *v1wil
 	var createQueueError *errors.ServerError
 	bTreeOnCreate := func() any {
 		var queue Queue
-		queue, createQueueError = qcl.queueConstructor.New(ctx, queueCreate)
+		queue, createQueueError = qcl.queueConstructor.New(ctx, queueCreate, qcl.limiterRuleID)
 		if createQueueError != nil {
 			return nil
 		}
@@ -158,7 +161,7 @@ func (qcl *queueClientLocal) UpdateQueue(ctx context.Context, queueName string, 
 	updateQueueError := errorMissingQueueName(queueName)
 
 	bTreeOnFind := func(key datatypes.EncapsulatedValue, item any) bool {
-		updateQueueError = item.(Queue).Update(ctx, queueName, queueUpdate)
+		updateQueueError = item.(Queue).Update(ctx, qcl.limiterRuleID, queueUpdate)
 		return false
 	}
 
@@ -183,7 +186,7 @@ func (qcl *queueClientLocal) DeleteQueue(ctx context.Context, queueName string) 
 	destroyQueue := func(key datatypes.EncapsulatedValue, item any) bool {
 		queue := item.(Queue)
 		if deleteQueueError = qcl.queueChannelsClient.DestroyChannelsForQueue(ctx, queueName); deleteQueueError == nil {
-			if deleteQueueError = queue.Destroy(ctx, queueName); deleteQueueError == nil {
+			if deleteQueueError = queue.Destroy(ctx, qcl.limiterRuleID, queueName); deleteQueueError == nil {
 				return true
 			}
 		}

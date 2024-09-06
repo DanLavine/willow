@@ -41,7 +41,7 @@ func (m *MockCounterConstructor) EXPECT() *MockCounterConstructorMockRecorder {
 }
 
 // New mocks base method.
-func (m *MockCounterConstructor) New(arg0 *v1.Counter) counters.Counter {
+func (m *MockCounterConstructor) New(arg0 *v1.CounteProperties) counters.Counter {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "New", arg0)
 	ret0, _ := ret[0].(counters.Counter)

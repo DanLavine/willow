@@ -76,7 +76,6 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 			createRequest := &v1limiter.Rule{
 				Spec: &v1limiter.RuleSpec{
 					DBDefinition: &v1limiter.RuleDBDefinition{
-						Name: helpers.PointerOf(fmt.Sprintf("test%d", i)),
 						GroupByKeyValues: datatypes.KeyValues{
 							fmt.Sprintf("key%d", i): datatypes.Any(),
 						},
@@ -87,7 +86,8 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 				},
 			}
 			g.Expect(createRequest.ValidateSpecOnly()).ToNot(HaveOccurred())
-			g.Expect(rulesClient.CreateRule(testhelpers.NewContextWithMiddlewareSetup(), createRequest)).ToNot(HaveOccurred())
+			_, err := rulesClient.CreateRule(testhelpers.NewContextWithMiddlewareSetup(), createRequest)
+			g.Expect(err).ToNot(HaveOccurred())
 		}
 
 		counter := &v1limiter.Counter{
@@ -107,7 +107,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 
 		err := countersClientLocal.IncrementCounters(testhelpers.NewContextWithMiddlewareSetup(), nil, counter)
 		g.Expect(err).To(HaveOccurred())
-		g.Expect(err.Message).To(ContainSubstring("Limit has already been reached for rule 'test0'"))
+		g.Expect(err.Message).To(ContainSubstring("Limit has already been reached for rule"))
 	})
 
 	t.Run("It returns a limit reached error if any matched overrides have a limit of 0", func(t *testing.T) {
@@ -117,7 +117,6 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 		createRequest := &v1limiter.Rule{
 			Spec: &v1limiter.RuleSpec{
 				DBDefinition: &v1limiter.RuleDBDefinition{
-					Name: helpers.PointerOf("test1"),
 					GroupByKeyValues: datatypes.KeyValues{
 						"key1": datatypes.Any(),
 					},
@@ -128,7 +127,9 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 			},
 		}
 		g.Expect(createRequest.ValidateSpecOnly()).ToNot(HaveOccurred())
-		g.Expect(rulesClient.CreateRule(testhelpers.NewContextWithMiddlewareSetup(), createRequest)).ToNot(HaveOccurred())
+
+		ruleID, err := rulesClient.CreateRule(testhelpers.NewContextWithMiddlewareSetup(), createRequest)
+		g.Expect(err).ToNot(HaveOccurred())
 
 		// create 5 overrides
 		for k := 2; k < 7; k++ {
@@ -136,7 +137,6 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 			overrideRequest := v1limiter.Override{
 				Spec: &v1limiter.OverrideSpec{
 					DBDefinition: &v1limiter.OverrideDBDefinition{
-						Name: helpers.PointerOf(fmt.Sprintf("override%d", k)),
 						GroupByKeyValues: datatypes.KeyValues{
 							"key1":                  datatypes.Int(1),
 							fmt.Sprintf("key%d", k): datatypes.Int(k),
@@ -148,7 +148,8 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 				},
 			}
 			g.Expect(overrideRequest.ValidateSpecOnly()).ToNot(HaveOccurred())
-			g.Expect(rulesClient.CreateOverride(testhelpers.NewContextWithMiddlewareSetup(), "test1", &overrideRequest)).ToNot(HaveOccurred())
+			_, err := rulesClient.CreateOverride(testhelpers.NewContextWithMiddlewareSetup(), ruleID, &overrideRequest)
+			g.Expect(err).ToNot(HaveOccurred())
 		}
 
 		counter := &v1limiter.Counter{
@@ -166,9 +167,9 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 			},
 		}
 
-		err := countersClientLocal.IncrementCounters(testhelpers.NewContextWithMiddlewareSetup(), nil, counter)
+		err = countersClientLocal.IncrementCounters(testhelpers.NewContextWithMiddlewareSetup(), nil, counter)
 		g.Expect(err).To(HaveOccurred())
-		g.Expect(err.Message).To(Equal("Limit has already been reached for rule 'test1'"))
+		g.Expect(err.Message).To(ContainSubstring("Limit has already been reached for rule"))
 	})
 
 	t.Run("Describe obtaining lock failures", func(t *testing.T) {
@@ -181,7 +182,6 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 				createRequest := &v1limiter.Rule{
 					Spec: &v1limiter.RuleSpec{
 						DBDefinition: &v1limiter.RuleDBDefinition{
-							Name: helpers.PointerOf(fmt.Sprintf("test%d", i)),
 							GroupByKeyValues: datatypes.KeyValues{
 								fmt.Sprintf("key%d", i): datatypes.Any(),
 							},
@@ -192,7 +192,9 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 					},
 				}
 				g.Expect(createRequest.ValidateSpecOnly()).ToNot(HaveOccurred())
-				g.Expect(rulesClient.CreateRule(testhelpers.NewContextWithMiddlewareSetup(), createRequest)).ToNot(HaveOccurred())
+
+				_, err := rulesClient.CreateRule(testhelpers.NewContextWithMiddlewareSetup(), createRequest)
+				g.Expect(err).ToNot(HaveOccurred())
 			}
 
 			counter := &v1limiter.Counter{
@@ -234,7 +236,6 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 					createRequest := &v1limiter.Rule{
 						Spec: &v1limiter.RuleSpec{
 							DBDefinition: &v1limiter.RuleDBDefinition{
-								Name: helpers.PointerOf(fmt.Sprintf("test%d", i)),
 								GroupByKeyValues: datatypes.KeyValues{
 									fmt.Sprintf("key%d", i): datatypes.Any(),
 								},
@@ -245,7 +246,9 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 						},
 					}
 					g.Expect(createRequest.ValidateSpecOnly()).ToNot(HaveOccurred())
-					g.Expect(rulesClient.CreateRule(testhelpers.NewContextWithMiddlewareSetup(), createRequest)).ToNot(HaveOccurred())
+
+					_, err := rulesClient.CreateRule(testhelpers.NewContextWithMiddlewareSetup(), createRequest)
+					g.Expect(err).ToNot(HaveOccurred())
 				}
 
 				counter := &v1limiter.Counter{
@@ -301,7 +304,6 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 					createRequest := &v1limiter.Rule{
 						Spec: &v1limiter.RuleSpec{
 							DBDefinition: &v1limiter.RuleDBDefinition{
-								Name: helpers.PointerOf(fmt.Sprintf("test%d", i)),
 								GroupByKeyValues: datatypes.KeyValues{
 									fmt.Sprintf("key%d", i): datatypes.Any(),
 								},
@@ -312,7 +314,8 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 						},
 					}
 					g.Expect(createRequest.ValidateSpecOnly()).ToNot(HaveOccurred())
-					g.Expect(rulesClient.CreateRule(testhelpers.NewContextWithMiddlewareSetup(), createRequest)).ToNot(HaveOccurred())
+					_, err := rulesClient.CreateRule(testhelpers.NewContextWithMiddlewareSetup(), createRequest)
+					g.Expect(err).ToNot(HaveOccurred())
 				}
 
 				counter := &v1limiter.Counter{
@@ -385,7 +388,6 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 			createRequest := &v1limiter.Rule{
 				Spec: &v1limiter.RuleSpec{
 					DBDefinition: &v1limiter.RuleDBDefinition{
-						Name: helpers.PointerOf("test0"),
 						GroupByKeyValues: datatypes.KeyValues{
 							"key0": datatypes.Any(),
 							"key1": datatypes.Any(),
@@ -397,7 +399,9 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 				},
 			}
 			g.Expect(createRequest.ValidateSpecOnly()).ToNot(HaveOccurred())
-			g.Expect(rulesClient.CreateRule(testhelpers.NewContextWithMiddlewareSetup(), createRequest)).ToNot(HaveOccurred())
+
+			_, err := rulesClient.CreateRule(testhelpers.NewContextWithMiddlewareSetup(), createRequest)
+			g.Expect(err).ToNot(HaveOccurred())
 
 			counter := &v1limiter.Counter{
 				Spec: &v1limiter.CounterSpec{
@@ -415,7 +419,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 			}
 
 			// counter shuold be added
-			err := countersClientLocal.IncrementCounters(testhelpers.NewContextWithMiddlewareSetup(), fakeLocker, counter)
+			err = countersClientLocal.IncrementCounters(testhelpers.NewContextWithMiddlewareSetup(), fakeLocker, counter)
 			g.Expect(err).ToNot(HaveOccurred())
 
 			// ensure the counter was added
@@ -437,7 +441,6 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 			createRequest := &v1limiter.Rule{
 				Spec: &v1limiter.RuleSpec{
 					DBDefinition: &v1limiter.RuleDBDefinition{
-						Name: helpers.PointerOf("test0"),
 						GroupByKeyValues: datatypes.KeyValues{
 							"key0": datatypes.Any(),
 							"key1": datatypes.Any(),
@@ -449,7 +452,9 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 				},
 			}
 			g.Expect(createRequest.ValidateSpecOnly()).ToNot(HaveOccurred())
-			g.Expect(rulesClient.CreateRule(testhelpers.NewContextWithMiddlewareSetup(), createRequest)).ToNot(HaveOccurred())
+
+			_, err := rulesClient.CreateRule(testhelpers.NewContextWithMiddlewareSetup(), createRequest)
+			g.Expect(err).ToNot(HaveOccurred())
 
 			counter := &v1limiter.Counter{
 				Spec: &v1limiter.CounterSpec{
@@ -467,7 +472,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 			}
 
 			// counter shuold be added
-			err := countersClientLocal.IncrementCounters(testhelpers.NewContextWithMiddlewareSetup(), fakeLocker, counter)
+			err = countersClientLocal.IncrementCounters(testhelpers.NewContextWithMiddlewareSetup(), fakeLocker, counter)
 			g.Expect(err).ToNot(HaveOccurred())
 
 			// ensure the counter was added
@@ -489,7 +494,6 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 			createRequest := &v1limiter.Rule{
 				Spec: &v1limiter.RuleSpec{
 					DBDefinition: &v1limiter.RuleDBDefinition{
-						Name: helpers.PointerOf("test0"),
 						GroupByKeyValues: datatypes.KeyValues{
 							"key0": datatypes.Any(),
 							"key1": datatypes.Any(),
@@ -501,7 +505,8 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 				},
 			}
 			g.Expect(createRequest.ValidateSpecOnly()).ToNot(HaveOccurred())
-			g.Expect(rulesClient.CreateRule(testhelpers.NewContextWithMiddlewareSetup(), createRequest)).ToNot(HaveOccurred())
+			_, err := rulesClient.CreateRule(testhelpers.NewContextWithMiddlewareSetup(), createRequest)
+			g.Expect(err).ToNot(HaveOccurred())
 
 			counter := &v1limiter.Counter{
 				Spec: &v1limiter.CounterSpec{
@@ -543,7 +548,6 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 			createRequest := &v1limiter.Rule{
 				Spec: &v1limiter.RuleSpec{
 					DBDefinition: &v1limiter.RuleDBDefinition{
-						Name: helpers.PointerOf("test0"),
 						GroupByKeyValues: datatypes.KeyValues{
 							"key0": datatypes.Any(),
 							"key1": datatypes.Any(),
@@ -555,7 +559,9 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 				},
 			}
 			g.Expect(createRequest.ValidateSpecOnly()).ToNot(HaveOccurred())
-			g.Expect(rulesClient.CreateRule(testhelpers.NewContextWithMiddlewareSetup(), createRequest)).ToNot(HaveOccurred())
+
+			_, err := rulesClient.CreateRule(testhelpers.NewContextWithMiddlewareSetup(), createRequest)
+			g.Expect(err).ToNot(HaveOccurred())
 
 			counter := &v1limiter.Counter{
 				Spec: &v1limiter.CounterSpec{
@@ -572,7 +578,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 			}
 
 			// first counter should be added
-			err := countersClientLocal.IncrementCounters(testhelpers.NewContextWithMiddlewareSetup(), fakeLocker, counter)
+			err = countersClientLocal.IncrementCounters(testhelpers.NewContextWithMiddlewareSetup(), fakeLocker, counter)
 			g.Expect(err).ToNot(HaveOccurred())
 
 			// second counter should have an error
@@ -599,7 +605,6 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 			createRequest := &v1limiter.Rule{
 				Spec: &v1limiter.RuleSpec{
 					DBDefinition: &v1limiter.RuleDBDefinition{
-						Name: helpers.PointerOf("test0"),
 						GroupByKeyValues: datatypes.KeyValues{
 							"key0": datatypes.Any(),
 							"key1": datatypes.Any(),
@@ -611,7 +616,8 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 				},
 			}
 			g.Expect(createRequest.ValidateSpecOnly()).ToNot(HaveOccurred())
-			g.Expect(rulesClient.CreateRule(testhelpers.NewContextWithMiddlewareSetup(), createRequest)).ToNot(HaveOccurred())
+			_, err := rulesClient.CreateRule(testhelpers.NewContextWithMiddlewareSetup(), createRequest)
+			g.Expect(err).ToNot(HaveOccurred())
 
 			counter1 := &v1limiter.Counter{
 				Spec: &v1limiter.CounterSpec{
@@ -643,7 +649,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 			}
 
 			// first counter should be added
-			err := countersClientLocal.IncrementCounters(testhelpers.NewContextWithMiddlewareSetup(), fakeLocker, counter1)
+			err = countersClientLocal.IncrementCounters(testhelpers.NewContextWithMiddlewareSetup(), fakeLocker, counter1)
 			g.Expect(err).ToNot(HaveOccurred())
 
 			// second counter should have an error
@@ -677,7 +683,6 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 			createRequest := &v1limiter.Rule{
 				Spec: &v1limiter.RuleSpec{
 					DBDefinition: &v1limiter.RuleDBDefinition{
-						Name: helpers.PointerOf("test0"),
 						GroupByKeyValues: datatypes.KeyValues{
 							"key0": datatypes.Any(),
 							"key1": datatypes.Any(),
@@ -689,14 +694,14 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 				},
 			}
 			g.Expect(createRequest.ValidateSpecOnly()).ToNot(HaveOccurred())
-			g.Expect(rulesClient.CreateRule(testhelpers.NewContextWithMiddlewareSetup(), createRequest)).ToNot(HaveOccurred())
+			_, err := rulesClient.CreateRule(testhelpers.NewContextWithMiddlewareSetup(), createRequest)
+			g.Expect(err).ToNot(HaveOccurred())
 
 			// non restrictive rules
 			for i := 1; i < 5; i++ {
 				createRequest := &v1limiter.Rule{
 					Spec: &v1limiter.RuleSpec{
 						DBDefinition: &v1limiter.RuleDBDefinition{
-							Name: helpers.PointerOf(fmt.Sprintf("test%d", i)),
 							GroupByKeyValues: datatypes.KeyValues{
 								fmt.Sprintf("key%d", i):    datatypes.Any(),
 								fmt.Sprintf("keyd%d", i+1): datatypes.Any(),
@@ -708,7 +713,8 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 					},
 				}
 				g.Expect(createRequest.ValidateSpecOnly()).ToNot(HaveOccurred())
-				g.Expect(rulesClient.CreateRule(testhelpers.NewContextWithMiddlewareSetup(), createRequest)).ToNot(HaveOccurred())
+				_, err := rulesClient.CreateRule(testhelpers.NewContextWithMiddlewareSetup(), createRequest)
+				g.Expect(err).ToNot(HaveOccurred())
 			}
 
 			counter := &v1limiter.Counter{
@@ -728,14 +734,13 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 			}
 
 			// first counter should be added
-			fmt.Println("incrementing the counters now")
-			err := countersClientLocal.IncrementCounters(testhelpers.NewContextWithMiddlewareSetup(), fakeLocker, counter)
+			err = countersClientLocal.IncrementCounters(testhelpers.NewContextWithMiddlewareSetup(), fakeLocker, counter)
 			g.Expect(err).ToNot(HaveOccurred())
 
 			// second counter should have an error
 			err = countersClientLocal.IncrementCounters(testhelpers.NewContextWithMiddlewareSetup(), fakeLocker, counter)
 			g.Expect(err).To(HaveOccurred())
-			g.Expect(err.Error()).To(ContainSubstring("Limit has already been reached for rule 'test0'"))
+			g.Expect(err.Error()).To(ContainSubstring("Limit has already been reached for rule"))
 
 			// ensure the counter was only ever incremented 1 time
 			count := int64(0)
@@ -756,7 +761,6 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 			createRequest := &v1limiter.Rule{
 				Spec: &v1limiter.RuleSpec{
 					DBDefinition: &v1limiter.RuleDBDefinition{
-						Name: helpers.PointerOf("test0"),
 						GroupByKeyValues: datatypes.KeyValues{
 							"key0": datatypes.Any(),
 							"key1": datatypes.Any(),
@@ -768,13 +772,13 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 				},
 			}
 			g.Expect(createRequest.ValidateSpecOnly()).ToNot(HaveOccurred())
-			g.Expect(rulesClient.CreateRule(testhelpers.NewContextWithMiddlewareSetup(), createRequest)).ToNot(HaveOccurred())
+			ruleID, err := rulesClient.CreateRule(testhelpers.NewContextWithMiddlewareSetup(), createRequest)
+			g.Expect(err).ToNot(HaveOccurred())
 
 			// set override to allow for more values
 			override := &v1limiter.Override{
 				Spec: &v1limiter.OverrideSpec{
 					DBDefinition: &v1limiter.OverrideDBDefinition{
-						Name: helpers.PointerOf("override1"),
 						GroupByKeyValues: datatypes.KeyValues{
 							"key0": datatypes.String("0"),
 							"key1": datatypes.String("1"),
@@ -786,7 +790,8 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 				},
 			}
 			g.Expect(override.ValidateSpecOnly()).ToNot(HaveOccurred())
-			g.Expect(rulesClient.CreateOverride(testhelpers.NewContextWithMiddlewareSetup(), "test0", override)).ToNot(HaveOccurred())
+			_, err = rulesClient.CreateOverride(testhelpers.NewContextWithMiddlewareSetup(), ruleID, override)
+			g.Expect(err).ToNot(HaveOccurred())
 
 			counter := &v1limiter.Counter{
 				Spec: &v1limiter.CounterSpec{
@@ -804,7 +809,7 @@ func TestRulesManager_IncrementCounters(t *testing.T) {
 			}
 
 			// first counter should be added
-			err := countersClientLocal.IncrementCounters(testhelpers.NewContextWithMiddlewareSetup(), fakeLocker, counter)
+			err = countersClientLocal.IncrementCounters(testhelpers.NewContextWithMiddlewareSetup(), fakeLocker, counter)
 			g.Expect(err).ToNot(HaveOccurred())
 
 			// second counter should be added as well

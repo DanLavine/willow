@@ -28,11 +28,13 @@ type V1QueueHandler interface {
 }
 
 type queueHandler struct {
-	queueClient queues.QueuesClient
+	limiterRuleID string
+	queueClient   queues.QueuesClient
 }
 
-func NewV1QueueHandler(queueClient queues.QueuesClient) *queueHandler {
+func NewV1QueueHandler(queueClient queues.QueuesClient, limiterRuleID string) *queueHandler {
 	return &queueHandler{
-		queueClient: queueClient,
+		limiterRuleID: limiterRuleID,
+		queueClient:   queueClient,
 	}
 }
