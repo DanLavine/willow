@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/DanLavine/goasync"
+	"github.com/DanLavine/goasync/v2"
 	btreeassociated "github.com/DanLavine/willow/internal/datastructures/btree_associated"
 	"github.com/DanLavine/willow/internal/middleware"
 	"github.com/DanLavine/willow/internal/reporting"
@@ -42,12 +42,12 @@ type exclusiveLocker struct {
 func NewExclusiveLocker() *exclusiveLocker {
 	return &exclusiveLocker{
 		exclusiveLocks: btreeassociated.NewThreadSafe(),
-		taskManager:    goasync.NewTaskManager(goasync.RelaxedConfig()),
+		taskManager:    goasync.NewTaskManager(),
 	}
 }
 
-func (exclusiveLocker *exclusiveLocker) Initialize() error { return nil }
-func (exclusiveLocker *exclusiveLocker) Cleanup() error    { return nil }
+func (exclusiveLocker *exclusiveLocker) Initialize(ctx context.Context) error { return nil }
+func (exclusiveLocker *exclusiveLocker) Cleanup(ctx context.Context) error    { return nil }
 
 // execution for handling shutdown of all the possible locks
 func (exclusiveLocker *exclusiveLocker) Execute(ctx context.Context) error {
@@ -72,7 +72,7 @@ func (exclusiveLocker *exclusiveLocker) ObtainLock(ctx context.Context, createLo
 		})
 
 		// add the task to the task manager
-		if err := exclusiveLocker.taskManager.AddExecuteTask("", lock); err == nil {
+		if err := exclusiveLocker.taskManager.AddExecuteTask("", lock, goasync.EXECUTE_TASK_TYPE_STRICT); err == nil {
 			claimChannel = lock.GetClaimChannel()
 		} else {
 			// on an error, just set these to a closed channel to exit from the claim operation. The client will

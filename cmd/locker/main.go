@@ -35,14 +35,14 @@ func main() {
 
 	// setup async handlers
 	//// using strict config ensures that if any process fails, the server will ty and shutdown gracefully
-	taskManager := goasync.NewTaskManager(goasync.StrictConfig())
+	taskManager := goasync.NewTaskManager()
 
 	// general locker
-	taskManager.AddTask("exclusive Locker", exclusiveLocker)
+	taskManager.AddTask("exclusive Locker", exclusiveLocker, goasync.EXECUTE_TASK_TYPE_STRICT)
 
 	// v1 api handlers
 	//// http2 server to handle all client requests
-	taskManager.AddTask("locker_tcp_server", api.NewLockerTCP(logger, cfg, mux))
+	taskManager.AddTask("locker_tcp_server", api.NewLockerTCP(logger, cfg, mux), goasync.EXECUTE_TASK_TYPE_STRICT)
 
 	// start all processes
 	shutdown, _ := signal.NotifyContext(context.Background(), syscall.SIGINT)

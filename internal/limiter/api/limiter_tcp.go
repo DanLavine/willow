@@ -33,8 +33,8 @@ func NewLimiterTCP(logger *zap.Logger, config *config.LimiterConfig, mux *urlrou
 	}
 }
 
-func (limiter *limiterTCP) Cleanup() error { return nil }
-func (limiter *limiterTCP) Initialize() error {
+func (limiter *limiterTCP) Cleanup(ctx context.Context) error { return nil }
+func (limiter *limiterTCP) Initialize(ctx context.Context) error {
 	server := &http.Server{
 		Addr: fmt.Sprintf(":%s", *limiter.config.LimiterPort),
 	}

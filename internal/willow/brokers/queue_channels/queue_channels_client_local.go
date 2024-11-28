@@ -54,7 +54,7 @@ func NewLocalQueueChannelsClient(queueChannelsConstructor constructor.QueueChann
 	return &queueChannelsClientLocal{
 		shutdownCtx:              shutdownContext,
 		shutdownCancel:           cancel,
-		asyncManager:             goasync.NewTaskManager(goasync.RelaxedConfig()),
+		asyncManager:             goasync.NewTaskManager(),
 		queueChannelsConstructor: queueChannelsConstructor,
 		queueChannels:            btreeonetomany.NewThreadSafe(),
 		clientsWaitingLock:       new(sync.RWMutex),
@@ -169,7 +169,7 @@ func (qccl *queueChannelsClientLocal) EnqueueQueueItem(ctx context.Context, queu
 
 		// when a new channel is created, need to add it to the async task manager. if there is an error, that means the
 		// server is shutting down so don't add it to any waiting clients.
-		if err := qccl.asyncManager.AddExecuteTask(queueName, queueChannel); err == nil {
+		if err := qccl.asyncManager.AddExecuteTask(queueName, queueChannel, goasync.EXECUTE_TASK_TYPE_STRICT); err == nil {
 			// when a new channel is created, inform any clients currently waiting to process that there is something they might care about
 			qccl.updateClientsWaiting(queueName, enqueueItem.Spec.DBDefinition.KeyValues, queueChannel.Dequeue())
 		}
