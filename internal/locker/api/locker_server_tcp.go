@@ -33,8 +33,8 @@ func NewLockerTCP(logger *zap.Logger, config *config.LockerConfig, mux *urlroute
 	}
 }
 
-func (locker *LockerTCP) Cleanup() error { return nil }
-func (locker *LockerTCP) Initialize() error {
+func (locker *LockerTCP) Cleanup(ctx context.Context) error { return nil }
+func (locker *LockerTCP) Initialize(ctx context.Context) error {
 	server := &http.Server{
 		Addr: fmt.Sprintf(":%s", *locker.config.Port),
 	}

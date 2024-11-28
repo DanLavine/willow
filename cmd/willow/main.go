@@ -8,7 +8,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/DanLavine/goasync"
+	"github.com/DanLavine/goasync/v2"
 	"github.com/DanLavine/urlrouter"
 	"github.com/DanLavine/willow/internal/config"
 	"github.com/DanLavine/willow/internal/helpers"
@@ -88,7 +88,7 @@ func main() {
 
 	// setup async handlers
 	//// using strict config ensures that if any process fails, the server will ty and shutdown gracefully
-	taskManager := goasync.NewTaskManager(goasync.StrictConfig())
+	taskManager := goasync.NewTaskManager()
 
 	// queue channels client
 	queueChannelsConstructor, err := constructor.NewQueueChannelConstructor("memory", limiterClient)
@@ -96,7 +96,7 @@ func main() {
 		logger.Fatal("Failed to setup queue channels constructor", zap.Error(err))
 	}
 	queueChannelsClient := queuechannels.NewLocalQueueChannelsClient(queueChannelsConstructor)
-	taskManager.AddExecuteTask("queue channels client", queueChannelsClient)
+	taskManager.AddExecuteTask("queue channels client", queueChannelsClient, goasync.EXECUTE_TASK_TYPE_STRICT)
 
 	// queue client
 	queueConstructor, err := queues.NewQueueConstructor("memory", limiterClient)
@@ -109,7 +109,7 @@ func main() {
 	willowMux := urlrouter.New()
 	//// v1 api handlers
 	v1router.AddV1WillowRoutes(logger, willowMux, handlers.NewV1QueueHandler(queueClient, ruleResp.State.ID))
-	taskManager.AddTask("tcp_server", api.NewWillowTCP(logger, cfg, willowMux))
+	taskManager.AddTask("tcp_server", api.NewWillowTCP(logger, cfg, willowMux), goasync.EXECUTE_TASK_TYPE_STRICT)
 
 	// start all processes
 	if errs := taskManager.Run(shutdown); errs != nil {

@@ -8,7 +8,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/DanLavine/goasync"
+	"github.com/DanLavine/goasync/v2"
 	"github.com/DanLavine/urlrouter"
 	"github.com/DanLavine/willow/internal/config"
 	"github.com/DanLavine/willow/internal/limiter/api"
@@ -100,8 +100,8 @@ func main() {
 
 	// setup async handlers
 	//// using strict config ensures that if any process fails, the server will ty and shutdown gracefully
-	taskManager := goasync.NewTaskManager(goasync.StrictConfig())
-	taskManager.AddTask("tcp_server", api.NewLimiterTCP(logger, cfg, mux)) // tcp server
+	taskManager := goasync.NewTaskManager()
+	taskManager.AddTask("tcp_server", api.NewLimiterTCP(logger, cfg, mux), goasync.EXECUTE_TASK_TYPE_STRICT) // tcp server
 
 	// start all processes
 	if errs := taskManager.Run(shutdown); errs != nil {

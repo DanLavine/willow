@@ -70,7 +70,7 @@ func New(limiterClient limiterclient.LimiterClient, deleteCallback func(), queue
 	}
 
 	return &memoryQueueChannel{
-		asyncManager: goasync.NewTaskManager(goasync.RelaxedConfig()),
+		asyncManager: goasync.NewTaskManager(),
 
 		deleteChan:     make(chan struct{}),
 		deleteOnce:     new(sync.Once),
@@ -647,7 +647,7 @@ func (mqc *memoryQueueChannel) dequeue(ctx context.Context) (*v1willow.Item, fun
 			mqc.deleteCallback()
 		}
 
-		if err := mqc.asyncManager.AddExecuteTask(firtItemID, queueItem.CreateHeartbeater(onShutdown, onTimeout)); err != nil {
+		if err := mqc.asyncManager.AddExecuteTask(firtItemID, queueItem.CreateHeartbeater(onShutdown, onTimeout), goasync.EXECUTE_TASK_TYPE_STRICT); err != nil {
 			// failing to add happens if shutting down the server or destroying the queue happens async. In that case
 			// we want to ensure our resources are cleaned up properly
 			queueItem.UnsetHeartbeater()

@@ -33,8 +33,8 @@ func NewWillowTCP(logger *zap.Logger, config *config.WillowConfig, mux *urlroute
 	}
 }
 
-func (willow *willowTCP) Cleanup() error { return nil }
-func (willow *willowTCP) Initialize() error {
+func (willow *willowTCP) Cleanup(ctx context.Context) error { return nil }
+func (willow *willowTCP) Initialize(ctx context.Context) error {
 	server := &http.Server{
 		Addr: fmt.Sprintf(":%s", *willow.config.Port),
 	}
