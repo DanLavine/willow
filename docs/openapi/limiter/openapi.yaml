@@ -411,7 +411,7 @@ paths:
         content:
           appplication/json:
             schema:
-              $ref: "../common/components.yaml#/components/schemas/MatchQuery "
+              $ref: "../common/components.yaml#/components/schemas/MatchQuery"
       responses:
         200:
           description: Successfully searched for any rules that matched the query
